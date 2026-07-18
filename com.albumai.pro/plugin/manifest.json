@@ -1,0 +1,85 @@
+{
+  "id": "com.albumai.pro",
+  "name": "AlbumAI Pro",
+  "version": "1.0.0",
+  "main": "index.html",
+  "manifestVersion": 5,
+
+  "host": {
+    "app": "PS",
+    "minVersion": "27.4.0"
+  },
+
+  "requiredPermissions": {
+    "allowCodeGenerationFromStrings": true
+  },
+
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "albumai",
+
+      "label": {
+        "default": "AlbumAI Browser"
+      },
+
+      "minimumSize": {
+        "width": 320,
+        "height": 500
+      },
+
+      "preferredDockedSize": {
+        "width": 420,
+        "height": 800
+      },
+
+      "preferredFloatingSize": {
+        "width": 900,
+        "height": 700
+      },
+
+      "maximumSize": {
+        "width": 3000,
+        "height": 3000
+      },
+
+      "icons": [
+        {
+          "width": 32,
+          "height": 32,
+          "path": "icons/icon_D.png",
+          "scale": [1, 2],
+          "theme": ["dark", "darkest"],
+          "species": ["generic"]
+        },
+        {
+          "width": 32,
+          "height": 32,
+          "path": "icons/icon_N.png",
+          "scale": [1, 2],
+          "theme": ["light", "lightest"],
+          "species": ["generic"]
+        }
+      ]
+    }
+  ],
+
+  "icons": [
+    {
+      "width": 32,
+      "height": 32,
+      "path": "icons/icon_D.png",
+      "scale": [1, 2],
+      "theme": ["dark", "darkest"],
+      "species": ["generic"]
+    },
+    {
+      "width": 32,
+      "height": 32,
+      "path": "icons/icon_N.png",
+      "scale": [1, 2],
+      "theme": ["light", "lightest"],
+      "species": ["generic"]
+    }
+  ]
+}
