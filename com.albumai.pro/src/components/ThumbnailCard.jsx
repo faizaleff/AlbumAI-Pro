@@ -1,16 +1,23 @@
-import React from "react";
+import React, { memo, useCallback } from "react";
 
-export default function ThumbnailCard({
+function ThumbnailCard({
     photo,
     onClick
 }) {
 
     const selected = photo.selected === true;
 
+    const handleClick = useCallback(
+        (e) => {
+            onClick(photo, e);
+        },
+        [photo, onClick]
+    );
+
     return (
 
         <div
-            onClick={(e) => onClick(photo, e)}
+            onClick={handleClick}
             style={{
                 width: "100%",
                 height: "100%",
@@ -25,7 +32,7 @@ export default function ThumbnailCard({
                 boxShadow: selected
                     ? "0 0 10px rgba(59,130,246,.45)"
                     : "none",
-                transition: "all .12s ease"
+                transition: "border .12s ease, box-shadow .12s ease"
             }}
         >
 
@@ -45,12 +52,14 @@ export default function ThumbnailCard({
                     <img
                         src={photo.thumbnail}
                         alt={photo.name}
+                        loading="lazy"
                         draggable={false}
                         style={{
                             width: "100%",
                             height: "100%",
                             objectFit: "cover",
-                            pointerEvents: "none"
+                            pointerEvents: "none",
+                            display: "block"
                         }}
                     />
 
@@ -111,6 +120,7 @@ export default function ThumbnailCard({
             >
 
                 <div
+                    title={photo.name}
                     style={{
                         fontSize: 11,
                         color: "#fff",
@@ -126,7 +136,8 @@ export default function ThumbnailCard({
                     style={{
                         marginTop: 4,
                         fontSize: 10,
-                        color: "#888"
+                        color: "#888",
+                        minHeight: 14
                     }}
                 >
                     {photo.favorite ? "❤️ Favorite" : ""}
@@ -139,3 +150,22 @@ export default function ThumbnailCard({
     );
 
 }
+
+function areEqual(prevProps, nextProps) {
+
+    const a = prevProps.photo;
+    const b = nextProps.photo;
+
+    return (
+        a === b &&
+        a.selected === b.selected &&
+        a.thumbnail === b.thumbnail &&
+        a.loading === b.loading &&
+        a.favorite === b.favorite &&
+        a.name === b.name &&
+        prevProps.onClick === nextProps.onClick
+    );
+
+}
+
+export default memo(ThumbnailCard, areEqual);

@@ -2,44 +2,72 @@ import WorkflowEngine from "./WorkflowEngine";
 
 class AutoAlbumEngine {
 
+    constructor() {
+
+        this.running = false;
+
+    }
+
     async generate({
 
         name = "New Album",
-
         folder = null,
-
         photos = [],
-
         template = null,
-
         options = {}
 
     } = {}) {
 
-        await WorkflowEngine.createProject({
+        if (this.running) {
+            throw new Error("Album generation already running.");
+        }
 
-            name,
+        this.running = true;
 
-            folder,
+        try {
 
-            photos,
+            await WorkflowEngine.createProject({
 
-            template
+                name,
+                folder,
+                photos,
+                template
 
-        });
+            });
 
-        return WorkflowEngine.run(options);
+            return await WorkflowEngine.run(options);
+
+        } finally {
+
+            this.running = false;
+
+        }
 
     }
 
     async regenerate(options = {}) {
 
+        if (this.running) {
+            throw new Error("Album generation already running.");
+        }
+
         const project = WorkflowEngine.getProject();
 
-        if (!project)
+        if (!project) {
             throw new Error("No active project.");
+        }
 
-        return WorkflowEngine.run(options);
+        this.running = true;
+
+        try {
+
+            return await WorkflowEngine.run(options);
+
+        } finally {
+
+            this.running = false;
+
+        }
 
     }
 
@@ -52,12 +80,14 @@ class AutoAlbumEngine {
     cancel() {
 
         WorkflowEngine.cancel();
+        this.running = false;
 
     }
 
     reset() {
 
         WorkflowEngine.reset();
+        this.running = false;
 
     }
 
@@ -69,19 +99,23 @@ class AutoAlbumEngine {
 
     isRunning() {
 
-        return this.status().running;
+        return this.running;
 
     }
 
     progress() {
 
-        return this.status().progress;
+        const status = this.status();
+
+        return status?.progress ?? 0;
 
     }
 
     stage() {
 
-        return this.status().stage;
+        const status = this.status();
+
+        return status?.stage ?? "";
 
     }
 

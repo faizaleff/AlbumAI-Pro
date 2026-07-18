@@ -1,6 +1,7 @@
 import React, {
     createContext,
-    useContext
+    useContext,
+    useMemo
 } from "react";
 
 import useAlbumAI from "../hooks/useAlbumAI";
@@ -11,9 +12,11 @@ export function AlbumAIProvider({ children }) {
 
     const albumAI = useAlbumAI();
 
+    const value = useMemo(() => albumAI, [albumAI]);
+
     return (
 
-        <AlbumAIContext.Provider value={albumAI}>
+        <AlbumAIContext.Provider value={value}>
 
             {children}
 
@@ -30,9 +33,7 @@ export function useAlbumAIContext() {
     if (!context) {
 
         throw new Error(
-
             "useAlbumAIContext must be used inside AlbumAIProvider."
-
         );
 
     }

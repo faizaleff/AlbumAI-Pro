@@ -8,10 +8,10 @@ class WorkflowEngine {
         this.project = null;
 
         this.running = false;
+        this.cancelled = false;
 
         this.progress = 0;
-
-        this.stage = "idle";
+        this.stage = "Idle";
 
     }
 
@@ -40,63 +40,115 @@ class WorkflowEngine {
         if (!this.project)
             throw new Error("Project not created.");
 
+        if (this.running)
+            throw new Error("Workflow already running.");
+
         this.running = true;
+        this.cancelled = false;
 
-        this.progress = 0;
+        try {
 
-        this.stage = "Analyzing";
+            this.updateProgress(0, "Preparing");
 
-        this.progress = 25;
+            await Promise.resolve();
 
-        const album =
-            await AlbumEngine.build(
+            if (this.cancelled)
+                throw new Error("Workflow cancelled.");
+
+            this.updateProgress(10, "Initializing");
+
+            await Promise.resolve();
+
+            if (this.cancelled)
+                throw new Error("Workflow cancelled.");
+
+            this.updateProgress(25, "Analyzing Photos");
+
+            await Promise.resolve();
+
+            if (this.cancelled)
+                throw new Error("Workflow cancelled.");
+
+            this.updateProgress(45, "Generating Layout");
+
+            const album = await AlbumEngine.build(
                 this.project,
                 options
             );
 
-        this.stage = "Composing";
+            if (this.cancelled)
+                throw new Error("Workflow cancelled.");
 
-        this.progress = 75;
+            this.updateProgress(80, "Composing Pages");
 
-        this.stage = "Completed";
+            await Promise.resolve();
 
-        this.progress = 100;
+            this.updateProgress(95, "Finalizing");
 
-        this.running = false;
+            await Promise.resolve();
 
-        return album;
+            this.updateProgress(100, "Completed");
+
+            return album;
+
+        }
+        finally {
+
+            this.running = false;
+
+        }
 
     }
 
     async export() {
 
-        this.stage = "Exporting";
+        if (!this.project)
+            throw new Error("No active project.");
+
+        this.updateProgress(
+            this.progress,
+            "Exporting"
+        );
 
         await AlbumEngine.export();
 
-        this.stage = "Completed";
+        this.updateProgress(
+            100,
+            "Completed"
+        );
 
     }
 
     cancel() {
 
+        this.cancelled = true;
         this.running = false;
 
-        this.stage = "Cancelled";
+        this.updateProgress(
+            this.progress,
+            "Cancelled"
+        );
 
     }
 
     reset() {
 
-        this.running = false;
-
-        this.progress = 0;
-
-        this.stage = "Idle";
-
         this.project = null;
 
+        this.running = false;
+        this.cancelled = false;
+
+        this.progress = 0;
+        this.stage = "Idle";
+
         AlbumEngine.clear();
+
+    }
+
+    updateProgress(progress, stage) {
+
+        this.progress = progress;
+        this.stage = stage;
 
     }
 
@@ -111,12 +163,10 @@ class WorkflowEngine {
         return {
 
             running: this.running,
-
+            cancelled: this.cancelled,
             progress: this.progress,
-
             stage: this.stage,
-
-            project: !!this.project
+            project: this.project
 
         };
 

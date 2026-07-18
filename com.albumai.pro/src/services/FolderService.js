@@ -4,27 +4,49 @@ import Photo from "../models/Photo";
 import ThumbnailQueue from "../queue/ThumbnailQueue";
 import { isImage } from "../utils/FileUtils";
 
+const BATCH_SIZE = 200;
+
 export async function openWeddingFolder() {
 
-    const folder = await storage.localFileSystem.getFolder();
+    const folder =
+        await storage.localFileSystem.getFolder();
 
-    if (!folder) return null;
+    if (!folder) {
+        return null;
+    }
 
     const files = await folder.getEntries();
 
+    ThumbnailQueue.clear();
+
     const images = [];
 
-    ThumbnailQueue.clear();
+    let batch = [];
 
     for (const file of files) {
 
-        if (!isImage(file)) continue;
+        if (!isImage(file)) {
+            continue;
+        }
 
         const photo = new Photo(file);
 
         images.push(photo);
+        batch.push(photo);
 
-        ThumbnailQueue.add(photo);
+        if (batch.length >= BATCH_SIZE) {
+
+            ThumbnailQueue.addBatch(batch);
+
+            batch = [];
+
+        }
+
+    }
+
+    if (batch.length) {
+
+        ThumbnailQueue.addBatch(batch);
 
     }
 

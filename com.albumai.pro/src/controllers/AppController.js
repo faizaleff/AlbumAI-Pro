@@ -12,13 +12,15 @@ class AppController {
     constructor() {
 
         this.initialized = false;
+        this.eventsRegistered = false;
 
     }
 
     async initialize() {
 
-        if (this.initialized)
+        if (this.initialized) {
             return true;
+        }
 
         await MainController.initialize();
 
@@ -41,41 +43,31 @@ class AppController {
 
     registerEvents() {
 
-        AlbumAIPro.core.events.on(
+        if (this.eventsRegistered) {
+            return;
+        }
 
-            "folder:opened",
+        this.eventsRegistered = true;
 
-            photos => {
+        const events = AlbumAIPro.core.events;
 
-                PhotoController.setPhotos(
+        events.on("folder:opened", ({ photos = [] } = {}) => {
 
-                    photos.photos
+            PhotoController.setPhotos(photos);
 
-                );
-
-            }
-
-        );
+        });
 
     }
 
     async openFolder(folder) {
 
-        return FolderController.open(
-
-            folder
-
-        );
+        return FolderController.open(folder);
 
     }
 
     async createProject(data) {
 
-        return MainController.createProject(
-
-            data
-
-        );
+        return MainController.createProject(data);
 
     }
 
@@ -83,12 +75,13 @@ class AppController {
 
         const project = MainController.getProject();
 
+        if (!project) {
+            throw new Error("No active project.");
+        }
+
         return AlbumController.autoGenerate(
-
             project,
-
             options
-
         );
 
     }
@@ -97,49 +90,24 @@ class AppController {
 
         const album = AlbumController.getAlbum();
 
+        if (!album) {
+            throw new Error("No album available.");
+        }
+
         switch (format.toLowerCase()) {
 
             case "jpg":
             case "jpeg":
-
-                return ExportController.exportJPEG(
-
-                    album,
-
-                    options
-
-                );
+                return ExportController.exportJPEG(album, options);
 
             case "png":
-
-                return ExportController.exportPNG(
-
-                    album,
-
-                    options
-
-                );
+                return ExportController.exportPNG(album, options);
 
             case "pdf":
+                return ExportController.exportPDF(album, options);
 
-                return ExportController.exportPDF(
-
-                    album,
-
-                    options
-
-                );
-
-            case "psd":
             default:
-
-                return ExportController.exportPSD(
-
-                    album,
-
-                    options
-
-                );
+                return ExportController.exportPSD(album, options);
 
         }
 
@@ -150,15 +118,10 @@ class AppController {
         return {
 
             main: MainController,
-
             folder: FolderController,
-
             photo: PhotoController,
-
             template: TemplateController,
-
             album: AlbumController,
-
             export: ExportController
 
         };
@@ -168,22 +131,14 @@ class AppController {
     reset() {
 
         FolderController.clear();
-
         PhotoController.clear();
-
         TemplateController.clear();
-
         AlbumController.reset();
-
         MainController.reset();
 
         AlbumAIPro.core.state.reset();
 
-        AlbumAIPro.core.events.emit(
-
-            "app:reset"
-
-        );
+        AlbumAIPro.core.events.emit("app:reset");
 
     }
 
@@ -194,6 +149,7 @@ class AppController {
         await AlbumAIPro.shutdown();
 
         this.initialized = false;
+        this.eventsRegistered = false;
 
     }
 

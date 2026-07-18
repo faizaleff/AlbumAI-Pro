@@ -1,5 +1,7 @@
 import { imaging } from "photoshop";
 
+const DEFAULT_SIZE = 256;
+
 class ImagingService {
 
     constructor() {
@@ -8,32 +10,98 @@ class ImagingService {
 
     }
 
-    async createThumbnail(photo) {
+    async createThumbnail(photo, size = DEFAULT_SIZE) {
+
+        if (!this.supported) {
+            return null;
+        }
+
+        if (!photo?.file) {
+            return null;
+        }
 
         try {
 
-            if (!this.supported) {
-
-                return null;
-
+            // Already loaded
+            if (photo.thumbnail) {
+                return photo.thumbnail;
             }
 
-            if (!photo || !photo.file) {
-
+            // Prevent duplicate requests
+            if (photo.loading) {
                 return null;
-
             }
 
-            // Photoshop Imaging API implementation
-            // (next step)
+            photo.loading = true;
 
-            return null;
+            let image = null;
+            let blob = null;
+            let url = null;
+
+            try {
+
+                image = await imaging.createImageFromFile(photo.file);
+
+                blob = await image.getPixels({
+                    targetSize: {
+                        width: size,
+                        height: size
+                    },
+                    componentSize: 8
+                });
+
+                url = URL.createObjectURL(blob);
+
+                photo.thumbnail = url;
+
+                return url;
+
+            } finally {
+
+                photo.loading = false;
+
+                if (image?.dispose) {
+                    image.dispose();
+                }
+
+            }
 
         } catch (error) {
 
-            console.error("ImagingService:", error);
+            photo.loading = false;
+
+            console.error(
+                "ImagingService.createThumbnail",
+                error
+            );
 
             return null;
+
+        }
+
+    }
+
+    revokeThumbnail(photo) {
+
+        if (!photo?.thumbnail) {
+            return;
+        }
+
+        try {
+
+            URL.revokeObjectURL(photo.thumbnail);
+
+        } catch (_) {}
+
+        photo.thumbnail = null;
+
+    }
+
+    clear(photos = []) {
+
+        for (const photo of photos) {
+
+            this.revokeThumbnail(photo);
 
         }
 

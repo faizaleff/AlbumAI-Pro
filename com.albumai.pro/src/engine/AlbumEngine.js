@@ -8,10 +8,10 @@ class AlbumEngine {
     constructor() {
 
         this.project = null;
-
         this.analysis = null;
-
         this.album = null;
+
+        this.building = false;
 
     }
 
@@ -20,26 +20,70 @@ class AlbumEngine {
         if (!project)
             throw new Error("Project is required.");
 
-        this.project = project;
+        if (this.building)
+            throw new Error("Album build already running.");
 
-        this.analysis =
-            await AlbumAnalyzer.analyze(project);
+        this.building = true;
 
-        await AlbumSelector.select(project, options);
+        try {
 
-        this.album =
-            AlbumComposer.compose(project);
+            this.project = project;
 
-        return this.album;
+            // Step 1 : AI / Photo Analysis
+
+            this.analysis =
+                await AlbumAnalyzer.analyze(project);
+
+            // Step 2 : Layout Selection
+
+            await AlbumSelector.select(
+                project,
+                options
+            );
+
+            // Step 3 : Compose Album
+
+            this.album =
+                await AlbumComposer.compose(
+                    project
+                );
+
+            return this.album;
+
+        }
+
+        finally {
+
+            this.building = false;
+
+        }
 
     }
 
-    async export() {
+    async rebuild(options = {}) {
+
+        if (!this.project)
+            throw new Error("No active project.");
+
+        this.analysis = null;
+        this.album = null;
+
+        return this.build(
+            this.project,
+            options
+        );
+
+    }
+
+    async export(options = {}) {
 
         if (!this.album)
             throw new Error("No album generated.");
 
-        await PSDExporter.export(this.album);
+        return PSDExporter.export(
+            this.album,
+            options
+        );
 
     }
 
@@ -61,22 +105,24 @@ class AlbumEngine {
 
     }
 
-    clear() {
+    isBuilding() {
 
-        this.project = null;
-
-        this.analysis = null;
-
-        this.album = null;
+        return this.building;
 
     }
 
-    async rebuild(options = {}) {
+    hasAlbum() {
 
-        if (!this.project)
-            throw new Error("No active project.");
+        return this.album !== null;
 
-        return this.build(this.project, options);
+    }
+
+    clear() {
+
+        this.project = null;
+        this.analysis = null;
+        this.album = null;
+        this.building = false;
 
     }
 
@@ -84,19 +130,23 @@ class AlbumEngine {
 
         return {
 
+            building: this.building,
+
             projectLoaded: !!this.project,
 
             analyzed: !!this.analysis,
 
             albumGenerated: !!this.album,
 
-            pages: this.album
-                ? this.album.totalPages
-                : 0,
+            pages:
+                this.album?.totalPages ??
+                this.album?.pages?.length ??
+                0,
 
-            photos: this.project
-                ? this.project.getPhotoCount()
-                : 0
+            photos:
+                this.project?.getPhotoCount?.() ??
+                this.project?.photos?.length ??
+                0
 
         };
 

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useReducer } from "react";
 
 import AppProvider from "./providers/AppProvider";
 
@@ -8,6 +8,8 @@ import ThumbnailGrid from "./components/ThumbnailGrid";
 
 import { useAlbumAIContext } from "./context/AlbumAIContext";
 import { useAppState } from "./context/AppStateContext";
+
+import ThumbnailQueue from "./queue/ThumbnailQueue";
 
 function AlbumWorkspace() {
 
@@ -23,6 +25,24 @@ function AlbumWorkspace() {
     } = useAlbumAIContext();
 
     const state = useAppState();
+
+    const [, refresh] = useReducer(v => v + 1, 0);
+
+    useEffect(() => {
+
+        ThumbnailQueue.setListener(() => {
+
+            refresh();
+
+        });
+
+        return () => {
+
+            ThumbnailQueue.setListener(null);
+
+        };
+
+    }, []);
 
     if (loading) {
 
@@ -109,6 +129,12 @@ function AlbumWorkspace() {
                 <span>
 
                     Pages: {album?.pages?.length || 0}
+
+                </span>
+
+                <span>
+
+                    Queue: {ThumbnailQueue.size()}
 
                 </span>
 

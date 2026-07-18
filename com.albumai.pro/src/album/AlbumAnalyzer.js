@@ -1,62 +1,106 @@
 import MetadataService from "../services/MetadataService";
 import FaceIndexService from "../services/FaceIndexService";
 
+const CONCURRENT_BATCH = 24;
+
 class AlbumAnalyzer {
 
     async analyze(project) {
 
+        const photos = project.photos ?? [];
+
         const report = {
 
-            totalPhotos: project.photos.length,
-
-            selectedPhotos: project.selectedPhotos.length,
+            totalPhotos: photos.length,
+            selectedPhotos: project.selectedPhotos?.length ?? 0,
 
             landscape: 0,
-
             portrait: 0,
-
             square: 0,
 
             favorites: 0,
-
             rated: 0,
 
             totalFaces: 0,
 
             duplicates: 0,
-
             blurry: 0,
 
             aiReady: 0
 
         };
 
-        for (const photo of project.photos) {
+        for (let i = 0; i < photos.length; i += CONCURRENT_BATCH) {
 
-            const metadata = await MetadataService.load(photo);
+            const batch = photos.slice(
+                i,
+                i + CONCURRENT_BATCH
+            );
 
-            const width = metadata.width || 0;
-            const height = metadata.height || 0;
+            const metadataBatch = await Promise.all(
 
-            if (width > height)
-                report.landscape++;
+                batch.map(async photo => {
 
-            else if (height > width)
-                report.portrait++;
+                    try {
 
-            else
-                report.square++;
+                        const metadata =
+                            await MetadataService.load(photo);
 
-            if (metadata.favorite)
-                report.favorites++;
+                        return {
+                            photo,
+                            metadata
+                        };
 
-            if ((metadata.rating || 0) > 0)
-                report.rated++;
+                    }
 
-            report.totalFaces += FaceIndexService.count(photo);
+                    catch {
 
-            if ((metadata.aiScore || 0) > 0)
-                report.aiReady++;
+                        return {
+                            photo,
+                            metadata: {}
+                        };
+
+                    }
+
+                })
+
+            );
+
+            for (const item of metadataBatch) {
+
+                const metadata = item.metadata;
+
+                const width = metadata.width ?? 0;
+                const height = metadata.height ?? 0;
+
+                if (width > height)
+                    report.landscape++;
+                else if (height > width)
+                    report.portrait++;
+                else
+                    report.square++;
+
+                if (metadata.favorite)
+                    report.favorites++;
+
+                if ((metadata.rating ?? 0) > 0)
+                    report.rated++;
+
+                report.totalFaces +=
+                    FaceIndexService.count(item.photo);
+
+                if ((metadata.aiScore ?? 0) > 0)
+                    report.aiReady++;
+
+                if (metadata.duplicate === true)
+                    report.duplicates++;
+
+                if (metadata.blurry === true)
+                    report.blurry++;
+
+            }
+
+            await Promise.resolve();
 
         }
 

@@ -4,16 +4,26 @@ class SelectionService {
 
         this.photos = [];
         this.lastSelectedIndex = -1;
+        this.selectedCount = 0;
 
     }
 
     setPhotos(photos = []) {
 
         this.photos = photos;
+        this.selectedCount = photos.reduce(
+            (count, photo) => count + (photo.selected ? 1 : 0),
+            0
+        );
 
     }
 
     clear() {
+
+        if (!this.selectedCount) {
+            this.lastSelectedIndex = -1;
+            return;
+        }
 
         this.photos.forEach(photo => {
 
@@ -21,6 +31,7 @@ class SelectionService {
 
         });
 
+        this.selectedCount = 0;
         this.lastSelectedIndex = -1;
 
     }
@@ -31,6 +42,7 @@ class SelectionService {
 
         photo.selected = true;
 
+        this.selectedCount = 1;
         this.lastSelectedIndex = this.photos.indexOf(photo);
 
     }
@@ -38,6 +50,16 @@ class SelectionService {
     toggle(photo) {
 
         photo.selected = !photo.selected;
+
+        if (photo.selected) {
+
+            this.selectedCount++;
+
+        } else {
+
+            this.selectedCount = Math.max(0, this.selectedCount - 1);
+
+        }
 
         this.lastSelectedIndex = this.photos.indexOf(photo);
 
@@ -47,8 +69,9 @@ class SelectionService {
 
         const currentIndex = this.photos.indexOf(photo);
 
-        if (currentIndex === -1)
+        if (currentIndex === -1) {
             return;
+        }
 
         if (this.lastSelectedIndex === -1) {
 
@@ -75,15 +98,14 @@ class SelectionService {
 
         }
 
+        this.selectedCount = end - start + 1;
+
     }
 
     handleClick(photo, event) {
 
-        const ctrl =
-            event.ctrlKey || event.metaKey;
-
-        const shift =
-            event.shiftKey;
+        const ctrl = event.ctrlKey || event.metaKey;
+        const shift = event.shiftKey;
 
         if (shift) {
 
@@ -111,15 +133,25 @@ class SelectionService {
 
         });
 
+        this.selectedCount = this.photos.length;
+
     }
 
     invert() {
+
+        let count = 0;
 
         this.photos.forEach(photo => {
 
             photo.selected = !photo.selected;
 
+            if (photo.selected) {
+                count++;
+            }
+
         });
+
+        this.selectedCount = count;
 
     }
 
@@ -131,7 +163,19 @@ class SelectionService {
 
     count() {
 
-        return this.getSelected().length;
+        return this.selectedCount;
+
+    }
+
+    isSelected(photo) {
+
+        return photo.selected === true;
+
+    }
+
+    hasSelection() {
+
+        return this.selectedCount > 0;
 
     }
 

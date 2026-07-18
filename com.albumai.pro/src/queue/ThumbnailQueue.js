@@ -1,33 +1,113 @@
+import ThumbnailService from "../services/ThumbnailService";
+
+const MAX_CONCURRENT = 4;
+
 class ThumbnailQueue {
 
     constructor() {
 
         this.queue = [];
-        this.running = false;
+        this.running = 0;
+        this.processing = false;
+        this.onThumbnailReady = null;
 
     }
 
     add(photo) {
 
+        if (!photo) return;
+
         this.queue.push(photo);
+
+        this.process();
 
     }
 
-    next() {
+    addBatch(photos = []) {
 
-        return this.queue.shift();
+        if (!photos.length) return;
+
+        this.queue.push(...photos);
+
+        this.process();
+
+    }
+
+    async process() {
+
+        if (this.processing) return;
+
+        this.processing = true;
+
+        while (this.running < MAX_CONCURRENT && this.queue.length) {
+
+            const photo = this.queue.shift();
+
+            this.running++;
+
+            this.processPhoto(photo);
+
+        }
+
+        this.processing = false;
+
+    }
+
+    async processPhoto(photo) {
+
+        try {
+
+            const thumbnail =
+                await ThumbnailService.getThumbnail(photo);
+
+            if (thumbnail) {
+
+                photo.thumbnail = thumbnail;
+
+                if (typeof this.onThumbnailReady === "function") {
+
+                    this.onThumbnailReady(photo);
+
+                }
+
+            }
+
+        } catch (error) {
+
+            console.error("ThumbnailQueue:", error);
+
+        } finally {
+
+            this.running--;
+
+            this.process();
+
+        }
+
+    }
+
+    setListener(callback) {
+
+        this.onThumbnailReady = callback;
 
     }
 
     clear() {
 
-        this.queue = [];
+        this.queue.length = 0;
+        this.running = 0;
 
     }
 
     size() {
 
         return this.queue.length;
+
+    }
+
+    isBusy() {
+
+        return this.running > 0 || this.queue.length > 0;
 
     }
 

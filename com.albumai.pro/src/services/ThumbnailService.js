@@ -3,45 +3,89 @@ import ThumbnailCache from "../cache/ThumbnailCache";
 
 class ThumbnailService {
 
+    constructor() {
+
+        this.pending = new Map();
+
+    }
+
     async getThumbnail(photo) {
 
         if (!photo) {
-
             return null;
-
         }
 
         const key = photo.file?.nativePath || photo.name;
 
-        if (ThumbnailCache.has(key)) {
-
-            return ThumbnailCache.get(key);
-
+        if (!key) {
+            return null;
         }
 
-        try {
+        // Memory cache
+        if (ThumbnailCache.has(key)) {
+            return ThumbnailCache.get(key);
+        }
 
-            const thumbnail = await ImagingService.createThumbnail(photo);
+        // Prevent duplicate thumbnail generation
+        if (this.pending.has(key)) {
+            return this.pending.get(key);
+        }
 
-            if (thumbnail) {
+        const promise = (async () => {
 
-                ThumbnailCache.set(key, thumbnail);
+            try {
+
+                const thumbnail =
+                    await ImagingService.createThumbnail(photo);
+
+                if (thumbnail) {
+
+                    ThumbnailCache.set(key, thumbnail);
+
+                }
+
+                return thumbnail || null;
+
+            } catch (error) {
+
+                console.error(
+                    `ThumbnailService (${key})`,
+                    error
+                );
+
+                return null;
+
+            } finally {
+
+                this.pending.delete(key);
 
             }
 
-            return thumbnail;
+        })();
 
-        } catch (error) {
+        this.pending.set(key, promise);
 
-            console.error("ThumbnailService:", error);
+        return promise;
 
-            return null;
+    }
+
+    preload(photos = [], limit = 20) {
+
+        const total = Math.min(limit, photos.length);
+
+        for (let i = 0; i < total; i++) {
+
+            this.getThumbnail(photos[i]);
 
         }
 
     }
 
     setThumbnail(key, thumbnail) {
+
+        if (!key || !thumbnail) {
+            return;
+        }
 
         ThumbnailCache.set(key, thumbnail);
 
@@ -55,6 +99,7 @@ class ThumbnailService {
 
     clear() {
 
+        this.pending.clear();
         ThumbnailCache.clear();
 
     }

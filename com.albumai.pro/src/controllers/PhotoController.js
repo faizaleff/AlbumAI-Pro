@@ -1,4 +1,5 @@
 import AlbumAIPro from "../index";
+import ThumbnailQueue from "../queue/ThumbnailQueue";
 
 class PhotoController {
 
@@ -11,6 +12,10 @@ class PhotoController {
     setPhotos(photos = []) {
 
         this.photos = photos;
+
+        ThumbnailQueue.clear();
+
+        ThumbnailQueue.addBatch(photos);
 
         AlbumAIPro.core.state.set(
             "photos",
@@ -34,13 +39,19 @@ class PhotoController {
 
     get(index) {
 
-        return this.photos[index] || null;
+        return this.photos[index] ?? null;
 
     }
 
     add(photo) {
 
+        if (!photo) {
+            return null;
+        }
+
         this.photos.push(photo);
+
+        ThumbnailQueue.add(photo);
 
         AlbumAIPro.core.state.set(
             "photos",
@@ -56,13 +67,37 @@ class PhotoController {
 
     }
 
+    addMany(photos = []) {
+
+        if (!photos.length) {
+            return;
+        }
+
+        this.photos.push(...photos);
+
+        ThumbnailQueue.addBatch(photos);
+
+        AlbumAIPro.core.state.set(
+            "photos",
+            this.photos
+        );
+
+        AlbumAIPro.core.events.emit(
+            "photos:added",
+            photos
+        );
+
+    }
+
     remove(photo) {
 
-        this.photos = this.photos.filter(
+        const index = this.photos.indexOf(photo);
 
-            item => item !== photo
+        if (index === -1) {
+            return;
+        }
 
-        );
+        this.photos.splice(index, 1);
 
         AlbumAIPro.core.state.set(
             "photos",
@@ -90,26 +125,17 @@ class PhotoController {
 
     async thumbnails() {
 
-        return Promise.all(
+        ThumbnailQueue.addBatch(this.photos);
 
-            this.photos.map(photo =>
-
-                this.thumbnail(photo)
-
-            )
-
-        );
+        return this.photos;
 
     }
 
     async search(query) {
 
         return AlbumAIPro.services.search.search(
-
             this.photos,
-
             query
-
         );
 
     }
@@ -117,21 +143,13 @@ class PhotoController {
     select(photo, event = {}) {
 
         AlbumAIPro.services.selection.handleClick(
-
             photo,
-
-            this.photos,
-
             event
-
         );
 
         AlbumAIPro.core.events.emit(
-
             "photo:selected",
-
             photo
-
         );
 
     }
@@ -153,9 +171,7 @@ class PhotoController {
         AlbumAIPro.services.selection.clear();
 
         AlbumAIPro.core.events.emit(
-
             "selection:cleared"
-
         );
 
     }
@@ -166,24 +182,30 @@ class PhotoController {
 
     }
 
+    refresh() {
+
+        AlbumAIPro.core.events.emit(
+            "photos:updated",
+            this.photos
+        );
+
+    }
+
     clear() {
 
-        this.photos = [];
+        ThumbnailQueue.clear();
+
+        this.photos.length = 0;
 
         this.clearSelection();
 
         AlbumAIPro.core.state.set(
-
             "photos",
-
             []
-
         );
 
         AlbumAIPro.core.events.emit(
-
             "photos:cleared"
-
         );
 
     }

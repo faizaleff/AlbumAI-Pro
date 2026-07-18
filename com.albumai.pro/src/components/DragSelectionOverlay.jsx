@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import SelectionService from "../services/SelectionService";
 
 export default function DragSelectionOverlay({
@@ -12,51 +12,25 @@ export default function DragSelectionOverlay({
 }) {
 
     const dragging = useRef(false);
+    const animationFrame = useRef(null);
     const start = useRef({ x: 0, y: 0 });
+    const latestEvent = useRef(null);
 
     const [box, setBox] = useState(null);
 
-    function getMousePosition(e) {
+    const getMousePosition = useCallback((e) => {
 
-        const rect = containerRef.current.getBoundingClientRect();
+        const container = containerRef.current;
+        const rect = container.getBoundingClientRect();
 
         return {
-            x: e.clientX - rect.left + containerRef.current.scrollLeft,
-            y: e.clientY - rect.top + containerRef.current.scrollTop
+            x: e.clientX - rect.left + container.scrollLeft,
+            y: e.clientY - rect.top + container.scrollTop
         };
 
-    }
+    }, [containerRef]);
 
-    function onMouseDown(e) {
-
-        if (e.button !== 0)
-            return;
-
-        dragging.current = true;
-
-        start.current = getMousePosition(e);
-
-        if (!(e.ctrlKey || e.metaKey)) {
-
-            SelectionService.clear();
-
-        }
-
-        setBox({
-            left: start.current.x,
-            top: start.current.y,
-            width: 0,
-            height: 0
-        });
-
-    }
-
-    function onMouseMove(e) {
-
-        if (!dragging.current)
-            return;
-
-        const current = getMousePosition(e);
+    const updateSelection = useCallback((current) => {
 
         const left = Math.min(start.current.x, current.x);
         const top = Math.min(start.current.y, current.y);
@@ -71,7 +45,12 @@ export default function DragSelectionOverlay({
             height
         });
 
-        photos.forEach((photo, index) => {
+        const right = left + width;
+        const bottom = top + height;
+
+        let changed = false;
+
+        for (let index = 0; index < photos.length; index++) {
 
             const row = Math.floor(index / columns);
             const col = index % columns;
@@ -80,33 +59,128 @@ export default function DragSelectionOverlay({
             const y = row * (cardHeight + gap);
 
             const hit =
-                x < left + width &&
+                x < right &&
                 x + cardWidth > left &&
-                y < top + height &&
+                y < bottom &&
                 y + cardHeight > top;
 
-            photo.selected = hit;
+            if (photos[index].selected !== hit) {
 
+                photos[index].selected = hit;
+                changed = true;
+
+            }
+
+        }
+
+        if (changed) {
+            onSelectionChanged();
+        }
+
+    }, [
+        photos,
+        columns,
+        cardWidth,
+        cardHeight,
+        gap,
+        onSelectionChanged
+    ]);
+
+    const processFrame = useCallback(() => {
+
+        animationFrame.current = null;
+
+        if (!dragging.current || !latestEvent.current)
+            return;
+
+        updateSelection(
+            getMousePosition(latestEvent.current)
+        );
+
+    }, [getMousePosition, updateSelection]);
+
+    const onMouseDown = useCallback((e) => {
+
+        if (e.button !== 0)
+            return;
+
+        dragging.current = true;
+
+        start.current = getMousePosition(e);
+
+        if (!(e.ctrlKey || e.metaKey)) {
+            SelectionService.clear();
+        }
+
+        setBox({
+            left: start.current.x,
+            top: start.current.y,
+            width: 0,
+            height: 0
         });
 
-        onSelectionChanged();
+    }, [getMousePosition]);
 
-    }
+    const onMouseMove = useCallback((e) => {
 
-    function onMouseUp() {
+        if (!dragging.current)
+            return;
+
+        latestEvent.current = e;
+
+        if (!animationFrame.current) {
+
+            animationFrame.current =
+                requestAnimationFrame(processFrame);
+
+        }
+
+    }, [processFrame]);
+
+    const finishDrag = useCallback(() => {
+
+        if (!dragging.current)
+            return;
 
         dragging.current = false;
+
+        if (animationFrame.current) {
+
+            cancelAnimationFrame(animationFrame.current);
+            animationFrame.current = null;
+
+        }
+
+        latestEvent.current = null;
+
         setBox(null);
+
         onSelectionChanged();
 
-    }
+    }, [onSelectionChanged]);
+
+    useEffect(() => {
+
+        window.addEventListener("mouseup", finishDrag);
+
+        return () => {
+
+            window.removeEventListener("mouseup", finishDrag);
+
+            if (animationFrame.current) {
+                cancelAnimationFrame(animationFrame.current);
+            }
+
+        };
+
+    }, [finishDrag]);
 
     return (
 
         <div
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
-            onMouseUp={onMouseUp}
+            onMouseUp={finishDrag}
             style={{
                 position: "absolute",
                 inset: 0,
