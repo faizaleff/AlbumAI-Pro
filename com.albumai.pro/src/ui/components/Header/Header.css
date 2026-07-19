@@ -1,0 +1,41 @@
+.album-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    padding: 18px;
+
+    border-bottom: 1px solid #444;
+
+}
+
+.album-header__left h1 {
+
+    margin: 0;
+
+    font-size: 22px;
+
+    font-weight: 700;
+
+}
+
+.album-header__left p {
+
+    margin-top: 4px;
+
+    opacity: .7;
+
+    font-size: 12px;
+
+}
+
+.version {
+
+    font-size: 12px;
+
+    opacity: .6;
+
+}
