@@ -1,165 +1,64 @@
-import AlbumBootstrap from "./engine/AlbumBootstrap";
+import PluginBootstrap from "./core/PluginBootstrap";
+import DependencyContainer from "./core/DependencyContainer";
+import Application from "./core/Application";
+import Kernel from "./core/Kernel";
+import AlbumFacade from "./services/AlbumFacade";
 
-import WorkflowEngine from "./engine/WorkflowEngine";
-import AutoAlbumEngine from "./engine/AutoAlbumEngine";
-import AlbumEngine from "./engine/AlbumEngine";
-import AlbumAIEngine from "./engine/AlbumAIEngine";
-import AlbumRenderEngine from "./engine/AlbumRenderEngine";
-import AlbumExportEngine from "./engine/AlbumExportEngine";
+let container = null;
+let application = null;
+let kernel = null;
+let album = null;
 
-import AlbumStateManager from "./engine/AlbumStateManager";
-import AlbumEventBus from "./engine/AlbumEventBus";
-import AlbumCommandManager from "./engine/AlbumCommandManager";
-import AlbumPluginManager from "./engine/AlbumPluginManager";
+export async function initialize() {
 
-import TemplateManager from "./templates/TemplateManager";
-import TemplateLoader from "./templates/TemplateLoader";
-import TemplateLibrary from "./templates/TemplateLibrary";
-
-import ThumbnailService from "./services/ThumbnailService";
-import MetadataService from "./services/MetadataService";
-import SelectionService from "./services/SelectionService";
-import SearchService from "./services/SearchService";
-import FaceIndexService from "./services/FaceIndexService";
-
-import AlbumProject from "./album/AlbumProject";
-import PSDTemplate from "./album/PSDTemplate";
-
-class AlbumAI {
-
-    async initialize() {
-
-        await AlbumBootstrap.initialize();
-
-        return this;
-
+    if (kernel) {
+        return kernel;
     }
 
-    shutdown() {
+    container = new DependencyContainer();
 
-        return AlbumBootstrap.shutdown();
+    await container.initialize();
 
-    }
+    application = new Application({
+        container
+    });
 
-    get services() {
+    kernel = new Kernel({
+        application,
+        container
+    });
 
-        return {
+    await kernel.boot();
 
-            thumbnails: ThumbnailService,
+    album = container.resolve
+        ? container.resolve("AlbumFacade")
+        : new AlbumFacade({});
 
-            metadata: MetadataService,
-
-            selection: SelectionService,
-
-            search: SearchService,
-
-            faces: FaceIndexService
-
-        };
-
-    }
-
-    get engines() {
-
-        return {
-
-            workflow: WorkflowEngine,
-
-            autoAlbum: AutoAlbumEngine,
-
-            album: AlbumEngine,
-
-            ai: AlbumAIEngine,
-
-            render: AlbumRenderEngine,
-
-            export: AlbumExportEngine
-
-        };
-
-    }
-
-    get templates() {
-
-        return {
-
-            manager: TemplateManager,
-
-            loader: TemplateLoader,
-
-            library: TemplateLibrary
-
-        };
-
-    }
-
-    get core() {
-
-        return {
-
-            events: AlbumEventBus,
-
-            state: AlbumStateManager,
-
-            commands: AlbumCommandManager,
-
-            plugins: AlbumPluginManager
-
-        };
-
-    }
-
-    createProject() {
-
-        return new AlbumProject();
-
-    }
-
-    createTemplate(data) {
-
-        return new PSDTemplate(data);
-
-    }
-
-    health() {
-
-        return AlbumBootstrap.health();
-
-    }
+    return kernel;
 
 }
 
-const AlbumAIPro = new AlbumAI();
+export async function shutdown() {
 
-export default AlbumAIPro;
+    if (!kernel) {
+        return;
+    }
 
-export {
+    await kernel.shutdown();
 
-    AlbumBootstrap,
+    kernel = null;
+    application = null;
+    container = null;
+    album = null;
 
-    WorkflowEngine,
-    AutoAlbumEngine,
-    AlbumEngine,
-    AlbumAIEngine,
-    AlbumRenderEngine,
-    AlbumExportEngine,
+}
 
-    AlbumStateManager,
-    AlbumEventBus,
-    AlbumCommandManager,
-    AlbumPluginManager,
+export function getAlbum() {
+    return album;
+}
 
-    TemplateManager,
-    TemplateLoader,
-    TemplateLibrary,
-
-    ThumbnailService,
-    MetadataService,
-    SelectionService,
-    SearchService,
-    FaceIndexService,
-
-    AlbumProject,
-    PSDTemplate
-
+export default {
+    initialize,
+    shutdown,
+    getAlbum
 };

@@ -1,18 +1,83 @@
-export function isImage(file) {
+export function getExtension(fileName = "") {
 
-    return (
-        file.isFile &&
-        /\.(jpg|jpeg|png)$/i.test(file.name)
+    const index = fileName.lastIndexOf(".");
+
+    if (index === -1) {
+        return "";
+    }
+
+    return fileName
+        .substring(index + 1)
+        .toLowerCase();
+
+}
+
+export function getFileName(path = "") {
+
+    return path
+        .split(/[\\/]/)
+        .pop();
+
+}
+
+export function removeExtension(fileName = "") {
+
+    const index = fileName.lastIndexOf(".");
+
+    if (index === -1) {
+        return fileName;
+    }
+
+    return fileName.substring(0, index);
+
+}
+
+export function isImage(fileName = "") {
+
+    return [
+
+        "jpg",
+
+        "jpeg",
+
+        "png",
+
+        "tif",
+
+        "tiff",
+
+        "webp",
+
+        "psd"
+
+    ].includes(
+
+        getExtension(fileName)
+
     );
 
 }
 
-export function extension(name) {
+export function sortFiles(files = []) {
 
-    const i = name.lastIndexOf(".");
+    return [...files].sort((a, b) =>
 
-    return i === -1
-        ? ""
-        : name.substring(i + 1).toLowerCase();
+        a.name.localeCompare(
+
+            b.name,
+
+            undefined,
+
+            {
+
+                numeric: true,
+
+                sensitivity: "base"
+
+            }
+
+        )
+
+    );
 
 }

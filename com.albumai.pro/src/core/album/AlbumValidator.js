@@ -1,106 +1,143 @@
-// src/core/album/AlbumValidator.js
+import Logger from "../photoshop/Logger";
 
-class AlbumValidator {
+export default class AlbumValidator {
 
-    /**
-     * Validate an AlbumJob.
-     * @param {AlbumJob} job
-     * @returns {{valid:boolean, errors:string[], warnings:string[]}}
-     */
-    validate(job) {
+    validate(project) {
 
         const errors = [];
-        const warnings = [];
 
-        if (!job)
-            errors.push("Album job is required.");
+        if (!project) {
 
-        if (errors.length) {
+            errors.push("Project is required.");
+
             return {
+
                 valid: false,
-                errors,
-                warnings
+
+                errors
+
             };
+
         }
 
-        this.validateTemplate(job.template, errors);
-        this.validatePhotos(job.photos, errors, warnings);
-        this.validateOutput(job.outputFolder, errors);
-        this.validateExport(job.exportOptions, warnings);
+        if (!project.name) {
+
+            errors.push(
+
+                "Project name is missing."
+
+            );
+
+        }
+
+        if (!project.template) {
+
+            errors.push(
+
+                "Template is missing."
+
+            );
+
+        }
+
+        if (
+
+            !Array.isArray(project.photos)
+
+        ) {
+
+            errors.push(
+
+                "Photos must be an array."
+
+            );
+
+        }
+        else if (
+
+            project.photos.length === 0
+
+        ) {
+
+            errors.push(
+
+                "No photos selected."
+
+            );
+
+        }
+
+        if (
+
+            !project.outputFolder
+
+        ) {
+
+            errors.push(
+
+                "Output folder is missing."
+
+            );
+
+        }
+
+        const valid =
+
+            errors.length === 0;
+
+        if (valid) {
+
+            Logger.info(
+
+                "Album validation successful."
+
+            );
+
+        }
+        else {
+
+            Logger.warn(
+
+                `Album validation failed (${errors.length} error(s)).`
+
+            );
+
+        }
 
         return {
-            valid: errors.length === 0,
-            errors,
-            warnings
+
+            valid,
+
+            errors
+
         };
 
     }
 
-    validateTemplate(template, errors) {
+    validatePhotos(photos = []) {
 
-        if (!template) {
-            errors.push("Template is missing.");
-            return;
-        }
+        return photos.every(
 
-        if (!template.file)
-            errors.push("Template file is missing.");
+            photo =>
 
-        if (template.pageCount <= 0)
-            errors.push("Invalid page count.");
+                photo &&
 
-        if (template.smartObjectCount <= 0)
-            errors.push("No Smart Objects found.");
+                typeof photo === "object"
+
+        );
 
     }
 
-    validatePhotos(photos, errors, warnings) {
+    validateTemplate(template) {
 
-        if (!Array.isArray(photos)) {
-            errors.push("Photos must be an array.");
-            return;
-        }
-
-        if (photos.length === 0)
-            errors.push("No photos selected.");
-
-        if (photos.length < 10)
-            warnings.push("Very few photos selected.");
+        return !!template;
 
     }
 
-    validateOutput(folder, errors) {
+    validateOutputFolder(folder) {
 
-        if (!folder)
-            errors.push("Output folder not selected.");
-
-    }
-
-    validateExport(options, warnings) {
-
-        if (!options)
-            return;
-
-        if (!options.formats || options.formats.length === 0)
-            warnings.push("No export format selected.");
-
-        if (options.jpegQuality != null) {
-
-            if (
-                options.jpegQuality < 1 ||
-                options.jpegQuality > 100
-            ) {
-
-                warnings.push(
-                    "JPEG quality should be between 1 and 100."
-                );
-
-            }
-
-        }
+        return !!folder;
 
     }
 
 }
-
-export default AlbumValidator;
