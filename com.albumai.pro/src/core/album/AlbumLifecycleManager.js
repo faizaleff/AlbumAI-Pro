@@ -1,8 +1,8 @@
 import Logger from "../photoshop/Logger";
-import AlbumStateManager from "../../album/AlbumStateManager";
+import AlbumStateManager from "./AlbumStateManager";
 import AlbumSessionManager from "./AlbumSessionManager";
-import AlbumStatisticsManager from "../../album/AlbumStatisticsManager";
-import AlbumHealthService from "../../album/AlbumHealthService";
+import AlbumStatisticsManager from "./AlbumStatisticsManager";
+import AlbumHealthService from "./AlbumHealthService";
 
 export default class AlbumLifecycleManager {
 
