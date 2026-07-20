@@ -16,6 +16,8 @@ class LayerInfo {
 
             id: node.id,
 
+            documentId: node.documentId,
+
             name: node.name,
 
             parentId: node.parentId,

@@ -4,8 +4,9 @@
 // Photoshop UXP BatchPlay Helper
 // ============================================================================
 
-import { action, core } from "photoshop";
+import { action } from "photoshop";
 import Logger from "./Logger";
+import ExecuteModal from "./ExecuteModal";
 
 class BatchPlay {
 
@@ -25,22 +26,31 @@ class BatchPlay {
         const {
             commandName = "AlbumAI Operation",
             synchronousExecution = true,
-            modalBehavior = "execute"
+            modalBehavior = "fail"
         } = options;
 
-        return await core.executeAsModal(async () => {
+        if (commands.length === 0) return [];
+
+        return ExecuteModal.run(async () => {
 
             Logger.debug(
                 `BatchPlay -> ${commandName}`
             );
 
-            return await action.batchPlay(
+            const results = await action.batchPlay(
                 commands,
                 {
                     synchronousExecution,
                     modalBehavior
                 }
             );
+
+            const failed = results.find(result => result?._obj === "error");
+            if (failed) {
+                throw new Error(failed.message || failed._message || "Photoshop rejected a BatchPlay command.");
+            }
+
+            return results;
 
         }, {
             commandName
@@ -243,12 +253,7 @@ class BatchPlay {
      */
     async suspendHistory(name, callback) {
 
-        return await core.executeAsModal(
-            callback,
-            {
-                commandName: name
-            }
-        );
+        return ExecuteModal.run(callback, { commandName: name });
 
     }
 

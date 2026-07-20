@@ -12,14 +12,14 @@ class LayerScanner {
         if (!document)
             throw new Error("Document is required.");
 
-        return this.scanLayers(document.layers, null);
+        return this.scanLayers(document.layers, null, document.id);
 
     }
 
     /**
      * Recursively scan layer collection.
      */
-    scanLayers(layers, parent = null) {
+    scanLayers(layers, parent = null, documentId = null) {
 
         const result = [];
 
@@ -28,14 +28,15 @@ class LayerScanner {
 
         for (const layer of layers) {
 
-            result.push(this.createNode(layer, parent));
+            result.push(this.createNode(layer, parent, documentId));
 
             if (layer.layers?.length) {
 
                 result.push(
                     ...this.scanLayers(
                         layer.layers,
-                        layer.id
+                        layer.id,
+                        documentId
                     )
                 );
 
@@ -50,11 +51,13 @@ class LayerScanner {
     /**
      * Convert Photoshop layer into AlbumAI node.
      */
-    createNode(layer, parentId) {
+    createNode(layer, parentId, documentId) {
 
         return {
 
             id: layer.id,
+
+            documentId,
 
             parentId,
 

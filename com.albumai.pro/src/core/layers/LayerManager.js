@@ -18,6 +18,7 @@ class LayerManager {
 
         this.nodes = [];
         this.roots = [];
+        this.documentId = null;
 
     }
 
@@ -26,7 +27,12 @@ class LayerManager {
      */
     scan(document) {
 
+        if (!document?.id) {
+            throw new Error("A live Photoshop document is required to scan layers.");
+        }
+
         this.nodes = this.scanner.scan(document);
+        this.documentId = document.id;
 
         this.cache.build(this.nodes);
 
@@ -189,6 +195,7 @@ class LayerManager {
 
         this.nodes = [];
         this.roots = [];
+        this.documentId = null;
 
         this.cache.clear();
 
