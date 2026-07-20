@@ -32,6 +32,24 @@ class AlbumManager {
             exporterAdapter
         );
 
+        if (
+
+            !this.documentManager ||
+
+            !this.layerManager ||
+
+            !this.smartObjectManager
+
+        ) {
+
+            throw new Error(
+
+                "Album manager requires document, layer, and smart object managers."
+
+            );
+
+        }
+
     }
 
     /**
@@ -68,12 +86,36 @@ class AlbumManager {
      */
     async execute(job) {
 
+        if (!job) {
+
+            throw new Error(
+
+                "Album job is required."
+
+            );
+
+        }
+
+        let document = null;
+
         job.start();
 
         try {
 
             const validation =
-                this.validator.validate(job);
+                this.validator.validate({
+
+                    ...job,
+
+                    name:
+
+                        job.name ||
+
+                        job.template?.name ||
+
+                        "Album"
+
+                });
 
             if (!validation.valid) {
 
@@ -97,7 +139,7 @@ class AlbumManager {
 
             });
 
-            const document =
+            document =
                 await this.documentManager.open(
                     job.template.file
                 );
@@ -170,10 +212,6 @@ class AlbumManager {
 
             );
 
-            await this.documentManager.close(
-                document
-            );
-
             job.complete();
 
             this.progress.complete(job.id);
@@ -195,6 +233,22 @@ class AlbumManager {
             );
 
             throw error;
+
+        }
+
+        finally {
+
+            if (document) {
+
+                await this.documentManager.close(
+
+                    document,
+
+                    false
+
+                );
+
+            }
 
         }
 
