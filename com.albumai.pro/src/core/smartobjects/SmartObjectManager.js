@@ -7,6 +7,7 @@ import SmartObjectReplacer from "./SmartObjectReplacer";
 import SmartObjectTransform from "./SmartObjectTransform";
 import SmartObjectHistory from "./SmartObjectHistory";
 import PhotoshopAdapter from "../photoshop/PhotoshopAdapter";
+import { app } from "photoshop";
 
 class SmartObjectManager {
 
@@ -74,7 +75,11 @@ class SmartObjectManager {
         if (!layer)
             throw new Error(
                 `Smart Object ${layerId} not found.`
-            );
+        );
+
+        if (layer.documentId != null && app.activeDocument?.id !== layer.documentId) {
+            throw new Error("The Smart Object belongs to a document that is not active. Activate and rescan the template before replacing contents.");
+        }
 
         return this.history.execute(async () => {
 

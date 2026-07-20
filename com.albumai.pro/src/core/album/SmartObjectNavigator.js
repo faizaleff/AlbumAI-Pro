@@ -1,5 +1,6 @@
 import Logger from "../photoshop/Logger";
 import { app } from "photoshop";
+import Photoshop from "../photoshop";
 
 export default class SmartObjectNavigator {
 
@@ -30,17 +31,14 @@ export default class SmartObjectNavigator {
 
         );
 
-        const document = await layer.editContents();
+        const parentId = app.activeDocument?.id;
 
-        const activeDocument =
+        const activeDocument = await Photoshop.execute(async () => {
+            await layer.editContents();
+            return app.activeDocument;
+        }, { commandName: "Open Smart Object" });
 
-            document ||
-
-            this.documentManager?.active ||
-
-            app.activeDocument;
-
-        if (!activeDocument) {
+        if (!activeDocument || activeDocument.id === parentId) {
 
             throw new Error(
 
@@ -64,7 +62,10 @@ export default class SmartObjectNavigator {
 
         }
 
-        await document.save();
+        await Photoshop.execute(
+            () => document.save(),
+            { commandName: "Save Smart Object" }
+        );
 
         Logger.info(
             "Smart Object saved."
@@ -86,17 +87,10 @@ export default class SmartObjectNavigator {
 
         }
 
-        if (save) {
-
-            await document.save();
-
-        }
-
-        await document.close({
-
-            save: false
-
-        });
+        await Photoshop.execute(async () => {
+            if (save && !document.saved) await document.save();
+            await document.close({ save: false });
+        }, { commandName: "Close Smart Object" });
 
         Logger.info(
             "Smart Object closed."

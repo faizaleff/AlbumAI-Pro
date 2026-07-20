@@ -1,5 +1,6 @@
 import Logger from "../photoshop/Logger";
 import TemplateValidator from "./TemplateValidator";
+import Photoshop from "../photoshop";
 
 export default class TemplateLoader {
 
@@ -92,11 +93,10 @@ export default class TemplateLoader {
 
         }
 
-        await document.close({
-
-            save: false
-
-        });
+        await Photoshop.execute(
+            () => document.close({ save: false }),
+            { commandName: "Close Album Template" }
+        );
 
         Logger.info(
 
