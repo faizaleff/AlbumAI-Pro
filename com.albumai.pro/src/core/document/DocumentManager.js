@@ -122,4 +122,4 @@ class DocumentManager {
     }
 }
 
-export default new DocumentManager();
+export default DocumentManager;
