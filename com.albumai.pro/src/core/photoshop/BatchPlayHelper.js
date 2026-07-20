@@ -5,12 +5,13 @@ import { action } from "photoshop";
 import Logger from "./Logger.js";
 import ErrorHandler from "./ErrorHandler.js";
 import PHOTOSHOP from "./Constants.js";
+import ExecuteModal from "./ExecuteModal.js";
 
 class BatchPlayHelper {
 
     constructor() {
         this.defaultOptions = {
-            synchronousExecution: false,
+            synchronousExecution: true,
             modalBehavior: "fail"
         };
     }
@@ -39,14 +40,17 @@ class BatchPlayHelper {
 
         try {
 
-            const result = await ErrorHandler.retry(async () => {
+            // Retrying mutating descriptors can duplicate a placement or
+            // transform after Photoshop has already applied it.
+            const result = await ExecuteModal.run(
+                () => action.batchPlay(commands, settings),
+                { commandName: options.commandName || PHOTOSHOP.HISTORY_NAME }
+            );
 
-                return await action.batchPlay(
-                    commands,
-                    settings
-                );
-
-            }, PHOTOSHOP.PERFORMANCE.MAX_RETRY);
+            const failed = result.find(item => item?._obj === "error");
+            if (failed) {
+                throw new Error(failed.message || failed._message || "Photoshop rejected a BatchPlay command.");
+            }
 
             Logger.timeEnd("BatchPlay");
 
