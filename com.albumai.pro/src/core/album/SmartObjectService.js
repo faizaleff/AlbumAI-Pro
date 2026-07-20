@@ -37,6 +37,26 @@ export default class SmartObjectService {
 
         }
 
+        if (layer.id == null) {
+
+            throw new Error(
+
+                "Smart Object layer id is required."
+
+            );
+
+        }
+
+        if (!image.nativePath) {
+
+            throw new Error(
+
+                "Image native path is required."
+
+            );
+
+        }
+
         Logger.info(
 
             `Replacing Smart Object: ${layer.name}`

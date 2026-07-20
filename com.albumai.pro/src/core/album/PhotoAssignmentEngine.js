@@ -1,12 +1,13 @@
 import Logger from "../photoshop/Logger";
+import FrameDetector from "./FrameDetector";
 
 export default class PhotoAssignmentEngine {
 
     constructor({
 
-        frameDetector
+        frameDetector = new FrameDetector()
 
-    }) {
+    } = {}) {
 
         this.frameDetector =
             frameDetector;
@@ -20,6 +21,26 @@ export default class PhotoAssignmentEngine {
         photos
 
     }) {
+
+        if (!document) {
+
+            throw new Error(
+
+                "Document is required."
+
+            );
+
+        }
+
+        if (!Array.isArray(photos)) {
+
+            throw new Error(
+
+                "Photos must be an array."
+
+            );
+
+        }
 
         const frames =
             await this.frameDetector.detect(
@@ -52,7 +73,7 @@ export default class PhotoAssignmentEngine {
 
                 frame: frames[index],
 
-                photo: photos[index]
+            photo: photos[index]
 
             });
 
@@ -69,6 +90,16 @@ export default class PhotoAssignmentEngine {
     }
 
     validate(assignments = []) {
+
+        if (!Array.isArray(assignments)) {
+
+            throw new Error(
+
+                "Assignments must be an array."
+
+            );
+
+        }
 
         const invalid = assignments.filter(
 

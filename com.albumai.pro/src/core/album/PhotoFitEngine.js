@@ -16,17 +16,33 @@ export default class PhotoFitEngine {
 
     }) {
 
-        if (
+        const dimensions = [
 
-            !photoWidth ||
-            !photoHeight ||
-            !frameWidth ||
-            !frameHeight
+            photoWidth,
+            photoHeight,
+            frameWidth,
+            frameHeight
 
-        ) {
+        ];
+
+        if (dimensions.some(
+
+            value => !Number.isFinite(value) || value <= 0
+
+        )) {
 
             throw new Error(
                 "Invalid dimensions."
+            );
+
+        }
+
+        if (mode !== "cover" && mode !== "contain") {
+
+            throw new Error(
+
+                `Unsupported fit mode: ${mode}`
+
             );
 
         }

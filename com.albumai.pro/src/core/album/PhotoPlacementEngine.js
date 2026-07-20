@@ -21,6 +21,16 @@ export default class PhotoPlacementEngine {
         this.progressService =
             progressService;
 
+        if (typeof this.smartObjectService?.replace !== "function") {
+
+            throw new Error(
+
+                "Photo placement requires a smart object service."
+
+            );
+
+        }
+
     }
 
     async place({
@@ -45,6 +55,16 @@ export default class PhotoPlacementEngine {
 
             throw new Error(
                 "No frames found."
+            );
+
+        }
+
+        if (!Array.isArray(photos)) {
+
+            throw new Error(
+
+                "Photos must be an array."
+
             );
 
         }

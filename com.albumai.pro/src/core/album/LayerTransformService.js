@@ -37,6 +37,50 @@ export default class LayerTransformService {
 
         }
 
+        if (layer.id == null) {
+
+            throw new Error(
+
+                "Layer id is required."
+
+            );
+
+        }
+
+        const values = [
+
+            scaleX,
+            scaleY,
+            offsetX,
+            offsetY,
+            rotation
+
+        ];
+
+        if (values.some(
+
+            value => !Number.isFinite(value)
+
+        )) {
+
+            throw new Error(
+
+                "Layer transform values must be finite numbers."
+
+            );
+
+        }
+
+        if (scaleX <= 0 || scaleY <= 0) {
+
+            throw new Error(
+
+                "Layer scale values must be greater than zero."
+
+            );
+
+        }
+
         Logger.info(
 
             `Transforming ${layer.name}`

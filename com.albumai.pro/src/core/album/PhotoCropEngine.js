@@ -16,17 +16,41 @@ export default class PhotoCropEngine {
 
     }) {
 
-        if (
+        const dimensions = [
 
-            !imageWidth ||
-            !imageHeight ||
-            !frameWidth ||
-            !frameHeight
+            imageWidth,
+            imageHeight,
+            frameWidth,
+            frameHeight
 
-        ) {
+        ];
+
+        if (dimensions.some(
+
+            value => !Number.isFinite(value) || value <= 0
+
+        )) {
 
             throw new Error(
                 "Invalid crop dimensions."
+            );
+
+        }
+
+        if (![
+
+            "center",
+            "top",
+            "bottom",
+            "left",
+            "right"
+
+        ].includes(gravity)) {
+
+            throw new Error(
+
+                `Unsupported crop gravity: ${gravity}`
+
             );
 
         }
