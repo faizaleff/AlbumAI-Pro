@@ -28,6 +28,12 @@ export default class TemplateManager {
 
     async open(templateFile) {
 
+        if (this.document) {
+
+            await this.close();
+
+        }
+
         const result =
             await this.templateLoader.load(
                 templateFile

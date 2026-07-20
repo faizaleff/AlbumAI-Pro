@@ -14,6 +14,16 @@ export default class LayerBoundsService {
 
         const bounds = layer.bounds;
 
+        if (!bounds) {
+
+            throw new Error(
+
+                `Layer bounds are required: ${layer.name || layer.id}`
+
+            );
+
+        }
+
         const left =
             Number(bounds.left);
 
@@ -26,11 +36,41 @@ export default class LayerBoundsService {
         const bottom =
             Number(bounds.bottom);
 
+        if (
+
+            !Number.isFinite(left) ||
+
+            !Number.isFinite(top) ||
+
+            !Number.isFinite(right) ||
+
+            !Number.isFinite(bottom)
+
+        ) {
+
+            throw new Error(
+
+                `Layer bounds are invalid: ${layer.name || layer.id}`
+
+            );
+
+        }
+
         const width =
             right - left;
 
         const height =
             bottom - top;
+
+        if (width < 0 || height < 0) {
+
+            throw new Error(
+
+                `Layer bounds are inverted: ${layer.name || layer.id}`
+
+            );
+
+        }
 
         const centerX =
             left + width / 2;

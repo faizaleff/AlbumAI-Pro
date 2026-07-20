@@ -37,16 +37,43 @@ export default class DocumentAnalyzer {
                 document
             );
 
+        const width = Number(document.width);
+
+        const height = Number(document.height);
+
+        const resolution = Number(
+
+            document.resolution
+
+        );
+
+        if (
+
+            !Number.isFinite(width) ||
+
+            !Number.isFinite(height) ||
+
+            !Number.isFinite(resolution)
+
+        ) {
+
+            throw new Error(
+
+                "Document dimensions and resolution must be numeric."
+
+            );
+
+        }
+
         const result = {
 
-            name: document.title,
+            name: document.title || document.name || null,
 
-            width: document.width,
+            width,
 
-            height: document.height,
+            height,
 
-            resolution:
-                document.resolution,
+            resolution,
 
             frameCount:
                 frames.length,

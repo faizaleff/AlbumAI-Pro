@@ -2,11 +2,15 @@ import Logger from "../photoshop/Logger";
 
 export default class LayerMapper {
 
-    constructor() {
+    constructor({
+
+        framePrefix = "PHOTO_"
+
+    } = {}) {
 
         this.layers = [];
 
-        this.framePrefix = "PHOTO_";
+        this.framePrefix = framePrefix;
 
     }
 
@@ -55,6 +59,16 @@ export default class LayerMapper {
             }
 
         };
+
+        if (!document.layers) {
+
+            throw new Error(
+
+                "Document layers are required."
+
+            );
+
+        }
 
         document.layers.forEach(walk);
 

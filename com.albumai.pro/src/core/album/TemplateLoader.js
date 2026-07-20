@@ -30,6 +30,16 @@ export default class TemplateLoader {
 
         }
 
+        if (typeof this.templateService?.load !== "function") {
+
+            throw new Error(
+
+                "Template loader requires a template service."
+
+            );
+
+        }
+
         Logger.info(
 
             `Loading template: ${template.name || template}`
@@ -82,7 +92,11 @@ export default class TemplateLoader {
 
         }
 
-        await document.close();
+        await document.close({
+
+            save: false
+
+        });
 
         Logger.info(
 

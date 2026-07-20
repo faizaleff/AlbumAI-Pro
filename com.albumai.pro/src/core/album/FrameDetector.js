@@ -1,18 +1,39 @@
 import Logger from "../photoshop/Logger";
+import LayerMapper from "./LayerMapper";
 
 export default class FrameDetector {
 
     constructor({
 
-        layerMapper
+        layerMapper = new LayerMapper()
 
-    }) {
+    } = {}) {
 
         this.layerMapper = layerMapper;
 
     }
 
     async detect(document) {
+
+        if (!document) {
+
+            throw new Error(
+
+                "Document is required."
+
+            );
+
+        }
+
+        if (typeof this.layerMapper?.scan !== "function") {
+
+            throw new Error(
+
+                "Frame detector requires a layer mapper."
+
+            );
+
+        }
 
         const frames =
 
@@ -39,6 +60,16 @@ export default class FrameDetector {
         prefix = "PHOTO_"
 
     ) {
+
+        if (!document?.layers) {
+
+            throw new Error(
+
+                "Document layers are required."
+
+            );
+
+        }
 
         const frames = [];
 
@@ -113,6 +144,16 @@ export default class FrameDetector {
         document
 
     ) {
+
+        if (!document?.layers) {
+
+            throw new Error(
+
+                "Document layers are required."
+
+            );
+
+        }
 
         const smartObjects = [];
 
