@@ -8,6 +8,8 @@ export default class AlbumWorkflowJobQueue {
 
         this.jobs = [];
 
+        this.index = new Map();
+
     }
 
     create(name, context = {}, priority = 0) {
@@ -40,7 +42,19 @@ export default class AlbumWorkflowJobQueue {
 
         }
 
+        if (this.index.has(job.id)) {
+
+            throw new Error(
+
+                `Workflow job already queued: ${job.id}`
+
+            );
+
+        }
+
         this.jobs.push(job);
+
+        this.index.set(job.id, job);
 
         this.jobs.sort(
 
@@ -76,15 +90,7 @@ export default class AlbumWorkflowJobQueue {
 
     get(id) {
 
-        return (
-
-            this.jobs.find(
-
-                job => job.id === id
-
-            ) || null
-
-        );
+        return this.index.get(id) || null;
 
     }
 
@@ -97,20 +103,39 @@ export default class AlbumWorkflowJobQueue {
         );
 
         if (index === -1) {
-
-            return false;
+            return this.index.delete(id);
 
         }
 
         this.jobs.splice(index, 1);
 
+        this.index.delete(id);
+
         return true;
+
+    }
+
+    cancel(id) {
+
+        const job = this.get(id);
+
+        if (!job || !job.isPending()) {
+
+            return null;
+
+        }
+
+        job.cancel();
+
+        return job;
 
     }
 
     clear() {
 
         this.jobs = [];
+
+        this.index.clear();
 
         Logger.info(
 
@@ -140,13 +165,13 @@ export default class AlbumWorkflowJobQueue {
 
     list() {
 
-        return [...this.jobs];
+        return [...this.index.values()];
 
     }
 
     pending() {
 
-        return this.jobs.filter(
+        return this.list().filter(
 
             job => job.isPending()
 
@@ -156,7 +181,7 @@ export default class AlbumWorkflowJobQueue {
 
     running() {
 
-        return this.jobs.filter(
+        return this.list().filter(
 
             job => job.isRunning()
 
@@ -166,7 +191,7 @@ export default class AlbumWorkflowJobQueue {
 
     completed() {
 
-        return this.jobs.filter(
+        return this.list().filter(
 
             job => job.isCompleted()
 
@@ -176,9 +201,19 @@ export default class AlbumWorkflowJobQueue {
 
     failed() {
 
-        return this.jobs.filter(
+        return this.list().filter(
 
             job => job.isFailed()
+
+        );
+
+    }
+
+    cancelled() {
+
+        return this.list().filter(
+
+            job => job.isCancelled()
 
         );
 

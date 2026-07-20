@@ -58,29 +58,13 @@ export default class AlbumWorkflowMetrics {
 
         this.data.completedJobs++;
 
-        this.data.lastExecutionTime = duration;
-
-        this.data.totalExecutionTime += duration;
-
-        this.data.averageExecutionTime =
-
-            this.data.completedJobs === 0
-
-                ? 0
-
-                : Math.round(
-
-                    this.data.totalExecutionTime /
-
-                    this.data.completedJobs
-
-                );
+        this.recordExecutionTime(duration);
 
         this.updateSuccessRate();
 
     }
 
-    jobFailed() {
+    jobFailed(duration = 0) {
 
         this.data.runningJobs = Math.max(
 
@@ -92,11 +76,13 @@ export default class AlbumWorkflowMetrics {
 
         this.data.failedJobs++;
 
+        this.recordExecutionTime(duration);
+
         this.updateSuccessRate();
 
     }
 
-    jobCancelled() {
+    jobCancelled(duration = 0) {
 
         this.data.runningJobs = Math.max(
 
@@ -108,6 +94,8 @@ export default class AlbumWorkflowMetrics {
 
         this.data.cancelledJobs++;
 
+        this.recordExecutionTime(duration);
+
         this.updateSuccessRate();
 
     }
@@ -115,6 +103,36 @@ export default class AlbumWorkflowMetrics {
     setPending(count) {
 
         this.data.pendingJobs = count;
+
+    }
+
+    recordExecutionTime(duration = 0) {
+
+        this.data.lastExecutionTime = duration;
+
+        this.data.totalExecutionTime += duration;
+
+        const finished =
+
+            this.data.completedJobs +
+
+            this.data.failedJobs +
+
+            this.data.cancelledJobs;
+
+        this.data.averageExecutionTime =
+
+            finished === 0
+
+                ? 0
+
+                : Math.round(
+
+                    this.data.totalExecutionTime /
+
+                    finished
+
+                );
 
     }
 

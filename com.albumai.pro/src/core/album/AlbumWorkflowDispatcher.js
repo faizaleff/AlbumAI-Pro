@@ -100,7 +100,7 @@ export default class AlbumWorkflowDispatcher {
 
                     item.context || {},
 
-                    item.priority || 0
+                    item.priority ?? 0
 
                 )
 

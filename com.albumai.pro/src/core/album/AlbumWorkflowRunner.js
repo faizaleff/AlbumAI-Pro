@@ -6,7 +6,13 @@ export default class AlbumWorkflowRunner {
 
         queue,
 
-        executor
+        executor,
+
+        history = null,
+
+        metrics = null,
+
+        monitor = null
 
     } = {}) {
 
@@ -14,7 +20,15 @@ export default class AlbumWorkflowRunner {
 
         this.executor = executor;
 
+        this.history = history;
+
+        this.metrics = metrics;
+
+        this.monitor = monitor;
+
         this.running = false;
+
+        this.runPromise = null;
 
     }
 
@@ -22,7 +36,7 @@ export default class AlbumWorkflowRunner {
 
         if (this.running) {
 
-            return;
+            return this.runPromise;
 
         }
 
@@ -33,6 +47,29 @@ export default class AlbumWorkflowRunner {
             "Workflow runner started."
 
         );
+
+        this.runPromise = this.process();
+
+        try {
+
+            return await this.runPromise;
+
+        }
+        finally {
+
+            this.running = false;
+
+            this.runPromise = null;
+
+            this.refresh();
+
+        }
+
+    }
+
+    async process() {
+
+        const jobs = [];
 
         while (
 
@@ -56,32 +93,19 @@ export default class AlbumWorkflowRunner {
 
             try {
 
-                job.start();
-
-                const result =
-
-                    await this.executor.execute(
-
-                        job.name,
-
-                        job.context
-
-                    );
-
-                job.complete(result);
+                await this.runJob(job);
 
             }
             catch (error) {
-
-                job.fail(error);
-
                 Logger.error(error);
 
             }
 
+            jobs.push(job);
+
         }
 
-        this.running = false;
+        return jobs;
 
     }
 
@@ -99,7 +123,33 @@ export default class AlbumWorkflowRunner {
 
     async runJob(job) {
 
+        if (!job || typeof job.start !== "function") {
+
+            throw new Error(
+
+                "Invalid workflow job."
+
+            );
+
+        }
+
+        if (job.isCancelled()) {
+
+            this.metrics?.jobCancelled(job.duration());
+
+            this.record(job);
+
+            this.refresh();
+
+            return null;
+
+        }
+
         job.start();
+
+        this.metrics?.jobStarted();
+
+        this.refresh();
 
         try {
 
@@ -115,12 +165,24 @@ export default class AlbumWorkflowRunner {
 
             job.complete(result);
 
+            this.metrics?.jobCompleted(job.duration());
+
+            this.record(job);
+
+            this.refresh();
+
             return result;
 
         }
         catch (error) {
 
             job.fail(error);
+
+            this.metrics?.jobFailed(job.duration());
+
+            this.record(job);
+
+            this.refresh();
 
             throw error;
 
@@ -131,6 +193,32 @@ export default class AlbumWorkflowRunner {
     isRunning() {
 
         return this.running;
+
+    }
+
+    record(job) {
+
+        this.history?.add({
+
+            job: job.toJSON()
+
+        });
+
+    }
+
+    refresh() {
+
+        if (this.metrics && this.queue) {
+
+            this.metrics.setPending(
+
+                this.queue.pending().length
+
+            );
+
+        }
+
+        this.monitor?.refresh();
 
     }
 

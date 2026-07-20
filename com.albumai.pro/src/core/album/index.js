@@ -37,6 +37,21 @@ import AlbumHealthService from "./AlbumHealthService";
 
 import AlbumLifecycleManager from "./AlbumLifecycleManager";
 
+import AlbumWorkflow from "./AlbumWorkflow";
+import AlbumWorkflowDispatcher from "./AlbumWorkflowDispatcher";
+import AlbumWorkflowExecutor from "./AlbumWorkflowExecutor";
+import AlbumWorkflowHistory from "./AlbumWorkflowHistory";
+import AlbumWorkflowJob from "./AlbumWorkflowJob";
+import AlbumWorkflowJobQueue from "./AlbumWorkflowJobQueue";
+import AlbumWorkflowManager from "./AlbumWorkflowManager";
+import AlbumWorkflowMetrics from "./AlbumWorkflowMetrics";
+import AlbumWorkflowMonitor from "./AlbumWorkflowMonitor";
+import AlbumWorkflowQueue from "./AlbumWorkflowQueue";
+import AlbumWorkflowRegistry from "./AlbumWorkflowRegistry";
+import AlbumWorkflowReport from "./AlbumWorkflowReport";
+import AlbumWorkflowRunner from "./AlbumWorkflowRunner";
+import AlbumWorkflowScheduler from "./AlbumWorkflowScheduler";
+
 import TemplateAnalyzer from "./TemplateAnalyzer";
 import TemplateCache from "./TemplateCache";
 import TemplateLoader from "./TemplateLoader";
@@ -102,6 +117,21 @@ export {
     AlbumHealthService,
 
     AlbumLifecycleManager,
+
+    AlbumWorkflow,
+    AlbumWorkflowDispatcher,
+    AlbumWorkflowExecutor,
+    AlbumWorkflowHistory,
+    AlbumWorkflowJob,
+    AlbumWorkflowJobQueue,
+    AlbumWorkflowManager,
+    AlbumWorkflowMetrics,
+    AlbumWorkflowMonitor,
+    AlbumWorkflowQueue,
+    AlbumWorkflowRegistry,
+    AlbumWorkflowReport,
+    AlbumWorkflowRunner,
+    AlbumWorkflowScheduler,
 
     TemplateAnalyzer,
     TemplateCache,

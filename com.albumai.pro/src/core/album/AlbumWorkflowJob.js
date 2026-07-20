@@ -36,6 +36,16 @@ export default class AlbumWorkflowJob {
 
     start() {
 
+        if (!this.isPending()) {
+
+            throw new Error(
+
+                `Workflow job cannot start from ${this.status}.`
+
+            );
+
+        }
+
         this.status = "running";
 
         this.startedAt = new Date();
@@ -45,6 +55,16 @@ export default class AlbumWorkflowJob {
     }
 
     complete(result = null) {
+
+        if (!this.isRunning()) {
+
+            throw new Error(
+
+                `Workflow job cannot complete from ${this.status}.`
+
+            );
+
+        }
 
         this.status = "completed";
 
@@ -58,6 +78,16 @@ export default class AlbumWorkflowJob {
 
     fail(error) {
 
+        if (!this.isRunning()) {
+
+            throw new Error(
+
+                `Workflow job cannot fail from ${this.status}.`
+
+            );
+
+        }
+
         this.status = "failed";
 
         this.completedAt = new Date();
@@ -69,6 +99,12 @@ export default class AlbumWorkflowJob {
     }
 
     cancel() {
+
+        if (!this.isPending()) {
+
+            return this;
+
+        }
 
         this.status = "cancelled";
 
@@ -145,6 +181,20 @@ export default class AlbumWorkflowJob {
     isCancelled() {
 
         return this.status === "cancelled";
+
+    }
+
+    isFinished() {
+
+        return (
+
+            this.isCompleted() ||
+
+            this.isFailed() ||
+
+            this.isCancelled()
+
+        );
 
     }
 

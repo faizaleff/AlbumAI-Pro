@@ -78,7 +78,11 @@ export default class AlbumWorkflowMonitor {
 
         this.metrics.queued =
 
-            this.queue.size();
+            typeof this.queue.pending === "function"
+
+                ? this.queue.pending().length
+
+                : this.queue.size();
 
         if (
 
