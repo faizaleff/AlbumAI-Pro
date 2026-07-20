@@ -1,4 +1,5 @@
 import Logger from "../photoshop/Logger";
+import { app } from "photoshop";
 
 export default class SmartObjectNavigator {
 
@@ -6,7 +7,7 @@ export default class SmartObjectNavigator {
 
         documentManager
 
-    }) {
+    } = {}) {
 
         this.documentManager =
             documentManager;
@@ -29,7 +30,27 @@ export default class SmartObjectNavigator {
 
         );
 
-        return await layer.editContents();
+        const document = await layer.editContents();
+
+        const activeDocument =
+
+            document ||
+
+            this.documentManager?.active ||
+
+            app.activeDocument;
+
+        if (!activeDocument) {
+
+            throw new Error(
+
+                "Smart Object document did not open."
+
+            );
+
+        }
+
+        return activeDocument;
 
     }
 
@@ -71,7 +92,11 @@ export default class SmartObjectNavigator {
 
         }
 
-        await document.close();
+        await document.close({
+
+            save: false
+
+        });
 
         Logger.info(
             "Smart Object closed."

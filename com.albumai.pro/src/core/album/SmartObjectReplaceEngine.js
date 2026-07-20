@@ -10,7 +10,7 @@ export default class SmartObjectReplaceEngine {
 
         progressService
 
-    }) {
+    } = {}) {
 
         this.smartObjectEditor =
             smartObjectEditor;
@@ -21,6 +21,22 @@ export default class SmartObjectReplaceEngine {
         this.progressService =
             progressService;
 
+        if (
+
+            typeof this.smartObjectEditor?.replace !== "function" ||
+
+            typeof this.photoTransformEngine?.calculate !== "function"
+
+        ) {
+
+            throw new Error(
+
+                "Smart Object replacement requires editor and transform services."
+
+            );
+
+        }
+
     }
 
     async replace({
@@ -28,6 +44,16 @@ export default class SmartObjectReplaceEngine {
         assignments = []
 
     }) {
+
+        if (!Array.isArray(assignments)) {
+
+            throw new Error(
+
+                "Assignments must be an array."
+
+            );
+
+        }
 
         const results = [];
 
@@ -51,6 +77,16 @@ export default class SmartObjectReplaceEngine {
                 photo
 
             } = assignments[index];
+
+            if (!frame || !photo) {
+
+                throw new Error(
+
+                    `Invalid smart object assignment at index ${index}.`
+
+                );
+
+            }
 
             const transform =
                 this.photoTransformEngine.calculate({

@@ -53,6 +53,16 @@ export default class SmartObjectEditor {
 
         }
 
+        if (typeof this.smartObjectService?.replace !== "function") {
+
+            throw new Error(
+
+                "Smart Object editor requires a smart object service."
+
+            );
+
+        }
+
         Logger.info(
 
             `Editing Smart Object: ${layer.name}`
@@ -68,6 +78,22 @@ export default class SmartObjectEditor {
         });
 
         if (transform) {
+
+            if (
+
+                typeof this.layerTransformService?.transform !==
+
+                "function"
+
+            ) {
+
+                throw new Error(
+
+                    "Smart Object editor requires a layer transform service."
+
+                );
+
+            }
 
             await this.layerTransformService.transform({
 
@@ -98,7 +124,7 @@ export default class SmartObjectEditor {
 
         try {
 
-            if (callback) {
+            if (typeof callback === "function") {
 
                 await callback(document);
 
@@ -107,6 +133,8 @@ export default class SmartObjectEditor {
             await this.smartObjectNavigator.commit(
                 document
             );
+
+            return document;
 
         }
 
