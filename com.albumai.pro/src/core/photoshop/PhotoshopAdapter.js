@@ -3,7 +3,7 @@
 // AlbumAI Pro
 // ============================================================================
 
-import { app } from "photoshop";
+import { app, core } from "photoshop";
 
 import BatchPlay from "./BatchPlay";
 import Logger from "./Logger";
@@ -33,7 +33,10 @@ class PhotoshopAdapter {
 
         Logger.info(`Opening ${file.name}`);
 
-        return await app.open(file);
+        return core.executeAsModal(
+            () => app.open(file),
+            { commandName: "Open Album Document" }
+        );
 
     }
 
@@ -44,24 +47,28 @@ class PhotoshopAdapter {
 
         Logger.info(`Saving ${document.title}`);
 
-        await document.save();
+        await core.executeAsModal(
+            () => document.save(),
+            { commandName: "Save Album Document" }
+        );
 
         return document;
 
     }
 
-    async close(document, save = true) {
+    async close(document, options = {}) {
 
         if (!document)
             return;
 
         Logger.info(`Closing ${document.title}`);
 
-        await document.close({
+        const { save = false } = typeof options === "boolean" ? { save: options } : options;
 
-            save
-
-        });
+        await core.executeAsModal(async () => {
+            if (save && !document.saved) await document.save();
+            await document.close({ save: false });
+        }, { commandName: "Close Album Document" });
 
     }
 
@@ -70,7 +77,11 @@ class PhotoshopAdapter {
         if (!document)
             throw new Error("Document is required.");
 
-        app.activeDocument = document;
+        await core.executeAsModal(() => {
+            app.activeDocument = document;
+        }, { commandName: "Activate Album Document" });
+
+        return document;
 
     }
 
@@ -127,7 +138,10 @@ class PhotoshopAdapter {
         if (!layer)
             throw new Error("Layer required.");
 
-        await layer.editContents();
+        await core.executeAsModal(
+            () => layer.editContents(),
+            { commandName: "Open Smart Object" }
+        );
 
         return app.activeDocument;
 
@@ -141,7 +155,10 @@ class PhotoshopAdapter {
         const document =
             this.activeDocument();
 
-        await document.place(imageFile);
+        await core.executeAsModal(
+            () => document.place(imageFile),
+            { commandName: "Place Smart Object Image" }
+        );
 
         return document.activeLayers[0];
 
