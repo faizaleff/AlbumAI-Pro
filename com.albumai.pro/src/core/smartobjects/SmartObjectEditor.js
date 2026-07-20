@@ -20,7 +20,8 @@ class SmartObjectEditor {
         if (!layer)
             throw new Error("Layer is required.");
 
-        this.parentDocument = app.activeDocument;
+        const parentDocument = app.activeDocument;
+        if (!parentDocument) throw new Error("Open the parent PSD before editing a Smart Object.");
 
         await core.executeAsModal(async () => {
 
@@ -30,7 +31,14 @@ class SmartObjectEditor {
             commandName: "Open Smart Object"
         });
 
-        this.smartObjectDocument = app.activeDocument;
+        const smartObjectDocument = app.activeDocument;
+
+        if (!smartObjectDocument || smartObjectDocument.id === parentDocument.id) {
+            throw new Error("Photoshop did not switch to the Smart Object document.");
+        }
+
+        this.parentDocument = parentDocument;
+        this.smartObjectDocument = smartObjectDocument;
 
         return this.smartObjectDocument;
 
@@ -89,11 +97,10 @@ class SmartObjectEditor {
         if (!this.smartObjectDocument)
             return;
 
-        await core.executeAsModal(async () => {
+        const document = this.smartObjectDocument;
 
-            await this.smartObjectDocument.close({
-                save
-            });
+        await core.executeAsModal(async () => {
+            await document.close({ save });
 
         }, {
             commandName: "Close Smart Object"
@@ -128,7 +135,7 @@ class SmartObjectEditor {
 
         await this.save();
 
-        await this.close(true);
+        await this.close(false);
 
         await this.returnToParent();
 

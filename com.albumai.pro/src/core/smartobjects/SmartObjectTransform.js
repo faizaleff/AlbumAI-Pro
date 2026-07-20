@@ -79,19 +79,15 @@ class SmartObjectTransform {
      */
     async apply(layer, imageBounds, canvasBounds, scale) {
 
-        const scaledWidth =
-            imageBounds.width * scale;
+        if (!Number.isFinite(scale) || scale <= 0) {
+            throw new Error("Smart Object scale must be greater than zero.");
+        }
 
-        const scaledHeight =
-            imageBounds.height * scale;
-
-        const offsetX =
-            canvasBounds.centerX -
-            scaledWidth / 2;
-
-        const offsetY =
-            canvasBounds.centerY -
-            scaledHeight / 2;
+        // Free transform scales around the layer centre. Offsets therefore
+        // describe the delta from the current centre, not absolute canvas
+        // coordinates.
+        const offsetX = canvasBounds.centerX - imageBounds.centerX;
+        const offsetY = canvasBounds.centerY - imageBounds.centerY;
 
         await this.adapter.transform(layer, {
 

@@ -30,6 +30,7 @@ import {
 import {
     SmartObjectManager
 } from "../core/smartobjects";
+import PhotoshopAdapter from "../core/photoshop/PhotoshopAdapter";
 
 // Services
 import {
@@ -138,8 +139,11 @@ export default function registerServices(container) {
         new LayerManager()
     );
 
-    container.singleton("smartObjectManager", () =>
-        new SmartObjectManager()
+    container.singleton("smartObjectManager", c =>
+        new SmartObjectManager({
+            layerManager: c.resolve("layerManager"),
+            photoshopAdapter: new PhotoshopAdapter()
+        })
     );
 
     //

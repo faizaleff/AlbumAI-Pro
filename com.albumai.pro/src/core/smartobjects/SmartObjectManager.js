@@ -6,13 +6,16 @@ import SmartObjectEditor from "./SmartObjectEditor";
 import SmartObjectReplacer from "./SmartObjectReplacer";
 import SmartObjectTransform from "./SmartObjectTransform";
 import SmartObjectHistory from "./SmartObjectHistory";
+import PhotoshopAdapter from "../photoshop/PhotoshopAdapter";
 
 class SmartObjectManager {
 
     constructor({
         layerManager,
         photoshopAdapter
-    }) {
+    } = {}) {
+
+        this.layerManager = layerManager;
 
         this.scanner = new SmartObjectScanner();
 
@@ -24,12 +27,12 @@ class SmartObjectManager {
 
         this.replacer =
             new SmartObjectReplacer(
-                photoshopAdapter
+                photoshopAdapter || new PhotoshopAdapter()
             );
 
         this.transform =
             new SmartObjectTransform(
-                photoshopAdapter
+                photoshopAdapter || new PhotoshopAdapter()
             );
 
         this.history =
@@ -42,7 +45,11 @@ class SmartObjectManager {
     /**
      * Scan all Smart Objects.
      */
-    scan(nodes) {
+    scan(documentOrNodes) {
+
+        const nodes = Array.isArray(documentOrNodes)
+            ? documentOrNodes
+            : this.layerManager?.scan(documentOrNodes) || [];
 
         return this.scanner.scan(nodes);
 
@@ -162,7 +169,31 @@ class SmartObjectManager {
      */
     async getImageBounds(layer) {
 
-        return layer.bounds;
+        const bounds = layer?.bounds;
+
+        if (!bounds) {
+            throw new Error("Placed image bounds are unavailable.");
+        }
+
+        const left = Number(bounds.left);
+        const top = Number(bounds.top);
+        const right = Number(bounds.right);
+        const bottom = Number(bounds.bottom);
+
+        if (![left, top, right, bottom].every(Number.isFinite) || right <= left || bottom <= top) {
+            throw new Error("Placed image bounds are invalid.");
+        }
+
+        return {
+            left,
+            top,
+            right,
+            bottom,
+            width: right - left,
+            height: bottom - top,
+            centerX: (left + right) / 2,
+            centerY: (top + bottom) / 2
+        };
 
     }
 
@@ -171,17 +202,14 @@ class SmartObjectManager {
      */
     async getCanvasBounds(document) {
 
-        return {
+        const width = Number(document?.width);
+        const height = Number(document?.height);
 
-            width: document.width,
+        if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+            throw new Error("Smart Object canvas dimensions are invalid.");
+        }
 
-            height: document.height,
-
-            centerX: document.width / 2,
-
-            centerY: document.height / 2
-
-        };
+        return { width, height, centerX: width / 2, centerY: height / 2 };
 
     }
 
