@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 
 import ThumbnailGrid from "./ThumbnailGrid";
 import PreviewPanel from "./PreviewPanel";
+import TemplateDocumentPanel from "./TemplateDocumentPanel";
 import Toolbar from "./Toolbar";
 
 import App from "../app/AppController";
@@ -96,6 +97,11 @@ export default function OpenFolder() {
 
     }
 
+    const loadTemplates = () => App.getProjectTemplates();
+
+    const openTemplate = file =>
+        App.openTemplateDocument(file);
+
     return (
 
         <div
@@ -151,6 +157,11 @@ export default function OpenFolder() {
                         Selected : {App.selection.getSelected().length}
                     </div>
                 </div>
+
+                <TemplateDocumentPanel
+                    loadTemplates={loadTemplates}
+                    openTemplate={openTemplate}
+                />
 
                 <div
                     style={{

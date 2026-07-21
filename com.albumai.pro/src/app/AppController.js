@@ -4,6 +4,7 @@ import ProjectEngine from "../core/ProjectEngine";
 import ProjectService from "../services/ProjectService";
 import PhotoWorkspaceService from "../services/PhotoWorkspaceService";
 import RecentFilesService from "../services/RecentFilesService";
+import TemplateDocumentReader from "../services/TemplateDocumentReader";
 
 class AppController {
 
@@ -22,6 +23,9 @@ class AppController {
             selection: this.selection,
             projectEngine: this.project,
             projectService: this.projectService
+        });
+        this.templateDocumentReader = new TemplateDocumentReader({
+            projectEngine: this.project
         });
 
     }
@@ -77,6 +81,18 @@ class AppController {
     getPhotos() {
 
         return this.photoWorkspace.getPhotos();
+
+    }
+
+    getProjectTemplates() {
+
+        return this.templateDocumentReader.listTemplates();
+
+    }
+
+    openTemplateDocument(file) {
+
+        return this.templateDocumentReader.read(file);
 
     }
 
