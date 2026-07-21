@@ -30,6 +30,35 @@ export default class TemplateLayerTreeReader {
 
     }
 
+    smartObjects() {
+
+        return this.layerManager.smartObjects().map(layer => {
+
+            const parentGroup = layer.parentId == null
+                ? null
+                : this.layerManager.byId(layer.parentId);
+
+            return {
+                documentId: layer.documentId,
+                layerId: layer.id,
+                parentGroupId: parentGroup?.id ?? null,
+                parentGroupName: parentGroup?.name ?? null,
+                layerName: layer.name,
+                layerType: layer.kind,
+                visible: !!layer.visible,
+                locked: !!layer.locked,
+                bounds: this.bounds(layer.bounds),
+
+                // The current DOM layer path does not expose these values
+                // reliably without Action Manager reads, so do not infer them.
+                smartObjectType: null,
+                linked: null
+            };
+
+        });
+
+    }
+
     toTemplateLayer(layer, parentGroup, documentId) {
 
         return {

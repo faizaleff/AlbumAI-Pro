@@ -38,6 +38,8 @@ export default class TemplateDocumentReader {
         );
         const document = await this.openDocument(file);
 
+        const layerTree = this.layerTreeReader.read(document);
+
         return {
             name: document.title || file.name,
             filePath: file.nativePath || document.path || file.name,
@@ -47,7 +49,8 @@ export default class TemplateDocumentReader {
             colorMode: document.mode || null,
             bitDepth: document.bitsPerChannel || null,
             layerCount: document.layers?.length || 0,
-            layerTree: this.layerTreeReader.read(document)
+            layerTree,
+            smartObjects: this.layerTreeReader.smartObjects()
         };
 
     }

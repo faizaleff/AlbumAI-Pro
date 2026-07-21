@@ -128,6 +128,16 @@ export default function TemplateDocumentPanel({
                     <div>Width × Height: {document.width} × {document.height}</div>
                     <div>Resolution: {document.resolution}</div>
                     <div>Layer Count: {document.layerCount}</div>
+                    <div>
+                        Smart Objects: {document.smartObjects?.length || 0}
+                    </div>
+                    {!!document.smartObjects?.length && (
+                        <div>
+                            Smart Object Names: {document.smartObjects
+                                .map(layer => layer.layerName)
+                                .join(", ")}
+                        </div>
+                    )}
                 </div>
 
             )}
