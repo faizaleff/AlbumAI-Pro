@@ -20,6 +20,12 @@ export default class TemplateLayerTreeReader {
 
     }
 
+    clear() {
+
+        this.layerManager.clear();
+
+    }
+
     toTemplateLayer(layer, parentGroup) {
 
         return {

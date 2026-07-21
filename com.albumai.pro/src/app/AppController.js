@@ -96,6 +96,12 @@ class AppController {
 
     }
 
+    closeTemplateDocument() {
+
+        return this.templateDocumentReader.close();
+
+    }
+
 }
 
 export default new AppController();

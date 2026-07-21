@@ -16,6 +16,7 @@ export default class TemplateDocumentReader {
         this.projectEngine = projectEngine;
         this.documentManager = documentManager;
         this.layerTreeReader = layerTreeReader;
+        this.ownedDocument = null;
 
     }
 
@@ -35,7 +36,7 @@ export default class TemplateDocumentReader {
         const file = await this.requireProjectTemplate(
             templateFile
         );
-        const document = await this.documentManager.open(file);
+        const document = await this.openDocument(file);
 
         return {
             name: document.title || file.name,
@@ -63,6 +64,94 @@ export default class TemplateDocumentReader {
         }
 
         return folder;
+
+    }
+
+    async close() {
+
+        this.releaseClosedOwnedDocument();
+
+        const document = this.ownedDocument;
+
+        if (!document) {
+            return false;
+        }
+
+        this.ownedDocument = null;
+
+        try {
+
+            await this.documentManager.close(document, {
+                save: false
+            });
+
+            return true;
+
+        }
+
+        finally {
+
+            this.layerTreeReader.clear();
+
+        }
+
+    }
+
+    async openDocument(file) {
+
+        this.releaseClosedOwnedDocument();
+
+        const existing = this.findOpenDocument(file);
+
+        if (existing) {
+            return existing;
+        }
+
+        const document = await this.documentManager.open(file);
+
+        this.ownedDocument = document;
+
+        return document;
+
+    }
+
+    findOpenDocument(file) {
+
+        const documents = this.documentManager.documents;
+
+        return documents.find(document => {
+
+            if (
+                file.nativePath &&
+                document.path &&
+                file.nativePath === document.path
+            ) {
+                return true;
+            }
+
+            return (
+                this.ownedDocument?.id === document.id &&
+                document.title === file.name
+            );
+
+        }) || null;
+
+    }
+
+    releaseClosedOwnedDocument() {
+
+        if (!this.ownedDocument) {
+            return;
+        }
+
+        const exists = this.documentManager.documents.some(
+            document => document.id === this.ownedDocument.id
+        );
+
+        if (!exists) {
+            this.ownedDocument = null;
+            this.layerTreeReader.clear();
+        }
 
     }
 
