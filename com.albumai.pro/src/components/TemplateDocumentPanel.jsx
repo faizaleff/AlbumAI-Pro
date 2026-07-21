@@ -48,7 +48,9 @@ export default function TemplateDocumentPanel({
     loadTemplates,
     openTemplate,
     planPhotoPlacement,
-    getCurrentPlacementPlan
+    getCurrentPlacementPlan,
+    buildPlacementExecutionPlan,
+    getCurrentPlacementExecutionPlan
 }) {
 
     const [templates, setTemplates] = useState([]);
@@ -58,6 +60,7 @@ export default function TemplateDocumentPanel({
     const [placementError, setPlacementError] = useState(null);
 
     const placementPlan = getCurrentPlacementPlan?.() || null;
+    const executionPlan = getCurrentPlacementExecutionPlan?.() || null;
 
     useEffect(() => {
 
@@ -121,6 +124,24 @@ export default function TemplateDocumentPanel({
 
     }
 
+    function buildExecutionPlan() {
+
+        try {
+
+            buildPlacementExecutionPlan?.();
+            setPlacementError(null);
+            setPlacementVersion(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            setPlacementError(error.message);
+
+        }
+
+    }
+
     return (
 
         <section
@@ -162,6 +183,13 @@ export default function TemplateDocumentPanel({
                     disabled={!document}
                 >
                     Plan Placement
+                </button>
+
+                <button
+                    onClick={buildExecutionPlan}
+                    disabled={!placementPlan}
+                >
+                    Build Execution Dry Run
                 </button>
 
             </div>
@@ -222,6 +250,16 @@ export default function TemplateDocumentPanel({
 
                 <div style={{ marginTop: 10, fontSize: 12, color: "#ff9999" }}>
                     Placement Plan: {placementError}
+                </div>
+
+            )}
+
+            {executionPlan && (
+
+                <div style={{ marginTop: 10, fontSize: 12 }}>
+                    <div>Ready Steps: {executionPlan.statistics.readySteps}</div>
+                    <div>Warnings: {executionPlan.statistics.warningCount}</div>
+                    <div>Status: {executionPlan.status}</div>
                 </div>
 
             )}

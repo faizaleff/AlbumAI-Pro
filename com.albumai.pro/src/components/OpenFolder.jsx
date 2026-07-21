@@ -108,6 +108,12 @@ export default function OpenFolder() {
     const getCurrentPlacementPlan = () =>
         App.getCurrentPlacementPlan();
 
+    const buildPlacementExecutionPlan = () =>
+        App.buildPlacementExecutionPlan();
+
+    const getCurrentPlacementExecutionPlan = () =>
+        App.getCurrentPlacementExecutionPlan();
+
     return (
 
         <div
@@ -169,6 +175,8 @@ export default function OpenFolder() {
                     openTemplate={openTemplate}
                     planPhotoPlacement={planPhotoPlacement}
                     getCurrentPlacementPlan={getCurrentPlacementPlan}
+                    buildPlacementExecutionPlan={buildPlacementExecutionPlan}
+                    getCurrentPlacementExecutionPlan={getCurrentPlacementExecutionPlan}
                 />
 
                 <div

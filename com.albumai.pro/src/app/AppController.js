@@ -8,6 +8,7 @@ import TemplateDocumentReader from "../services/TemplateDocumentReader";
 import TemplateRegistry from "../services/TemplateRegistry";
 import Template from "../templates/Template";
 import PhotoPlacementEngine from "../placement/PhotoPlacementEngine";
+import PlacementExecutionPlanBuilder from "../placement/PlacementExecutionPlanBuilder";
 
 class AppController {
 
@@ -32,7 +33,9 @@ class AppController {
         });
         this.templateRegistry = new TemplateRegistry();
         this.photoPlacementEngine = new PhotoPlacementEngine();
+        this.placementExecutionPlanBuilder = new PlacementExecutionPlanBuilder();
         this.currentPlacementPlan = null;
+        this.currentPlacementExecutionPlan = null;
 
     }
 
@@ -119,6 +122,7 @@ class AppController {
         });
 
         this.currentPlacementPlan = placement;
+        this.clearCurrentPlacementExecutionPlan();
 
         return placement;
 
@@ -133,6 +137,34 @@ class AppController {
     clearCurrentPlacementPlan() {
 
         this.currentPlacementPlan = null;
+        this.clearCurrentPlacementExecutionPlan();
+
+    }
+
+    buildPlacementExecutionPlan() {
+
+        const executionPlan = this.placementExecutionPlanBuilder.build({
+            placementResult: this.currentPlacementPlan,
+            project: this.project.getProject(),
+            template: this.templateRegistry.current(),
+            photos: this.photoWorkspace.getPhotos()
+        });
+
+        this.currentPlacementExecutionPlan = executionPlan;
+
+        return executionPlan;
+
+    }
+
+    getCurrentPlacementExecutionPlan() {
+
+        return this.currentPlacementExecutionPlan;
+
+    }
+
+    clearCurrentPlacementExecutionPlan() {
+
+        this.currentPlacementExecutionPlan = null;
 
     }
 

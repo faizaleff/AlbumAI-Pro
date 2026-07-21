@@ -85,6 +85,7 @@ export default class PhotoPlacementEngine {
         return new PlacementResult({
             projectId: project.metadata?.id ?? project.metadata?.name ?? null,
             templateId: template.id,
+            templateDocumentId: template.document?.id ?? null,
             assignments,
             emptySlots,
             unassignedPhotos,

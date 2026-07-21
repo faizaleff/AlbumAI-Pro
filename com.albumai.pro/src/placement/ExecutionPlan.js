@@ -1,17 +1,16 @@
-export default class PlacementResult {
+export default class ExecutionPlan {
 
     constructor(data = {}) {
 
-        return PlacementResult.freeze({
+        return ExecutionPlan.freeze({
             projectId: data.projectId ?? null,
             templateId: data.templateId ?? null,
             templateDocumentId: data.templateDocumentId ?? null,
-            assignments: data.assignments || [],
-            emptySlots: data.emptySlots || [],
-            unassignedPhotos: data.unassignedPhotos || [],
+            steps: data.steps || [],
             warnings: data.warnings || [],
             statistics: data.statistics || {},
-            options: data.options || {}
+            createdAt: data.createdAt || null,
+            status: "READY"
         });
 
     }
@@ -22,7 +21,7 @@ export default class PlacementResult {
             return value;
         }
 
-        Object.values(value).forEach(item => PlacementResult.freeze(item));
+        Object.values(value).forEach(item => ExecutionPlan.freeze(item));
 
         return Object.freeze(value);
 
