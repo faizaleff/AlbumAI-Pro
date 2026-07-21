@@ -41,6 +41,7 @@ export default class TemplateDocumentReader {
         const layerTree = this.layerTreeReader.read(document);
 
         return {
+            documentId: document.id,
             name: document.title || file.name,
             filePath: file.nativePath || document.path || file.name,
             width: this.number(document.width),

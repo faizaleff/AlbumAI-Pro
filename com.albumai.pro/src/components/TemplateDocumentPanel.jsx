@@ -136,12 +136,12 @@ export default function TemplateDocumentPanel({
             {document && (
 
                 <div style={{ marginTop: 10, fontSize: 12 }}>
-                    <div>PSD Name: {document.name}</div>
-                    <div>Width × Height: {document.width} × {document.height}</div>
-                    <div>Resolution: {document.resolution}</div>
-                    <div>Layer Count: {document.layerCount}</div>
+                    <div>Template Name: {document.name}</div>
+                    <div>Width × Height: {document.document.width} × {document.document.height}</div>
+                    <div>Resolution: {document.document.resolution}</div>
+                    <div>Layer Count: {document.statistics.totalLayers}</div>
                     <div>
-                        Smart Objects: {document.smartObjects?.length || 0}
+                        Smart Objects: {document.statistics.totalSmartObjects}
                     </div>
                     {!!document.smartObjects?.length && (
                         <div>
@@ -151,7 +151,7 @@ export default function TemplateDocumentPanel({
                         </div>
                     )}
                     <div>
-                        Text Layers: {document.textLayers?.length || 0}
+                        Text Layers: {document.statistics.totalTextLayers}
                     </div>
                     {!!document.textLayers?.length && (
                         <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>

@@ -5,6 +5,8 @@ import ProjectService from "../services/ProjectService";
 import PhotoWorkspaceService from "../services/PhotoWorkspaceService";
 import RecentFilesService from "../services/RecentFilesService";
 import TemplateDocumentReader from "../services/TemplateDocumentReader";
+import TemplateRegistry from "../services/TemplateRegistry";
+import Template from "../templates/Template";
 
 class AppController {
 
@@ -27,6 +29,7 @@ class AppController {
         this.templateDocumentReader = new TemplateDocumentReader({
             projectEngine: this.project
         });
+        this.templateRegistry = new TemplateRegistry();
 
     }
 
@@ -90,15 +93,30 @@ class AppController {
 
     }
 
-    openTemplateDocument(file) {
+    async openTemplateDocument(file) {
 
-        return this.templateDocumentReader.read(file);
+        const analysis = await this.templateDocumentReader.read(file);
+        const template = new Template(analysis);
+
+        return this.templateRegistry.register(template);
 
     }
 
-    closeTemplateDocument() {
+    getCurrentTemplate() {
 
-        return this.templateDocumentReader.close();
+        return this.templateRegistry.current();
+
+    }
+
+    async closeTemplateDocument() {
+
+        const closed = await this.templateDocumentReader.close();
+
+        if (closed) {
+            this.templateRegistry.clear();
+        }
+
+        return closed;
 
     }
 
