@@ -50,7 +50,8 @@ export default class TemplateDocumentReader {
             bitDepth: document.bitsPerChannel || null,
             layerCount: document.layers?.length || 0,
             layerTree,
-            smartObjects: this.layerTreeReader.smartObjects()
+            smartObjects: this.layerTreeReader.smartObjects(),
+            textLayers: this.layerTreeReader.textLayers()
         };
 
     }

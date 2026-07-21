@@ -59,6 +59,56 @@ export default class TemplateLayerTreeReader {
 
     }
 
+    textLayers() {
+
+        return this.layerManager.all()
+            .filter(layer => layer.kind === "textLayer")
+            .map(layer => {
+
+                const parentGroup = layer.parentId == null
+                    ? null
+                    : this.layerManager.byId(layer.parentId);
+                const textItem = this.readValue(
+                    () => layer.photoshopLayer?.textItem
+                );
+                const characterStyle = this.readValue(
+                    () => textItem?.characterStyle
+                );
+                const paragraphStyle = this.readValue(
+                    () => textItem?.paragraphStyle
+                );
+
+                return {
+                    documentId: layer.documentId,
+                    layerId: layer.id,
+                    parentGroupId: parentGroup?.id ?? null,
+                    parentGroupName: parentGroup?.name ?? null,
+                    layerName: layer.name,
+                    layerType: layer.kind,
+                    textContent: this.string(
+                        this.readValue(() => textItem?.contents)
+                    ),
+                    fontFamily: this.string(
+                        this.readValue(() => characterStyle?.font)
+                    ),
+                    fontSize: this.number(
+                        this.readValue(() => characterStyle?.size)
+                    ),
+                    color: this.color(
+                        this.readValue(() => characterStyle?.color)
+                    ),
+                    alignment: this.string(
+                        this.readValue(() => paragraphStyle?.justification)
+                    ),
+                    visible: !!layer.visible,
+                    locked: !!layer.locked,
+                    bounds: this.bounds(layer.bounds)
+                };
+
+            });
+
+    }
+
     toTemplateLayer(layer, parentGroup, documentId) {
 
         return {
@@ -115,6 +165,39 @@ export default class TemplateLayerTreeReader {
         const number = Number(value);
 
         return Number.isFinite(number) ? number : null;
+
+    }
+
+    string(value) {
+
+        return typeof value === "string" ? value : null;
+
+    }
+
+    color(color) {
+
+        const rgb = this.readValue(() => color?.rgb);
+        const red = this.number(this.readValue(() => rgb?.red));
+        const green = this.number(this.readValue(() => rgb?.green));
+        const blue = this.number(this.readValue(() => rgb?.blue));
+
+        if (red == null || green == null || blue == null) {
+            return null;
+        }
+
+        return { red, green, blue };
+
+    }
+
+    readValue(read) {
+
+        try {
+            return read();
+        }
+
+        catch (_) {
+            return null;
+        }
 
     }
 

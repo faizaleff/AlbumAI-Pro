@@ -32,6 +32,18 @@ function LayerTree({ layers = [], depth = 0 }) {
 
 }
 
+function textPreview(text) {
+
+    if (typeof text !== "string") {
+        return "—";
+    }
+
+    return text.length > 80
+        ? `${text.slice(0, 80)}…`
+        : text;
+
+}
+
 export default function TemplateDocumentPanel({
     loadTemplates,
     openTemplate
@@ -137,6 +149,18 @@ export default function TemplateDocumentPanel({
                                 .map(layer => layer.layerName)
                                 .join(", ")}
                         </div>
+                    )}
+                    <div>
+                        Text Layers: {document.textLayers?.length || 0}
+                    </div>
+                    {!!document.textLayers?.length && (
+                        <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+                            {document.textLayers.map(layer => (
+                                <li key={layer.layerId}>
+                                    {layer.layerName}: {textPreview(layer.textContent)}
+                                </li>
+                            ))}
+                        </ul>
                     )}
                 </div>
 
