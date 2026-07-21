@@ -1,117 +1,237 @@
+import FileSystemService from "../files/FileSystemService";
 import Logger from "../photoshop/Logger";
-import AlbumProject from "./AlbumProject";
 
 export default class AlbumProjectManager {
 
-    constructor() {
+    constructor({
 
-        this.project =
-            new AlbumProject();
+        fileSystem = new FileSystemService()
+
+    } = {}) {
+
+        this.fileSystem = fileSystem;
+
+        this.project = null;
 
     }
 
-    create(options) {
+    create({
 
-        const project =
-            this.project.create(options);
+        name,
 
-        Logger.info(
-            "Album project initialized."
-        );
+        template,
 
-        return project;
+        photoFolder,
+
+        outputFolder,
+
+        settings = {}
+
+    }) {
+
+        this.project = {
+
+            id: crypto.randomUUID(),
+
+            name,
+
+            template,
+
+            photoFolder,
+
+            outputFolder,
+
+            createdAt: new Date().toISOString(),
+
+            updatedAt: new Date().toISOString(),
+
+            status: "idle",
+
+            progress: 0,
+
+            settings,
+
+            albums: [],
+
+            metadata: {}
+
+        };
+
+        return this.project;
 
     }
 
     load(project) {
 
-        this.project.project = {
+        this.project = project;
 
-            ...project,
-
-            updatedAt: new Date()
-
-        };
-
-        Logger.info(
-            `Project loaded: ${project.name}`
-        );
-
-        return this.project.get();
+        return this.project;
 
     }
 
-    save() {
+    get() {
 
-        const project =
-            this.project.get();
+        return this.project;
 
-        if (!project) {
+    }
+
+    update(values = {}) {
+
+        if (!this.project) {
 
             throw new Error(
-                "No active project."
+
+                "Project not loaded."
+
             );
 
         }
 
-        project.updatedAt =
-            new Date();
+        Object.assign(
 
-        Logger.info(
-            "Project saved."
+            this.project,
+
+            values,
+
+            {
+
+                updatedAt:
+
+                    new Date().toISOString()
+
+            }
+
         );
 
-        return project;
+        return this.project;
 
     }
 
-    close() {
+    setStatus(status) {
 
-        if (
+        return this.update({
 
-            !this.project.hasProject()
+            status
 
-        ) {
+        });
 
-            return;
+    }
+
+    setProgress(progress) {
+
+        return this.update({
+
+            progress
+
+        });
+
+    }
+
+    addAlbum(album) {
+
+        this.project.albums.push(album);
+
+        this.project.updatedAt =
+
+            new Date().toISOString();
+
+    }
+
+    removeAlbum(id) {
+
+        this.project.albums =
+
+            this.project.albums.filter(
+
+                album => album.id !== id
+
+            );
+
+    }
+
+    findAlbum(id) {
+
+        return this.project.albums.find(
+
+            album => album.id === id
+
+        );
+
+    }
+
+    async save(folder) {
+
+        try {
+
+            const file =
+
+                await this.fileSystem.createFile(
+
+                    folder,
+
+                    `${this.project.name}.json`
+
+                );
+
+            await file.write(
+
+                JSON.stringify(
+
+                    this.project,
+
+                    null,
+
+                    2
+
+                )
+
+            );
+
+            return file;
 
         }
 
-        Logger.info(
-            "Project closed."
-        );
+        catch (error) {
 
-        this.project.reset();
+            Logger.error(error);
 
-    }
+            throw error;
 
-    current() {
-
-        return this.project.get();
+        }
 
     }
 
-    summary() {
+    async open(file) {
 
-        return this.project.summary();
+        try {
+
+            const content =
+
+                await file.read();
+
+            this.project = JSON.parse(
+
+                content
+
+            );
+
+            return this.project;
+
+        }
+
+        catch (error) {
+
+            Logger.error(error);
+
+            throw error;
+
+        }
 
     }
 
-    hasProject() {
+    clear() {
 
-        return this.project.hasProject();
-
-    }
-
-    addPhotos(photos) {
-
-        this.project.addPhotos(photos);
-
-    }
-
-    setOutputFolder(folder) {
-
-        this.project.setOutputFolder(folder);
+        this.project = null;
 
     }
 

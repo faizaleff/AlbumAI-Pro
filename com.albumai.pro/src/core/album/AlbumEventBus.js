@@ -1,107 +1,132 @@
-import Logger from "../photoshop/Logger";
-import AlbumEvents from "./AlbumEvents";
-
 export default class AlbumEventBus {
 
     constructor() {
 
-        this.events = new AlbumEvents();
+        this.events = new Map();
 
     }
 
     on(event, listener) {
 
-        return this.events.on(
+        if (!this.events.has(event)) {
 
-            event,
+            this.events.set(event, []);
 
-            listener
+        }
 
-        );
+        this.events.get(event).push(listener);
+
+        return () => this.off(event, listener);
 
     }
 
     once(event, listener) {
 
-        return this.events.once(
+        const wrapper = (...args) => {
 
-            event,
+            this.off(event, wrapper);
 
-            listener
+            listener(...args);
 
-        );
+        };
+
+        return this.on(event, wrapper);
 
     }
 
     off(event, listener) {
 
-        this.events.off(
+        if (!this.events.has(event)) {
 
-            event,
+            return;
 
-            listener
+        }
 
-        );
+        const listeners = this.events.get(event);
+
+        const index = listeners.indexOf(listener);
+
+        if (index >= 0) {
+
+            listeners.splice(index, 1);
+
+        }
+
+        if (listeners.length === 0) {
+
+            this.events.delete(event);
+
+        }
 
     }
 
     emit(event, payload = {}) {
 
-        Logger.info(
+        if (!this.events.has(event)) {
 
-            `Album Event: ${event}`
+            return;
 
-        );
+        }
 
-        this.events.emit(
+        for (const listener of this.events.get(event)) {
 
-            event,
+            try {
 
-            payload
+                listener(payload);
 
-        );
+            }
 
-    }
+            catch (error) {
 
-    broadcast(event, payload = {}) {
+                console.error(
 
-        this.emit(
+                    `[AlbumEventBus] ${event}`,
 
-            event,
+                    error
 
-            payload
+                );
 
-        );
+            }
+
+        }
 
     }
 
     clear(event = null) {
 
-        this.events.clear(event);
+        if (event) {
+
+            this.events.delete(event);
+
+            return;
+
+        }
+
+        this.events.clear();
 
     }
 
-    listeners(event) {
+    has(event) {
 
-        return this.events.listenerCount(
-
-            event
-
-        );
+        return this.events.has(event);
 
     }
 
-    registeredEvents() {
+    listenerCount(event) {
 
-        return this.events.events();
+        return this.events.has(event)
+
+            ? this.events.get(event).length
+
+            : 0;
 
     }
 
-    hasListeners(event) {
+    eventNames() {
 
-        return (
+        return Array.from(
 
-            this.listeners(event) > 0
+            this.events.keys()
 
         );
 

@@ -1,76 +1,158 @@
-import React, { useEffect, useReducer } from "react";
-
-import AppProvider from "./providers/AppProvider";
+import React, { useEffect, useMemo, useState } from "react";
 
 import Dashboard from "./components/Dashboard";
-import PreviewPanel from "./components/PreviewPanel";
-import ThumbnailGrid from "./components/ThumbnailGrid";
+import Projects from "./components/Projects";
+import Templates from "./components/Templates";
+import Photos from "./components/Photos";
+import Albums from "./components/Albums";
+import ExportCenter from "./components/ExportCenter";
+import Settings from "./components/Settings";
 
-import { useAlbumAIContext } from "./context/AlbumAIContext";
-import { useAppState } from "./context/AppStateContext";
+import UIController from "./core/ui/UIController";
 
-import ThumbnailQueue from "./queue/ThumbnailQueue";
+export default function App() {
 
-function AlbumWorkspace() {
+    const controller = useMemo(
 
-    const {
+        () => new UIController(),
 
-        initialized,
-        loading,
+        []
 
-        project,
-        album,
-        photos
+    );
 
-    } = useAlbumAIContext();
+    const [route, setRoute] = useState(
 
-    const state = useAppState();
+        "dashboard"
 
-    const [, refresh] = useReducer(v => v + 1, 0);
+    );
+
+    const [state, setState] = useState(
+
+        controller.getState()
+
+    );
 
     useEffect(() => {
 
-        ThumbnailQueue.setListener(() => {
+        controller.initialize();
 
-            refresh();
+        controller.router.register(
 
-        });
+            "dashboard"
+
+        );
+
+        controller.router.register(
+
+            "projects"
+
+        );
+
+        controller.router.register(
+
+            "templates"
+
+        );
+
+        controller.router.register(
+
+            "photos"
+
+        );
+
+        controller.router.register(
+
+            "albums"
+
+        );
+
+        controller.router.register(
+
+            "export"
+
+        );
+
+        controller.router.register(
+
+            "settings"
+
+        );
+
+        controller.router.navigate(
+
+            "dashboard"
+
+        );
+
+        const unsubscribe =
+
+            controller.stateStore.subscribe(
+
+                () => {
+
+                    setState(
+
+                        controller.getState()
+
+                    );
+
+                }
+
+            );
 
         return () => {
 
-            ThumbnailQueue.setListener(null);
+            unsubscribe();
+
+            controller.destroy();
 
         };
 
-    }, []);
+    }, [controller]);
 
-    if (loading) {
+    const navigate = async page => {
 
-        return (
+        await controller.navigate(page);
 
-            <div className="albumai-loading">
+        setRoute(page);
 
-                <h2>Initializing AlbumAI Pro...</h2>
+    };
 
-            </div>
+    const renderPage = () => {
 
-        );
+        switch (route) {
 
-    }
+            case "projects":
 
-    if (!initialized) {
+                return <Projects controller={controller} />;
 
-        return (
+            case "templates":
 
-            <div className="albumai-loading">
+                return <Templates controller={controller} />;
 
-                <h2>Waiting...</h2>
+            case "photos":
 
-            </div>
+                return <Photos controller={controller} />;
 
-        );
+            case "albums":
 
-    }
+                return <Albums controller={controller} />;
+
+            case "export":
+
+                return <ExportCenter controller={controller} />;
+
+            case "settings":
+
+                return <Settings controller={controller} />;
+
+            default:
+
+                return <Dashboard controller={controller} />;
+
+        }
+
+    };
 
     return (
 
@@ -78,89 +160,63 @@ function AlbumWorkspace() {
 
             <header className="albumai-header">
 
-                <h1>
+                <h2>
 
                     AlbumAI Pro
 
-                </h1>
+                </h2>
+
+                <nav>
+
+                    <button onClick={() => navigate("dashboard")}>
+                        Dashboard
+                    </button>
+
+                    <button onClick={() => navigate("projects")}>
+                        Projects
+                    </button>
+
+                    <button onClick={() => navigate("templates")}>
+                        Templates
+                    </button>
+
+                    <button onClick={() => navigate("photos")}>
+                        Photos
+                    </button>
+
+                    <button onClick={() => navigate("albums")}>
+                        Albums
+                    </button>
+
+                    <button onClick={() => navigate("export")}>
+                        Export
+                    </button>
+
+                    <button onClick={() => navigate("settings")}>
+                        Settings
+                    </button>
+
+                </nav>
 
             </header>
 
-            <main className="albumai-main">
+            <main>
 
-                <aside className="albumai-sidebar">
-
-                    <Dashboard />
-
-                </aside>
-
-                <section className="albumai-content">
-
-                    <ThumbnailGrid
-                        photos={photos}
-                    />
-
-                </section>
-
-                <aside className="albumai-preview">
-
-                    <PreviewPanel
-                        album={album}
-                    />
-
-                </aside>
+                {renderPage()}
 
             </main>
 
-            <footer className="albumai-footer">
+            <footer>
 
-                <span>
+                <small>
 
-                    {project?.name || "No Project"}
+                    AlbumAI Pro v1.0.0
 
-                </span>
-
-                <span>
-
-                    Photos: {photos.length}
-
-                </span>
-
-                <span>
-
-                    Pages: {album?.pages?.length || 0}
-
-                </span>
-
-                <span>
-
-                    Queue: {ThumbnailQueue.size()}
-
-                </span>
-
-                <span>
-
-                    Status: {state.exporting ? "Exporting..." : "Ready"}
-
-                </span>
+                </small>
 
             </footer>
 
         </div>
-
-    );
-
-}
-
-export default function App() {
-
-    return (
-
-        <AppProvider>
-
-            <AlbumWorkspace />
-
-        </AppProvider>
 
     );
 

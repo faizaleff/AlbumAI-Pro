@@ -1,143 +1,178 @@
-    // src/core/photoshop/HistoryManager.js
+import { app, core } from "photoshop";
+import Logger from "./Logger";
 
-import ExecuteModal from "./ExecuteModal.js";
-import Logger from "./Logger.js";
-import ErrorHandler from "./ErrorHandler.js";
-import PHOTOSHOP from "./Constants.js";
-
-class HistoryManager {
+export default class HistoryManager {
 
     constructor() {
-        this.depth = 0;
+
+        this.suspended = false;
+
     }
 
-    /**
-     * Execute an operation as a single Photoshop history step.
-     */
     async suspend(name, callback) {
 
-        const historyName =
-            name || PHOTOSHOP.HISTORY_NAME;
+        if (typeof callback !== "function") {
 
-        return ExecuteModal.run(
+            throw new Error(
+                "History callback is required."
+            );
 
-            async (executionContext) => {
+        }
 
-                this.depth++;
+        try {
 
-                Logger.info(
-                    `History Begin : ${historyName}`
-                );
+            this.suspended = true;
 
-                try {
+            return await core.executeAsModal(
 
-                    // Photoshop API (UXP)
-                    if (
-                        executionContext &&
-                        typeof executionContext.hostControl
-                            ?.suspendHistory === "function"
-                    ) {
+                async executionContext => {
 
-                        return await executionContext.hostControl
-                            .suspendHistory(
-                                {
-                                    name: historyName
-                                },
-                                async () => {
+                    return await executionContext.hostControl.suspendHistory({
 
-                                    return await callback(
-                                        executionContext
-                                    );
+                        documentID: app.activeDocument.id,
 
-                                }
-                            );
+                        name
 
-                    }
+                    }, callback);
 
-                    // Fallback for older hosts
-                    return await callback(executionContext);
+                },
 
-                } catch (error) {
+                {
 
-                    throw ErrorHandler.process(error, {
-                        historyName
-                    });
-
-                } finally {
-
-                    this.depth--;
-
-                    Logger.info(
-                        `History End : ${historyName}`
-                    );
+                    commandName: name
 
                 }
 
-            },
+            );
 
-            {
-                commandName: historyName
-            }
+        }
+
+        catch (error) {
+
+            Logger.error(error);
+
+            throw error;
+
+        }
+
+        finally {
+
+            this.suspended = false;
+
+        }
+
+    }
+
+    async execute(name, callback) {
+
+        return this.suspend(
+
+            name,
+
+            callback
 
         );
 
     }
 
-    /**
-     * Execute without creating a grouped history state.
-     */
-    async execute(callback) {
+    async undo() {
 
-        return ExecuteModal.run(callback);
+        try {
 
-    }
+            return await core.executeAsModal(
 
-    /**
-     * Execute multiple operations inside one history state.
-     */
-    async transaction(name, operations = []) {
+                async () => {
 
-        return this.suspend(name, async (ctx) => {
+                    await app.activeDocument.undo();
 
-            const results = [];
+                },
 
-            for (const operation of operations) {
+                {
 
-                results.push(
-                    await operation(ctx)
-                );
+                    commandName: "Undo"
 
-            }
+                }
 
-            return results;
-
-        });
-
-    }
-
-    /**
-     * Nest-safe helper.
-     */
-    async run(name, callback) {
-
-        if (this.depth > 0) {
-
-            return callback();
+            );
 
         }
 
-        return this.suspend(name, callback);
+        catch (error) {
+
+            Logger.error(error);
+
+            throw error;
+
+        }
 
     }
 
-    get level() {
-        return this.depth;
+    async redo() {
+
+        try {
+
+            return await core.executeAsModal(
+
+                async () => {
+
+                    await app.activeDocument.redo();
+
+                },
+
+                {
+
+                    commandName: "Redo"
+
+                }
+
+            );
+
+        }
+
+        catch (error) {
+
+            Logger.error(error);
+
+            throw error;
+
+        }
+
     }
 
-    get active() {
-        return this.depth > 0;
+    async rollback(steps = 1) {
+
+        for (let i = 0; i < steps; i++) {
+
+            await this.undo();
+
+        }
+
+    }
+
+    getActiveHistoryState() {
+
+        return app.activeDocument
+            ?.activeHistoryState;
+
+    }
+
+    getHistoryStates() {
+
+        return app.activeDocument
+            ?.historyStates || [];
+
+    }
+
+    historyCount() {
+
+        return this.getHistoryStates().length;
+
+    }
+
+    isSuspended() {
+
+        return this.suspended;
+
     }
 
 }
-
-export default new HistoryManager();

@@ -1,36 +1,78 @@
 import Logger from "../photoshop/Logger";
-import AlbumPreferences from "./AlbumPreferences";
 
 export default class AlbumPreferencesManager {
 
-    constructor(defaultPreferences = {}) {
+    constructor() {
 
-        this.preferences =
-            new AlbumPreferences(defaultPreferences);
+        this.defaults = {
+
+            recentProjects: [],
+
+            recentTemplates: [],
+
+            recentPhotoFolders: [],
+
+            recentOutputFolders: [],
+
+            favoriteTemplates: [],
+
+            lastProject: null,
+
+            lastTemplate: null,
+
+            lastPhotoFolder: null,
+
+            lastOutputFolder: null,
+
+            window: {
+
+                width: 1400,
+
+                height: 900,
+
+                maximized: false
+
+            },
+
+            ui: {
+
+                sidebarWidth: 280,
+
+                previewZoom: 100,
+
+                selectedTab: "dashboard"
+
+            }
+
+        };
+
+        this.preferences = structuredClone(
+
+            this.defaults
+
+        );
 
     }
 
-    get(key, defaultValue = null) {
+    getAll() {
 
-        return this.preferences.get(
+        return structuredClone(
 
-            key,
-
-            defaultValue
+            this.preferences
 
         );
+
+    }
+
+    get(key) {
+
+        return this.preferences[key];
 
     }
 
     set(key, value) {
 
-        const result = this.preferences.set(
-
-            key,
-
-            value
-
-        );
+        this.preferences[key] = value;
 
         Logger.info(
 
@@ -38,65 +80,127 @@ export default class AlbumPreferencesManager {
 
         );
 
-        return result;
-
-    }
-
-    has(key) {
-
-        return this.preferences.has(key);
-
-    }
-
-    update(values = {}) {
-
-        return this.preferences.update(values);
-
     }
 
     reset() {
 
-        return this.preferences.reset();
+        this.preferences = structuredClone(
+
+            this.defaults
+
+        );
 
     }
 
     addRecentProject(project) {
 
-        this.preferences.addRecentProject(project);
-
-        Logger.info(
-
-            "Recent project added."
-
-        );
-
-    }
-
-    removeRecentProject(project) {
-
-        this.preferences.removeRecentProject(project);
-
-    }
-
-    clearRecentProjects() {
-
-        this.preferences.clearRecentProjects();
-
-        Logger.info(
-
-            "Recent projects cleared."
-
-        );
-
-    }
-
-    recentProjects() {
-
-        return this.get(
+        this.addRecent(
 
             "recentProjects",
 
-            []
+            project
+
+        );
+
+        this.preferences.lastProject = project;
+
+    }
+
+    addRecentTemplate(template) {
+
+        this.addRecent(
+
+            "recentTemplates",
+
+            template
+
+        );
+
+        this.preferences.lastTemplate = template;
+
+    }
+
+    addRecentPhotoFolder(folder) {
+
+        this.addRecent(
+
+            "recentPhotoFolders",
+
+            folder
+
+        );
+
+        this.preferences.lastPhotoFolder = folder;
+
+    }
+
+    addRecentOutputFolder(folder) {
+
+        this.addRecent(
+
+            "recentOutputFolders",
+
+            folder
+
+        );
+
+        this.preferences.lastOutputFolder = folder;
+
+    }
+
+    addFavoriteTemplate(template) {
+
+        if (
+
+            !this.preferences.favoriteTemplates.includes(
+
+                template
+
+            )
+
+        ) {
+
+            this.preferences.favoriteTemplates.push(
+
+                template
+
+            );
+
+        }
+
+    }
+
+    removeFavoriteTemplate(template) {
+
+        this.preferences.favoriteTemplates =
+
+            this.preferences.favoriteTemplates.filter(
+
+                item => item !== template
+
+            );
+
+    }
+
+    addRecent(list, value) {
+
+        const items =
+
+            this.preferences[list];
+
+        const filtered = items.filter(
+
+            item => item !== value
+
+        );
+
+        filtered.unshift(value);
+
+        this.preferences[list] = filtered.slice(
+
+            0,
+
+            10
 
         );
 
@@ -104,49 +208,27 @@ export default class AlbumPreferencesManager {
 
     export() {
 
-        return this.preferences.export();
+        return JSON.stringify(
 
-    }
+            this.preferences,
 
-    import(data = {}) {
+            null,
 
-        return this.preferences.import(data);
-
-    }
-
-    enableNotifications() {
-
-        this.set(
-
-            "showNotifications",
-
-            true
+            2
 
         );
 
     }
 
-    disableNotifications() {
+    import(json) {
 
-        this.set(
+        this.preferences = {
 
-            "showNotifications",
+            ...this.defaults,
 
-            false
+            ...JSON.parse(json)
 
-        );
-
-    }
-
-    notificationsEnabled() {
-
-        return this.get(
-
-            "showNotifications",
-
-            true
-
-        );
+        };
 
     }
 

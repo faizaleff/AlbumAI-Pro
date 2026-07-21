@@ -1,133 +1,231 @@
 import Logger from "../photoshop/Logger";
-import AlbumValidator from "./AlbumValidator";
 
 export default class AlbumValidationService {
 
-    constructor() {
-
-        this.validator =
-            new AlbumValidator();
-
-    }
-
     validate(project) {
 
-        const result =
-            this.validator.validate(project);
+        const report = {
 
-        if (!result.valid) {
+            valid: true,
 
-            Logger.warn(
+            errors: [],
 
-                "Album validation failed."
+            warnings: []
 
+        };
+
+        if (!project) {
+
+            report.errors.push(
+                "Project not found."
             );
 
-            result.errors.forEach(error =>
+            report.valid = false;
 
-                Logger.warn(error)
-
-            );
-        }
-
-        return result;
-
-    }
-
-    validateOrThrow(project) {
-
-        const result =
-            this.validate(project);
-
-        if (!result.valid) {
-
-            throw new Error(
-
-                result.errors.join("\n")
-
-            );
+            return report;
 
         }
 
-        return true;
+        this.validateTemplate(
+            project,
+            report
+        );
+
+        this.validatePhotoFolder(
+            project,
+            report
+        );
+
+        this.validateOutputFolder(
+            project,
+            report
+        );
+
+        this.validateAssignments(
+            project,
+            report
+        );
+
+        this.validateSlots(
+            project,
+            report
+        );
+
+        this.validateImages(
+            project,
+            report
+        );
+
+        report.valid =
+            report.errors.length === 0;
+
+        return report;
 
     }
 
-    validatePhotos(photos = []) {
+    validateTemplate(project, report) {
 
-        const valid =
+        if (!project.template) {
 
-            this.validator.validatePhotos(
-
-                photos
-
-            );
-
-        if (!valid) {
-
-            Logger.warn(
-
-                "Invalid photo collection."
-
-            );
-
-        }
-
-        return valid;
-
-    }
-
-    validateTemplate(template) {
-
-        const valid =
-
-            this.validator.validateTemplate(
-
-                template
-
-            );
-
-        if (!valid) {
-
-            Logger.warn(
-
-                "Template validation failed."
-
+            report.errors.push(
+                "Template not selected."
             );
 
         }
 
-        return valid;
+    }
+
+    validatePhotoFolder(project, report) {
+
+        if (!project.photoFolder) {
+
+            report.errors.push(
+                "Photo folder not selected."
+            );
+
+        }
 
     }
 
-    validateOutputFolder(folder) {
+    validateOutputFolder(project, report) {
 
-        const valid =
+        if (!project.outputFolder) {
 
-            this.validator.validateOutputFolder(
-
-                folder
-
+            report.errors.push(
+                "Output folder not selected."
             );
 
-        if (!valid) {
+        }
 
-            Logger.warn(
+    }
 
-                "Output folder validation failed."
+    validateAssignments(project, report) {
+
+        const assignments =
+            project.assignments || [];
+
+        const used = new Set();
+
+        for (const assignment of assignments) {
+
+            if (!assignment.layerId) {
+
+                report.errors.push(
+
+                    "Missing layer ID."
+
+                );
+
+            }
+
+            if (!assignment.image) {
+
+                report.errors.push(
+
+                    `Layer "${assignment.layerId}" has no assigned image.`
+
+                );
+
+            }
+
+            if (
+
+                assignment.image &&
+
+                used.has(assignment.image)
+
+            ) {
+
+                report.warnings.push(
+
+                    `Duplicate image: ${assignment.image}`
+
+                );
+
+            }
+
+            used.add(
+                assignment.image
+            );
+
+        }
+
+    }
+
+    validateSlots(project, report) {
+
+        const slots =
+            project.slots || [];
+
+        if (slots.length === 0) {
+
+            report.warnings.push(
+
+                "No photo slots detected."
 
             );
 
         }
 
-        return valid;
+    }
+
+    validateImages(project, report) {
+
+        const images =
+            project.images || [];
+
+        if (images.length === 0) {
+
+            report.errors.push(
+
+                "No photos available."
+
+            );
+
+        }
+
+        const slots =
+            project.slots || [];
+
+        if (
+
+            slots.length > 0 &&
+
+            images.length < slots.length
+
+        ) {
+
+            report.warnings.push(
+
+                "Photos are fewer than available slots."
+
+            );
+
+        }
 
     }
 
-    canGenerate(project) {
+    log(report) {
 
-        return this.validate(project).valid;
+        if (report.valid) {
+
+            Logger.info(
+
+                "Album validation successful."
+
+            );
+
+        } else {
+
+            Logger.error(
+
+                report.errors.join("\n")
+
+            );
+
+        }
+
+        return report;
 
     }
 

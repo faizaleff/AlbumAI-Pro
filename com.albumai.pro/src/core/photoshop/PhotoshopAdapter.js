@@ -1,212 +1,208 @@
-// ============================================================================
-// File: src/core/photoshop/PhotoshopAdapter.js
-// AlbumAI Pro
-// ============================================================================
-
 import { app, core } from "photoshop";
 
-import BatchPlay from "./BatchPlay";
+import DocumentManager from "./DocumentManager";
+import SmartObjectManager from "./SmartObjectManager";
+import BatchPlayService from "./BatchPlayService";
 import Logger from "./Logger";
 
-class PhotoshopAdapter {
+export default class PhotoshopAdapter {
 
-    // ---------------------------------------------------------------------
-    // DOCUMENTS
-    // ---------------------------------------------------------------------
+    constructor({
 
-    activeDocument() {
+        documentManager = new DocumentManager(),
 
-        return app.activeDocument ?? null;
+        smartObjectManager = new SmartObjectManager(),
+
+        batchPlayService = new BatchPlayService()
+
+    } = {}) {
+
+        this.documents = documentManager;
+
+        this.smartObjects = smartObjectManager;
+
+        this.batchPlay = batchPlayService;
 
     }
 
-    documents() {
+    async execute(commandName, callback) {
 
-        return [...app.documents];
+        try {
+
+            return await core.executeAsModal(
+
+                callback,
+
+                {
+
+                    commandName
+
+                }
+
+            );
+
+        }
+
+        catch (error) {
+
+            Logger.error(error);
+
+            throw error;
+
+        }
 
     }
 
-    async open(file) {
+    async openDocument(file) {
 
-        if (!file)
-            throw new Error("File is required.");
+        return this.documents.open(file);
 
-        Logger.info(`Opening ${file.name}`);
+    }
 
-        return core.executeAsModal(
-            () => app.open(file),
-            { commandName: "Open Album Document" }
+    async activateDocument(document) {
+
+        return this.documents.activate(document);
+
+    }
+
+    async saveDocument(document) {
+
+        return this.documents.save(document);
+
+    }
+
+    async saveDocumentAs(document, file, options = {}) {
+
+        return this.documents.saveAs(
+
+            document,
+
+            file,
+
+            options
+
         );
 
     }
 
-    async save(document = this.activeDocument()) {
+    async closeDocument(document, save = false) {
 
-        if (!document)
-            throw new Error("No active document.");
+        return this.documents.close(
 
-        Logger.info(`Saving ${document.title}`);
+            document,
 
-        await core.executeAsModal(
-            () => document.save(),
-            { commandName: "Save Album Document" }
+            save
+
         );
 
-        return document;
+    }
+
+    getActiveDocument() {
+
+        return this.documents.getActive();
 
     }
 
-    async close(document, options = {}) {
+    getDocuments() {
 
-        if (!document)
-            return;
-
-        Logger.info(`Closing ${document.title}`);
-
-        const { save = false } = typeof options === "boolean" ? { save: options } : options;
-
-        await core.executeAsModal(async () => {
-            if (save && !document.saved) await document.save();
-            await document.close({ save: false });
-        }, { commandName: "Close Album Document" });
+        return this.documents.list();
 
     }
 
-    async activate(document) {
+    async openSmartObject(layerId) {
 
-        if (!document)
-            throw new Error("Document is required.");
-
-        await core.executeAsModal(() => {
-            app.activeDocument = document;
-        }, { commandName: "Activate Album Document" });
-
-        return document;
+        return this.smartObjects.open(layerId);
 
     }
 
-    // ---------------------------------------------------------------------
-    // LAYERS
-    // ---------------------------------------------------------------------
+    async replaceSmartObject({
 
-    async selectLayer(layer) {
+        layerId,
 
-        if (!layer)
-            throw new Error("Layer is required.");
+        fileToken
 
-        return BatchPlay.selectLayer(layer.id);
+    }) {
 
-    }
+        return this.smartObjects.replace({
 
-    async deleteLayer(layer) {
+            layerId,
 
-        await this.selectLayer(layer);
-
-        return BatchPlay.deleteSelectedLayer();
-
-    }
-
-    async getEditableLayers() {
-
-        const document = this.activeDocument();
-
-        if (!document)
-            return [];
-
-        return document.layers.filter(layer => {
-
-            if (layer.locked)
-                return false;
-
-            if (
-                layer.kind === "background"
-            )
-                return false;
-
-            return true;
+            fileToken
 
         });
 
     }
 
-    // ---------------------------------------------------------------------
-    // SMART OBJECTS
-    // ---------------------------------------------------------------------
+    async saveSmartObject() {
 
-    async editSmartObject(layer) {
+        return this.smartObjects.save();
 
-        if (!layer)
-            throw new Error("Layer required.");
+    }
 
-        await core.executeAsModal(
-            () => layer.editContents(),
-            { commandName: "Open Smart Object" }
+    async closeSmartObject() {
+
+        return this.smartObjects.close();
+
+    }
+
+    async batch(commands, options = {}) {
+
+        return this.batchPlay.execute(
+
+            commands,
+
+            options
+
         );
 
-        return app.activeDocument;
-
     }
 
-    async placeImage(imageFile) {
+    async batchOne(command, options = {}) {
 
-        if (!imageFile)
-            throw new Error("Image file required.");
+        return this.batchPlay.executeSingle(
 
-        const document =
-            this.activeDocument();
+            command,
 
-        await core.executeAsModal(
-            () => document.place(imageFile),
-            { commandName: "Place Smart Object Image" }
+            options
+
         );
 
-        return document.activeLayers[0];
+    }
+
+    async get(target) {
+
+        return this.batchPlay.get(target);
 
     }
 
-    // ---------------------------------------------------------------------
-    // TRANSFORMS
-    // ---------------------------------------------------------------------
+    async set(target, value) {
 
-    async move(layer, { x = 0, y = 0 }) {
+        return this.batchPlay.set(
 
-        await this.selectLayer(layer);
+            target,
 
-        return BatchPlay.transform({
+            value
 
-            offsetX: x,
-
-            offsetY: y
-
-        });
+        );
 
     }
 
-    async transform(layer, options = {}) {
+    async delete(target) {
 
-        await this.selectLayer(layer);
+        return this.batchPlay.delete(target);
 
-        return BatchPlay.transform({
+    }
 
-            scaleX:
-                options.scaleX ?? 100,
+    async select(target) {
 
-            scaleY:
-                options.scaleY ?? 100,
+        return this.batchPlay.select(target);
 
-            offsetX:
-                options.x ?? 0,
+    }
 
-            offsetY:
-                options.y ?? 0,
+    getApplication() {
 
-            angle:
-                options.angle ?? 0
-
-        });
+        return app;
 
     }
 
 }
-
-export default PhotoshopAdapter;

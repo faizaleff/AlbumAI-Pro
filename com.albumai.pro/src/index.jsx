@@ -1,46 +1,122 @@
 import React from "react";
+import { createRoot } from "react-dom/client";
 
-import "./styles.css";
+import App from "./App";
 
-import { PanelController } from "./controllers/PanelController.jsx";
-import { AlbumBrowser } from "./panels/AlbumBrowser.jsx";
+import "./styles/index.css";
 
-import { entrypoints } from "uxp";
+import {
 
-const albumController = new PanelController(
-    () => <AlbumBrowser />,
-    {
-        id: "albumai",
-        menuItems: [
-            {
-                id: "reload",
-                label: "Reload AlbumAI",
-                enabled: true,
-                checked: false,
-                oninvoke: () => location.reload()
-            }
-        ]
+    start,
+
+    stop
+
+} from "./main";
+
+async function initialize() {
+
+    try {
+
+        await start();
+
     }
+
+    catch (error) {
+
+        console.error(
+
+            "AlbumAI initialization failed.",
+
+            error
+
+        );
+
+    }
+
+}
+
+initialize();
+
+const container =
+
+    document.getElementById("root");
+
+if (!container) {
+
+    throw new Error(
+
+        'Root element "#root" not found.'
+
+    );
+
+}
+
+const root =
+
+    createRoot(container);
+
+root.render(
+
+    <React.StrictMode>
+
+        <App />
+
+    </React.StrictMode>
+
 );
 
-entrypoints.setup({
+if (
 
-    plugin: {
+    typeof window !== "undefined"
 
-        create(plugin) {
-            console.log("AlbumAI Started", plugin);
-        },
+) {
 
-        destroy() {
-            console.log("AlbumAI Closed");
+    window.addEventListener(
+
+        "beforeunload",
+
+        async () => {
+
+            try {
+
+                await stop();
+
+            }
+
+            catch (error) {
+
+                console.error(
+
+                    "AlbumAI shutdown failed.",
+
+                    error
+
+                );
+
+            }
+
         }
 
-    },
+    );
 
-    panels: {
+}
 
-        albumai: albumController
+if (
 
-    }
+    import.meta?.hot
 
-});
+) {
+
+    import.meta.hot.accept();
+
+    import.meta.hot.dispose(
+
+        async () => {
+
+            await stop();
+
+        }
+
+    );
+
+}
