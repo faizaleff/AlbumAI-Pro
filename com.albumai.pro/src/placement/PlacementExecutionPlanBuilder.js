@@ -80,7 +80,10 @@ export default class PlacementExecutionPlanBuilder {
 
         });
 
+        const createdAt = new Date().toISOString();
+
         return new ExecutionPlan({
+            id: this.id(placementResult, createdAt),
             projectId: placementResult.projectId,
             templateId: placementResult.templateId,
             templateDocumentId: placementResult.templateDocumentId,
@@ -91,7 +94,7 @@ export default class PlacementExecutionPlanBuilder {
                 warningCount: warnings.length,
                 reusedPhotos: this.reusedPhotoCount(steps)
             },
-            createdAt: new Date().toISOString()
+            createdAt
         });
 
     }
@@ -177,6 +180,17 @@ export default class PlacementExecutionPlanBuilder {
     reusedPhotoCount(steps) {
 
         return steps.length - new Set(steps.map(step => step.photoId)).size;
+
+    }
+
+    id(placementResult, createdAt) {
+
+        return [
+            "execution-plan",
+            placementResult.templateId,
+            placementResult.templateDocumentId,
+            createdAt
+        ].join(":");
 
     }
 

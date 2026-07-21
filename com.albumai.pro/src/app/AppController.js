@@ -9,6 +9,7 @@ import TemplateRegistry from "../services/TemplateRegistry";
 import Template from "../templates/Template";
 import PhotoPlacementEngine from "../placement/PhotoPlacementEngine";
 import PlacementExecutionPlanBuilder from "../placement/PlacementExecutionPlanBuilder";
+import ReplacementRequest from "../placement/ReplacementRequest";
 
 class AppController {
 
@@ -36,6 +37,7 @@ class AppController {
         this.placementExecutionPlanBuilder = new PlacementExecutionPlanBuilder();
         this.currentPlacementPlan = null;
         this.currentPlacementExecutionPlan = null;
+        this.currentReplacementRequest = null;
 
     }
 
@@ -151,6 +153,7 @@ class AppController {
         });
 
         this.currentPlacementExecutionPlan = executionPlan;
+        this.clearCurrentReplacementRequest();
 
         return executionPlan;
 
@@ -165,6 +168,31 @@ class AppController {
     clearCurrentPlacementExecutionPlan() {
 
         this.currentPlacementExecutionPlan = null;
+        this.clearCurrentReplacementRequest();
+
+    }
+
+    buildReplacementRequest() {
+
+        const request = new ReplacementRequest({
+            executionPlan: this.currentPlacementExecutionPlan
+        });
+
+        this.currentReplacementRequest = request;
+
+        return request;
+
+    }
+
+    getCurrentReplacementRequest() {
+
+        return this.currentReplacementRequest;
+
+    }
+
+    clearCurrentReplacementRequest() {
+
+        this.currentReplacementRequest = null;
 
     }
 

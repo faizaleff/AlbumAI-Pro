@@ -3,6 +3,7 @@ export default class ExecutionPlan {
     constructor(data = {}) {
 
         return ExecutionPlan.freeze({
+            id: data.id ?? null,
             projectId: data.projectId ?? null,
             templateId: data.templateId ?? null,
             templateDocumentId: data.templateDocumentId ?? null,
