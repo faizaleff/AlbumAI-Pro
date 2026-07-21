@@ -102,6 +102,12 @@ export default function OpenFolder() {
     const openTemplate = file =>
         App.openTemplateDocument(file);
 
+    const planPhotoPlacement = options =>
+        App.planPhotoPlacement(options);
+
+    const getCurrentPlacementPlan = () =>
+        App.getCurrentPlacementPlan();
+
     return (
 
         <div
@@ -161,6 +167,8 @@ export default function OpenFolder() {
                 <TemplateDocumentPanel
                     loadTemplates={loadTemplates}
                     openTemplate={openTemplate}
+                    planPhotoPlacement={planPhotoPlacement}
+                    getCurrentPlacementPlan={getCurrentPlacementPlan}
                 />
 
                 <div

@@ -46,12 +46,18 @@ function textPreview(text) {
 
 export default function TemplateDocumentPanel({
     loadTemplates,
-    openTemplate
+    openTemplate,
+    planPhotoPlacement,
+    getCurrentPlacementPlan
 }) {
 
     const [templates, setTemplates] = useState([]);
     const [selectedName, setSelectedName] = useState("");
     const [document, setDocument] = useState(null);
+    const [, setPlacementVersion] = useState(0);
+    const [placementError, setPlacementError] = useState(null);
+
+    const placementPlan = getCurrentPlacementPlan?.() || null;
 
     useEffect(() => {
 
@@ -92,6 +98,26 @@ export default function TemplateDocumentPanel({
         const result = await openTemplate(file);
 
         setDocument(result);
+        setPlacementError(null);
+        setPlacementVersion(value => value + 1);
+
+    }
+
+    function planPlacement() {
+
+        try {
+
+            planPhotoPlacement?.();
+            setPlacementError(null);
+            setPlacementVersion(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            setPlacementError(error.message);
+
+        }
 
     }
 
@@ -129,6 +155,13 @@ export default function TemplateDocumentPanel({
                     disabled={!selectedName}
                 >
                     Open PSD
+                </button>
+
+                <button
+                    onClick={planPlacement}
+                    disabled={!document}
+                >
+                    Plan Placement
                 </button>
 
             </div>
@@ -170,6 +203,25 @@ export default function TemplateDocumentPanel({
 
                 <div style={{ marginTop: 10, fontSize: 12 }}>
                     <LayerTree layers={document.layerTree} />
+                </div>
+
+            )}
+
+            {placementPlan && (
+
+                <div style={{ marginTop: 10, fontSize: 12 }}>
+                    <div>Assigned Slots: {placementPlan.statistics.assignedSlots}</div>
+                    <div>Empty Slots: {placementPlan.statistics.emptySlots}</div>
+                    <div>Unassigned Photos: {placementPlan.statistics.unassignedPhotos}</div>
+                    <div>Warnings: {placementPlan.warnings.length}</div>
+                </div>
+
+            )}
+
+            {placementError && (
+
+                <div style={{ marginTop: 10, fontSize: 12, color: "#ff9999" }}>
+                    Placement Plan: {placementError}
                 </div>
 
             )}

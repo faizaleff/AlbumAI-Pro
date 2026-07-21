@@ -7,6 +7,7 @@ import RecentFilesService from "../services/RecentFilesService";
 import TemplateDocumentReader from "../services/TemplateDocumentReader";
 import TemplateRegistry from "../services/TemplateRegistry";
 import Template from "../templates/Template";
+import PhotoPlacementEngine from "../placement/PhotoPlacementEngine";
 
 class AppController {
 
@@ -30,18 +31,32 @@ class AppController {
             projectEngine: this.project
         });
         this.templateRegistry = new TemplateRegistry();
+        this.photoPlacementEngine = new PhotoPlacementEngine();
+        this.currentPlacementPlan = null;
 
     }
 
-    createProject(options) {
+    async createProject(options) {
 
-        return this.projectService.createProject(options);
+        const project = await this.projectService.createProject(options);
+
+        if (project) {
+            this.clearCurrentPlacementPlan();
+        }
+
+        return project;
 
     }
 
-    openProject(folder) {
+    async openProject(folder) {
 
-        return this.projectService.openProject(folder);
+        const project = await this.projectService.openProject(folder);
+
+        if (project) {
+            this.clearCurrentPlacementPlan();
+        }
+
+        return project;
 
     }
 
@@ -53,6 +68,8 @@ class AppController {
 
     closeProject() {
 
+        this.clearCurrentPlacementPlan();
+
         return this.projectService.closeProject();
 
     }
@@ -63,21 +80,59 @@ class AppController {
 
     }
 
-    importPhotos(folder) {
+    async importPhotos(folder) {
 
-        return this.photoWorkspace.importPhotos(folder);
+        const photos = await this.photoWorkspace.importPhotos(folder);
+
+        if (photos) {
+            this.clearCurrentPlacementPlan();
+        }
+
+        return photos;
 
     }
 
-    refreshPhotos() {
+    async refreshPhotos() {
 
-        return this.photoWorkspace.refreshPhotos();
+        const photos = await this.photoWorkspace.refreshPhotos();
+
+        this.clearCurrentPlacementPlan();
+
+        return photos;
 
     }
 
-    removePhotos() {
+    async removePhotos() {
 
-        return this.photoWorkspace.removePhotos();
+        await this.photoWorkspace.removePhotos();
+        this.clearCurrentPlacementPlan();
+
+    }
+
+    planPhotoPlacement(options = {}) {
+
+        const placement = this.photoPlacementEngine.plan({
+            project: this.project.getProject(),
+            photos: this.photoWorkspace.getPhotos(),
+            template: this.templateRegistry.current(),
+            options
+        });
+
+        this.currentPlacementPlan = placement;
+
+        return placement;
+
+    }
+
+    getCurrentPlacementPlan() {
+
+        return this.currentPlacementPlan;
+
+    }
+
+    clearCurrentPlacementPlan() {
+
+        this.currentPlacementPlan = null;
 
     }
 
@@ -98,6 +153,8 @@ class AppController {
         const analysis = await this.templateDocumentReader.read(file);
         const template = new Template(analysis);
 
+        this.clearCurrentPlacementPlan();
+
         return this.templateRegistry.register(template);
 
     }
@@ -114,6 +171,7 @@ class AppController {
 
         if (closed) {
             this.templateRegistry.clear();
+            this.clearCurrentPlacementPlan();
         }
 
         return closed;
