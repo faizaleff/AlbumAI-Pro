@@ -15,6 +15,16 @@ export async function openWeddingFolder() {
         return null;
     }
 
+    return importPhotoFolder(folder);
+
+}
+
+export async function importPhotoFolder(folder) {
+
+    if (!folder) {
+        return null;
+    }
+
     const files = await folder.getEntries();
 
     ThumbnailQueue.clear();

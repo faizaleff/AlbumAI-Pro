@@ -1,13 +1,10 @@
 import React, { useEffect, useState } from "react";
 
-import { openWeddingFolder } from "../services/FolderService";
-
 import ThumbnailGrid from "./ThumbnailGrid";
 import PreviewPanel from "./PreviewPanel";
 import Toolbar from "./Toolbar";
 
 import App from "../app/AppController";
-import ThumbnailWorker from "../queue/ThumbnailWorker";
 import RefreshService from "../services/RefreshService";
 
 export default function OpenFolder() {
@@ -31,27 +28,20 @@ export default function OpenFolder() {
 
         try {
 
-            const result = await openWeddingFolder();
+            const photos = await App.importPhotos();
 
-            if (!result) return;
+            if (!photos) return;
 
-            App.library.load(result.images);
+            if (photos.length > 0) {
 
-            ThumbnailWorker.clear();
-
-            for (const photo of result.images) {
-
-                ThumbnailWorker.add(photo);
+                App.selection.select(photos[0]);
 
             }
 
-            if (result.images.length > 0) {
-
-                App.selection.select(result.images[0]);
-
-            }
-
-            setFolderName(result.folder.name);
+            setFolderName(
+                App.project.getProject()?.metadata?.photoSource?.name ||
+                ""
+            );
 
             forceRefresh(value => value + 1);
 
@@ -64,9 +54,21 @@ export default function OpenFolder() {
 
     }
 
-    function refreshFolder() {
+    async function refreshFolder() {
 
-        forceRefresh(value => value + 1);
+        try {
+
+            await App.refreshPhotos();
+
+            forceRefresh(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            console.error("Refresh photos:", error);
+
+        }
 
     }
 
@@ -120,7 +122,7 @@ export default function OpenFolder() {
                     onRefresh={refreshFolder}
                     onSelectAll={selectAll}
                     onClearSelection={clearSelection}
-                    photoCount={App.library.getPhotos().length}
+                    photoCount={App.getPhotos().length}
                     selectedCount={App.selection.getSelected().length}
                 />
 
@@ -144,7 +146,7 @@ export default function OpenFolder() {
                             fontSize: 13
                         }}
                     >
-                        Photos : {App.library.getPhotos().length}
+                        Photos : {App.getPhotos().length}
                         {"  |  "}
                         Selected : {App.selection.getSelected().length}
                     </div>
@@ -157,7 +159,7 @@ export default function OpenFolder() {
                     }}
                 >
                     <ThumbnailGrid
-                        photos={App.library.getPhotos()}
+                        photos={App.getPhotos()}
                         onPhotoClick={onPhotoClick}
                     />
                 </div>

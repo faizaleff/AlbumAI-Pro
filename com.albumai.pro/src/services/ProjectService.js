@@ -164,6 +164,11 @@ export default class ProjectService {
 
         }
 
+        workspace.cache = await this.ensureCacheFolders(
+            workspace.cache,
+            createMissing
+        );
+
         if (!workspace.projectFile && createMissing) {
             workspace.projectFile = await folder.createFile(
                 PROJECT_FILE,
@@ -172,6 +177,44 @@ export default class ProjectService {
         }
 
         return workspace;
+
+    }
+
+    async ensureCacheFolders(cacheFolder, createMissing) {
+
+        if (!cacheFolder) {
+            return {
+                root: null,
+                thumbnails: null,
+                metadata: null
+            };
+        }
+
+        const entries = await cacheFolder.getEntries();
+        const byName = new Map(
+            entries.map(entry => [entry.name, entry])
+        );
+        const cache = { root: cacheFolder };
+
+        for (const name of ["thumbnails", "metadata"]) {
+
+            let folder = byName.get(name);
+
+            if (!folder && createMissing) {
+                folder = await cacheFolder.createFolder(name);
+            }
+
+            if (folder && !folder.isFolder) {
+                throw new Error(
+                    `${name} must be a cache folder.`
+                );
+            }
+
+            cache[name] = folder || null;
+
+        }
+
+        return cache;
 
     }
 
