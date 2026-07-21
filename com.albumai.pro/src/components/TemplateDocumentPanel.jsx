@@ -1,5 +1,37 @@
 import React, { useEffect, useState } from "react";
 
+function LayerTree({ layers = [], depth = 0 }) {
+
+    return (
+
+        <ul
+            style={{
+                margin: 0,
+                paddingLeft: depth ? 16 : 0,
+                listStyle: "none"
+            }}
+        >
+
+            {layers.map(layer => (
+                <li key={layer.id} style={{ marginTop: 4 }}>
+                    <span>
+                        {layer.children.length ? "Group" : "Layer"}: {layer.name}
+                    </span>
+                    {layer.children.length > 0 && (
+                        <LayerTree
+                            layers={layer.children}
+                            depth={depth + 1}
+                        />
+                    )}
+                </li>
+            ))}
+
+        </ul>
+
+    );
+
+}
+
 export default function TemplateDocumentPanel({
     loadTemplates,
     openTemplate
@@ -96,6 +128,14 @@ export default function TemplateDocumentPanel({
                     <div>Width × Height: {document.width} × {document.height}</div>
                     <div>Resolution: {document.resolution}</div>
                     <div>Layer Count: {document.layerCount}</div>
+                </div>
+
+            )}
+
+            {document?.layerTree && (
+
+                <div style={{ marginTop: 10, fontSize: 12 }}>
+                    <LayerTree layers={document.layerTree} />
                 </div>
 
             )}

@@ -1,10 +1,12 @@
 import DocumentManager from "../core/document/DocumentManager";
+import TemplateLayerTreeReader from "./TemplateLayerTreeReader";
 
 export default class TemplateDocumentReader {
 
     constructor({
         projectEngine,
-        documentManager = new DocumentManager()
+        documentManager = new DocumentManager(),
+        layerTreeReader = new TemplateLayerTreeReader()
     } = {}) {
 
         if (!projectEngine) {
@@ -13,6 +15,7 @@ export default class TemplateDocumentReader {
 
         this.projectEngine = projectEngine;
         this.documentManager = documentManager;
+        this.layerTreeReader = layerTreeReader;
 
     }
 
@@ -42,7 +45,8 @@ export default class TemplateDocumentReader {
             resolution: this.number(document.resolution),
             colorMode: document.mode || null,
             bitDepth: document.bitsPerChannel || null,
-            layerCount: document.layers?.length || 0
+            layerCount: document.layers?.length || 0,
+            layerTree: this.layerTreeReader.read(document)
         };
 
     }
