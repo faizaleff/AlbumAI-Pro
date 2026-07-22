@@ -18,6 +18,9 @@ import ProjectExecutor from "../project/ProjectExecutor";
 import ProjectExecutionSummary, {
     ProjectExecutionStatus
 } from "../project/ProjectExecutionSummary";
+import TemplateAutoSaveService, {
+    AutoSaveMode
+} from "../services/TemplateAutoSaveService";
 
 class AppController {
 
@@ -52,11 +55,18 @@ class AppController {
         });
         this.currentExecutionSummary = null;
         this.currentBatchProgress = new BatchProgress();
+        this.autoSaveEnabled = false;
+        this.autoSaveMode = AutoSaveMode.SAVE_COPY;
+        this.currentAutoSaveResult = null;
+        this.templateAutoSaveService = new TemplateAutoSaveService({
+            documentManager: this.replacementStepExecutor.documentManager
+        });
         this.projectExecutor = new ProjectExecutor({
             templateRegistry: this.templateRegistry,
             photoPlacementEngine: this.photoPlacementEngine,
             placementExecutionPlanBuilder: this.placementExecutionPlanBuilder,
-            replacementBatchExecutor: this.replacementBatchExecutor
+            replacementBatchExecutor: this.replacementBatchExecutor,
+            templateAutoSaveService: this.templateAutoSaveService
         });
         this.currentProjectExecutionSummary = null;
 
@@ -184,6 +194,7 @@ class AppController {
         this.currentPlacementPlan = null;
         this.clearCurrentPlacementExecutionPlan();
         this.clearProjectExecutionSummary();
+        this.clearCurrentAutoSaveResult();
 
     }
 
@@ -258,6 +269,7 @@ class AppController {
         this.currentReplacementRequest = null;
         this.clearExecutionSummary();
         this.clearBatchProgress();
+        this.clearCurrentAutoSaveResult();
 
     }
 
@@ -268,6 +280,7 @@ class AppController {
 
         this.clearExecutionSummary();
         this.clearBatchProgress();
+        this.clearCurrentAutoSaveResult();
 
         if (!project || !request || !Array.isArray(request.steps) || !request.steps.length) {
             const startedAt = new Date().toISOString();
@@ -303,6 +316,13 @@ class AppController {
         );
 
         this.replacementStepExecutor.documentManager.sync();
+        this.currentAutoSaveResult = await this.templateAutoSaveService.save({
+            project,
+            template: this.templateRegistry.current(),
+            executionSummary: this.currentExecutionSummary,
+            enabled: this.autoSaveEnabled,
+            mode: this.autoSaveMode
+        });
 
         return this.currentExecutionSummary;
 
@@ -332,6 +352,48 @@ class AppController {
 
     }
 
+    setAutoSaveEnabled(enabled) {
+
+        this.autoSaveEnabled = enabled === true;
+        this.clearCurrentAutoSaveResult();
+
+    }
+
+    getAutoSaveEnabled() {
+
+        return this.autoSaveEnabled;
+
+    }
+
+    setAutoSaveMode(mode) {
+
+        if (!Object.values(AutoSaveMode).includes(mode)) {
+            throw new Error("Auto Save mode is unavailable.");
+        }
+
+        this.autoSaveMode = mode;
+        this.clearCurrentAutoSaveResult();
+
+    }
+
+    getAutoSaveMode() {
+
+        return this.autoSaveMode;
+
+    }
+
+    getCurrentAutoSaveResult() {
+
+        return this.currentAutoSaveResult;
+
+    }
+
+    clearCurrentAutoSaveResult() {
+
+        this.currentAutoSaveResult = null;
+
+    }
+
     async executeProject(onUpdate) {
 
         const project = this.project.getProject();
@@ -343,6 +405,7 @@ class AppController {
         this.clearExecutionSummary();
         this.clearBatchProgress();
         this.clearProjectExecutionSummary();
+        this.clearCurrentAutoSaveResult();
 
         if (!project || !templates.length || !photos.length) {
             this.currentProjectExecutionSummary = new ProjectExecutionSummary({
@@ -376,7 +439,12 @@ class AppController {
 
         this.currentProjectExecutionSummary = await this.projectExecutor.execute({
             project,
-            photos
+            photos,
+            autoSaveEnabled: this.autoSaveEnabled,
+            autoSaveMode: this.autoSaveMode,
+            onAutoSaveResult: result => {
+                this.currentAutoSaveResult = result;
+            }
         });
 
         if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);

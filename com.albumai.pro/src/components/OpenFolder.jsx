@@ -235,12 +235,29 @@ export default function OpenFolder() {
     const getCurrentTemplate = () =>
         App.getCurrentTemplate();
 
+    const setAutoSaveEnabled = enabled =>
+        App.setAutoSaveEnabled(enabled);
+
+    const getAutoSaveEnabled = () =>
+        App.getAutoSaveEnabled();
+
+    const setAutoSaveMode = mode =>
+        App.setAutoSaveMode(mode);
+
+    const getAutoSaveMode = () =>
+        App.getAutoSaveMode();
+
+    const getCurrentAutoSaveResult = () =>
+        App.getCurrentAutoSaveResult();
+
     return (
 
         <div
             style={{
                 display: "flex",
                 height: "100vh",
+                minHeight: 0,
+                overflow: "hidden",
                 color: "#ffffff",
                 background: "#1e1e1e"
             }}
@@ -252,7 +269,9 @@ export default function OpenFolder() {
                     display: "flex",
                     flexDirection: "column",
                     padding: 15,
-                    overflow: "hidden"
+                    minHeight: 0,
+                    overflowY: "auto",
+                    overflowX: "hidden"
                 }}
             >
 
@@ -350,12 +369,18 @@ export default function OpenFolder() {
                     getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
                     getPhotos={getPhotos}
                     getCurrentTemplate={getCurrentTemplate}
+                    setAutoSaveEnabled={setAutoSaveEnabled}
+                    getAutoSaveEnabled={getAutoSaveEnabled}
+                    setAutoSaveMode={setAutoSaveMode}
+                    getAutoSaveMode={getAutoSaveMode}
+                    getCurrentAutoSaveResult={getCurrentAutoSaveResult}
                     hasProject={hasProject}
                 />
 
                 <div
                     style={{
                         flex: 1,
+                        minHeight: 0,
                         overflow: "hidden"
                     }}
                 >
