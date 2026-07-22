@@ -250,6 +250,21 @@ export default function OpenFolder() {
     const getCurrentAutoSaveResult = () =>
         App.getCurrentAutoSaveResult();
 
+    const setExportEnabled = enabled =>
+        App.setExportEnabled(enabled);
+
+    const getExportEnabled = () =>
+        App.getExportEnabled();
+
+    const setExportFormat = format =>
+        App.setExportFormat(format);
+
+    const getExportFormat = () =>
+        App.getExportFormat();
+
+    const getCurrentExportResult = () =>
+        App.getCurrentExportResult();
+
     return (
 
         <div
@@ -374,6 +389,11 @@ export default function OpenFolder() {
                     setAutoSaveMode={setAutoSaveMode}
                     getAutoSaveMode={getAutoSaveMode}
                     getCurrentAutoSaveResult={getCurrentAutoSaveResult}
+                    setExportEnabled={setExportEnabled}
+                    getExportEnabled={getExportEnabled}
+                    setExportFormat={setExportFormat}
+                    getExportFormat={getExportFormat}
+                    getCurrentExportResult={getCurrentExportResult}
                     hasProject={hasProject}
                 />
 

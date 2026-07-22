@@ -3,6 +3,7 @@ import ProjectExecutionSummary, {
     ProjectExecutionStatus
 } from "./ProjectExecutionSummary";
 import AutoSaveResult, { AutoSaveStatus } from "../services/AutoSaveResult";
+import ExportResult, { ExportStatus } from "../services/ExportResult";
 
 /** Coordinates deterministic template execution through the batch executor. */
 export default class ProjectExecutor {
@@ -12,7 +13,8 @@ export default class ProjectExecutor {
         photoPlacementEngine,
         placementExecutionPlanBuilder,
         replacementBatchExecutor,
-        templateAutoSaveService
+        templateAutoSaveService,
+        templateExportService
     } = {}) {
 
         if (!templateRegistry) throw new Error("A template registry is required.");
@@ -25,6 +27,7 @@ export default class ProjectExecutor {
         this.placementExecutionPlanBuilder = placementExecutionPlanBuilder;
         this.replacementBatchExecutor = replacementBatchExecutor;
         this.templateAutoSaveService = templateAutoSaveService;
+        this.templateExportService = templateExportService;
 
     }
 
@@ -33,7 +36,10 @@ export default class ProjectExecutor {
         photos = [],
         autoSaveEnabled = false,
         autoSaveMode = "SAVE_COPY",
-        onAutoSaveResult
+        onAutoSaveResult,
+        exportEnabled = false,
+        exportFormat = "JPEG",
+        onExportResult
     } = {}) {
 
         const startedAt = new Date().toISOString();
@@ -77,13 +83,29 @@ export default class ProjectExecutor {
                     onAutoSaveResult(autoSaveResult);
                 }
 
+                const exportResult = await this.exportTemplate({
+                    project,
+                    template,
+                    autoSaveResult,
+                    enabled: exportEnabled,
+                    format: exportFormat
+                });
+
+                if (typeof onExportResult === "function") {
+                    onExportResult(exportResult);
+                }
+
                 templateResults.push({
                     templateId: template.id,
                     templateName: template.name,
                     status: executionSummary.status,
                     executionSummary,
                     autoSaveResult,
-                    warnings: autoSaveResult.warnings
+                    exportResult,
+                    warnings: [
+                        ...autoSaveResult.warnings,
+                        ...exportResult.warnings
+                    ]
                 });
 
                 if (succeeded) {
@@ -175,6 +197,22 @@ export default class ProjectExecutor {
         }
 
         return this.templateAutoSaveService.save(options);
+
+    }
+
+    async exportTemplate(options) {
+
+        if (!this.templateExportService) {
+            return new ExportResult({
+                templateId: options.template?.id ?? null,
+                documentId: options.template?.document?.id ?? null,
+                format: options.format,
+                status: ExportStatus.SKIPPED,
+                warnings: ["Export is unavailable."]
+            });
+        }
+
+        return this.templateExportService.export(options);
 
     }
 

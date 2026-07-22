@@ -21,6 +21,9 @@ import ProjectExecutionSummary, {
 import TemplateAutoSaveService, {
     AutoSaveMode
 } from "../services/TemplateAutoSaveService";
+import TemplateExportService, {
+    ExportFormat
+} from "../services/TemplateExportService";
 
 class AppController {
 
@@ -58,7 +61,13 @@ class AppController {
         this.autoSaveEnabled = false;
         this.autoSaveMode = AutoSaveMode.SAVE_COPY;
         this.currentAutoSaveResult = null;
+        this.exportEnabled = false;
+        this.exportFormat = ExportFormat.JPEG;
+        this.currentExportResult = null;
         this.templateAutoSaveService = new TemplateAutoSaveService({
+            documentManager: this.replacementStepExecutor.documentManager
+        });
+        this.templateExportService = new TemplateExportService({
             documentManager: this.replacementStepExecutor.documentManager
         });
         this.projectExecutor = new ProjectExecutor({
@@ -66,7 +75,8 @@ class AppController {
             photoPlacementEngine: this.photoPlacementEngine,
             placementExecutionPlanBuilder: this.placementExecutionPlanBuilder,
             replacementBatchExecutor: this.replacementBatchExecutor,
-            templateAutoSaveService: this.templateAutoSaveService
+            templateAutoSaveService: this.templateAutoSaveService,
+            templateExportService: this.templateExportService
         });
         this.currentProjectExecutionSummary = null;
 
@@ -195,6 +205,7 @@ class AppController {
         this.clearCurrentPlacementExecutionPlan();
         this.clearProjectExecutionSummary();
         this.clearCurrentAutoSaveResult();
+        this.clearCurrentExportResult();
 
     }
 
@@ -270,6 +281,7 @@ class AppController {
         this.clearExecutionSummary();
         this.clearBatchProgress();
         this.clearCurrentAutoSaveResult();
+        this.clearCurrentExportResult();
 
     }
 
@@ -281,6 +293,7 @@ class AppController {
         this.clearExecutionSummary();
         this.clearBatchProgress();
         this.clearCurrentAutoSaveResult();
+        this.clearCurrentExportResult();
 
         if (!project || !request || !Array.isArray(request.steps) || !request.steps.length) {
             const startedAt = new Date().toISOString();
@@ -323,6 +336,13 @@ class AppController {
             enabled: this.autoSaveEnabled,
             mode: this.autoSaveMode
         });
+        this.currentExportResult = await this.templateExportService.export({
+            project,
+            template: this.templateRegistry.current(),
+            autoSaveResult: this.currentAutoSaveResult,
+            enabled: this.exportEnabled,
+            format: this.exportFormat
+        });
 
         return this.currentExecutionSummary;
 
@@ -356,6 +376,7 @@ class AppController {
 
         this.autoSaveEnabled = enabled === true;
         this.clearCurrentAutoSaveResult();
+        this.clearCurrentExportResult();
 
     }
 
@@ -373,6 +394,7 @@ class AppController {
 
         this.autoSaveMode = mode;
         this.clearCurrentAutoSaveResult();
+        this.clearCurrentExportResult();
 
     }
 
@@ -394,6 +416,48 @@ class AppController {
 
     }
 
+    setExportEnabled(enabled) {
+
+        this.exportEnabled = enabled === true;
+        this.clearCurrentExportResult();
+
+    }
+
+    getExportEnabled() {
+
+        return this.exportEnabled;
+
+    }
+
+    setExportFormat(format) {
+
+        if (!Object.values(ExportFormat).includes(format)) {
+            throw new Error("Export format is unavailable.");
+        }
+
+        this.exportFormat = format;
+        this.clearCurrentExportResult();
+
+    }
+
+    getExportFormat() {
+
+        return this.exportFormat;
+
+    }
+
+    getCurrentExportResult() {
+
+        return this.currentExportResult;
+
+    }
+
+    clearCurrentExportResult() {
+
+        this.currentExportResult = null;
+
+    }
+
     async executeProject(onUpdate) {
 
         const project = this.project.getProject();
@@ -406,6 +470,7 @@ class AppController {
         this.clearBatchProgress();
         this.clearProjectExecutionSummary();
         this.clearCurrentAutoSaveResult();
+        this.clearCurrentExportResult();
 
         if (!project || !templates.length || !photos.length) {
             this.currentProjectExecutionSummary = new ProjectExecutionSummary({
@@ -444,6 +509,11 @@ class AppController {
             autoSaveMode: this.autoSaveMode,
             onAutoSaveResult: result => {
                 this.currentAutoSaveResult = result;
+            },
+            exportEnabled: this.exportEnabled,
+            exportFormat: this.exportFormat,
+            onExportResult: result => {
+                this.currentExportResult = result;
             }
         });
 
