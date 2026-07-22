@@ -1,22 +1,25 @@
 import { imaging } from "photoshop";
 
 const DEFAULT_SIZE = 256;
+const PLACEHOLDER_THUMBNAIL =
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Crect width='100%25' height='100%25' fill='%233a3a3a'/%3E%3Cpath d='M48 192h160L160 112l-32 40-24-24z' fill='%23666'/%3E%3Ccircle cx='96' cy='96' r='16' fill='%23666'/%3E%3C/svg%3E";
 
 class ImagingService {
 
     constructor() {
 
-        this.supported = !!imaging;
+        this.createImageFromFile =
+            typeof imaging?.createImageFromFile === "function"
+                ? imaging.createImageFromFile.bind(imaging)
+                : null;
+        this.supported = !!this.createImageFromFile;
+        this.reportedCapabilities = false;
 
     }
 
     async createThumbnail(photo, size = DEFAULT_SIZE) {
 
-        if (!this.supported) {
-            return null;
-        }
-
-        if (!photo?.file) {
+        if (!photo) {
             return null;
         }
 
@@ -25,6 +28,11 @@ class ImagingService {
             // Already loaded
             if (photo.thumbnail) {
                 return photo.thumbnail;
+            }
+
+            if (!photo.file || !this.createImageFromFile) {
+                this.warnUnavailable();
+                return this.placeholder(photo);
             }
 
             // Prevent duplicate requests
@@ -40,7 +48,7 @@ class ImagingService {
 
             try {
 
-                image = await imaging.createImageFromFile(photo.file);
+                image = await this.createImageFromFile(photo.file);
 
                 blob = await image.getPixels({
                     targetSize: {
@@ -70,12 +78,12 @@ class ImagingService {
 
             photo.loading = false;
 
-            console.error(
+            console.warn(
                 "ImagingService.createThumbnail",
                 error
             );
 
-            return null;
+            return this.placeholder(photo);
 
         }
 
@@ -110,6 +118,32 @@ class ImagingService {
     isSupported() {
 
         return this.supported;
+
+    }
+
+    placeholder(photo) {
+
+        photo.thumbnail = PLACEHOLDER_THUMBNAIL;
+
+        return photo.thumbnail;
+
+    }
+
+    warnUnavailable() {
+
+        if (this.reportedCapabilities) {
+            return;
+        }
+
+        this.reportedCapabilities = true;
+
+        console.warn(
+            "Photoshop imaging.createImageFromFile is unavailable; using placeholder thumbnails.",
+            {
+                hasImagingModule: !!imaging,
+                createImageFromFile: typeof imaging?.createImageFromFile
+            }
+        );
 
     }
 
