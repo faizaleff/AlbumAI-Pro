@@ -60,6 +60,11 @@ export default function TemplateDocumentPanel({
     getCurrentProjectExecutionSummary,
     getPhotos,
     getCurrentTemplate,
+    setAutoSaveEnabled,
+    getAutoSaveEnabled,
+    setAutoSaveMode,
+    getAutoSaveMode,
+    getCurrentAutoSaveResult,
     hasProject = false
 }) {
 
@@ -74,12 +79,17 @@ export default function TemplateDocumentPanel({
         getCurrentBatchProgress?.() || null
     );
     const [projectExecutionSummary, setProjectExecutionSummary] = useState(null);
+    const [autoSaveResult, setAutoSaveResult] = useState(() =>
+        getCurrentAutoSaveResult?.() || null
+    );
 
     const placementPlan = getCurrentPlacementPlan?.() || null;
     const executionPlan = getCurrentPlacementExecutionPlan?.() || null;
     const replacementRequest = getCurrentReplacementRequest?.() || null;
     const healthPhotos = getPhotos?.() || [];
     const healthTemplate = getCurrentTemplate?.() || null;
+    const autoSaveEnabled = getAutoSaveEnabled?.() || false;
+    const autoSaveMode = getAutoSaveMode?.() || "SAVE_COPY";
 
     useEffect(() => {
 
@@ -122,6 +132,7 @@ export default function TemplateDocumentPanel({
             setExecutionSummary(null);
             setBatchProgress(getCurrentBatchProgress?.() || null);
             setProjectExecutionSummary(null);
+            setAutoSaveResult(null);
         }
 
         else if (!replacementRequest) {
@@ -149,6 +160,7 @@ export default function TemplateDocumentPanel({
         setExecutionSummary(null);
         setBatchProgress(getCurrentBatchProgress?.() || null);
         setProjectExecutionSummary(null);
+        setAutoSaveResult(null);
         setPlacementVersion(value => value + 1);
 
     }
@@ -160,6 +172,7 @@ export default function TemplateDocumentPanel({
             planPhotoPlacement?.();
             setPlacementError(null);
             setProjectExecutionSummary(null);
+            setAutoSaveResult(null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -182,6 +195,7 @@ export default function TemplateDocumentPanel({
             setExecutionSummary(null);
             setBatchProgress(getCurrentBatchProgress?.() || null);
             setProjectExecutionSummary(null);
+            setAutoSaveResult(null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -241,6 +255,7 @@ export default function TemplateDocumentPanel({
 
             setExecutionSummary(summary || getCurrentExecutionSummary?.() || null);
             setBatchProgress(getCurrentBatchProgress?.() || null);
+            setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -249,6 +264,7 @@ export default function TemplateDocumentPanel({
 
             setExecutionSummary(getCurrentExecutionSummary?.() || null);
             setBatchProgress(getCurrentBatchProgress?.() || null);
+            setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
 
         }
 
@@ -265,6 +281,7 @@ export default function TemplateDocumentPanel({
             setProjectExecutionSummary(
                 summary || getCurrentProjectExecutionSummary?.() || null
             );
+            setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
 
         }
 
@@ -273,6 +290,7 @@ export default function TemplateDocumentPanel({
             setProjectExecutionSummary(
                 getCurrentProjectExecutionSummary?.() || null
             );
+            setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
 
         }
 
@@ -360,6 +378,31 @@ export default function TemplateDocumentPanel({
                     Process Project
                 </button>
 
+                <label style={{ fontSize: 12 }}>
+                    <input
+                        type="checkbox"
+                        checked={autoSaveEnabled}
+                        onChange={event => {
+                            setAutoSaveEnabled?.(event.target.checked);
+                            setAutoSaveResult(null);
+                            setPlacementVersion(value => value + 1);
+                        }}
+                    />
+                    Auto Save
+                </label>
+
+                <select
+                    value={autoSaveMode}
+                    onChange={event => {
+                        setAutoSaveMode?.(event.target.value);
+                        setAutoSaveResult(null);
+                        setPlacementVersion(value => value + 1);
+                    }}
+                >
+                    <option value="SAVE_COPY">Save Copy</option>
+                    <option value="OVERWRITE_ORIGINAL">Overwrite Original</option>
+                </select>
+
             </div>
 
             <div style={{ marginTop: 10, fontSize: 12 }}>
@@ -371,6 +414,30 @@ export default function TemplateDocumentPanel({
                 <div>Placement: {placementPlan ? "READY" : "NOT READY"}</div>
                 <div>Execution Plan: {executionPlan?.status === "READY" ? "READY" : "NOT READY"}</div>
                 <div>Replacement Request: {replacementRequest ? "READY" : "NOT READY"}</div>
+            </div>
+
+            <div style={{ marginTop: 10, fontSize: 12 }}>
+                <div>Auto Save: {autoSaveEnabled ? "ON" : "OFF"}</div>
+                <div>Mode: {autoSaveMode === "SAVE_COPY" ? "Save Copy" : "Overwrite Original"}</div>
+                {autoSaveMode === "OVERWRITE_ORIGINAL" && (
+                    <div style={{ color: "#ffcc99" }}>
+                        Warning: Overwrite Original is destructive.
+                    </div>
+                )}
+                {autoSaveResult && (
+                    <>
+                        <div>Auto Save: {autoSaveResult.status}</div>
+                        {!!autoSaveResult.outputPath && (
+                            <div>Output: {autoSaveResult.outputPath}</div>
+                        )}
+                        {!!autoSaveResult.warnings?.length && (
+                            <div>Warning: {autoSaveResult.warnings.join(" ")}</div>
+                        )}
+                        {autoSaveResult.error && (
+                            <div>Warning: {autoSaveResult.error}</div>
+                        )}
+                    </>
+                )}
             </div>
 
             {document && (

@@ -2,6 +2,7 @@ import ReplacementRequest from "../placement/ReplacementRequest";
 import ProjectExecutionSummary, {
     ProjectExecutionStatus
 } from "./ProjectExecutionSummary";
+import AutoSaveResult, { AutoSaveStatus } from "../services/AutoSaveResult";
 
 /** Coordinates deterministic template execution through the batch executor. */
 export default class ProjectExecutor {
@@ -10,7 +11,8 @@ export default class ProjectExecutor {
         templateRegistry,
         photoPlacementEngine,
         placementExecutionPlanBuilder,
-        replacementBatchExecutor
+        replacementBatchExecutor,
+        templateAutoSaveService
     } = {}) {
 
         if (!templateRegistry) throw new Error("A template registry is required.");
@@ -22,10 +24,17 @@ export default class ProjectExecutor {
         this.photoPlacementEngine = photoPlacementEngine;
         this.placementExecutionPlanBuilder = placementExecutionPlanBuilder;
         this.replacementBatchExecutor = replacementBatchExecutor;
+        this.templateAutoSaveService = templateAutoSaveService;
 
     }
 
-    async execute({ project, photos = [] } = {}) {
+    async execute({
+        project,
+        photos = [],
+        autoSaveEnabled = false,
+        autoSaveMode = "SAVE_COPY",
+        onAutoSaveResult
+    } = {}) {
 
         const startedAt = new Date().toISOString();
         const startedMilliseconds = Date.now();
@@ -55,13 +64,26 @@ export default class ProjectExecutor {
                     request,
                     { photos, templateName: template.name }
                 );
+                const autoSaveResult = await this.autoSave({
+                    project,
+                    template,
+                    executionSummary,
+                    enabled: autoSaveEnabled,
+                    mode: autoSaveMode
+                });
                 const succeeded = executionSummary.status === "COMPLETED";
+
+                if (typeof onAutoSaveResult === "function") {
+                    onAutoSaveResult(autoSaveResult);
+                }
 
                 templateResults.push({
                     templateId: template.id,
                     templateName: template.name,
                     status: executionSummary.status,
-                    executionSummary
+                    executionSummary,
+                    autoSaveResult,
+                    warnings: autoSaveResult.warnings
                 });
 
                 if (succeeded) {
@@ -137,6 +159,22 @@ export default class ProjectExecutor {
     projectId(project) {
 
         return project?.metadata?.id ?? project?.metadata?.name ?? null;
+
+    }
+
+    async autoSave(options) {
+
+        if (!this.templateAutoSaveService) {
+            return new AutoSaveResult({
+                templateId: options.template?.id ?? null,
+                documentId: options.template?.document?.id ?? null,
+                mode: options.mode,
+                status: AutoSaveStatus.SKIPPED,
+                warnings: ["Auto Save is unavailable."]
+            });
+        }
+
+        return this.templateAutoSaveService.save(options);
 
     }
 
