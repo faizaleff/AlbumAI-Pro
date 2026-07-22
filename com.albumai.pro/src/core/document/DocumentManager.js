@@ -92,6 +92,24 @@ class DocumentManager {
         return liveDocument;
     }
 
+    /** Export a JPEG copy without changing the open parent PSD. */
+    async exportJPEG(document = this.active, destination, options = {}) {
+        const liveDocument = this.requireOpen(document);
+        const entry = await this.resolveEntry(destination);
+
+        if (typeof liveDocument.saveAs?.jpg !== "function") {
+            throw new Error("This Photoshop version cannot export JPEG files through the UXP DOM.");
+        }
+
+        await core.executeAsModal(async () => {
+            await liveDocument.saveAs.jpg(entry, {
+                quality: options.quality ?? 12
+            }, true);
+        }, { commandName: "Export Album JPEG" });
+
+        return liveDocument;
+    }
+
     /** Close without causing Photoshop's save prompt. */
     async close(document, options = {}) {
         if (!document) return;

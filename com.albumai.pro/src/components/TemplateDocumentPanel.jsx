@@ -65,6 +65,11 @@ export default function TemplateDocumentPanel({
     setAutoSaveMode,
     getAutoSaveMode,
     getCurrentAutoSaveResult,
+    setExportEnabled,
+    getExportEnabled,
+    setExportFormat,
+    getExportFormat,
+    getCurrentExportResult,
     hasProject = false
 }) {
 
@@ -82,6 +87,9 @@ export default function TemplateDocumentPanel({
     const [autoSaveResult, setAutoSaveResult] = useState(() =>
         getCurrentAutoSaveResult?.() || null
     );
+    const [exportResult, setExportResult] = useState(() =>
+        getCurrentExportResult?.() || null
+    );
 
     const placementPlan = getCurrentPlacementPlan?.() || null;
     const executionPlan = getCurrentPlacementExecutionPlan?.() || null;
@@ -90,6 +98,8 @@ export default function TemplateDocumentPanel({
     const healthTemplate = getCurrentTemplate?.() || null;
     const autoSaveEnabled = getAutoSaveEnabled?.() || false;
     const autoSaveMode = getAutoSaveMode?.() || "SAVE_COPY";
+    const exportEnabled = getExportEnabled?.() || false;
+    const exportFormat = getExportFormat?.() || "JPEG";
 
     useEffect(() => {
 
@@ -133,6 +143,7 @@ export default function TemplateDocumentPanel({
             setBatchProgress(getCurrentBatchProgress?.() || null);
             setProjectExecutionSummary(null);
             setAutoSaveResult(null);
+            setExportResult(null);
         }
 
         else if (!replacementRequest) {
@@ -161,6 +172,7 @@ export default function TemplateDocumentPanel({
         setBatchProgress(getCurrentBatchProgress?.() || null);
         setProjectExecutionSummary(null);
         setAutoSaveResult(null);
+        setExportResult(null);
         setPlacementVersion(value => value + 1);
 
     }
@@ -173,6 +185,7 @@ export default function TemplateDocumentPanel({
             setPlacementError(null);
             setProjectExecutionSummary(null);
             setAutoSaveResult(null);
+            setExportResult(null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -196,6 +209,7 @@ export default function TemplateDocumentPanel({
             setBatchProgress(getCurrentBatchProgress?.() || null);
             setProjectExecutionSummary(null);
             setAutoSaveResult(null);
+            setExportResult(null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -256,6 +270,7 @@ export default function TemplateDocumentPanel({
             setExecutionSummary(summary || getCurrentExecutionSummary?.() || null);
             setBatchProgress(getCurrentBatchProgress?.() || null);
             setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
+            setExportResult(getCurrentExportResult?.() || null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -265,6 +280,7 @@ export default function TemplateDocumentPanel({
             setExecutionSummary(getCurrentExecutionSummary?.() || null);
             setBatchProgress(getCurrentBatchProgress?.() || null);
             setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
+            setExportResult(getCurrentExportResult?.() || null);
 
         }
 
@@ -282,6 +298,7 @@ export default function TemplateDocumentPanel({
                 summary || getCurrentProjectExecutionSummary?.() || null
             );
             setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
+            setExportResult(getCurrentExportResult?.() || null);
 
         }
 
@@ -291,6 +308,7 @@ export default function TemplateDocumentPanel({
                 getCurrentProjectExecutionSummary?.() || null
             );
             setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
+            setExportResult(getCurrentExportResult?.() || null);
 
         }
 
@@ -403,6 +421,31 @@ export default function TemplateDocumentPanel({
                     <option value="OVERWRITE_ORIGINAL">Overwrite Original</option>
                 </select>
 
+                <label style={{ fontSize: 12 }}>
+                    <input
+                        type="checkbox"
+                        checked={exportEnabled}
+                        onChange={event => {
+                            setExportEnabled?.(event.target.checked);
+                            setExportResult(null);
+                            setPlacementVersion(value => value + 1);
+                        }}
+                    />
+                    Export
+                </label>
+
+                <select
+                    value={exportFormat}
+                    onChange={event => {
+                        setExportFormat?.(event.target.value);
+                        setExportResult(null);
+                        setPlacementVersion(value => value + 1);
+                    }}
+                >
+                    <option value="JPEG">JPEG</option>
+                    <option value="PSD">PSD</option>
+                </select>
+
             </div>
 
             <div style={{ marginTop: 10, fontSize: 12 }}>
@@ -435,6 +478,25 @@ export default function TemplateDocumentPanel({
                         )}
                         {autoSaveResult.error && (
                             <div>Warning: {autoSaveResult.error}</div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            <div style={{ marginTop: 10, fontSize: 12 }}>
+                <div>Export: {exportEnabled ? "ON" : "OFF"}</div>
+                <div>Format: {exportFormat}</div>
+                {exportResult && (
+                    <>
+                        <div>Last Export: {exportResult.status}</div>
+                        {!!exportResult.outputPath && (
+                            <div>Output: {exportResult.outputPath}</div>
+                        )}
+                        {!!exportResult.warnings?.length && (
+                            <div>Warning: {exportResult.warnings.join(" ")}</div>
+                        )}
+                        {exportResult.error && (
+                            <div>Warning: {exportResult.error}</div>
                         )}
                     </>
                 )}
