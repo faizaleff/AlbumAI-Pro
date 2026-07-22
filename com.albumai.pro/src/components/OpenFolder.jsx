@@ -102,9 +102,7 @@ export default function OpenFolder() {
 
     }
 
-    function onPhotoClick(photo) {
-
-        App.selection.select(photo);
+    function onPhotoClick() {
 
         forceRefresh(value => value + 1);
 
