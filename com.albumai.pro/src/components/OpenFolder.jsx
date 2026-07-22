@@ -13,6 +13,7 @@ export default function OpenFolder() {
     const [folderName, setFolderName] = useState("");
     const [projectName, setProjectName] = useState("");
     const [projectError, setProjectError] = useState(null);
+    const [executionDetails, setExecutionDetails] = useState(null);
     const [, forceRefresh] = useState(0);
 
     const project = App.project.getProject();
@@ -392,6 +393,9 @@ export default function OpenFolder() {
                     setExportFormat={setExportFormat}
                     getExportFormat={getExportFormat}
                     getCurrentExportResult={getCurrentExportResult}
+                    onExecutionDetailsChange={setExecutionDetails}
+                    projectId={project?.metadata?.id || null}
+                    projectName={project?.metadata?.name || ""}
                     hasProject={hasProject}
                 />
 
@@ -412,6 +416,7 @@ export default function OpenFolder() {
 
             <PreviewPanel
                 photo={App.selection.getSelected()[0]}
+                executionDetails={executionDetails}
             />
 
         </div>

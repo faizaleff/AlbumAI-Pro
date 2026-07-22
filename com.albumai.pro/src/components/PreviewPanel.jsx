@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function PreviewPanel({ photo }) {
+export default function PreviewPanel({ photo, executionDetails }) {
 
     return (
 
@@ -11,7 +11,9 @@ export default function PreviewPanel({ photo }) {
                 borderLeft: "1px solid #444",
                 padding: 20,
                 color: "#fff",
-                overflow: "auto"
+                minHeight: 0,
+                overflowY: "auto",
+                overflowX: "hidden"
             }}
         >
 
@@ -24,6 +26,7 @@ export default function PreviewPanel({ photo }) {
                 <div
                     style={{
                         height: "100%",
+                        minHeight: 160,
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
@@ -137,6 +140,8 @@ export default function PreviewPanel({ photo }) {
                 </>
 
             )}
+
+            {executionDetails}
 
         </div>
 
