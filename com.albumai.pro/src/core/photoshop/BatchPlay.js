@@ -42,14 +42,6 @@ class BatchPlay {
                 batchPlayOptions.modalBehavior = modalBehavior;
             }
 
-            Logger.info(
-                `Replacement trace: BatchPlay payload (${commandName})`,
-                {
-                    descriptors: commands,
-                    options: batchPlayOptions
-                }
-            );
-            Logger.info(`Replacement trace: BatchPlay before action.batchPlay (${commandName})`);
             Logger.debug(
                 `BatchPlay -> ${commandName}`
             );
@@ -58,8 +50,6 @@ class BatchPlay {
                 commands,
                 batchPlayOptions
             );
-            Logger.info(`Replacement trace: BatchPlay after action.batchPlay (${commandName})`);
-
             const failed = results.find(result => result?._obj === "error");
             if (failed) {
                 throw new Error(failed.message || failed._message || "Photoshop rejected a BatchPlay command.");

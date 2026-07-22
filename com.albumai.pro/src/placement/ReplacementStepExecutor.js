@@ -32,22 +32,18 @@ export default class ReplacementStepExecutor {
         try {
 
             await this.recoverParentDocument(step);
-            Logger.info("Replacement trace: ReplacementStepExecutor before validate");
+            Logger.info("Smart Object replacement started.");
             const { document, layer, photo } = this.validate(step, photos);
-            Logger.info("Replacement trace: ReplacementStepExecutor after validate");
             const originalBounds = this.positiveBounds(layer);
 
             await ExecuteModal.run(async () => {
 
-                Logger.info("Replacement trace: before SmartObjectService.replace");
                 await this.smartObjectService.replaceContentsWithFileEntry({
                     layer,
                     fileEntry: photo.file,
                     batchPlayOptions: { alreadyInModal: true },
                     sourcePhotoExists: photos.some(item => item?.id === photo.id)
                 });
-                Logger.info("Replacement trace: after SmartObjectService.replace");
-
                 await this.restorePlaceholderGeometry({
                     document,
                     slotLayerId: step.slotLayerId,
@@ -59,11 +55,10 @@ export default class ReplacementStepExecutor {
                 commandName: "Execute Smart Object Replacement"
             });
 
-            Logger.info("Replacement trace: before parent document verification");
             if (this.documentManager.activeId !== document.id) {
-                throw new Error("Photoshop did not return to the parent PSD.");
+                throw new Error("Template document is not active.");
             }
-            Logger.info("Replacement trace: after parent document verification");
+            Logger.info("Smart Object replacement completed.");
 
             return this.result({
                 requestId: step.requestId,
@@ -76,15 +71,18 @@ export default class ReplacementStepExecutor {
 
         catch (error) {
 
+            const message = this.userError(error);
+            Logger.warn("Smart Object replacement failed.");
+
             return this.result({
                 requestId: step?.requestId ?? null,
                 status: "FAILED",
                 failedSteps: [{
                     stepNumber: step?.stepNumber ?? null,
                     slotLayerId: step?.slotLayerId ?? null,
-                    message: error.message
+                    message
                 }],
-                errors: [error.message],
+                errors: [message],
                 startedAt
             });
 
@@ -103,7 +101,7 @@ export default class ReplacementStepExecutor {
         );
 
         if (!parentDocument) {
-            throw new Error("Expected parent PSD is not open.");
+            throw new Error("Template document is not active.");
         }
 
         if (this.documentManager.activeId !== parentDocument.id) {
@@ -114,65 +112,44 @@ export default class ReplacementStepExecutor {
 
     validate(step, photos) {
 
-        if (!step) throw new Error("Replacement step is required.");
+        if (!step) throw new Error("Replacement request is not ready.");
         if (step.expectedDocumentId == null) {
-            throw new Error("Replacement step is missing its expected document id.");
+            throw new Error("Template document is not active.");
         }
         if (step.slotLayerId == null) {
-            throw new Error("Replacement step is missing its target layer id.");
+            throw new Error("Target Smart Object was not found.");
         }
         if (step.photoId == null) {
-            throw new Error("Replacement step is missing its source photo id.");
+            throw new Error("Source photo is unavailable.");
         }
         if (step.expectedLayerType !== "smartObject") {
-            throw new Error("Replacement step must target a Smart Object.");
+            throw new Error("Target Smart Object was not found.");
         }
 
-        Logger.info("Replacement trace: before DocumentManager.active");
         const document = this.documentManager.active;
-        Logger.info("Replacement trace: after DocumentManager.active");
 
-        if (!document) throw new Error("An active Photoshop document is required.");
+        if (!document) throw new Error("Template document is not active.");
 
-        Logger.info(
-            `Replacement trace: document-match comparison ${JSON.stringify({
-                replacementStep: {
-                    documentId: step.documentId ?? step.expectedDocumentId ?? null,
-                    documentName: step.documentName ?? null,
-                    documentPath: step.documentPath ?? null,
-                    expectedDocumentId: step.expectedDocumentId ?? null
-                },
-                activeDocument: {
-                    id: document.id ?? null,
-                    title: document.title ?? null,
-                    path: document.path ?? document.nativePath ?? null
-                },
-                comparison: `activeDocument.id (${document.id}) !== replacementStep.expectedDocumentId (${step.expectedDocumentId})`,
-                result: document.id !== step.expectedDocumentId
-            })}`
-        );
         if (document.id !== step.expectedDocumentId) {
-            throw new Error("Active document does not match the replacement step.");
+            throw new Error("Template document is not active.");
         }
 
-        Logger.info("Replacement trace: before LayerManager.scan");
         this.layerManager.scan(document);
-        Logger.info("Replacement trace: after LayerManager.scan");
 
         const layer = this.layerManager.byId(step.slotLayerId);
 
-        if (!layer) throw new Error("Replacement target layer does not exist.");
+        if (!layer) throw new Error("Target Smart Object was not found.");
         if (layer.kind !== "smartObject") {
-            throw new Error("Replacement target layer is not a Smart Object.");
+            throw new Error("Target Smart Object was not found.");
         }
 
         const photo = (Array.isArray(photos) ? photos : []).find(item =>
             item?.id === step.photoId
         );
 
-        if (!photo?.file) throw new Error("Replacement source photo does not exist.");
+        if (!photo?.file) throw new Error("Source photo is unavailable.");
         if (this.photoFileReference(photo) !== step.photoFileReference) {
-            throw new Error("Replacement source photo reference does not match the step.");
+            throw new Error("Source photo is unavailable.");
         }
 
         return { document, layer, photo };
@@ -184,7 +161,7 @@ export default class ReplacementStepExecutor {
         const bounds = this.layerBoundsService.get(layer);
 
         if (bounds.width <= 0 || bounds.height <= 0) {
-            throw new Error(`Layer bounds must be greater than zero: ${layer.name || layer.id}`);
+            throw new Error("Target Smart Object was not found.");
         }
 
         return bounds;
@@ -203,20 +180,9 @@ export default class ReplacementStepExecutor {
 
     }) {
 
-        Logger.info(
-            `Replacement geometry: original bounds ${JSON.stringify(originalBounds)}`
-        );
-
         const replacementLayer = this.refreshSlotLayer(document, slotLayerId);
         const replacementBounds = this.positiveBounds(replacementLayer);
         const normalizedFitMode = fitMode || "fill";
-
-        Logger.info(
-            `Replacement geometry: after replacement ${JSON.stringify({
-                bounds: replacementBounds,
-                fitMode: normalizedFitMode
-            })}`
-        );
 
         let scaleFactor = 1;
 
@@ -235,19 +201,12 @@ export default class ReplacementStepExecutor {
         }
 
         else if (normalizedFitMode !== "center") {
-            throw new Error(`Unsupported replacement fit mode: ${normalizedFitMode}`);
+            throw new Error("Replacement failed.");
         }
 
         if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) {
-            throw new Error("Replacement geometry scale factor is invalid.");
+            throw new Error("Replacement failed.");
         }
-
-        Logger.info(
-            `Replacement geometry: scale ${JSON.stringify({
-                fitMode: normalizedFitMode,
-                scaleFactor
-            })}`
-        );
 
         let transformedLayer = replacementLayer;
         let transformedBounds = replacementBounds;
@@ -271,7 +230,7 @@ export default class ReplacementStepExecutor {
         const offsetY = originalBounds.centerY - transformedBounds.centerY;
 
         if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) {
-            throw new Error("Replacement geometry offset is invalid.");
+            throw new Error("Replacement failed.");
         }
 
         if (offsetX !== 0 || offsetY !== 0) {
@@ -295,12 +254,7 @@ export default class ReplacementStepExecutor {
             });
         }
 
-        const finalLayer = this.refreshSlotLayer(document, slotLayerId);
-        const finalBounds = this.positiveBounds(finalLayer);
-
-        Logger.info(
-            `Replacement geometry: final bounds ${JSON.stringify(finalBounds)}`
-        );
+        this.positiveBounds(this.refreshSlotLayer(document, slotLayerId));
 
     }
 
@@ -311,7 +265,7 @@ export default class ReplacementStepExecutor {
         const layer = this.layerManager.byId(slotLayerId);
 
         if (!layer) {
-            throw new Error("Replacement target layer no longer exists after replacement.");
+            throw new Error("Target Smart Object was not found.");
         }
 
         return layer;
@@ -331,6 +285,32 @@ export default class ReplacementStepExecutor {
             finishedAt: new Date().toISOString(),
             warnings: []
         });
+
+    }
+
+    userError(error) {
+
+        const message = error?.message || "";
+
+        if (message.startsWith("Template document") ||
+            message.includes("parent PSD") ||
+            message.includes("active document")) {
+            return "Template document is not active.";
+        }
+
+        if (message.startsWith("Target Smart Object") ||
+            message.includes("target layer") ||
+            message.includes("Smart Object layer")) {
+            return "Target Smart Object was not found.";
+        }
+
+        if (message.startsWith("Source photo") ||
+            message.includes("source photo") ||
+            message.includes("session token")) {
+            return "Source photo is unavailable.";
+        }
+
+        return "Replacement failed.";
 
     }
 

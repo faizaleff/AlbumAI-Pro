@@ -58,6 +58,8 @@ export default function TemplateDocumentPanel({
     getCurrentBatchProgress,
     executeProject,
     getCurrentProjectExecutionSummary,
+    getPhotos,
+    getCurrentTemplate,
     hasProject = false
 }) {
 
@@ -76,6 +78,8 @@ export default function TemplateDocumentPanel({
     const placementPlan = getCurrentPlacementPlan?.() || null;
     const executionPlan = getCurrentPlacementExecutionPlan?.() || null;
     const replacementRequest = getCurrentReplacementRequest?.() || null;
+    const healthPhotos = getPhotos?.() || [];
+    const healthTemplate = getCurrentTemplate?.() || null;
 
     useEffect(() => {
 
@@ -109,6 +113,24 @@ export default function TemplateDocumentPanel({
 
     }, [loadTemplates, hasProject]);
 
+    useEffect(() => {
+
+        if (!hasProject) {
+            setDocument(null);
+            setPlacementError(null);
+            setReplacementResult(null);
+            setExecutionSummary(null);
+            setBatchProgress(getCurrentBatchProgress?.() || null);
+            setProjectExecutionSummary(null);
+        }
+
+        else if (!replacementRequest) {
+            setExecutionSummary(null);
+            setBatchProgress(getCurrentBatchProgress?.() || null);
+        }
+
+    }, [hasProject, replacementRequest]);
+
     async function open() {
 
         const file = templates.find(
@@ -123,6 +145,10 @@ export default function TemplateDocumentPanel({
 
         setDocument(result);
         setPlacementError(null);
+        setReplacementResult(null);
+        setExecutionSummary(null);
+        setBatchProgress(getCurrentBatchProgress?.() || null);
+        setProjectExecutionSummary(null);
         setPlacementVersion(value => value + 1);
 
     }
@@ -133,6 +159,7 @@ export default function TemplateDocumentPanel({
 
             planPhotoPlacement?.();
             setPlacementError(null);
+            setProjectExecutionSummary(null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -154,6 +181,7 @@ export default function TemplateDocumentPanel({
             setReplacementResult(null);
             setExecutionSummary(null);
             setBatchProgress(getCurrentBatchProgress?.() || null);
+            setProjectExecutionSummary(null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -332,6 +360,17 @@ export default function TemplateDocumentPanel({
                     Process Project
                 </button>
 
+            </div>
+
+            <div style={{ marginTop: 10, fontSize: 12 }}>
+                <div>Project Health</div>
+                <div>Project: {hasProject ? "READY" : "MISSING"}</div>
+                <div>Photos: {healthPhotos.length}</div>
+                <div>Template: {healthTemplate ? "READY" : "MISSING"}</div>
+                <div>Smart Objects: {healthTemplate?.smartObjects?.length || 0}</div>
+                <div>Placement: {placementPlan ? "READY" : "NOT READY"}</div>
+                <div>Execution Plan: {executionPlan?.status === "READY" ? "READY" : "NOT READY"}</div>
+                <div>Replacement Request: {replacementRequest ? "READY" : "NOT READY"}</div>
             </div>
 
             {document && (

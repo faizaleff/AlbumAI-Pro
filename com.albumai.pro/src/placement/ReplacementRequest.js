@@ -70,11 +70,11 @@ export default class ReplacementRequest {
 
     static freeze(value) {
 
-        Object.values(value).forEach(item => {
-            if (item && typeof item === "object" && !Object.isFrozen(item)) {
-                Object.freeze(item);
-            }
-        });
+        if (!value || typeof value !== "object" || Object.isFrozen(value)) {
+            return value;
+        }
+
+        Object.values(value).forEach(item => ReplacementRequest.freeze(item));
 
         return Object.freeze(value);
 

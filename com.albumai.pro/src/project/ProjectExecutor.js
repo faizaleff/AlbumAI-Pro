@@ -3,6 +3,7 @@ import ProjectExecutionSummary, {
     ProjectExecutionStatus
 } from "./ProjectExecutionSummary";
 
+/** Coordinates deterministic template execution through the batch executor. */
 export default class ProjectExecutor {
 
     constructor({

@@ -2,6 +2,7 @@ import ExecutionSummary, { ExecutionStatus } from "./ExecutionSummary";
 import ReplacementResult from "./ReplacementResult";
 import BatchProgress, { BatchProgressStatus } from "./BatchProgress";
 
+/** Coordinates immutable, sequential replacement results for one request. */
 export default class ReplacementBatchExecutor {
 
     constructor({ replacementStepExecutor } = {}) {

@@ -1,7 +1,5 @@
 // src/core/layers/LayerScanner.js
 
-import Logger from "../photoshop/Logger";
-
 class LayerScanner {
 
     /**
@@ -14,9 +12,7 @@ class LayerScanner {
         if (!document)
             throw new Error("Document is required.");
 
-        Logger.info("Replacement trace: LayerScanner before document.layers");
         const layers = document.layers;
-        Logger.info("Replacement trace: LayerScanner after document.layers");
 
         return this.scanLayers(layers, null, document.id);
 

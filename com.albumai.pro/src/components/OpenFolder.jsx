@@ -229,6 +229,12 @@ export default function OpenFolder() {
     const getCurrentProjectExecutionSummary = () =>
         App.getCurrentProjectExecutionSummary();
 
+    const getPhotos = () =>
+        App.getPhotos();
+
+    const getCurrentTemplate = () =>
+        App.getCurrentTemplate();
+
     return (
 
         <div
@@ -342,6 +348,8 @@ export default function OpenFolder() {
                     getCurrentBatchProgress={getCurrentBatchProgress}
                     executeProject={executeProject}
                     getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
+                    getPhotos={getPhotos}
+                    getCurrentTemplate={getCurrentTemplate}
                     hasProject={hasProject}
                 />
 

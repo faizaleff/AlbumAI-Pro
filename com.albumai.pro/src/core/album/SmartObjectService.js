@@ -63,13 +63,6 @@ export default class SmartObjectService {
 
         }
 
-        Logger.info(
-
-            `Replacing Smart Object: ${layer.name}`
-
-        );
-
-        Logger.info("Replacement trace: SmartObjectService before BatchPlay.execute replace contents");
         const descriptors = [
 
             {
@@ -108,21 +101,7 @@ export default class SmartObjectService {
 
         ];
 
-        Logger.info(
-            `Replacement trace: replace-contents payload ${JSON.stringify({
-                descriptors,
-                batchPlayOptions,
-                sourcePhotoExists,
-                sourceFile: {
-                    nativePath: image.nativePath ?? null,
-                    name: image.name ?? null,
-                    sessionToken: image.sessionToken ?? image.token ?? null
-                }
-            })}`
-        );
-
         await this.batchPlay.execute(descriptors, batchPlayOptions);
-        Logger.info("Replacement trace: SmartObjectService after BatchPlay.execute replace contents");
 
         return true;
 
@@ -197,19 +176,6 @@ export default class SmartObjectService {
             }
         ];
 
-        Logger.info(
-            `Replacement trace: direct replace-contents payload ${JSON.stringify({
-                descriptors,
-                batchPlayOptions,
-                sourcePhotoExists,
-                sourceFile: {
-                    nativePath: fileEntry.nativePath ?? null,
-                    name: fileEntry.name ?? null,
-                    sessionToken
-                }
-            })}`
-        );
-
         await this.batchPlay.execute(descriptors, batchPlayOptions);
 
         return true;
@@ -242,7 +208,7 @@ export default class SmartObjectService {
         );
 
         if (hasUserMask) {
-            Logger.info(`Replacement clipping: reusing existing mask on ${layer.name}`);
+            Logger.info("Reusing the existing Smart Object mask.");
             return;
         }
 

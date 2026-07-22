@@ -5,6 +5,7 @@ import { storage } from "uxp";
 
 import Logger from "../photoshop/Logger";
 
+
 /**
  * Thin, live view of Photoshop documents.  Document DOM objects are host
  * objects, so this class deliberately does not retain them as the source of
@@ -17,12 +18,7 @@ class DocumentManager {
     }
 
     get documents() { return [...app.documents]; }
-    get active() {
-        Logger.info("Replacement trace: DocumentManager before app.activeDocument");
-        const document = app.activeDocument ?? null;
-        Logger.info("Replacement trace: DocumentManager after app.activeDocument");
-        return document;
-    }
+    get active() { return app.activeDocument ?? null; }
     get activeId() { return this.active?.id ?? null; }
     get count() { return app.documents.length; }
 

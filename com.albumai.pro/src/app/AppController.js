@@ -18,7 +18,6 @@ import ProjectExecutor from "../project/ProjectExecutor";
 import ProjectExecutionSummary, {
     ProjectExecutionStatus
 } from "../project/ProjectExecutionSummary";
-import Logger from "../core/photoshop/Logger";
 
 class AppController {
 
@@ -68,6 +67,7 @@ class AppController {
         const project = await this.projectService.createProject(options);
 
         if (project) {
+            this.templateRegistry.clear();
             this.clearCurrentPlacementPlan();
         }
 
@@ -80,6 +80,7 @@ class AppController {
         const project = await this.projectService.openProject(folder);
 
         if (project) {
+            this.templateRegistry.clear();
             this.clearCurrentPlacementPlan();
         }
 
@@ -95,6 +96,7 @@ class AppController {
 
     closeProject() {
 
+        this.templateRegistry.clear();
         this.clearCurrentPlacementPlan();
 
         return this.projectService.closeProject();
@@ -138,12 +140,31 @@ class AppController {
 
     planPhotoPlacement(options = {}) {
 
-        const placement = this.photoPlacementEngine.plan({
-            project: this.project.getProject(),
-            photos: this.photoWorkspace.getPhotos(),
-            template: this.templateRegistry.current(),
-            options
-        });
+        const project = this.project.getProject();
+        const photos = this.photoWorkspace.getPhotos();
+        const template = this.templateRegistry.current();
+
+        if (!project) throw new Error("Create or open a project to continue.");
+        if (!photos.length) throw new Error("No photos are available.");
+        if (!template) throw new Error("No template is open.");
+        if (!template.smartObjects?.length) {
+            throw new Error("No Smart Object slots are available.");
+        }
+
+        let placement;
+
+        try {
+            placement = this.photoPlacementEngine.plan({
+                project,
+                photos,
+                template,
+                options
+            });
+        }
+
+        catch (error) {
+            throw new Error(this.userError(error, "Placement plan is not ready."));
+        }
 
         this.currentPlacementPlan = placement;
         this.clearCurrentPlacementExecutionPlan();
@@ -168,12 +189,24 @@ class AppController {
 
     buildPlacementExecutionPlan() {
 
-        const executionPlan = this.placementExecutionPlanBuilder.build({
-            placementResult: this.currentPlacementPlan,
-            project: this.project.getProject(),
-            template: this.templateRegistry.current(),
-            photos: this.photoWorkspace.getPhotos()
-        });
+        if (!this.currentPlacementPlan) {
+            throw new Error("Placement plan is not ready.");
+        }
+
+        let executionPlan;
+
+        try {
+            executionPlan = this.placementExecutionPlanBuilder.build({
+                placementResult: this.currentPlacementPlan,
+                project: this.project.getProject(),
+                template: this.templateRegistry.current(),
+                photos: this.photoWorkspace.getPhotos()
+            });
+        }
+
+        catch (error) {
+            throw new Error(this.userError(error, "Execution plan is not ready."));
+        }
 
         this.currentPlacementExecutionPlan = executionPlan;
         this.clearCurrentReplacementRequest();
@@ -197,6 +230,12 @@ class AppController {
     }
 
     buildReplacementRequest() {
+
+        if (!this.currentPlacementExecutionPlan) {
+            throw new Error("Execution plan is not ready.");
+        }
+
+        this.clearCurrentReplacementRequest();
 
         const request = new ReplacementRequest({
             executionPlan: this.currentPlacementExecutionPlan
@@ -226,6 +265,9 @@ class AppController {
 
         const project = this.project.getProject();
         const request = this.currentReplacementRequest;
+
+        this.clearExecutionSummary();
+        this.clearBatchProgress();
 
         if (!project || !request || !Array.isArray(request.steps) || !request.steps.length) {
             const startedAt = new Date().toISOString();
@@ -298,6 +340,10 @@ class AppController {
         const startedAt = new Date().toISOString();
         const projectId = project?.metadata?.id ?? project?.metadata?.name ?? null;
 
+        this.clearExecutionSummary();
+        this.clearBatchProgress();
+        this.clearProjectExecutionSummary();
+
         if (!project || !templates.length || !photos.length) {
             this.currentProjectExecutionSummary = new ProjectExecutionSummary({
                 projectId,
@@ -353,8 +399,6 @@ class AppController {
 
     async executeReplacementStep(step) {
 
-        Logger.info("Replacement trace: AppController.executeReplacementStep before executor");
-
         const request = this.currentReplacementRequest;
         const requestStep = request?.steps.find(item =>
             item.stepNumber === step?.stepNumber &&
@@ -368,9 +412,9 @@ class AppController {
                 failedSteps: [{
                     stepNumber: step?.stepNumber ?? null,
                     slotLayerId: step?.slotLayerId ?? null,
-                    message: "Replacement step is not part of the current request."
+                    message: "Replacement request is not ready."
                 }],
-                errors: ["Replacement step is not part of the current request."],
+                errors: ["Replacement request is not ready."],
                 startedAt: new Date().toISOString()
             });
 
@@ -384,11 +428,7 @@ class AppController {
             requestId: request.id
         }, this.photoWorkspace.getPhotos());
 
-        Logger.info("Replacement trace: AppController.executeReplacementStep after executor");
-
-        Logger.info("Replacement trace: AppController before DocumentManager.sync");
         this.replacementStepExecutor.documentManager.sync();
-        Logger.info("Replacement trace: AppController after DocumentManager.sync");
 
         return result;
 
@@ -433,6 +473,30 @@ class AppController {
         }
 
         return closed;
+
+    }
+
+    userError(error, fallback) {
+
+        const message = error?.message || "";
+
+        if (message.includes("project")) {
+            return "Create or open a project to continue.";
+        }
+
+        if (message.includes("photo")) {
+            return "No photos are available.";
+        }
+
+        if (message.includes("Smart Object") || message.includes("slot")) {
+            return "No Smart Object slots are available.";
+        }
+
+        if (message.includes("template")) {
+            return "No template is open.";
+        }
+
+        return fallback;
 
     }
 
