@@ -17,7 +17,12 @@ class DocumentManager {
     }
 
     get documents() { return [...app.documents]; }
-    get active() { return app.activeDocument ?? null; }
+    get active() {
+        Logger.info("Replacement trace: DocumentManager before app.activeDocument");
+        const document = app.activeDocument ?? null;
+        Logger.info("Replacement trace: DocumentManager after app.activeDocument");
+        return document;
+    }
     get activeId() { return this.active?.id ?? null; }
     get count() { return app.documents.length; }
 

@@ -11,6 +11,7 @@ import PhotoPlacementEngine from "../placement/PhotoPlacementEngine";
 import PlacementExecutionPlanBuilder from "../placement/PlacementExecutionPlanBuilder";
 import ReplacementRequest from "../placement/ReplacementRequest";
 import ReplacementStepExecutor from "../placement/ReplacementStepExecutor";
+import Logger from "../core/photoshop/Logger";
 
 class AppController {
 
@@ -201,6 +202,8 @@ class AppController {
 
     async executeReplacementStep(step) {
 
+        Logger.info("Replacement trace: AppController.executeReplacementStep before executor");
+
         const request = this.currentReplacementRequest;
         const requestStep = request?.steps.find(item =>
             item.stepNumber === step?.stepNumber &&
@@ -230,7 +233,11 @@ class AppController {
             requestId: request.id
         }, this.photoWorkspace.getPhotos());
 
+        Logger.info("Replacement trace: AppController.executeReplacementStep after executor");
+
+        Logger.info("Replacement trace: AppController before DocumentManager.sync");
         this.replacementStepExecutor.documentManager.sync();
+        Logger.info("Replacement trace: AppController after DocumentManager.sync");
 
         return result;
 

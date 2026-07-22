@@ -1,7 +1,10 @@
 import DocumentManager from "../core/document/DocumentManager";
 import LayerManager from "../core/layers/LayerManager";
 import SmartObjectService from "../core/album/SmartObjectService";
-import BatchPlay from "../core/photoshop/BatchPlay";
+import LayerBoundsService from "../core/album/LayerBoundsService";
+import LayerTransformService from "../core/album/LayerTransformService";
+import ExecuteModal from "../core/photoshop/ExecuteModal";
+import Logger from "../core/photoshop/Logger";
 import ReplacementResult from "./ReplacementResult";
 
 export default class ReplacementStepExecutor {
@@ -10,39 +13,57 @@ export default class ReplacementStepExecutor {
         documentManager = new DocumentManager(),
         layerManager = new LayerManager(),
         smartObjectService = new SmartObjectService(),
-        batchPlay = BatchPlay
+        layerBoundsService = new LayerBoundsService(),
+        layerTransformService = new LayerTransformService()
     } = {}) {
 
         this.documentManager = documentManager;
         this.layerManager = layerManager;
         this.smartObjectService = smartObjectService;
-        this.batchPlay = batchPlay;
+        this.layerBoundsService = layerBoundsService;
+        this.layerTransformService = layerTransformService;
 
     }
 
     async execute(step, photos = []) {
 
         const startedAt = new Date().toISOString();
-        let smartObjectOpened = false;
 
         try {
 
+            await this.recoverParentDocument(step);
+            Logger.info("Replacement trace: ReplacementStepExecutor before validate");
             const { document, layer, photo } = this.validate(step, photos);
+            Logger.info("Replacement trace: ReplacementStepExecutor after validate");
+            const originalBounds = this.positiveBounds(layer);
 
-            await this.openSmartObject(layer.id);
-            smartObjectOpened = true;
+            await ExecuteModal.run(async () => {
 
-            await this.smartObjectService.replace({
-                layer,
-                image: photo.file
+                Logger.info("Replacement trace: before SmartObjectService.replace");
+                await this.smartObjectService.replaceContentsWithFileEntry({
+                    layer,
+                    fileEntry: photo.file,
+                    batchPlayOptions: { alreadyInModal: true },
+                    sourcePhotoExists: photos.some(item => item?.id === photo.id)
+                });
+                Logger.info("Replacement trace: after SmartObjectService.replace");
+
+                await this.restorePlaceholderGeometry({
+                    document,
+                    slotLayerId: step.slotLayerId,
+                    originalBounds,
+                    fitMode: step.fitMode
+                });
+
+            }, {
+                commandName: "Execute Smart Object Replacement"
             });
-            await this.saveSmartObject();
-            await this.closeSmartObject();
-            smartObjectOpened = false;
 
+            Logger.info("Replacement trace: before parent document verification");
             if (this.documentManager.activeId !== document.id) {
                 throw new Error("Photoshop did not return to the parent PSD.");
             }
+            Logger.info("Replacement trace: after parent document verification");
 
             return this.result({
                 requestId: step.requestId,
@@ -54,10 +75,6 @@ export default class ReplacementStepExecutor {
         }
 
         catch (error) {
-
-            if (smartObjectOpened) {
-                await this.discardSmartObjectChanges();
-            }
 
             return this.result({
                 requestId: step?.requestId ?? null,
@@ -71,6 +88,26 @@ export default class ReplacementStepExecutor {
                 startedAt
             });
 
+        }
+
+    }
+
+    async recoverParentDocument(step) {
+
+        if (step?.expectedDocumentId == null) {
+            return;
+        }
+
+        const parentDocument = this.documentManager.byId(
+            step.expectedDocumentId
+        );
+
+        if (!parentDocument) {
+            throw new Error("Expected parent PSD is not open.");
+        }
+
+        if (this.documentManager.activeId !== parentDocument.id) {
+            await this.documentManager.activate(parentDocument);
         }
 
     }
@@ -91,14 +128,36 @@ export default class ReplacementStepExecutor {
             throw new Error("Replacement step must target a Smart Object.");
         }
 
+        Logger.info("Replacement trace: before DocumentManager.active");
         const document = this.documentManager.active;
+        Logger.info("Replacement trace: after DocumentManager.active");
 
         if (!document) throw new Error("An active Photoshop document is required.");
+
+        Logger.info(
+            `Replacement trace: document-match comparison ${JSON.stringify({
+                replacementStep: {
+                    documentId: step.documentId ?? step.expectedDocumentId ?? null,
+                    documentName: step.documentName ?? null,
+                    documentPath: step.documentPath ?? null,
+                    expectedDocumentId: step.expectedDocumentId ?? null
+                },
+                activeDocument: {
+                    id: document.id ?? null,
+                    title: document.title ?? null,
+                    path: document.path ?? document.nativePath ?? null
+                },
+                comparison: `activeDocument.id (${document.id}) !== replacementStep.expectedDocumentId (${step.expectedDocumentId})`,
+                result: document.id !== step.expectedDocumentId
+            })}`
+        );
         if (document.id !== step.expectedDocumentId) {
             throw new Error("Active document does not match the replacement step.");
         }
 
+        Logger.info("Replacement trace: before LayerManager.scan");
         this.layerManager.scan(document);
+        Logger.info("Replacement trace: after LayerManager.scan");
 
         const layer = this.layerManager.byId(step.slotLayerId);
 
@@ -120,60 +179,142 @@ export default class ReplacementStepExecutor {
 
     }
 
-    async openSmartObject(layerId) {
+    positiveBounds(layer) {
 
-        await this.batchPlay.execute([
-            {
-                _obj: "select",
-                _target: [{ _ref: "layer", _id: layerId }],
-                makeVisible: false
-            },
-            {
-                _obj: "placedLayerEditContents"
-            }
-        ], {
-            commandName: "Open Smart Object"
-        });
+        const bounds = this.layerBoundsService.get(layer);
+
+        if (bounds.width <= 0 || bounds.height <= 0) {
+            throw new Error(`Layer bounds must be greater than zero: ${layer.name || layer.id}`);
+        }
+
+        return bounds;
 
     }
 
-    async saveSmartObject() {
+    async restorePlaceholderGeometry({
 
-        await this.batchPlay.command({
-            _obj: "save"
-        }, {
-            commandName: "Save Smart Object"
-        });
+        document,
 
-    }
+        slotLayerId,
 
-    async closeSmartObject() {
+        originalBounds,
 
-        await this.batchPlay.command({
-            _obj: "close",
-            saving: "yes"
-        }, {
-            commandName: "Return To Parent PSD"
-        });
+        fitMode
 
-    }
+    }) {
 
-    async discardSmartObjectChanges() {
+        Logger.info(
+            `Replacement geometry: original bounds ${JSON.stringify(originalBounds)}`
+        );
 
-        try {
+        const replacementLayer = this.refreshSlotLayer(document, slotLayerId);
+        const replacementBounds = this.positiveBounds(replacementLayer);
+        const normalizedFitMode = fitMode || "fill";
 
-            await this.batchPlay.command({
-                _obj: "close",
-                saving: "no"
-            }, {
-                commandName: "Discard Smart Object Changes"
+        Logger.info(
+            `Replacement geometry: after replacement ${JSON.stringify({
+                bounds: replacementBounds,
+                fitMode: normalizedFitMode
+            })}`
+        );
+
+        let scaleFactor = 1;
+
+        if (normalizedFitMode === "fill") {
+            scaleFactor = Math.max(
+                originalBounds.width / replacementBounds.width,
+                originalBounds.height / replacementBounds.height
+            );
+        }
+
+        else if (normalizedFitMode === "fit") {
+            scaleFactor = Math.min(
+                originalBounds.width / replacementBounds.width,
+                originalBounds.height / replacementBounds.height
+            );
+        }
+
+        else if (normalizedFitMode !== "center") {
+            throw new Error(`Unsupported replacement fit mode: ${normalizedFitMode}`);
+        }
+
+        if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) {
+            throw new Error("Replacement geometry scale factor is invalid.");
+        }
+
+        Logger.info(
+            `Replacement geometry: scale ${JSON.stringify({
+                fitMode: normalizedFitMode,
+                scaleFactor
+            })}`
+        );
+
+        let transformedLayer = replacementLayer;
+        let transformedBounds = replacementBounds;
+
+        if (normalizedFitMode !== "center" && scaleFactor !== 1) {
+            await this.layerTransformService.transform({
+                layer: replacementLayer,
+                scaleX: scaleFactor * 100,
+                scaleY: scaleFactor * 100,
+                batchPlayOptions: {
+                    commandName: "Scale Replaced Smart Object",
+                    alreadyInModal: true
+                }
             });
 
+            transformedLayer = this.refreshSlotLayer(document, slotLayerId);
+            transformedBounds = this.positiveBounds(transformedLayer);
         }
 
-        catch (_) {
-            // The original replacement error is the actionable failure.
+        const offsetX = originalBounds.centerX - transformedBounds.centerX;
+        const offsetY = originalBounds.centerY - transformedBounds.centerY;
+
+        if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) {
+            throw new Error("Replacement geometry offset is invalid.");
         }
+
+        if (offsetX !== 0 || offsetY !== 0) {
+            await this.layerTransformService.transform({
+                layer: transformedLayer,
+                offsetX,
+                offsetY,
+                batchPlayOptions: {
+                    commandName: "Center Replaced Smart Object",
+                    alreadyInModal: true
+                }
+            });
+        }
+
+        if (normalizedFitMode === "fill") {
+            await this.smartObjectService.clipToBounds({
+                document,
+                layer: this.refreshSlotLayer(document, slotLayerId),
+                bounds: originalBounds,
+                batchPlayOptions: { alreadyInModal: true }
+            });
+        }
+
+        const finalLayer = this.refreshSlotLayer(document, slotLayerId);
+        const finalBounds = this.positiveBounds(finalLayer);
+
+        Logger.info(
+            `Replacement geometry: final bounds ${JSON.stringify(finalBounds)}`
+        );
+
+    }
+
+    refreshSlotLayer(document, slotLayerId) {
+
+        this.layerManager.scan(document);
+
+        const layer = this.layerManager.byId(slotLayerId);
+
+        if (!layer) {
+            throw new Error("Replacement target layer no longer exists after replacement.");
+        }
+
+        return layer;
 
     }
 

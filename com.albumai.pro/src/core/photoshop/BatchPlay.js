@@ -26,24 +26,39 @@ class BatchPlay {
         const {
             commandName = "AlbumAI Operation",
             synchronousExecution = true,
-            modalBehavior = "fail"
+            modalBehavior = "fail",
+            alreadyInModal = false
         } = options;
 
         if (commands.length === 0) return [];
 
-        return ExecuteModal.run(async () => {
+        const execute = async () => {
 
+            const batchPlayOptions = {
+                synchronousExecution
+            };
+
+            if (!alreadyInModal) {
+                batchPlayOptions.modalBehavior = modalBehavior;
+            }
+
+            Logger.info(
+                `Replacement trace: BatchPlay payload (${commandName})`,
+                {
+                    descriptors: commands,
+                    options: batchPlayOptions
+                }
+            );
+            Logger.info(`Replacement trace: BatchPlay before action.batchPlay (${commandName})`);
             Logger.debug(
                 `BatchPlay -> ${commandName}`
             );
 
             const results = await action.batchPlay(
                 commands,
-                {
-                    synchronousExecution,
-                    modalBehavior
-                }
+                batchPlayOptions
             );
+            Logger.info(`Replacement trace: BatchPlay after action.batchPlay (${commandName})`);
 
             const failed = results.find(result => result?._obj === "error");
             if (failed) {
@@ -52,9 +67,11 @@ class BatchPlay {
 
             return results;
 
-        }, {
-            commandName
-        });
+        };
+
+        return alreadyInModal
+            ? execute()
+            : ExecuteModal.run(execute, { commandName });
 
     }
 
