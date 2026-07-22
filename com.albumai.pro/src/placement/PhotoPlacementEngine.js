@@ -391,7 +391,13 @@ export default class PhotoPlacementEngine {
 
     templateWarnings(template) {
 
-        if (["UNKNOWN", "WARNING"].includes(template.validationState)) {
+        const hasCompleteIdentity = template?.document?.id != null &&
+            Array.isArray(template.smartObjects) &&
+            template.smartObjects.length > 0 &&
+            template.smartObjects.every(slot => slot?.layerId != null);
+
+        if (template.validationState === "WARNING" ||
+            (template.validationState === "UNKNOWN" && !hasCompleteIdentity)) {
             return [{
                 type: "TEMPLATE_VALIDATION_STATE",
                 state: template.validationState,

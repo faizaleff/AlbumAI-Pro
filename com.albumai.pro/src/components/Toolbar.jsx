@@ -6,11 +6,12 @@ export default function Toolbar({
     onSelectAll,
     onClearSelection,
     projectActive = false,
-    photoCount = 0,
-    selectedCount = 0
+    photoCount: _photoCount = 0,
+    selectedCount: _selectedCount = 0
 }) {
     const buttonStyle = {
-        padding: "8px 14px",
+        minHeight: 34,
+        padding: "6px 12px",
         background: "#3a3a3a",
         color: "#fff",
         border: "1px solid #555",
@@ -24,14 +25,14 @@ export default function Toolbar({
             style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: 12,
-                marginBottom: 15
+                gap: 8,
+                marginBottom: 12
             }}
         >
             <div
                 style={{
                     display: "flex",
-                    gap: 10,
+                    gap: 8,
                     flexWrap: "wrap"
                 }}
             >
@@ -58,18 +59,6 @@ export default function Toolbar({
                 <button style={buttonStyle} onClick={onClearSelection}>
                     ✖ Clear
                 </button>
-            </div>
-
-            <div
-                style={{
-                    color: "#bbb",
-                    fontSize: 13,
-                    display: "flex",
-                    gap: 20
-                }}
-            >
-                <span>Photos: {photoCount}</span>
-                <span>Selected: {selectedCount}</span>
             </div>
         </div>
     );

@@ -44,22 +44,19 @@ class ImagingService {
             photo.loading = true;
 
             let image = null;
-            let blob = null;
-            let url = null;
 
             try {
 
                 image = await createImageFromFile(photo.file);
 
-                blob = await image.getPixels({
+                const blob = await image.getPixels({
                     targetSize: {
                         width: size,
                         height: size
                     },
                     componentSize: 8
                 });
-
-                url = URL.createObjectURL(blob);
+                const url = URL.createObjectURL(blob);
 
                 photo.thumbnail = url;
 

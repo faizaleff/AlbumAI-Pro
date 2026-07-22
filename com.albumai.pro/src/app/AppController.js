@@ -12,7 +12,7 @@ import PlacementExecutionPlanBuilder from "../placement/PlacementExecutionPlanBu
 import ReplacementRequest from "../placement/ReplacementRequest";
 import ReplacementBatchExecutor from "../placement/ReplacementBatchExecutor";
 import ReplacementStepExecutor from "../placement/ReplacementStepExecutor";
-import ExecutionSummary, { ExecutionStatus } from "../placement/ExecutionSummary";
+import { ExecutionStatus } from "../placement/ExecutionSummary";
 import BatchProgress from "../placement/BatchProgress";
 import ProjectExecutor from "../project/ProjectExecutor";
 import ProjectExecutionSummary, {
@@ -24,6 +24,14 @@ import TemplateAutoSaveService, {
 import TemplateExportService, {
     ExportFormat
 } from "../services/TemplateExportService";
+
+export const ExecutionLifecycleStatus = Object.freeze({
+    IDLE: "IDLE",
+    READY: "READY",
+    RUNNING: "RUNNING",
+    COMPLETED: "COMPLETED",
+    FAILED: "FAILED"
+});
 
 class AppController {
 
@@ -58,6 +66,8 @@ class AppController {
         });
         this.currentExecutionSummary = null;
         this.currentBatchProgress = new BatchProgress();
+        this.currentExecutionLifecycle = this.executionLifecycle();
+        this.currentExecutionPromise = null;
         this.autoSaveEnabled = false;
         this.autoSaveMode = AutoSaveMode.SAVE_COPY;
         this.currentAutoSaveResult = null;
@@ -233,6 +243,7 @@ class AppController {
         this.currentPlacementExecutionPlan = executionPlan;
         this.clearCurrentReplacementRequest();
         this.buildReplacementRequest();
+        this.setExecutionLifecycle(ExecutionLifecycleStatus.READY);
 
         return executionPlan;
 
@@ -282,10 +293,36 @@ class AppController {
         this.clearBatchProgress();
         this.clearCurrentAutoSaveResult();
         this.clearCurrentExportResult();
+        this.setExecutionLifecycle(ExecutionLifecycleStatus.IDLE);
 
     }
 
     async executeReplacementBatch(onProgress) {
+
+        if (this.currentExecutionLifecycle.status === ExecutionLifecycleStatus.RUNNING) {
+            return this.currentExecutionPromise;
+        }
+
+        const validationError = this.executionValidationError();
+
+        if (validationError) {
+            this.setExecutionLifecycle(ExecutionLifecycleStatus.FAILED, validationError);
+            throw new Error(validationError);
+        }
+
+        this.currentExecutionPromise = this.runReplacementBatch(onProgress);
+
+        try {
+            return await this.currentExecutionPromise;
+        }
+
+        finally {
+            this.currentExecutionPromise = null;
+        }
+
+    }
+
+    async runReplacementBatch(onProgress) {
 
         const project = this.project.getProject();
         const request = this.currentReplacementRequest;
@@ -294,57 +331,109 @@ class AppController {
         this.clearBatchProgress();
         this.clearCurrentAutoSaveResult();
         this.clearCurrentExportResult();
+        this.setExecutionLifecycle(ExecutionLifecycleStatus.RUNNING);
 
-        if (!project || !request || !Array.isArray(request.steps) || !request.steps.length) {
-            const startedAt = new Date().toISOString();
-            this.currentExecutionSummary = new ExecutionSummary({
-                requestId: request?.id ?? null,
-                totalSteps: Array.isArray(request?.steps) ? request.steps.length : 0,
-                completedSteps: 0,
-                failedSteps: 0,
-                skippedSteps: Array.isArray(request?.steps) ? request.steps.length : 0,
-                results: [],
-                startedAt,
-                finishedAt: startedAt,
-                elapsedMilliseconds: 0,
-                status: ExecutionStatus.FAILED
+        try {
+            this.currentExecutionSummary = await this.replacementBatchExecutor.execute(
+                request,
+                {
+                    photos: this.photoWorkspace.getPhotos(),
+                    templateName: this.templateRegistry.current()?.name || "",
+                    onProgress: progress => {
+                        this.currentBatchProgress = progress;
+
+                        if (typeof onProgress === "function") onProgress(progress);
+                    }
+                }
+            );
+
+            this.replacementStepExecutor.documentManager.sync();
+            this.currentAutoSaveResult = await this.templateAutoSaveService.save({
+                project,
+                template: this.templateRegistry.current(),
+                executionSummary: this.currentExecutionSummary,
+                enabled: this.autoSaveEnabled,
+                mode: this.autoSaveMode
             });
+            this.currentExportResult = await this.templateExportService.export({
+                project,
+                template: this.templateRegistry.current(),
+                autoSaveResult: this.currentAutoSaveResult,
+                enabled: this.exportEnabled,
+                format: this.exportFormat
+            });
+
+            const status = this.currentExecutionSummary?.status === ExecutionStatus.COMPLETED
+                ? ExecutionLifecycleStatus.COMPLETED
+                : ExecutionLifecycleStatus.FAILED;
+            this.setExecutionLifecycle(status);
 
             return this.currentExecutionSummary;
         }
 
-        this.currentExecutionSummary = await this.replacementBatchExecutor.execute(
-            request,
-            {
-                photos: this.photoWorkspace.getPhotos(),
-                templateName: this.templateRegistry.current()?.name || "",
-                onProgress: progress => {
-                    this.currentBatchProgress = progress;
+        catch (error) {
+            const message = this.userError(error, "Replacement failed.");
+            this.setExecutionLifecycle(ExecutionLifecycleStatus.FAILED, message);
+            throw new Error(message);
+        }
 
-                    if (typeof onProgress === "function") {
-                        onProgress(progress);
-                    }
-                }
-            }
-        );
+        finally {
+            this.replacementStepExecutor.documentManager.sync();
+        }
 
-        this.replacementStepExecutor.documentManager.sync();
-        this.currentAutoSaveResult = await this.templateAutoSaveService.save({
-            project,
-            template: this.templateRegistry.current(),
-            executionSummary: this.currentExecutionSummary,
-            enabled: this.autoSaveEnabled,
-            mode: this.autoSaveMode
+    }
+
+    executionValidationError() {
+
+        const project = this.project.getProject();
+        const template = this.templateRegistry.current();
+        const photos = this.photoWorkspace.getPhotos();
+        const selectedPhotos = photos.filter(photo => photo?.selected);
+        const placement = this.currentPlacementPlan;
+        const executionPlan = this.currentPlacementExecutionPlan;
+        const request = this.currentReplacementRequest;
+        const documentId = template?.document?.id;
+        const document = documentId == null
+            ? null
+            : this.replacementStepExecutor.documentManager.byId(documentId);
+
+        if (!project) return "Create or open a project to continue.";
+        if (!template || !document) return "Template document is not active.";
+        if (!selectedPhotos.length) return "No photos are selected.";
+        if (!template.smartObjects?.length) return "No Smart Object slots are available.";
+        if (!placement?.assignments?.length) return "Placement plan is not ready.";
+        if (!executionPlan?.steps?.length || executionPlan.status !== "READY") {
+            return "Execution plan is not ready.";
+        }
+        if (!request?.steps?.length) return "Replacement request is not ready.";
+        if (placement.assignments.length !== executionPlan.steps.length ||
+            executionPlan.steps.length !== request.steps.length) {
+            return "Placement assignments and execution steps are inconsistent.";
+        }
+
+        return null;
+
+    }
+
+    executionLifecycle(status = ExecutionLifecycleStatus.IDLE, error = null) {
+
+        return Object.freeze({
+            status,
+            error,
+            updatedAt: new Date().toISOString()
         });
-        this.currentExportResult = await this.templateExportService.export({
-            project,
-            template: this.templateRegistry.current(),
-            autoSaveResult: this.currentAutoSaveResult,
-            enabled: this.exportEnabled,
-            format: this.exportFormat
-        });
 
-        return this.currentExecutionSummary;
+    }
+
+    setExecutionLifecycle(status, error = null) {
+
+        this.currentExecutionLifecycle = this.executionLifecycle(status, error);
+
+    }
+
+    getCurrentExecutionLifecycle() {
+
+        return this.currentExecutionLifecycle;
 
     }
 

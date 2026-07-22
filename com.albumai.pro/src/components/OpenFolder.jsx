@@ -14,6 +14,7 @@ export default function OpenFolder() {
     const [projectName, setProjectName] = useState("");
     const [projectError, setProjectError] = useState(null);
     const [executionDetails, setExecutionDetails] = useState(null);
+    const [photoViewMode, setPhotoViewMode] = useState("icons");
     const [, forceRefresh] = useState(0);
 
     const project = App.project.getProject();
@@ -222,6 +223,9 @@ export default function OpenFolder() {
     const getCurrentBatchProgress = () =>
         App.getCurrentBatchProgress();
 
+    const getCurrentExecutionLifecycle = () =>
+        App.getCurrentExecutionLifecycle();
+
     const executeProject = onUpdate =>
         App.executeProject(onUpdate);
 
@@ -269,7 +273,9 @@ export default function OpenFolder() {
         <div
             style={{
                 display: "flex",
-                height: "100vh",
+                height: "100%",
+                width: "100%",
+                boxSizing: "border-box",
                 minHeight: 0,
                 overflow: "hidden",
                 color: "#ffffff",
@@ -278,17 +284,19 @@ export default function OpenFolder() {
         >
 
             <div
+                className="left-pane"
                 style={{
                     flex: 2,
                     display: "flex",
                     flexDirection: "column",
                     padding: 15,
                     minHeight: 0,
-                    overflowY: "auto",
-                    overflowX: "hidden"
+                    minWidth: 0,
+                    overflow: "hidden"
                 }}
             >
 
+                <div className="fixed-controls" style={{ flex: "0 0 auto" }}>
                 <section
                     style={{
                         marginBottom: 15,
@@ -297,10 +305,10 @@ export default function OpenFolder() {
                         borderRadius: 6
                     }}
                 >
-                    <div style={{ fontSize: 12, marginBottom: 8 }}>
-                        {hasProject
-                            ? `Project Active: ${project.metadata.name}`
-                            : "Create or open a project to continue."}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, marginBottom: 10 }}>
+                        <span>Project: {hasProject ? project.metadata.name : "MISSING"}</span>
+                        <span>Photos: {App.getPhotos().length}</span>
+                        <span>Selected: {App.selection.getSelected().length}</span>
                     </div>
 
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -341,32 +349,6 @@ export default function OpenFolder() {
                     selectedCount={App.selection.getSelected().length}
                 />
 
-                <div
-                    style={{
-                        marginBottom: 15
-                    }}
-                >
-                    <h3
-                        style={{
-                            margin: 0
-                        }}
-                    >
-                        {folderName || "No Folder Open"}
-                    </h3>
-
-                    <div
-                        style={{
-                            marginTop: 6,
-                            color: "#aaaaaa",
-                            fontSize: 13
-                        }}
-                    >
-                        Photos : {App.getPhotos().length}
-                        {"  |  "}
-                        Selected : {App.selection.getSelected().length}
-                    </div>
-                </div>
-
                 <TemplateDocumentPanel
                     loadTemplates={loadTemplates}
                     openTemplate={openTemplate}
@@ -379,6 +361,7 @@ export default function OpenFolder() {
                     executeReplacementBatch={executeReplacementBatch}
                     getCurrentExecutionSummary={getCurrentExecutionSummary}
                     getCurrentBatchProgress={getCurrentBatchProgress}
+                    getCurrentExecutionLifecycle={getCurrentExecutionLifecycle}
                     executeProject={executeProject}
                     getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
                     getPhotos={getPhotos}
@@ -398,24 +381,54 @@ export default function OpenFolder() {
                     projectName={project?.metadata?.name || ""}
                     hasProject={hasProject}
                 />
-
+                </div>
                 <div
+                    className="fixed-view-toolbar"
                     style={{
-                        flex: 1,
-                        minHeight: 0,
-                        overflow: "hidden"
+                        flex: "0 0 auto",
+                        display: "flex",
+                        gap: 6,
+                        marginBottom: 8
                     }}
                 >
-                    <ThumbnailGrid
-                        photos={App.getPhotos()}
-                        onPhotoClick={onPhotoClick}
-                    />
+                    {[
+                        ["icons", "Icons"],
+                        ["list", "List"]
+                    ].map(([mode, label]) => (
+                        <button
+                            key={mode}
+                            type="button"
+                            onClick={() => setPhotoViewMode(mode)}
+                            aria-pressed={photoViewMode === mode}
+                            style={{
+                                fontWeight: photoViewMode === mode ? 700 : 400,
+                                color: "#fff",
+                                background: photoViewMode === mode ? "#17355d" : "transparent",
+                                backgroundColor: photoViewMode === mode ? "#17355d" : "transparent",
+                                border: photoViewMode === mode
+                                    ? "2px solid #3B82F6"
+                                    : "2px solid #b5b5b5",
+                                borderRadius: 16,
+                                padding: "4px 14px",
+                                outline: "none"
+                            }}
+                        >
+                            {label}
+                        </button>
+                    ))}
                 </div>
+
+                <ThumbnailGrid
+                    photos={App.getPhotos()}
+                    onPhotoClick={onPhotoClick}
+                    viewMode={photoViewMode}
+                />
 
             </div>
 
             <PreviewPanel
-                photo={App.selection.getSelected()[0]}
+                photos={App.getPhotos()}
+                selectedPhotoId={App.selection.getSelected()[0]?.id || null}
                 executionDetails={executionDetails}
             />
 
