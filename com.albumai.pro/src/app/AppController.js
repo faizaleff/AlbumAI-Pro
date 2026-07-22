@@ -10,7 +10,9 @@ import Template from "../templates/Template";
 import PhotoPlacementEngine from "../placement/PhotoPlacementEngine";
 import PlacementExecutionPlanBuilder from "../placement/PlacementExecutionPlanBuilder";
 import ReplacementRequest from "../placement/ReplacementRequest";
+import ReplacementBatchExecutor from "../placement/ReplacementBatchExecutor";
 import ReplacementStepExecutor from "../placement/ReplacementStepExecutor";
+import ExecutionSummary, { ExecutionStatus } from "../placement/ExecutionSummary";
 import Logger from "../core/photoshop/Logger";
 
 class AppController {
@@ -41,6 +43,10 @@ class AppController {
         this.currentPlacementExecutionPlan = null;
         this.currentReplacementRequest = null;
         this.replacementStepExecutor = new ReplacementStepExecutor();
+        this.replacementBatchExecutor = new ReplacementBatchExecutor({
+            replacementStepExecutor: this.replacementStepExecutor
+        });
+        this.currentExecutionSummary = null;
 
     }
 
@@ -197,6 +203,53 @@ class AppController {
     clearCurrentReplacementRequest() {
 
         this.currentReplacementRequest = null;
+        this.clearExecutionSummary();
+
+    }
+
+    async executeReplacementBatch() {
+
+        const project = this.project.getProject();
+        const request = this.currentReplacementRequest;
+
+        if (!project || !request || !Array.isArray(request.steps) || !request.steps.length) {
+            const startedAt = new Date().toISOString();
+            this.currentExecutionSummary = new ExecutionSummary({
+                requestId: request?.id ?? null,
+                totalSteps: Array.isArray(request?.steps) ? request.steps.length : 0,
+                completedSteps: 0,
+                failedSteps: 0,
+                skippedSteps: Array.isArray(request?.steps) ? request.steps.length : 0,
+                results: [],
+                startedAt,
+                finishedAt: startedAt,
+                elapsedMilliseconds: 0,
+                status: ExecutionStatus.FAILED
+            });
+
+            return this.currentExecutionSummary;
+        }
+
+        this.currentExecutionSummary = await this.replacementBatchExecutor.execute(
+            request,
+            { photos: this.photoWorkspace.getPhotos() }
+        );
+
+        this.replacementStepExecutor.documentManager.sync();
+
+        return this.currentExecutionSummary;
+
+    }
+
+    getCurrentExecutionSummary() {
+
+        return this.currentExecutionSummary;
+
+    }
+
+    clearExecutionSummary() {
+
+        this.currentExecutionSummary = null;
 
     }
 

@@ -214,6 +214,12 @@ export default function OpenFolder() {
     const executeReplacementStep = step =>
         App.executeReplacementStep(step);
 
+    const executeReplacementBatch = () =>
+        App.executeReplacementBatch();
+
+    const getCurrentExecutionSummary = () =>
+        App.getCurrentExecutionSummary();
+
     return (
 
         <div
@@ -322,6 +328,8 @@ export default function OpenFolder() {
                     getCurrentPlacementExecutionPlan={getCurrentPlacementExecutionPlan}
                     getCurrentReplacementRequest={getCurrentReplacementRequest}
                     executeReplacementStep={executeReplacementStep}
+                    executeReplacementBatch={executeReplacementBatch}
+                    getCurrentExecutionSummary={getCurrentExecutionSummary}
                     hasProject={hasProject}
                 />
 

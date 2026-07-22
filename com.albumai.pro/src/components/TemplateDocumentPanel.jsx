@@ -53,6 +53,8 @@ export default function TemplateDocumentPanel({
     getCurrentPlacementExecutionPlan,
     getCurrentReplacementRequest,
     executeReplacementStep,
+    executeReplacementBatch,
+    getCurrentExecutionSummary,
     hasProject = false
 }) {
 
@@ -62,6 +64,7 @@ export default function TemplateDocumentPanel({
     const [, setPlacementVersion] = useState(0);
     const [placementError, setPlacementError] = useState(null);
     const [replacementResult, setReplacementResult] = useState(null);
+    const [executionSummary, setExecutionSummary] = useState(null);
 
     const placementPlan = getCurrentPlacementPlan?.() || null;
     const executionPlan = getCurrentPlacementExecutionPlan?.() || null;
@@ -142,6 +145,7 @@ export default function TemplateDocumentPanel({
             buildPlacementExecutionPlan?.();
             setPlacementError(null);
             setReplacementResult(null);
+            setExecutionSummary(null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -185,6 +189,26 @@ export default function TemplateDocumentPanel({
                 status: "FAILED",
                 errors: [error.message]
             });
+
+        }
+
+    }
+
+    async function executeReplacementBatchRequest() {
+
+        try {
+
+            setReplacementResult(null);
+            const summary = await executeReplacementBatch();
+
+            setExecutionSummary(summary || getCurrentExecutionSummary?.() || null);
+            setPlacementVersion(value => value + 1);
+
+        }
+
+        catch (_) {
+
+            setExecutionSummary(getCurrentExecutionSummary?.() || null);
 
         }
 
@@ -256,6 +280,13 @@ export default function TemplateDocumentPanel({
                     }
                 >
                     Execute Replacement
+                </button>
+
+                <button
+                    onClick={executeReplacementBatchRequest}
+                    disabled={!hasProject}
+                >
+                    Replace All
                 </button>
 
             </div>
@@ -337,6 +368,16 @@ export default function TemplateDocumentPanel({
                     {!!replacementResult.errors?.length && (
                         <div>{replacementResult.errors.join(" ")}</div>
                     )}
+                </div>
+
+            )}
+
+            {executionSummary && (
+
+                <div style={{ marginTop: 10, fontSize: 12 }}>
+                    <div>Completed</div>
+                    <div>Success: {executionSummary.completedSteps}</div>
+                    <div>Failed: {executionSummary.failedSteps}</div>
                 </div>
 
             )}
