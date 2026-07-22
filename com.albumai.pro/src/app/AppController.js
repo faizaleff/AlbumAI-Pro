@@ -14,6 +14,10 @@ import ReplacementBatchExecutor from "../placement/ReplacementBatchExecutor";
 import ReplacementStepExecutor from "../placement/ReplacementStepExecutor";
 import ExecutionSummary, { ExecutionStatus } from "../placement/ExecutionSummary";
 import BatchProgress from "../placement/BatchProgress";
+import ProjectExecutor from "../project/ProjectExecutor";
+import ProjectExecutionSummary, {
+    ProjectExecutionStatus
+} from "../project/ProjectExecutionSummary";
 import Logger from "../core/photoshop/Logger";
 
 class AppController {
@@ -49,6 +53,13 @@ class AppController {
         });
         this.currentExecutionSummary = null;
         this.currentBatchProgress = new BatchProgress();
+        this.projectExecutor = new ProjectExecutor({
+            templateRegistry: this.templateRegistry,
+            photoPlacementEngine: this.photoPlacementEngine,
+            placementExecutionPlanBuilder: this.placementExecutionPlanBuilder,
+            replacementBatchExecutor: this.replacementBatchExecutor
+        });
+        this.currentProjectExecutionSummary = null;
 
     }
 
@@ -151,6 +162,7 @@ class AppController {
 
         this.currentPlacementPlan = null;
         this.clearCurrentPlacementExecutionPlan();
+        this.clearProjectExecutionSummary();
 
     }
 
@@ -275,6 +287,67 @@ class AppController {
     clearBatchProgress() {
 
         this.currentBatchProgress = new BatchProgress();
+
+    }
+
+    async executeProject(onUpdate) {
+
+        const project = this.project.getProject();
+        const templates = this.templateRegistry.getAll();
+        const photos = this.photoWorkspace.getPhotos();
+        const startedAt = new Date().toISOString();
+        const projectId = project?.metadata?.id ?? project?.metadata?.name ?? null;
+
+        if (!project || !templates.length || !photos.length) {
+            this.currentProjectExecutionSummary = new ProjectExecutionSummary({
+                projectId,
+                totalTemplates: templates.length,
+                completedTemplates: 0,
+                failedTemplates: 0,
+                templateResults: [],
+                startedAt,
+                finishedAt: startedAt,
+                elapsedMilliseconds: 0,
+                status: ProjectExecutionStatus.FAILED
+            });
+
+            if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
+
+            return this.currentProjectExecutionSummary;
+        }
+
+        this.currentProjectExecutionSummary = new ProjectExecutionSummary({
+            projectId,
+            totalTemplates: templates.length,
+            completedTemplates: 0,
+            failedTemplates: 0,
+            templateResults: [],
+            startedAt,
+            status: ProjectExecutionStatus.RUNNING
+        });
+
+        if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
+
+        this.currentProjectExecutionSummary = await this.projectExecutor.execute({
+            project,
+            photos
+        });
+
+        if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
+
+        return this.currentProjectExecutionSummary;
+
+    }
+
+    getCurrentProjectExecutionSummary() {
+
+        return this.currentProjectExecutionSummary;
+
+    }
+
+    clearProjectExecutionSummary() {
+
+        this.currentProjectExecutionSummary = null;
 
     }
 

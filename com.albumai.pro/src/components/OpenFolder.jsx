@@ -223,6 +223,12 @@ export default function OpenFolder() {
     const getCurrentBatchProgress = () =>
         App.getCurrentBatchProgress();
 
+    const executeProject = onUpdate =>
+        App.executeProject(onUpdate);
+
+    const getCurrentProjectExecutionSummary = () =>
+        App.getCurrentProjectExecutionSummary();
+
     return (
 
         <div
@@ -334,6 +340,8 @@ export default function OpenFolder() {
                     executeReplacementBatch={executeReplacementBatch}
                     getCurrentExecutionSummary={getCurrentExecutionSummary}
                     getCurrentBatchProgress={getCurrentBatchProgress}
+                    executeProject={executeProject}
+                    getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
                     hasProject={hasProject}
                 />
 

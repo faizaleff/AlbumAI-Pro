@@ -56,6 +56,8 @@ export default function TemplateDocumentPanel({
     executeReplacementBatch,
     getCurrentExecutionSummary,
     getCurrentBatchProgress,
+    executeProject,
+    getCurrentProjectExecutionSummary,
     hasProject = false
 }) {
 
@@ -69,6 +71,7 @@ export default function TemplateDocumentPanel({
     const [batchProgress, setBatchProgress] = useState(() =>
         getCurrentBatchProgress?.() || null
     );
+    const [projectExecutionSummary, setProjectExecutionSummary] = useState(null);
 
     const placementPlan = getCurrentPlacementPlan?.() || null;
     const executionPlan = getCurrentPlacementExecutionPlan?.() || null;
@@ -223,6 +226,30 @@ export default function TemplateDocumentPanel({
 
     }
 
+    async function executeProjectRequest() {
+
+        try {
+
+            const summary = await executeProject(nextSummary => {
+                setProjectExecutionSummary(nextSummary);
+            });
+
+            setProjectExecutionSummary(
+                summary || getCurrentProjectExecutionSummary?.() || null
+            );
+
+        }
+
+        catch (_) {
+
+            setProjectExecutionSummary(
+                getCurrentProjectExecutionSummary?.() || null
+            );
+
+        }
+
+    }
+
     return (
 
         <section
@@ -296,6 +323,13 @@ export default function TemplateDocumentPanel({
                     disabled={!hasProject}
                 >
                     Replace All
+                </button>
+
+                <button
+                    onClick={executeProjectRequest}
+                    disabled={!hasProject}
+                >
+                    Process Project
                 </button>
 
             </div>
@@ -401,6 +435,18 @@ export default function TemplateDocumentPanel({
                     <div>Completed: {batchProgress.completedSteps} / {batchProgress.totalSteps}</div>
                     <div>Success: {batchProgress.successCount}</div>
                     <div>Failed: {batchProgress.failedCount}</div>
+                </div>
+
+            )}
+
+            {projectExecutionSummary && (
+
+                <div style={{ marginTop: 10, fontSize: 12 }}>
+                    <div>Project Execution</div>
+                    <div>Templates</div>
+                    <div>Completed : {projectExecutionSummary.completedTemplates}</div>
+                    <div>Failed : {projectExecutionSummary.failedTemplates}</div>
+                    <div>Status : {projectExecutionSummary.status}</div>
                 </div>
 
             )}
