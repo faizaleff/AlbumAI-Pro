@@ -10,6 +10,7 @@ import Template from "../templates/Template";
 import PhotoPlacementEngine from "../placement/PhotoPlacementEngine";
 import PlacementExecutionPlanBuilder from "../placement/PlacementExecutionPlanBuilder";
 import ReplacementRequest from "../placement/ReplacementRequest";
+import ReplacementStepExecutor from "../placement/ReplacementStepExecutor";
 
 class AppController {
 
@@ -38,6 +39,7 @@ class AppController {
         this.currentPlacementPlan = null;
         this.currentPlacementExecutionPlan = null;
         this.currentReplacementRequest = null;
+        this.replacementStepExecutor = new ReplacementStepExecutor();
 
     }
 
@@ -193,6 +195,43 @@ class AppController {
     clearCurrentReplacementRequest() {
 
         this.currentReplacementRequest = null;
+
+    }
+
+    async executeReplacementStep(step) {
+
+        const request = this.currentReplacementRequest;
+        const requestStep = request?.steps.find(item =>
+            item.stepNumber === step?.stepNumber &&
+            item.slotLayerId === step?.slotLayerId
+        );
+
+        if (!requestStep) {
+            const result = this.replacementStepExecutor.result({
+                requestId: request?.id ?? null,
+                status: "FAILED",
+                failedSteps: [{
+                    stepNumber: step?.stepNumber ?? null,
+                    slotLayerId: step?.slotLayerId ?? null,
+                    message: "Replacement step is not part of the current request."
+                }],
+                errors: ["Replacement step is not part of the current request."],
+                startedAt: new Date().toISOString()
+            });
+
+            this.replacementStepExecutor.documentManager.sync();
+
+            return result;
+        }
+
+        const result = await this.replacementStepExecutor.execute({
+            ...requestStep,
+            requestId: request.id
+        }, this.photoWorkspace.getPhotos());
+
+        this.replacementStepExecutor.documentManager.sync();
+
+        return result;
 
     }
 

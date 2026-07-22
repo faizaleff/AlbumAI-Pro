@@ -51,6 +51,8 @@ export default function TemplateDocumentPanel({
     getCurrentPlacementPlan,
     buildPlacementExecutionPlan,
     getCurrentPlacementExecutionPlan,
+    getCurrentReplacementRequest,
+    executeReplacementStep,
     hasProject = false
 }) {
 
@@ -59,9 +61,11 @@ export default function TemplateDocumentPanel({
     const [document, setDocument] = useState(null);
     const [, setPlacementVersion] = useState(0);
     const [placementError, setPlacementError] = useState(null);
+    const [replacementResult, setReplacementResult] = useState(null);
 
     const placementPlan = getCurrentPlacementPlan?.() || null;
     const executionPlan = getCurrentPlacementExecutionPlan?.() || null;
+    const replacementRequest = getCurrentReplacementRequest?.() || null;
 
     useEffect(() => {
 
@@ -149,6 +153,38 @@ export default function TemplateDocumentPanel({
 
     }
 
+    async function executeFirstReplacementStep() {
+
+        const step = replacementRequest?.steps?.[0];
+
+        if (!step) {
+            setReplacementResult({
+                status: "FAILED",
+                errors: ["A replacement request with at least one step is required."]
+            });
+            return;
+        }
+
+        try {
+
+            const result = await executeReplacementStep(step);
+
+            setReplacementResult(result);
+            setPlacementVersion(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            setReplacementResult({
+                status: "FAILED",
+                errors: [error.message]
+            });
+
+        }
+
+    }
+
     return (
 
         <section
@@ -197,6 +233,13 @@ export default function TemplateDocumentPanel({
                     disabled={!hasProject || !placementPlan}
                 >
                     Build Execution Dry Run
+                </button>
+
+                <button
+                    onClick={executeFirstReplacementStep}
+                    disabled={!hasProject || !replacementRequest?.steps?.length}
+                >
+                    Execute Replacement
                 </button>
 
             </div>
@@ -267,6 +310,17 @@ export default function TemplateDocumentPanel({
                     <div>Ready Steps: {executionPlan.statistics.readySteps}</div>
                     <div>Warnings: {executionPlan.statistics.warningCount}</div>
                     <div>Status: {executionPlan.status}</div>
+                </div>
+
+            )}
+
+            {replacementResult && (
+
+                <div style={{ marginTop: 10, fontSize: 12 }}>
+                    <div>Replacement: {replacementResult.status}</div>
+                    {!!replacementResult.errors?.length && (
+                        <div>{replacementResult.errors.join(" ")}</div>
+                    )}
                 </div>
 
             )}

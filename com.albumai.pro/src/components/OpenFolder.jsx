@@ -208,6 +208,12 @@ export default function OpenFolder() {
     const getCurrentPlacementExecutionPlan = () =>
         App.getCurrentPlacementExecutionPlan();
 
+    const getCurrentReplacementRequest = () =>
+        App.getCurrentReplacementRequest();
+
+    const executeReplacementStep = step =>
+        App.executeReplacementStep(step);
+
     return (
 
         <div
@@ -314,6 +320,8 @@ export default function OpenFolder() {
                     getCurrentPlacementPlan={getCurrentPlacementPlan}
                     buildPlacementExecutionPlan={buildPlacementExecutionPlan}
                     getCurrentPlacementExecutionPlan={getCurrentPlacementExecutionPlan}
+                    getCurrentReplacementRequest={getCurrentReplacementRequest}
+                    executeReplacementStep={executeReplacementStep}
                     hasProject={hasProject}
                 />
 
