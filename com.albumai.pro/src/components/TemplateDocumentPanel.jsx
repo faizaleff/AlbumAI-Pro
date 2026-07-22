@@ -196,7 +196,14 @@ export default function TemplateDocumentPanel({
             }}
         >
 
-            <div style={{ display: "flex", gap: 8 }}>
+            <div
+                style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    alignItems: "center"
+                }}
+            >
 
                 <select
                     value={selectedName}
