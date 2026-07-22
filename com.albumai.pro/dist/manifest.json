@@ -11,7 +11,8 @@
   },
 
   "requiredPermissions": {
-    "allowCodeGenerationFromStrings": true
+    "allowCodeGenerationFromStrings": true,
+    "clipboard": "readAndWrite"
   },
 
   "entrypoints": [

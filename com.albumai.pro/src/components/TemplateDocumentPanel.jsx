@@ -44,6 +44,439 @@ function textPreview(text) {
 
 }
 
+function fileName(value) {
+
+    if (typeof value !== "string" || !value) {
+        return "—";
+    }
+
+    return value.split(/[\\/]/).pop() || "—";
+
+}
+
+function textValue(value, fallback = "—") {
+
+    return value === null || value === undefined || value === ""
+        ? fallback
+        : String(value);
+
+}
+
+function addList(lines, heading, items) {
+
+    lines.push(heading);
+
+    if (!items.length) {
+        lines.push("None");
+        lines.push("");
+        return;
+    }
+
+    items.forEach(item => lines.push(`- ${item}`));
+    lines.push("");
+
+}
+
+function summaryText({
+    hasProject,
+    projectId,
+    projectName,
+    photos,
+    healthTemplate,
+    document,
+    placementPlan,
+    executionPlan,
+    autoSaveEnabled,
+    autoSaveMode,
+    autoSaveResult,
+    exportEnabled,
+    exportFormat,
+    exportResult,
+    executionSummary,
+    batchProgress,
+    projectExecutionSummary
+}) {
+
+    const selectedCount = photos.filter(photo => photo?.selected).length;
+    const template = document || healthTemplate;
+    const lines = [
+        "AlbumAI Summary",
+        `Generated: ${new Date().toISOString()}`,
+        "",
+        "Project",
+        `Status: ${hasProject ? "READY" : "MISSING"}`,
+        `ID: ${textValue(projectId)}`,
+        `Name: ${textValue(projectName)}`,
+        `Photos: ${photos.length}`,
+        `Selected: ${selectedCount}`,
+        "",
+        "Template",
+        `Name: ${textValue(template?.name)}`,
+        `Smart Objects: ${template?.smartObjects?.length || 0}`,
+        "",
+        "Placement",
+        `Assigned: ${placementPlan?.statistics?.assignedSlots || 0}`,
+        `Empty: ${placementPlan?.statistics?.emptySlots || 0}`,
+        `Unassigned: ${placementPlan?.statistics?.unassignedPhotos || 0}`,
+        "",
+        "Execution",
+        `Plan Status: ${executionPlan?.status || "NOT READY"}`,
+        `Ready Steps: ${executionPlan?.statistics?.readySteps || 0}`,
+        `Completed: ${batchProgress?.completedSteps ?? executionSummary?.completedSteps ?? 0}`,
+        `Success: ${batchProgress?.successCount ?? executionSummary?.completedSteps ?? 0}`,
+        `Failed: ${batchProgress?.failedCount ?? executionSummary?.failedSteps ?? 0}`,
+        "",
+        "Auto Save",
+        `Enabled: ${autoSaveEnabled ? "ON" : "OFF"}`,
+        `Mode: ${autoSaveMode === "SAVE_COPY" ? "Save Copy" : "Overwrite Original"}`,
+        `Result: ${autoSaveResult?.status || "NOT RUN"}`,
+        `Output: ${fileName(autoSaveResult?.outputPath)}`,
+        "",
+        "Export",
+        `Enabled: ${exportEnabled ? "ON" : "OFF"}`,
+        `Format: ${exportFormat}`,
+        `Result: ${exportResult?.status || "NOT RUN"}`,
+        `Output: ${fileName(exportResult?.outputPath)}`
+    ];
+
+    if (projectExecutionSummary) {
+        lines.push(
+            "",
+            "Project Execution",
+            `Status: ${projectExecutionSummary.status}`,
+            `Completed Templates: ${projectExecutionSummary.completedTemplates}`,
+            `Failed Templates: ${projectExecutionSummary.failedTemplates}`
+        );
+    }
+
+    return lines.join("\n");
+
+}
+
+function debugText({
+    projectId,
+    projectName,
+    photos,
+    healthTemplate,
+    document,
+    placementPlan,
+    executionPlan,
+    replacementRequest,
+    batchProgress,
+    executionSummary,
+    autoSaveResult,
+    exportResult,
+    projectExecutionSummary,
+    placementError
+}) {
+
+    const template = document || healthTemplate;
+    const selectedPhotos = photos.filter(photo => photo?.selected);
+    const slots = template?.smartObjects || [];
+    const lines = [
+        "AlbumAI Debug Log",
+        `Generated: ${new Date().toISOString()}`,
+        "",
+        "Project",
+        `ID: ${textValue(projectId)}`,
+        `Name: ${textValue(projectName)}`,
+        "",
+        "Template",
+        `ID: ${textValue(template?.id)}`,
+        `Document ID: ${textValue(template?.document?.id)}`,
+        `Name: ${textValue(template?.name)}`,
+        ""
+    ];
+
+    addList(lines, "Selected Photos", selectedPhotos.map(photo =>
+        `${textValue(photo?.id)} — ${textValue(photo?.name)}`
+    ));
+    addList(lines, "Smart Object Slots", slots.map(slot =>
+        `${textValue(slot?.layerId)} — ${textValue(slot?.layerName)}`
+    ));
+    addList(lines, "Placement Assignments", (placementPlan?.assignments || []).map(assignment =>
+        `photo=${textValue(assignment?.photoId)}, slot=${textValue(assignment?.slotLayerId ?? assignment?.layerId)}, fit=${textValue(assignment?.fitMode)}`
+    ));
+    addList(lines, "Execution Plan Steps", (executionPlan?.steps || []).map(step =>
+        `#${textValue(step?.order)} photo=${textValue(step?.photoId)} (${textValue(step?.photoName)}), slot=${textValue(step?.slotLayerId)} (${textValue(step?.slotName)})`
+    ));
+    addList(lines, "Replacement Request Steps", (replacementRequest?.steps || []).map(step =>
+        `#${textValue(step?.stepNumber)} photo=${textValue(step?.photoId)} (${textValue(step?.photoName)}), slot=${textValue(step?.slotLayerId)} (${textValue(step?.slotName)})`
+    ));
+
+    lines.push(
+        "Batch Progress",
+        `Status: ${textValue(batchProgress?.status)}`,
+        `Completed: ${textValue(batchProgress?.completedSteps, "0")} / ${textValue(batchProgress?.totalSteps, "0")}`,
+        `Success: ${textValue(batchProgress?.successCount, "0")}`,
+        `Failed: ${textValue(batchProgress?.failedCount, "0")}`,
+        "",
+        "Execution Summary",
+        `Status: ${textValue(executionSummary?.status)}`,
+        `Completed: ${textValue(executionSummary?.completedSteps, "0")}`,
+        `Failed: ${textValue(executionSummary?.failedSteps, "0")}`,
+        "",
+        "Auto Save Result",
+        `Status: ${textValue(autoSaveResult?.status)}`,
+        `Output: ${fileName(autoSaveResult?.outputPath)}`,
+        `Warnings: ${(autoSaveResult?.warnings || []).join(" | ") || "None"}`,
+        `Error: ${textValue(autoSaveResult?.error, "None")}`,
+        "",
+        "Export Result",
+        `Status: ${textValue(exportResult?.status)}`,
+        `Output: ${fileName(exportResult?.outputPath)}`,
+        `Warnings: ${(exportResult?.warnings || []).join(" | ") || "None"}`,
+        `Error: ${textValue(exportResult?.error, "None")}`,
+        "",
+        "Project Execution Summary",
+        `Status: ${textValue(projectExecutionSummary?.status)}`,
+        `Completed Templates: ${textValue(projectExecutionSummary?.completedTemplates, "0")}`,
+        `Failed Templates: ${textValue(projectExecutionSummary?.failedTemplates, "0")}`,
+        "",
+        "Stored Warnings and Errors",
+        `Placement: ${textValue(placementError, "None")}`,
+        `Placement Warnings: ${(placementPlan?.warnings || []).map(warning => warning?.message || String(warning)).join(" | ") || "None"}`,
+        `Execution Warnings: ${(executionPlan?.warnings || []).map(warning => warning?.message || String(warning)).join(" | ") || "None"}`
+    );
+
+    return lines.join("\n");
+
+}
+
+export function ExecutionDetails({
+    hasProject,
+    projectId,
+    projectName,
+    healthPhotos,
+    healthTemplate,
+    placementPlan,
+    placementError,
+    executionPlan,
+    replacementRequest,
+    document,
+    autoSaveEnabled,
+    autoSaveMode,
+    autoSaveResult,
+    exportEnabled,
+    exportFormat,
+    exportResult,
+    replacementResult,
+    executionSummary,
+    batchProgress,
+    projectExecutionSummary
+}) {
+
+    const [templateDetailsOpen, setTemplateDetailsOpen] = useState(false);
+    const [layerListOpen, setLayerListOpen] = useState(false);
+    const [copyFeedback, setCopyFeedback] = useState("");
+    const sectionStyle = {
+        marginTop: 16,
+        paddingTop: 12,
+        borderTop: "1px solid #4a4a4a"
+    };
+    const titleStyle = {
+        margin: 0,
+        fontSize: 15,
+        fontWeight: 700
+    };
+    const rowStyle = {
+        display: "flex",
+        gap: 8,
+        alignItems: "baseline",
+        marginTop: 8,
+        lineHeight: 1.35
+    };
+    const labelStyle = {
+        flex: "0 0 126px",
+        color: "#b8b8b8",
+        fontSize: 12
+    };
+    const valueStyle = {
+        minWidth: 0,
+        overflowWrap: "anywhere",
+        fontSize: 13
+    };
+    const Row = ({ label, value, warning = false }) => (
+        <div style={{ ...rowStyle, color: warning ? "#ffcc99" : undefined }}>
+            <span style={labelStyle}>{label}</span>
+            <span style={valueStyle}>{value}</span>
+        </div>
+    );
+    const Toggle = ({ open, onClick, children }) => (
+        <button
+            type="button"
+            onClick={onClick}
+            style={{ marginTop: 8, fontSize: 12 }}
+        >
+            {open ? "Hide" : "Show"} {children}
+        </button>
+    );
+    const copy = async (content, successMessage) => {
+
+        try {
+
+            if (typeof navigator?.clipboard?.writeText !== "function") {
+                throw new Error("Clipboard is unavailable.");
+            }
+
+            await navigator.clipboard.writeText(content);
+            setCopyFeedback(successMessage);
+
+        }
+
+        catch (_) {
+
+            setCopyFeedback("Clipboard access is unavailable. Reload the plugin and allow clipboard access.");
+
+        }
+
+    };
+    const copySummary = () => copy(summaryText({
+        hasProject,
+        projectId,
+        projectName,
+        photos: healthPhotos,
+        healthTemplate,
+        document,
+        placementPlan,
+        executionPlan,
+        autoSaveEnabled,
+        autoSaveMode,
+        autoSaveResult,
+        exportEnabled,
+        exportFormat,
+        exportResult,
+        executionSummary,
+        batchProgress,
+        projectExecutionSummary
+    }), "Summary copied.");
+    const copyDebugLog = () => copy(debugText({
+        projectId,
+        projectName,
+        photos: healthPhotos,
+        healthTemplate,
+        document,
+        placementPlan,
+        executionPlan,
+        replacementRequest,
+        batchProgress,
+        executionSummary,
+        autoSaveResult,
+        exportResult,
+        projectExecutionSummary,
+        placementError
+    }), "Debug log copied.");
+
+    return (
+        <section style={{ marginTop: 20, paddingBottom: 16 }}>
+            <h3 style={titleStyle}>Execution Details</h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                <button type="button" onClick={copySummary}>Copy Summary</button>
+                <button type="button" onClick={copyDebugLog}>Copy Debug Log</button>
+            </div>
+            {copyFeedback && <div style={{ marginTop: 8, fontSize: 12, color: "#b8dca0" }}>{copyFeedback}</div>}
+
+            <div style={sectionStyle}>
+                <h4 style={titleStyle}>Project Health</h4>
+                <Row label="Project" value={hasProject ? "READY" : "MISSING"} />
+                <Row label="Photos" value={healthPhotos.length} />
+                <Row label="Template" value={healthTemplate ? "READY" : "MISSING"} />
+                <Row label="Smart Objects" value={healthTemplate?.smartObjects?.length || 0} />
+                <Row label="Placement" value={placementPlan ? "READY" : "NOT READY"} />
+                <Row label="Execution Plan" value={executionPlan?.status === "READY" ? "READY" : "NOT READY"} />
+                <Row label="Replacement Request" value={replacementRequest ? "READY" : "NOT READY"} />
+            </div>
+
+            <div style={sectionStyle}>
+                <h4 style={titleStyle}>Auto Save</h4>
+                <Row label="Enabled" value={autoSaveEnabled ? "ON" : "OFF"} />
+                <Row label="Mode" value={autoSaveMode === "SAVE_COPY" ? "Save Copy" : "Overwrite Original"} />
+                {autoSaveResult && <Row label="Last Result" value={autoSaveResult.status} />}
+                {!!autoSaveResult?.outputPath && <Row label="Output" value={autoSaveResult.outputPath} />}
+                {!!autoSaveResult?.warnings?.length && <Row label="Warning" value={autoSaveResult.warnings.join(" ")} warning />}
+                {autoSaveResult?.error && <Row label="Warning" value={autoSaveResult.error} warning />}
+            </div>
+
+            <div style={sectionStyle}>
+                <h4 style={titleStyle}>Export</h4>
+                <Row label="Enabled" value={exportEnabled ? "ON" : "OFF"} />
+                <Row label="Format" value={exportFormat} />
+                {exportResult && <Row label="Last Export" value={exportResult.status} />}
+                {!!exportResult?.outputPath && <Row label="Output" value={exportResult.outputPath} />}
+                {!!exportResult?.warnings?.length && <Row label="Warning" value={exportResult.warnings.join(" ")} warning />}
+                {exportResult?.error && <Row label="Warning" value={exportResult.error} warning />}
+            </div>
+
+            <div style={sectionStyle}>
+                <h4 style={titleStyle}>Template</h4>
+                <Row label="Name" value={document?.name || "No template open"} />
+                {document && <>
+                    <Toggle open={templateDetailsOpen} onClick={() => setTemplateDetailsOpen(open => !open)}>Template Details</Toggle>
+                    {templateDetailsOpen && <div>
+                        <Row label="Dimensions" value={`${document.document.width} × ${document.document.height}`} />
+                        <Row label="Resolution" value={document.document.resolution} />
+                        <Row label="Layer Count" value={document.statistics.totalLayers} />
+                        <Row label="Smart Objects" value={document.statistics.totalSmartObjects} />
+                        <Row label="Text Layers" value={document.statistics.totalTextLayers} />
+                        {!!document.smartObjects?.length && <Row label="Smart Object Names" value={document.smartObjects.map(layer => layer.layerName).join(", ")} />}
+                        {!!document.textLayers?.length && <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5 }}>
+                            {document.textLayers.map(layer => <div key={layer.layerId}>{layer.layerName}: {textPreview(layer.textContent)}</div>)}
+                        </div>}
+                    </div>}
+                    {document.layerTree && <>
+                        <Toggle open={layerListOpen} onClick={() => setLayerListOpen(open => !open)}>Layer List</Toggle>
+                        {layerListOpen && <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.4 }}><LayerTree layers={document.layerTree} /></div>}
+                    </>}
+                </>}
+            </div>
+
+            <div style={sectionStyle}>
+                <h4 style={titleStyle}>Placement</h4>
+                {placementPlan ? <>
+                    <Row label="Assigned Slots" value={placementPlan.statistics.assignedSlots} />
+                    <Row label="Empty Slots" value={placementPlan.statistics.emptySlots} />
+                    <Row label="Unassigned Photos" value={placementPlan.statistics.unassignedPhotos} />
+                    <Row label="Warnings" value={placementPlan.warnings.length} />
+                </> : <Row label="Status" value="NOT READY" />}
+                {placementError && <Row label="Warning" value={placementError} warning />}
+            </div>
+
+            <div style={sectionStyle}>
+                <h4 style={titleStyle}>Execution Plan</h4>
+                {executionPlan ? <>
+                    <Row label="Ready Steps" value={executionPlan.statistics.readySteps} />
+                    <Row label="Warnings" value={executionPlan.statistics.warningCount} />
+                    <Row label="Status" value={executionPlan.status} />
+                </> : <Row label="Status" value="NOT READY" />}
+                {replacementResult && <Row label="Replacement" value={replacementResult.status} />}
+                {!!replacementResult?.errors?.length && <Row label="Error" value={replacementResult.errors.join(" ")} warning />}
+                {executionSummary && <>
+                    <Row label="Batch Success" value={executionSummary.completedSteps} />
+                    <Row label="Batch Failed" value={executionSummary.failedSteps} />
+                </>}
+            </div>
+
+            <div style={sectionStyle}>
+                <h4 style={titleStyle}>Batch Progress</h4>
+                {batchProgress ? <>
+                    <Row label="Status" value={batchProgress.status} />
+                    <Row label="Current Photo" value={batchProgress.currentPhotoName || "—"} />
+                    <Row label="Current Slot" value={batchProgress.currentSlotName || "—"} />
+                    <Row label="Completed" value={`${batchProgress.completedSteps} / ${batchProgress.totalSteps}`} />
+                    <Row label="Success" value={batchProgress.successCount} />
+                    <Row label="Failed" value={batchProgress.failedCount} />
+                </> : <Row label="Status" value="IDLE" />}
+                {projectExecutionSummary && <>
+                    <Row label="Project Status" value={projectExecutionSummary.status} />
+                    <Row label="Templates Complete" value={projectExecutionSummary.completedTemplates} />
+                    <Row label="Templates Failed" value={projectExecutionSummary.failedTemplates} />
+                </>}
+            </div>
+        </section>
+    );
+
+}
+
 export default function TemplateDocumentPanel({
     loadTemplates,
     openTemplate,
@@ -70,6 +503,9 @@ export default function TemplateDocumentPanel({
     setExportFormat,
     getExportFormat,
     getCurrentExportResult,
+    onExecutionDetailsChange,
+    projectId = null,
+    projectName = "",
     hasProject = false
 }) {
 
@@ -100,6 +536,57 @@ export default function TemplateDocumentPanel({
     const autoSaveMode = getAutoSaveMode?.() || "SAVE_COPY";
     const exportEnabled = getExportEnabled?.() || false;
     const exportFormat = getExportFormat?.() || "JPEG";
+
+    useEffect(() => {
+
+        onExecutionDetailsChange?.(
+            <ExecutionDetails
+                hasProject={hasProject}
+                projectId={projectId}
+                projectName={projectName}
+                healthPhotos={healthPhotos}
+                healthTemplate={healthTemplate}
+                placementPlan={placementPlan}
+                placementError={placementError}
+                executionPlan={executionPlan}
+                replacementRequest={replacementRequest}
+                document={document}
+                autoSaveEnabled={autoSaveEnabled}
+                autoSaveMode={autoSaveMode}
+                autoSaveResult={autoSaveResult}
+                exportEnabled={exportEnabled}
+                exportFormat={exportFormat}
+                exportResult={exportResult}
+                replacementResult={replacementResult}
+                executionSummary={executionSummary}
+                batchProgress={batchProgress}
+                projectExecutionSummary={projectExecutionSummary}
+            />
+        );
+
+    }, [
+        hasProject,
+        projectId,
+        projectName,
+        healthPhotos.length,
+        healthTemplate,
+        placementPlan,
+        placementError,
+        executionPlan,
+        replacementRequest,
+        document,
+        autoSaveEnabled,
+        autoSaveMode,
+        autoSaveResult,
+        exportEnabled,
+        exportFormat,
+        exportResult,
+        replacementResult,
+        executionSummary,
+        batchProgress,
+        projectExecutionSummary,
+        onExecutionDetailsChange
+    ]);
 
     useEffect(() => {
 
@@ -448,6 +935,7 @@ export default function TemplateDocumentPanel({
 
             </div>
 
+            {false && <>
             <div style={{ marginTop: 10, fontSize: 12 }}>
                 <div>Project Health</div>
                 <div>Project: {hasProject ? "READY" : "MISSING"}</div>
@@ -618,6 +1106,7 @@ export default function TemplateDocumentPanel({
                 </div>
 
             )}
+            </>}
 
         </section>
 

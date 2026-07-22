@@ -4,17 +4,20 @@ class SelectionService {
 
         this.photos = [];
         this.lastSelectedIndex = -1;
+        this.lastSelectedPhotoId = null;
         this.selectedCount = 0;
 
     }
 
     setPhotos(photos = []) {
 
-        this.photos = photos;
-        this.selectedCount = photos.reduce(
+        this.photos = (Array.isArray(photos) ? photos : [])
+            .filter(Boolean);
+        this.selectedCount = this.photos.reduce(
             (count, photo) => count + (photo.selected ? 1 : 0),
             0
         );
+        this.syncAnchor();
 
     }
 
@@ -22,32 +25,42 @@ class SelectionService {
 
         if (!this.selectedCount) {
             this.lastSelectedIndex = -1;
+            this.lastSelectedPhotoId = null;
             return;
         }
 
         this.photos.forEach(photo => {
 
-            photo.selected = false;
+            if (photo) photo.selected = false;
 
         });
 
         this.selectedCount = 0;
         this.lastSelectedIndex = -1;
+        this.lastSelectedPhotoId = null;
 
     }
 
     select(photo) {
+
+        const index = this.photos.indexOf(photo);
+
+        if (index === -1 || !photo) return;
 
         this.clear();
 
         photo.selected = true;
 
         this.selectedCount = 1;
-        this.lastSelectedIndex = this.photos.indexOf(photo);
+        this.setAnchor(index, photo);
 
     }
 
     toggle(photo) {
+
+        const index = this.photos.indexOf(photo);
+
+        if (index === -1 || !photo) return;
 
         photo.selected = !photo.selected;
 
@@ -61,7 +74,7 @@ class SelectionService {
 
         }
 
-        this.lastSelectedIndex = this.photos.indexOf(photo);
+        this.setAnchor(index, photo);
 
     }
 
@@ -69,11 +82,13 @@ class SelectionService {
 
         const currentIndex = this.photos.indexOf(photo);
 
-        if (currentIndex === -1) {
+        if (currentIndex === -1 || !this.photos.length) {
             return;
         }
 
-        if (this.lastSelectedIndex === -1) {
+        const anchorIndex = this.anchorIndex();
+
+        if (anchorIndex === -1) {
 
             this.select(photo);
             return;
@@ -82,23 +97,26 @@ class SelectionService {
 
         this.clear();
 
-        const start = Math.min(
-            this.lastSelectedIndex,
-            currentIndex
+        const start = Math.max(0, Math.min(anchorIndex, currentIndex));
+        const end = Math.min(
+            this.photos.length - 1,
+            Math.max(anchorIndex, currentIndex)
         );
-
-        const end = Math.max(
-            this.lastSelectedIndex,
-            currentIndex
-        );
+        let count = 0;
 
         for (let i = start; i <= end; i++) {
 
-            this.photos[i].selected = true;
+            const item = this.photos[i];
+
+            if (!item) continue;
+
+            item.selected = true;
+            count += 1;
 
         }
 
-        this.selectedCount = end - start + 1;
+        this.selectedCount = count;
+        this.setAnchor(currentIndex, photo);
 
     }
 
@@ -129,7 +147,7 @@ class SelectionService {
 
         this.photos.forEach(photo => {
 
-            photo.selected = true;
+            if (photo) photo.selected = true;
 
         });
 
@@ -142,6 +160,8 @@ class SelectionService {
         let count = 0;
 
         this.photos.forEach(photo => {
+
+            if (!photo) return;
 
             photo.selected = !photo.selected;
 
@@ -176,6 +196,45 @@ class SelectionService {
     hasSelection() {
 
         return this.selectedCount > 0;
+
+    }
+
+    syncAnchor() {
+
+        if (!this.lastSelectedPhotoId) {
+            this.lastSelectedIndex = -1;
+            return;
+        }
+
+        const index = this.photos.findIndex(photo =>
+            photo?.id === this.lastSelectedPhotoId
+        );
+
+        if (index === -1) {
+            this.lastSelectedIndex = -1;
+            this.lastSelectedPhotoId = null;
+            return;
+        }
+
+        this.lastSelectedIndex = index;
+
+    }
+
+    anchorIndex() {
+
+        this.syncAnchor();
+
+        return this.lastSelectedIndex >= 0 &&
+            this.lastSelectedIndex < this.photos.length
+            ? this.lastSelectedIndex
+            : -1;
+
+    }
+
+    setAnchor(index, photo) {
+
+        this.lastSelectedIndex = index;
+        this.lastSelectedPhotoId = photo?.id ?? null;
 
     }
 
