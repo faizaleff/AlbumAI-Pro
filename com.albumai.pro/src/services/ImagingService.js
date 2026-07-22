@@ -8,11 +8,6 @@ class ImagingService {
 
     constructor() {
 
-        this.createImageFromFile =
-            typeof imaging?.createImageFromFile === "function"
-                ? imaging.createImageFromFile.bind(imaging)
-                : null;
-        this.supported = !!this.createImageFromFile;
         this.reportedCapabilities = false;
 
     }
@@ -30,7 +25,13 @@ class ImagingService {
                 return photo.thumbnail;
             }
 
-            if (!photo.file || !this.createImageFromFile) {
+            if (!photo.file) {
+                return this.placeholder(photo);
+            }
+
+            const createImageFromFile = this.imageFactory();
+
+            if (!createImageFromFile) {
                 this.warnUnavailable();
                 return this.placeholder(photo);
             }
@@ -48,7 +49,7 @@ class ImagingService {
 
             try {
 
-                image = await this.createImageFromFile(photo.file);
+                image = await createImageFromFile(photo.file);
 
                 blob = await image.getPixels({
                     targetSize: {
@@ -74,14 +75,9 @@ class ImagingService {
 
             }
 
-        } catch (error) {
+        } catch (_) {
 
             photo.loading = false;
-
-            console.warn(
-                "ImagingService.createThumbnail",
-                error
-            );
 
             return this.placeholder(photo);
 
@@ -117,7 +113,23 @@ class ImagingService {
 
     isSupported() {
 
-        return this.supported;
+        return !!this.imageFactory();
+
+    }
+
+    imageFactory() {
+
+        try {
+
+            return typeof imaging?.createImageFromFile === "function"
+                ? imaging.createImageFromFile.bind(imaging)
+                : null;
+
+        }
+
+        catch (_) {
+            return null;
+        }
 
     }
 
@@ -138,11 +150,7 @@ class ImagingService {
         this.reportedCapabilities = true;
 
         console.warn(
-            "Photoshop imaging.createImageFromFile is unavailable; using placeholder thumbnails.",
-            {
-                hasImagingModule: !!imaging,
-                createImageFromFile: typeof imaging?.createImageFromFile
-            }
+            "Host imaging API unavailable; using placeholder thumbnails."
         );
 
     }
