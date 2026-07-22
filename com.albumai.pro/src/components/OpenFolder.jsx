@@ -214,11 +214,14 @@ export default function OpenFolder() {
     const executeReplacementStep = step =>
         App.executeReplacementStep(step);
 
-    const executeReplacementBatch = () =>
-        App.executeReplacementBatch();
+    const executeReplacementBatch = onProgress =>
+        App.executeReplacementBatch(onProgress);
 
     const getCurrentExecutionSummary = () =>
         App.getCurrentExecutionSummary();
+
+    const getCurrentBatchProgress = () =>
+        App.getCurrentBatchProgress();
 
     return (
 
@@ -330,6 +333,7 @@ export default function OpenFolder() {
                     executeReplacementStep={executeReplacementStep}
                     executeReplacementBatch={executeReplacementBatch}
                     getCurrentExecutionSummary={getCurrentExecutionSummary}
+                    getCurrentBatchProgress={getCurrentBatchProgress}
                     hasProject={hasProject}
                 />
 

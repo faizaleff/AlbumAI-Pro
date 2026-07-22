@@ -13,6 +13,7 @@ import ReplacementRequest from "../placement/ReplacementRequest";
 import ReplacementBatchExecutor from "../placement/ReplacementBatchExecutor";
 import ReplacementStepExecutor from "../placement/ReplacementStepExecutor";
 import ExecutionSummary, { ExecutionStatus } from "../placement/ExecutionSummary";
+import BatchProgress from "../placement/BatchProgress";
 import Logger from "../core/photoshop/Logger";
 
 class AppController {
@@ -47,6 +48,7 @@ class AppController {
             replacementStepExecutor: this.replacementStepExecutor
         });
         this.currentExecutionSummary = null;
+        this.currentBatchProgress = new BatchProgress();
 
     }
 
@@ -204,10 +206,11 @@ class AppController {
 
         this.currentReplacementRequest = null;
         this.clearExecutionSummary();
+        this.clearBatchProgress();
 
     }
 
-    async executeReplacementBatch() {
+    async executeReplacementBatch(onProgress) {
 
         const project = this.project.getProject();
         const request = this.currentReplacementRequest;
@@ -232,7 +235,17 @@ class AppController {
 
         this.currentExecutionSummary = await this.replacementBatchExecutor.execute(
             request,
-            { photos: this.photoWorkspace.getPhotos() }
+            {
+                photos: this.photoWorkspace.getPhotos(),
+                templateName: this.templateRegistry.current()?.name || "",
+                onProgress: progress => {
+                    this.currentBatchProgress = progress;
+
+                    if (typeof onProgress === "function") {
+                        onProgress(progress);
+                    }
+                }
+            }
         );
 
         this.replacementStepExecutor.documentManager.sync();
@@ -250,6 +263,18 @@ class AppController {
     clearExecutionSummary() {
 
         this.currentExecutionSummary = null;
+
+    }
+
+    getCurrentBatchProgress() {
+
+        return this.currentBatchProgress;
+
+    }
+
+    clearBatchProgress() {
+
+        this.currentBatchProgress = new BatchProgress();
 
     }
 

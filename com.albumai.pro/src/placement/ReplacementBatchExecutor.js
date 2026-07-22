@@ -1,5 +1,6 @@
 import ExecutionSummary, { ExecutionStatus } from "./ExecutionSummary";
 import ReplacementResult from "./ReplacementResult";
+import BatchProgress, { BatchProgressStatus } from "./BatchProgress";
 
 export default class ReplacementBatchExecutor {
 
@@ -13,7 +14,11 @@ export default class ReplacementBatchExecutor {
 
     }
 
-    async execute(request, { photos = [] } = {}) {
+    async execute(request, {
+        photos = [],
+        templateName = "",
+        onProgress
+    } = {}) {
 
         const startedAt = new Date().toISOString();
         const startedMilliseconds = Date.now();
@@ -32,7 +37,19 @@ export default class ReplacementBatchExecutor {
         let completedSteps = 0;
         let failedSteps = 0;
 
-        for (const step of request.steps) {
+        this.publishProgress(onProgress, {
+            currentStep: 0,
+            totalSteps: request.steps.length,
+            completedSteps,
+            successCount: completedSteps,
+            failedCount: failedSteps,
+            currentTemplateId: request.templateId,
+            currentTemplateName: templateName,
+            percentComplete: 0,
+            status: BatchProgressStatus.RUNNING
+        });
+
+        for (const [index, step] of request.steps.entries()) {
             let result;
 
             try {
@@ -64,7 +81,39 @@ export default class ReplacementBatchExecutor {
             else {
                 failedSteps += 1;
             }
+
+            this.publishProgress(onProgress, {
+                currentStep: index + 1,
+                totalSteps: request.steps.length,
+                completedSteps: index + 1,
+                successCount: completedSteps,
+                failedCount: failedSteps,
+                currentPhotoId: step.photoId,
+                currentPhotoName: step.photoName,
+                currentSlotLayerId: step.slotLayerId,
+                currentSlotName: step.slotName,
+                currentTemplateId: request.templateId,
+                currentTemplateName: templateName,
+                percentComplete: this.percentComplete(index + 1, request.steps.length),
+                status: BatchProgressStatus.RUNNING
+            });
         }
+
+        this.publishProgress(onProgress, {
+            currentStep: request.steps.length,
+            totalSteps: request.steps.length,
+            completedSteps: request.steps.length,
+            successCount: completedSteps,
+            failedCount: failedSteps,
+            currentPhotoId: request.steps[request.steps.length - 1].photoId,
+            currentPhotoName: request.steps[request.steps.length - 1].photoName,
+            currentSlotLayerId: request.steps[request.steps.length - 1].slotLayerId,
+            currentSlotName: request.steps[request.steps.length - 1].slotName,
+            currentTemplateId: request.templateId,
+            currentTemplateName: templateName,
+            percentComplete: 100,
+            status: BatchProgressStatus.COMPLETED
+        });
 
         return new ExecutionSummary({
             requestId: request.id,
@@ -98,6 +147,22 @@ export default class ReplacementBatchExecutor {
             status: ExecutionStatus.FAILED,
             errors: [message]
         });
+
+    }
+
+    publishProgress(onProgress, data) {
+
+        if (typeof onProgress === "function") {
+            onProgress(new BatchProgress(data));
+        }
+
+    }
+
+    percentComplete(completedSteps, totalSteps) {
+
+        return totalSteps
+            ? Math.round((completedSteps / totalSteps) * 10000) / 100
+            : 0;
 
     }
 

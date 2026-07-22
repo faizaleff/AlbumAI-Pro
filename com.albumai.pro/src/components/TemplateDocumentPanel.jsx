@@ -55,6 +55,7 @@ export default function TemplateDocumentPanel({
     executeReplacementStep,
     executeReplacementBatch,
     getCurrentExecutionSummary,
+    getCurrentBatchProgress,
     hasProject = false
 }) {
 
@@ -65,6 +66,9 @@ export default function TemplateDocumentPanel({
     const [placementError, setPlacementError] = useState(null);
     const [replacementResult, setReplacementResult] = useState(null);
     const [executionSummary, setExecutionSummary] = useState(null);
+    const [batchProgress, setBatchProgress] = useState(() =>
+        getCurrentBatchProgress?.() || null
+    );
 
     const placementPlan = getCurrentPlacementPlan?.() || null;
     const executionPlan = getCurrentPlacementExecutionPlan?.() || null;
@@ -146,6 +150,7 @@ export default function TemplateDocumentPanel({
             setPlacementError(null);
             setReplacementResult(null);
             setExecutionSummary(null);
+            setBatchProgress(getCurrentBatchProgress?.() || null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -199,9 +204,12 @@ export default function TemplateDocumentPanel({
         try {
 
             setReplacementResult(null);
-            const summary = await executeReplacementBatch();
+            const summary = await executeReplacementBatch(progress => {
+                setBatchProgress(progress);
+            });
 
             setExecutionSummary(summary || getCurrentExecutionSummary?.() || null);
+            setBatchProgress(getCurrentBatchProgress?.() || null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -209,6 +217,7 @@ export default function TemplateDocumentPanel({
         catch (_) {
 
             setExecutionSummary(getCurrentExecutionSummary?.() || null);
+            setBatchProgress(getCurrentBatchProgress?.() || null);
 
         }
 
@@ -378,6 +387,20 @@ export default function TemplateDocumentPanel({
                     <div>Completed</div>
                     <div>Success: {executionSummary.completedSteps}</div>
                     <div>Failed: {executionSummary.failedSteps}</div>
+                </div>
+
+            )}
+
+            {batchProgress && (
+
+                <div style={{ marginTop: 10, fontSize: 12 }}>
+                    <div>Batch Progress</div>
+                    <div>Status: {batchProgress.status}</div>
+                    <div>Current Photo: {batchProgress.currentPhotoName || "—"}</div>
+                    <div>Current Slot: {batchProgress.currentSlotName || "—"}</div>
+                    <div>Completed: {batchProgress.completedSteps} / {batchProgress.totalSteps}</div>
+                    <div>Success: {batchProgress.successCount}</div>
+                    <div>Failed: {batchProgress.failedCount}</div>
                 </div>
 
             )}
