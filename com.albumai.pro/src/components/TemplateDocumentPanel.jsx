@@ -50,7 +50,8 @@ export default function TemplateDocumentPanel({
     planPhotoPlacement,
     getCurrentPlacementPlan,
     buildPlacementExecutionPlan,
-    getCurrentPlacementExecutionPlan
+    getCurrentPlacementExecutionPlan,
+    hasProject = false
 }) {
 
     const [templates, setTemplates] = useState([]);
@@ -65,6 +66,12 @@ export default function TemplateDocumentPanel({
     useEffect(() => {
 
         async function load() {
+
+            if (!hasProject) {
+                setTemplates([]);
+                setSelectedName("");
+                return;
+            }
 
             try {
 
@@ -86,7 +93,7 @@ export default function TemplateDocumentPanel({
 
         load();
 
-    }, [loadTemplates]);
+    }, [loadTemplates, hasProject]);
 
     async function open() {
 
@@ -173,21 +180,21 @@ export default function TemplateDocumentPanel({
 
                 <button
                     onClick={open}
-                    disabled={!selectedName}
+                    disabled={!hasProject || !selectedName}
                 >
                     Open PSD
                 </button>
 
                 <button
                     onClick={planPlacement}
-                    disabled={!document}
+                    disabled={!hasProject || !document}
                 >
                     Plan Placement
                 </button>
 
                 <button
                     onClick={buildExecutionPlan}
-                    disabled={!placementPlan}
+                    disabled={!hasProject || !placementPlan}
                 >
                     Build Execution Dry Run
                 </button>

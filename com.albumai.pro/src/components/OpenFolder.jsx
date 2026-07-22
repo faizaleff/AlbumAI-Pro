@@ -11,7 +11,12 @@ import RefreshService from "../services/RefreshService";
 export default function OpenFolder() {
 
     const [folderName, setFolderName] = useState("");
+    const [projectName, setProjectName] = useState("");
+    const [projectError, setProjectError] = useState(null);
     const [, forceRefresh] = useState(0);
+
+    const project = App.project.getProject();
+    const hasProject = !!project;
 
     useEffect(() => {
 
@@ -26,6 +31,10 @@ export default function OpenFolder() {
     }, []);
 
     async function openFolder() {
+
+        if (!hasProject) {
+            return;
+        }
 
         try {
 
@@ -56,6 +65,10 @@ export default function OpenFolder() {
     }
 
     async function refreshFolder() {
+
+        if (!hasProject) {
+            return;
+        }
 
         try {
 
@@ -93,6 +106,87 @@ export default function OpenFolder() {
 
         App.selection.select(photo);
 
+        forceRefresh(value => value + 1);
+
+    }
+
+    async function createProject() {
+
+        const name = projectName.trim();
+
+        if (!name) {
+            setProjectError("Enter a project name.");
+            return;
+        }
+
+        try {
+
+            const created = await App.createProject({ name });
+
+            if (!created) {
+                return;
+            }
+
+            setProjectName("");
+            setProjectError(null);
+            forceRefresh(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            setProjectError(error.message);
+
+        }
+
+    }
+
+    async function openProject() {
+
+        try {
+
+            const opened = await App.openProject();
+
+            if (!opened) {
+                return;
+            }
+
+            setProjectError(null);
+            forceRefresh(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            setProjectError(error.message);
+
+        }
+
+    }
+
+    async function saveProject() {
+
+        try {
+
+            await App.saveProject();
+            setProjectError(null);
+            forceRefresh(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            setProjectError(error.message);
+
+        }
+
+    }
+
+    function closeProject() {
+
+        App.closeProject();
+        setFolderName("");
+        setProjectError(null);
         forceRefresh(value => value + 1);
 
     }
@@ -135,11 +229,54 @@ export default function OpenFolder() {
                 }}
             >
 
+                <section
+                    style={{
+                        marginBottom: 15,
+                        padding: 12,
+                        background: "#2f2f2f",
+                        borderRadius: 6
+                    }}
+                >
+                    <div style={{ fontSize: 12, marginBottom: 8 }}>
+                        {hasProject
+                            ? `Project Active: ${project.metadata.name}`
+                            : "Create or open a project to continue."}
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <input
+                            value={projectName}
+                            onChange={event => setProjectName(event.target.value)}
+                            placeholder="Project name"
+                            disabled={hasProject}
+                        />
+                        <button onClick={createProject} disabled={hasProject}>
+                            Create Project
+                        </button>
+                        <button onClick={openProject} disabled={hasProject}>
+                            Open Project
+                        </button>
+                        <button onClick={saveProject} disabled={!hasProject}>
+                            Save Project
+                        </button>
+                        <button onClick={closeProject} disabled={!hasProject}>
+                            Close Project
+                        </button>
+                    </div>
+
+                    {projectError && (
+                        <div style={{ marginTop: 8, fontSize: 12, color: "#ff9999" }}>
+                            Project: {projectError}
+                        </div>
+                    )}
+                </section>
+
                 <Toolbar
                     onOpen={openFolder}
                     onRefresh={refreshFolder}
                     onSelectAll={selectAll}
                     onClearSelection={clearSelection}
+                    projectActive={hasProject}
                     photoCount={App.getPhotos().length}
                     selectedCount={App.selection.getSelected().length}
                 />
@@ -177,6 +314,7 @@ export default function OpenFolder() {
                     getCurrentPlacementPlan={getCurrentPlacementPlan}
                     buildPlacementExecutionPlan={buildPlacementExecutionPlan}
                     getCurrentPlacementExecutionPlan={getCurrentPlacementExecutionPlan}
+                    hasProject={hasProject}
                 />
 
                 <div

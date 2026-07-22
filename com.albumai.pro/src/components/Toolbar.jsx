@@ -5,6 +5,7 @@ export default function Toolbar({
     onRefresh,
     onSelectAll,
     onClearSelection,
+    projectActive = false,
     photoCount = 0,
     selectedCount = 0
 }) {
@@ -34,11 +35,19 @@ export default function Toolbar({
                     flexWrap: "wrap"
                 }}
             >
-                <button style={buttonStyle} onClick={onOpen}>
+                <button
+                    style={buttonStyle}
+                    onClick={onOpen}
+                    disabled={!projectActive}
+                >
                     📂 Open
                 </button>
 
-                <button style={buttonStyle} onClick={onRefresh}>
+                <button
+                    style={buttonStyle}
+                    onClick={onRefresh}
+                    disabled={!projectActive}
+                >
                     🔄 Refresh
                 </button>
 
