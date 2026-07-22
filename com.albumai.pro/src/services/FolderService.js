@@ -35,7 +35,7 @@ export async function importPhotoFolder(folder) {
 
     for (const file of files) {
 
-        if (!isImage(file)) {
+        if (!isImage(file.name)) {
             continue;
         }
 

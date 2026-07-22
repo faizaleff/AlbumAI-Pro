@@ -1,12 +1,28 @@
-export function getExtension(fileName = "") {
+function fileName(value) {
 
-    const index = fileName.lastIndexOf(".");
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (typeof value?.name === "string") {
+        return value.name;
+    }
+
+    return "";
+
+}
+
+export function getExtension(value) {
+
+    const normalizedName = fileName(value);
+
+    const index = normalizedName.lastIndexOf(".");
 
     if (index === -1) {
         return "";
     }
 
-    return fileName
+    return normalizedName
         .substring(index + 1)
         .toLowerCase();
 
@@ -32,7 +48,7 @@ export function removeExtension(fileName = "") {
 
 }
 
-export function isImage(fileName = "") {
+export function isImage(value) {
 
     return [
 
@@ -52,7 +68,7 @@ export function isImage(fileName = "") {
 
     ].includes(
 
-        getExtension(fileName)
+        getExtension(value)
 
     );
 
