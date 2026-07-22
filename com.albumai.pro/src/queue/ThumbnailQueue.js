@@ -1,4 +1,5 @@
 import ThumbnailService from "../services/ThumbnailService";
+import RefreshService from "../services/RefreshService";
 
 const MAX_CONCURRENT = 4;
 
@@ -63,12 +64,15 @@ class ThumbnailQueue {
             if (thumbnail) {
 
                 photo.thumbnail = thumbnail;
+                photo.loaded = true;
 
                 if (typeof this.onThumbnailReady === "function") {
 
                     this.onThumbnailReady(photo);
 
                 }
+
+                RefreshService.refresh();
 
             }
 
@@ -78,6 +82,7 @@ class ThumbnailQueue {
 
         } finally {
 
+            photo.loading = false;
             this.running--;
 
             this.process();
