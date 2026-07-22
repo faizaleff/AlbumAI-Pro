@@ -141,6 +141,7 @@ export default function TemplateDocumentPanel({
 
             buildPlacementExecutionPlan?.();
             setPlacementError(null);
+            setReplacementResult(null);
             setPlacementVersion(value => value + 1);
 
         }
@@ -148,6 +149,10 @@ export default function TemplateDocumentPanel({
         catch (error) {
 
             setPlacementError(error.message);
+            setReplacementResult({
+                status: "FAILED",
+                errors: [`Replacement request: ${error.message}`]
+            });
 
         }
 
@@ -244,7 +249,11 @@ export default function TemplateDocumentPanel({
 
                 <button
                     onClick={executeFirstReplacementStep}
-                    disabled={!hasProject || !replacementRequest?.steps?.length}
+                    disabled={
+                        !hasProject ||
+                        executionPlan?.status !== "READY" ||
+                        !replacementRequest?.steps?.length
+                    }
                 >
                     Execute Replacement
                 </button>

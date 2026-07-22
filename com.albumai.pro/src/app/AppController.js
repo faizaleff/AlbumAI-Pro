@@ -156,6 +156,7 @@ class AppController {
 
         this.currentPlacementExecutionPlan = executionPlan;
         this.clearCurrentReplacementRequest();
+        this.buildReplacementRequest();
 
         return executionPlan;
 
