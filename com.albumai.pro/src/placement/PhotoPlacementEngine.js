@@ -1,11 +1,17 @@
 import BalancedOrientationStrategy from "./BalancedOrientationStrategy";
 import PlacementResult from "./PlacementResult";
+import PhotoAssignmentService from "./PhotoAssignmentService";
+import Logger from "../core/photoshop/Logger";
 
 export default class PhotoPlacementEngine {
 
-    constructor({ strategy = new BalancedOrientationStrategy() } = {}) {
+    constructor({
+        strategy = new BalancedOrientationStrategy(),
+        photoAssignmentService = new PhotoAssignmentService()
+    } = {}) {
 
         this.strategy = strategy;
+        this.photoAssignmentService = photoAssignmentService;
 
     }
 
@@ -19,7 +25,14 @@ export default class PhotoPlacementEngine {
             ? options
             : {};
         const warnings = this.templateWarnings(template);
-        const slots = this.slots(template, warnings);
+        const selectedPhotos = inputPhotos.filter(photo => photo?.selected);
+        const slots = selectedPhotos.length > 1
+            ? this.assignmentSlots(template)
+            : this.slots(template, warnings);
+
+        Logger.info(
+            `Placement planner: selected photos=${selectedPhotos.length}, smart object slots=${slots.length}.`
+        );
 
         if (!slots.length) {
             throw new Error("No valid Smart Object slots remain.");
@@ -33,8 +46,73 @@ export default class PhotoPlacementEngine {
 
         const allowReuse = placementOptions.allowReuse === true;
         const usedPhotoIds = new Set();
-        const assignments = [];
-        const emptySlots = [];
+        let assignments = [];
+        let emptySlots = [];
+
+        if (selectedPhotos.length > 1) {
+            Logger.info("Placement planner: sequential multi-photo assignment.");
+            const assignmentList = this.photoAssignmentService.assign({
+                photos: candidates,
+                slots,
+                templateId: template.id
+            });
+            Logger.info(
+                `Placement planner: PhotoAssignmentService assignments=${assignmentList.length}.`
+            );
+            const candidateById = new Map(candidates.map(photo => [photo.id, photo]));
+            const slotById = new Map(slots.map(slot => [slot.layerId, slot]));
+
+            assignments = assignmentList.map(assignment => {
+                const photo = candidateById.get(assignment.photoId);
+                const slot = slotById.get(assignment.slotId);
+
+                return {
+                    layerId: assignment.slotId,
+                    layerName: assignment.slotName,
+                    parentGroupId: slot?.parentGroupId ?? null,
+                    photoId: assignment.photoId,
+                    photoName: photo?.name || "",
+                    fitMode: assignment.fitMode,
+                    score: null,
+                    slotOrientation: slot?.orientation ?? "unknown",
+                    photoOrientation: photo?.orientation ?? "unknown",
+                    aspectRatioDistance: null
+                };
+            });
+            const assignedSlotIds = new Set(assignments.map(item => item.layerId));
+            const assignedPhotoIds = new Set(assignments.map(item => item.photoId));
+
+            emptySlots = slots
+                .filter(slot => !assignedSlotIds.has(slot.layerId))
+                .map(slot => ({
+                    layerId: slot.layerId,
+                    layerName: slot.layerName,
+                    reason: "NO_SELECTED_PHOTO"
+                }));
+            candidates.forEach(photo => usedPhotoIds.add(photo.id));
+
+            const unassignedPhotos = candidates
+                .filter(photo => !assignedPhotoIds.has(photo.id))
+                .map(photo => this.photoReference(photo));
+
+            Logger.info(
+                `Placement planner: PlacementResult assignments=${assignments.length}.`
+            );
+
+            return this.result({
+                project,
+                template,
+                assignments,
+                emptySlots,
+                unassignedPhotos,
+                warnings,
+                slots,
+                candidates,
+                allowReuse
+            });
+        }
+
+        Logger.info("Placement planner: geometry-scoring fallback.");
 
         for (const slot of slots) {
 
@@ -81,6 +159,36 @@ export default class PhotoPlacementEngine {
         const unassignedPhotos = candidates
             .filter(photo => !usedPhotoIds.has(photo.id))
             .map(photo => this.photoReference(photo));
+
+        Logger.info(
+            `Placement planner: PlacementResult assignments=${assignments.length}.`
+        );
+
+        return this.result({
+            project,
+            template,
+            assignments,
+            emptySlots,
+            unassignedPhotos,
+            warnings,
+            slots,
+            candidates,
+            allowReuse
+        });
+
+    }
+
+    result({
+        project,
+        template,
+        assignments,
+        emptySlots,
+        unassignedPhotos,
+        warnings,
+        slots,
+        candidates,
+        allowReuse
+    }) {
 
         return new PlacementResult({
             projectId: project.metadata?.id ?? project.metadata?.name ?? null,
@@ -135,6 +243,23 @@ export default class PhotoPlacementEngine {
         }
 
         return validSlots.sort((left, right) => this.compareSlots(left, right));
+
+    }
+
+    assignmentSlots(template) {
+
+        const treeOrder = this.treeOrder(template.layerTree);
+
+        return (Array.isArray(template.smartObjects) ? template.smartObjects : [])
+            .filter(slot => slot?.layerId != null)
+            .map(slot => ({
+                layerId: slot.layerId,
+                layerName: slot.layerName || "",
+                parentGroupId: slot.parentGroupId ?? null,
+                sourceOrder: treeOrder.get(slot.layerId) ?? Number.MAX_SAFE_INTEGER,
+                sequence: this.sequence(slot.layerName)
+            }))
+            .sort((left, right) => this.compareSlots(left, right));
 
     }
 
