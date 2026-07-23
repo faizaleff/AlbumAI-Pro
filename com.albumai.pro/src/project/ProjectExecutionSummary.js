@@ -12,11 +12,18 @@ export default class ProjectExecutionSummary {
             projectId: data.projectId ?? null,
             totalTemplates: data.totalTemplates || 0,
             completedTemplates: data.completedTemplates || 0,
+            successfulTemplates: data.successfulTemplates ?? data.completedTemplates ?? 0,
             failedTemplates: data.failedTemplates || 0,
             templateResults: data.templateResults || [],
+            batchExecution: data.batchExecution || null,
             startedAt: data.startedAt || null,
             finishedAt: data.finishedAt || null,
             elapsedMilliseconds: data.elapsedMilliseconds || 0,
+            // This is deliberately independent of placement validation.
+            registeredTemplates: Number.isInteger(data.registeredTemplates)
+                ? data.registeredTemplates
+                : (data.totalTemplates || 0),
+            registryValidationError: data.registryValidationError || null,
             status: data.status || ProjectExecutionStatus.RUNNING
         });
 

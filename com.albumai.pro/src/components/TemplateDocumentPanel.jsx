@@ -95,7 +95,8 @@ function summaryText({
     executionSummary,
     batchProgress,
     executionLifecycle,
-    projectExecutionSummary
+    projectExecutionSummary,
+    registeredTemplates = []
 }) {
 
     const selectedCount = photos.filter(photo => photo?.selected).length;
@@ -114,6 +115,13 @@ function summaryText({
         "Template",
         `Name: ${textValue(template?.name)}`,
         `Smart Objects: ${template?.smartObjects?.length || 0}`,
+        "",
+        "Project Template Registry",
+        `Registered Templates: ${registeredTemplates.length}`,
+        "Registry Order:",
+        ...(registeredTemplates.length
+            ? registeredTemplates.map((entry, index) => `${index + 1}. ${entry.name}`)
+            : ["None"]),
         "",
         "Placement",
         `Assigned: ${placementPlan?.statistics?.assignedSlots || 0}`,
@@ -144,9 +152,12 @@ function summaryText({
     if (projectExecutionSummary) {
         lines.push(
             "",
-            "Project Execution",
-            `Status: ${projectExecutionSummary.status}`,
+        "Project Execution",
+        `Status: ${projectExecutionSummary.status}`,
+            `Registered Templates: ${registeredTemplates.length}`,
+            `Batch Status: ${projectExecutionSummary.batchExecution?.status || "NOT STARTED"}`,
             `Completed Templates: ${projectExecutionSummary.completedTemplates}`,
+            `Successful Templates: ${projectExecutionSummary.successfulTemplates}`,
             `Failed Templates: ${projectExecutionSummary.failedTemplates}`
         );
     }
@@ -170,7 +181,9 @@ function debugText({
     autoSaveResult,
     exportResult,
     projectExecutionSummary,
-    placementError
+    placementError,
+    registeredTemplates = [],
+    registryError = null
 }) {
 
     const template = document || healthTemplate;
@@ -238,10 +251,26 @@ function debugText({
         "",
         "Project Execution Summary",
         `Status: ${textValue(projectExecutionSummary?.status)}`,
+        `Registered Templates: ${registeredTemplates.length}`,
         `Completed Templates: ${textValue(projectExecutionSummary?.completedTemplates, "0")}`,
+        `Successful Templates: ${textValue(projectExecutionSummary?.successfulTemplates, "0")}`,
         `Failed Templates: ${textValue(projectExecutionSummary?.failedTemplates, "0")}`,
+        `Batch Status: ${textValue(projectExecutionSummary?.batchExecution?.status)}`,
+        `Current Template: ${textValue(projectExecutionSummary?.batchExecution?.currentTemplate?.name)}`,
+        `Batch Warning: ${textValue(projectExecutionSummary?.batchExecution?.warnings?.[0], "None")}`,
+        `Batch Fatal Error: ${textValue(projectExecutionSummary?.batchExecution?.fatalError, "None")}`,
+        `Registry Validation: ${textValue(projectExecutionSummary?.registryValidationError, "None")}`,
+        "Registry Order:",
+        ...(registeredTemplates.length ? registeredTemplates : [{ name: "None" }]).map((template, index) =>
+            `${index + 1}. ${textValue(template.id)} — ${textValue(template.name)}: ${textValue(template.validationState)}`
+        ),
+        "Per-template Batch Outcomes",
+        ...(projectExecutionSummary?.batchExecution?.templateResults || []).map(result =>
+            `${textValue(result.templateId)} — ${textValue(result.templateName)} [document=${textValue(result.documentContext?.documentId)}]: ${textValue(result.status)}${result.error ? ` (${result.error})` : ""}`
+        ),
         "",
         "Stored Warnings and Errors",
+        `Registry: ${textValue(registryError || projectExecutionSummary?.registryValidationError, "None")}`,
         `Placement: ${textValue(placementError, "None")}`,
         `Placement Warnings: ${(placementPlan?.warnings || []).map(warning => warning?.message || String(warning)).join(" | ") || "None"}`,
         `Execution Warnings: ${(executionPlan?.warnings || []).map(warning => warning?.message || String(warning)).join(" | ") || "None"}`
@@ -272,7 +301,9 @@ export function ExecutionDetails({
     executionSummary,
     batchProgress,
     executionLifecycle,
-    projectExecutionSummary
+    projectExecutionSummary,
+    registeredTemplates = [],
+    registryError = null
 }) {
 
     const [templateDetailsOpen, setTemplateDetailsOpen] = useState(false);
@@ -393,7 +424,8 @@ export function ExecutionDetails({
         executionSummary,
         batchProgress,
         executionLifecycle,
-        projectExecutionSummary
+        projectExecutionSummary,
+        registeredTemplates
     }), "Summary copied.");
     const copyDebugLog = () => copy(debugText({
         projectId,
@@ -410,7 +442,9 @@ export function ExecutionDetails({
         autoSaveResult,
         exportResult,
         projectExecutionSummary,
-        placementError
+        placementError,
+        registeredTemplates,
+        registryError
     }), "Debug log copied.");
 
     return (
@@ -427,6 +461,8 @@ export function ExecutionDetails({
                 <Row label="Project" value={hasProject ? "READY" : "MISSING"} />
                 <Row label="Photos" value={healthPhotos.length} />
                 <Row label="Template" value={healthTemplate ? "READY" : "MISSING"} />
+                <Row label="Registered Templates" value={registeredTemplates.length} />
+                {registryError && <Row label="Registry Warning" value={registryError} warning />}
                 <Row label="Smart Objects" value={healthTemplate?.smartObjects?.length || 0} />
                 <Row label="Placement" value={placementPlan ? "READY" : "NOT READY"} />
                 <Row label="Execution Plan" value={executionPlan?.status === "READY" ? "READY" : "NOT READY"} />
@@ -510,8 +546,13 @@ export function ExecutionDetails({
                 </> : <Row label="Status" value="IDLE" />}
                 {projectExecutionSummary && <>
                     <Row label="Project Status" value={projectExecutionSummary.status} />
+                    <Row label="Registered" value={registeredTemplates.length} />
+                    <Row label="Current Template" value={projectExecutionSummary.batchExecution?.currentTemplate?.name || "—"} />
+                    <Row label="Batch" value={projectExecutionSummary.batchExecution?.templateIndex == null ? "—" : `${projectExecutionSummary.batchExecution.templateIndex + 1} / ${projectExecutionSummary.totalTemplates}`} />
                     <Row label="Templates Complete" value={projectExecutionSummary.completedTemplates} />
+                    <Row label="Templates Successful" value={projectExecutionSummary.successfulTemplates} />
                     <Row label="Templates Failed" value={projectExecutionSummary.failedTemplates} />
+                    {projectExecutionSummary.registryValidationError && <Row label="Warning" value={projectExecutionSummary.registryValidationError} warning />}
                 </>}
             </DetailSection>
         </section>
@@ -521,6 +562,9 @@ export function ExecutionDetails({
 
 export default function TemplateDocumentPanel({
     loadTemplates,
+    getRegisteredProjectTemplates,
+    addCurrentPsdToProject,
+    removeRegisteredProjectTemplate,
     openTemplate,
     planPhotoPlacement,
     getCurrentPlacementPlan,
@@ -554,6 +598,9 @@ export default function TemplateDocumentPanel({
 
     const [templates, setTemplates] = useState([]);
     const [selectedName, setSelectedName] = useState("");
+    const [registeredTemplates, setRegisteredTemplates] = useState([]);
+    const [selectedRegisteredId, setSelectedRegisteredId] = useState("");
+    const [registryError, setRegistryError] = useState(null);
     const [document, setDocument] = useState(null);
     const [, setPlacementVersion] = useState(0);
     const [placementError, setPlacementError] = useState(null);
@@ -584,6 +631,14 @@ export default function TemplateDocumentPanel({
     const exportFormat = getExportFormat?.() || "JPEG";
     const isExecuting = executionLifecycle?.status === "RUNNING";
 
+    function refreshRegisteredTemplates() {
+        const entries = getRegisteredProjectTemplates?.() || [];
+        setRegisteredTemplates(entries);
+        setSelectedRegisteredId(current => entries.some(entry => entry.id === current)
+            ? current
+            : (entries[0]?.id || ""));
+    }
+
     useEffect(() => {
 
         onExecutionDetailsChange?.(
@@ -609,6 +664,8 @@ export default function TemplateDocumentPanel({
                 batchProgress={batchProgress}
                 executionLifecycle={executionLifecycle}
                 projectExecutionSummary={projectExecutionSummary}
+                registeredTemplates={registeredTemplates}
+                registryError={registryError}
             />
         );
 
@@ -634,6 +691,8 @@ export default function TemplateDocumentPanel({
         batchProgress,
         executionLifecycle,
         projectExecutionSummary,
+        registeredTemplates,
+        registryError,
         onExecutionDetailsChange
     ]);
 
@@ -653,6 +712,7 @@ export default function TemplateDocumentPanel({
 
                 setTemplates(files);
                 setSelectedName(files[0]?.name || "");
+                refreshRegisteredTemplates();
 
             }
 
@@ -660,6 +720,7 @@ export default function TemplateDocumentPanel({
 
                 setTemplates([]);
                 setSelectedName("");
+                refreshRegisteredTemplates();
 
             }
 
@@ -669,10 +730,34 @@ export default function TemplateDocumentPanel({
 
     }, [loadTemplates, hasProject]);
 
+    async function addCurrentPsd() {
+        const file = templates.find(item => item.name === selectedName);
+        if (!file) return;
+        try {
+            await addCurrentPsdToProject?.(file);
+            refreshRegisteredTemplates();
+            setRegistryError(null);
+        } catch (error) {
+            setRegistryError(error.message);
+        }
+    }
+
+    async function removeSelectedRegisteredTemplate() {
+        if (!selectedRegisteredId) return;
+        try {
+            await removeRegisteredProjectTemplate?.(selectedRegisteredId);
+            refreshRegisteredTemplates();
+            setRegistryError(null);
+        } catch (error) {
+            setRegistryError(error.message);
+        }
+    }
+
     useEffect(() => {
 
         if (!hasProject) {
             setDocument(null);
+            setRegistryError(null);
             setPlacementError(null);
             setReplacementResult(null);
             setExecutionSummary(null);
@@ -906,6 +991,33 @@ export default function TemplateDocumentPanel({
                 >
                     Plan Placement
                 </button>
+                <button
+                    onClick={addCurrentPsd}
+                    disabled={isExecuting || !hasProject || !selectedName}
+                >
+                    Add Current PSD
+                </button>
+                <select
+                    value={selectedRegisteredId}
+                    onChange={event => setSelectedRegisteredId(event.target.value)}
+                    disabled={!registeredTemplates.length || isExecuting}
+                    aria-label="Registered project templates"
+                >
+                    {registeredTemplates.map(entry => (
+                        <option key={entry.id} value={entry.id}>
+                            {entry.name}{entry.validationState === "MISSING" ? " (missing)" : ""}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    onClick={removeSelectedRegisteredTemplate}
+                    disabled={isExecuting || !selectedRegisteredId}
+                >
+                    Remove Selected Template
+                </button>
+                <span style={{ fontSize: 12, color: "#b8b8b8" }}>
+                    Registered: {registeredTemplates.length}
+                </span>
                 </div>
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>

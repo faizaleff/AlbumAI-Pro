@@ -19,6 +19,8 @@ export default class TemplateAutoSaveService {
     async save({
         project,
         template,
+        descriptor,
+        documentContext,
         executionSummary,
         enabled = false,
         mode = AutoSaveMode.SAVE_COPY
@@ -43,11 +45,14 @@ export default class TemplateAutoSaveService {
             return this.skipped(resultData, "Auto Save mode is unavailable.");
         }
 
-        const document = this.documentManager.byId(template?.document?.id);
+        const documentId = documentContext?.documentId ?? template?.document?.id;
+        const document = this.documentManager.byId(documentId);
 
-        if (!document || this.documentManager.activeId !== document.id) {
+        if (!document) {
             return this.skipped(resultData, "Template document is not active.");
         }
+        await this.documentManager.activate(document);
+        Logger.info(`ACTIVE DOCUMENT BEFORE SAVE: ${this.documentManager.activeId}/${document.title}`);
 
         if (this.isPsb(template, document)) {
             return this.skipped(resultData, "Auto Save does not save Smart Object documents.");
@@ -66,7 +71,8 @@ export default class TemplateAutoSaveService {
                 });
             }
 
-            const destination = await this.copyDestination(project, template, document);
+            const destination = await this.copyDestination(project, template, document, descriptor);
+            Logger.info(`SAVE TARGET: ${destination.name}`);
 
             await this.documentManager.save(document, destination);
 
@@ -116,7 +122,7 @@ export default class TemplateAutoSaveService {
 
     }
 
-    async copyDestination(project, template, document) {
+    async copyDestination(project, template, document, descriptor = null) {
 
         const output = project?.workspace?.output;
 
@@ -133,7 +139,7 @@ export default class TemplateAutoSaveService {
             processed = await output.createFolder("Processed");
         }
 
-        const baseName = this.baseName(template?.name || document?.title || "template");
+        const baseName = this.baseName(descriptor?.name || template?.name || document?.title || "template");
 
         return processed.createFile(`${baseName}-processed.psd`, {
             overwrite: true

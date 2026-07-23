@@ -4,6 +4,10 @@ import ProjectExecutionSummary, {
 } from "./ProjectExecutionSummary";
 import AutoSaveResult, { AutoSaveStatus } from "../services/AutoSaveResult";
 import ExportResult, { ExportStatus } from "../services/ExportResult";
+import TemplateQueue from "./TemplateQueue";
+import BatchExecutionService from "./BatchExecutionService";
+import { BatchExecutionStatus } from "./BatchExecutionResult";
+import Logger from "../core/photoshop/Logger";
 
 /** Coordinates deterministic template execution through the batch executor. */
 export default class ProjectExecutor {
@@ -14,7 +18,8 @@ export default class ProjectExecutor {
         placementExecutionPlanBuilder,
         replacementBatchExecutor,
         templateAutoSaveService,
-        templateExportService
+        templateExportService,
+        batchExecutionService = new BatchExecutionService()
     } = {}) {
 
         if (!templateRegistry) throw new Error("A template registry is required.");
@@ -28,6 +33,7 @@ export default class ProjectExecutor {
         this.replacementBatchExecutor = replacementBatchExecutor;
         this.templateAutoSaveService = templateAutoSaveService;
         this.templateExportService = templateExportService;
+        this.batchExecutionService = batchExecutionService;
 
     }
 
@@ -39,111 +45,113 @@ export default class ProjectExecutor {
         onAutoSaveResult,
         exportEnabled = false,
         exportFormat = "JPEG",
-        onExportResult
+        onExportResult,
+        onProgress,
+        templates = null,
+        registeredTemplates = null,
+        resolveTemplate = null,
+        releaseTemplate = null
     } = {}) {
 
-        const startedAt = new Date().toISOString();
-        const startedMilliseconds = Date.now();
-        const templates = this.templates();
-        const templateResults = [];
-        let completedTemplates = 0;
-        let failedTemplates = 0;
-
-        for (const template of templates) {
-
-            try {
-                this.templateRegistry.register(template);
-
-                const placementResult = this.photoPlacementEngine.plan({
-                    project,
-                    photos,
-                    template
-                });
-                const executionPlan = this.placementExecutionPlanBuilder.build({
-                    placementResult,
-                    project,
-                    template,
-                    photos
-                });
-                const request = new ReplacementRequest({ executionPlan });
-                const executionSummary = await this.replacementBatchExecutor.execute(
-                    request,
-                    { photos, templateName: template.name }
-                );
-                const autoSaveResult = await this.autoSave({
-                    project,
-                    template,
-                    executionSummary,
-                    enabled: autoSaveEnabled,
-                    mode: autoSaveMode
-                });
-                const succeeded = executionSummary.status === "COMPLETED";
-
-                if (typeof onAutoSaveResult === "function") {
-                    onAutoSaveResult(autoSaveResult);
+        const queue = new TemplateQueue(templates || this.templates());
+        const batch = await this.batchExecutionService.execute({
+            queue,
+            executeTemplate: async descriptor => {
+                let template = null;
+                try {
+                    template = resolveTemplate ? await resolveTemplate(descriptor) : descriptor;
+                    return await this.executeTemplate({ project, photos, template, descriptor, autoSaveEnabled, autoSaveMode,
+                        onAutoSaveResult, exportEnabled, exportFormat, onExportResult
+                    });
+                } catch (error) {
+                    Logger.warn(`END TEMPLATE: ${descriptor?.name || "PSD Template"} — FAILED`);
+                    throw error;
+                } finally {
+                    if (typeof releaseTemplate === "function") await releaseTemplate(template, descriptor);
                 }
-
-                const exportResult = await this.exportTemplate({
-                    project,
-                    template,
-                    autoSaveResult,
-                    enabled: exportEnabled,
-                    format: exportFormat
-                });
-
-                if (typeof onExportResult === "function") {
-                    onExportResult(exportResult);
-                }
-
-                templateResults.push({
-                    templateId: template.id,
-                    templateName: template.name,
-                    status: executionSummary.status,
-                    executionSummary,
-                    autoSaveResult,
-                    exportResult,
-                    warnings: [
-                        ...autoSaveResult.warnings,
-                        ...exportResult.warnings
-                    ]
-                });
-
-                if (succeeded) {
-                    completedTemplates += 1;
-                }
-                else {
-                    failedTemplates += 1;
-                }
-
-            }
-            catch (error) {
-
-                failedTemplates += 1;
-                templateResults.push({
-                    templateId: template?.id ?? null,
-                    templateName: template?.name || "",
-                    status: "FAILED",
-                    executionSummary: null,
-                    error: error.message
-                });
-
-            }
-        }
+            },
+            onProgress
+        });
 
         return new ProjectExecutionSummary({
             projectId: this.projectId(project),
-            totalTemplates: templates.length,
-            completedTemplates,
-            failedTemplates,
-            templateResults,
-            startedAt,
-            finishedAt: new Date().toISOString(),
-            elapsedMilliseconds: Date.now() - startedMilliseconds,
-            status: failedTemplates
+            totalTemplates: batch.totalTemplates,
+            registeredTemplates: Number.isInteger(registeredTemplates)
+                ? registeredTemplates
+                : batch.totalTemplates,
+            completedTemplates: batch.completedTemplates,
+            successfulTemplates: batch.successfulTemplates,
+            failedTemplates: batch.failedTemplates,
+            templateResults: batch.templateResults,
+            startedAt: batch.startedAt,
+            finishedAt: batch.completedAt,
+            elapsedMilliseconds: batch.durationMs,
+            batchExecution: batch,
+            status: batch.status === BatchExecutionStatus.FAILED || batch.failedTemplates
                 ? ProjectExecutionStatus.FAILED
                 : ProjectExecutionStatus.COMPLETED
         });
 
+    }
+
+    async executeTemplate({ project, photos, template, descriptor = null, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult }) {
+
+        const context = this.documentContext(template, descriptor);
+        Logger.info(`START TEMPLATE: ${context.documentName}`);
+        Logger.info(`QUEUE DOCUMENT ID: ${context.documentId}`);
+        this.templateRegistry.register(template);
+        await this.activateContext(context, "EXECUTION");
+        const placementResult = this.photoPlacementEngine.plan({ project, photos, template });
+        await this.activateContext(context, "EXECUTION PLAN");
+        const executionPlan = this.placementExecutionPlanBuilder.build({ placementResult, project, template, photos });
+        const request = new ReplacementRequest({ executionPlan });
+        await this.activateContext(context, "REPLACEMENT");
+        const executionSummary = await this.replacementBatchExecutor.execute(request, { photos, templateName: template.name });
+        await this.activateContext(context, "SAVE");
+        const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode });
+        if (typeof onAutoSaveResult === "function") onAutoSaveResult(autoSaveResult);
+        await this.activateContext(context, "EXPORT");
+        const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat });
+        if (typeof onExportResult === "function") onExportResult(exportResult);
+
+        const failed = executionSummary.status !== "COMPLETED" ||
+            autoSaveResult.status === AutoSaveStatus.FAILED ||
+            exportResult.status === ExportStatus.FAILED;
+        Logger.info(`END TEMPLATE: ${context.documentName} — ${failed ? "FAILED" : "COMPLETED"}`);
+
+        return {
+            status: failed ? "FAILED" : "COMPLETED",
+            completedSteps: executionSummary.completedSteps,
+            failedSteps: executionSummary.failedSteps,
+            executionSummary,
+            autoSaveResult,
+            exportResult,
+            documentContext: context,
+            warnings: [...autoSaveResult.warnings, ...exportResult.warnings]
+        };
+
+    }
+
+    documentContext(template, descriptor) {
+        const documentId = template?.document?.id ?? template?.id;
+        if (documentId == null) throw new Error("Registered template did not open a Photoshop document.");
+        return Object.freeze({
+            descriptor,
+            documentId,
+            documentName: descriptor?.name || template?.name || "PSD Template",
+            fileReference: descriptor?.fileReference || template?.filePath || ""
+        });
+    }
+
+    async activateContext(context, stage) {
+        const documentManager = this.replacementBatchExecutor.replacementStepExecutor.documentManager;
+        const document = documentManager.byId(context.documentId);
+        if (!document) throw new Error(`Template document is no longer open: ${context.documentName}.`);
+        await documentManager.activate(document);
+        const active = documentManager.active;
+        Logger.info(`ACTIVE DOCUMENT BEFORE ${stage}: ${active?.id ?? "MISSING"}/${active?.title || "MISSING"}`);
+        if (active?.id !== context.documentId) throw new Error(`Template document could not be activated: ${context.documentName}.`);
+        return document;
     }
 
     templates() {

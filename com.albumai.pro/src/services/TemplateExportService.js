@@ -20,6 +20,8 @@ export default class TemplateExportService {
     async export({
         project,
         template,
+        descriptor,
+        documentContext,
         autoSaveResult,
         enabled = false,
         format = ExportFormat.JPEG
@@ -43,11 +45,14 @@ export default class TemplateExportService {
             return this.skipped(resultData, "Export format is unavailable.");
         }
 
-        const document = this.documentManager.byId(template?.document?.id);
+        const documentId = documentContext?.documentId ?? template?.document?.id;
+        const document = this.documentManager.byId(documentId);
 
-        if (!document || this.documentManager.activeId !== document.id) {
+        if (!document) {
             return this.skipped(resultData, "Template document is not active.");
         }
+        await this.documentManager.activate(document);
+        Logger.info(`ACTIVE DOCUMENT BEFORE EXPORT: ${this.documentManager.activeId}/${document.title}`);
 
         if (this.isPsb(template, document)) {
             return this.skipped(resultData, "Export does not support Smart Object documents.");
@@ -55,7 +60,8 @@ export default class TemplateExportService {
 
         try {
 
-            const destination = await this.destination(project, template, document, format);
+            const destination = await this.destination(project, template, document, format, descriptor);
+            Logger.info(`EXPORT TARGET: ${destination.name}`);
 
             if (format === ExportFormat.PSD) {
                 await this.documentManager.save(document, destination);
@@ -87,7 +93,7 @@ export default class TemplateExportService {
 
     }
 
-    async destination(project, template, document, format) {
+    async destination(project, template, document, format, descriptor = null) {
 
         const output = project?.workspace?.output;
 
@@ -105,7 +111,7 @@ export default class TemplateExportService {
         }
 
         const extension = format === ExportFormat.PSD ? "psd" : "jpg";
-        const baseName = this.baseName(template?.name || document?.title || "template");
+        const baseName = this.baseName(descriptor?.name || template?.name || document?.title || "template");
 
         return exportFolder.createFile(`${baseName}-processed.${extension}`, {
             overwrite: true

@@ -7,6 +7,7 @@ import RecentFilesService from "../services/RecentFilesService";
 import TemplateDocumentReader from "../services/TemplateDocumentReader";
 import TemplateRegistry from "../services/TemplateRegistry";
 import Template from "../templates/Template";
+import ProjectTemplateRegistry from "../project/ProjectTemplateRegistry";
 import PhotoPlacementEngine from "../placement/PhotoPlacementEngine";
 import PlacementExecutionPlanBuilder from "../placement/PlacementExecutionPlanBuilder";
 import ReplacementRequest from "../placement/ReplacementRequest";
@@ -55,6 +56,7 @@ class AppController {
             projectEngine: this.project
         });
         this.templateRegistry = new TemplateRegistry();
+        this.projectTemplateRegistry = new ProjectTemplateRegistry();
         this.photoPlacementEngine = new PhotoPlacementEngine();
         this.placementExecutionPlanBuilder = new PlacementExecutionPlanBuilder();
         this.currentPlacementPlan = null;
@@ -98,6 +100,7 @@ class AppController {
 
         if (project) {
             this.templateRegistry.clear();
+            this.projectTemplateRegistry = new ProjectTemplateRegistry(project.metadata.templateRegistry);
             this.clearCurrentPlacementPlan();
         }
 
@@ -111,6 +114,7 @@ class AppController {
 
         if (project) {
             this.templateRegistry.clear();
+            this.projectTemplateRegistry = new ProjectTemplateRegistry(project.metadata.templateRegistry);
             this.clearCurrentPlacementPlan();
         }
 
@@ -120,13 +124,19 @@ class AppController {
 
     saveProject(values) {
 
-        return this.projectService.saveProject(values);
+        return this.projectService.saveProject({
+            ...values,
+            templateRegistry: this.projectTemplateRegistry.toJSON()
+        });
 
     }
 
-    closeProject() {
+    async closeProject() {
+
+        if (this.project.getProject()) await this.saveProject();
 
         this.templateRegistry.clear();
+        this.projectTemplateRegistry = new ProjectTemplateRegistry();
         this.clearCurrentPlacementPlan();
 
         return this.projectService.closeProject();
@@ -550,7 +560,7 @@ class AppController {
     async executeProject(onUpdate) {
 
         const project = this.project.getProject();
-        const templates = this.templateRegistry.getAll();
+        const templates = this.projectTemplateRegistry.getAll();
         const photos = this.photoWorkspace.getPhotos();
         const startedAt = new Date().toISOString();
         const projectId = project?.metadata?.id ?? project?.metadata?.name ?? null;
@@ -571,7 +581,9 @@ class AppController {
                 startedAt,
                 finishedAt: startedAt,
                 elapsedMilliseconds: 0,
-                status: ProjectExecutionStatus.FAILED
+                status: ProjectExecutionStatus.FAILED,
+                registeredTemplates: this.projectTemplateRegistry.count(),
+                registryValidationError: !templates.length ? "Register at least one PSD before processing the project." : null
             });
 
             if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
@@ -582,6 +594,7 @@ class AppController {
         this.currentProjectExecutionSummary = new ProjectExecutionSummary({
             projectId,
             totalTemplates: templates.length,
+            registeredTemplates: this.projectTemplateRegistry.count(),
             completedTemplates: 0,
             failedTemplates: 0,
             templateResults: [],
@@ -594,6 +607,19 @@ class AppController {
         this.currentProjectExecutionSummary = await this.projectExecutor.execute({
             project,
             photos,
+            templates,
+            registeredTemplates: this.projectTemplateRegistry.count(),
+            resolveTemplate: async descriptor => {
+                try {
+                    const analysis = await this.templateDocumentReader.resolveRegisteredTemplate(descriptor);
+                    this.projectTemplateRegistry.updateValidation(descriptor.id, "VALID");
+                    return new Template(analysis);
+                } catch (error) {
+                    this.projectTemplateRegistry.updateValidation(descriptor.id, "MISSING");
+                    throw error;
+                }
+            },
+            releaseTemplate: async () => this.templateDocumentReader.close(),
             autoSaveEnabled: this.autoSaveEnabled,
             autoSaveMode: this.autoSaveMode,
             onAutoSaveResult: result => {
@@ -603,6 +629,22 @@ class AppController {
             exportFormat: this.exportFormat,
             onExportResult: result => {
                 this.currentExportResult = result;
+            },
+            onProgress: batch => {
+                this.currentProjectExecutionSummary = new ProjectExecutionSummary({
+                    projectId,
+                    totalTemplates: batch.totalTemplates,
+                    registeredTemplates: this.projectTemplateRegistry.count(),
+                    completedTemplates: batch.completedTemplates,
+                    successfulTemplates: batch.successfulTemplates,
+                    failedTemplates: batch.failedTemplates,
+                    templateResults: batch.templateResults,
+                    batchExecution: batch,
+                    startedAt: batch.startedAt,
+                    elapsedMilliseconds: batch.durationMs,
+                    status: ProjectExecutionStatus.RUNNING
+                });
+                if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
             }
         });
 
@@ -671,6 +713,20 @@ class AppController {
 
         return this.templateDocumentReader.listTemplates();
 
+    }
+
+    getRegisteredProjectTemplates() { return this.projectTemplateRegistry.getAll(); }
+
+    async addCurrentPsdToProject(file) {
+        const descriptor = this.projectTemplateRegistry.add(file);
+        await this.saveProject();
+        return descriptor;
+    }
+
+    async removeRegisteredProjectTemplate(id) {
+        const removed = this.projectTemplateRegistry.remove(id);
+        if (removed) await this.saveProject();
+        return removed;
     }
 
     async openTemplateDocument(file) {
