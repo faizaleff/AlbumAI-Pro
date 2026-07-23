@@ -239,6 +239,16 @@ export default function OpenFolder() {
 
     const executeProject = onUpdate =>
         App.executeProject(onUpdate);
+    const resumeProjectBatch = onUpdate =>
+        App.resumeProjectBatch(onUpdate);
+    const retryFailedTemplates = onUpdate =>
+        App.retryFailedTemplates(onUpdate);
+    const clearRecoveryState = async () => {
+        const result = await App.clearRecoveryState();
+        return result;
+    };
+    const getBatchRecoveryState = () =>
+        App.getBatchRecoveryState();
 
     const getCurrentProjectExecutionSummary = () =>
         App.getCurrentProjectExecutionSummary();
@@ -377,6 +387,10 @@ export default function OpenFolder() {
                     getCurrentBatchProgress={getCurrentBatchProgress}
                     getCurrentExecutionLifecycle={getCurrentExecutionLifecycle}
                     executeProject={executeProject}
+                    resumeProjectBatch={resumeProjectBatch}
+                    retryFailedTemplates={retryFailedTemplates}
+                    clearRecoveryState={clearRecoveryState}
+                    getBatchRecoveryState={getBatchRecoveryState}
                     getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
                     getPhotos={getPhotos}
                     getCurrentTemplate={getCurrentTemplate}

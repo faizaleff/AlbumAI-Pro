@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 function LayerTree({ layers = [], depth = 0 }) {
 
@@ -96,7 +96,8 @@ function summaryText({
     batchProgress,
     executionLifecycle,
     projectExecutionSummary,
-    registeredTemplates = []
+    registeredTemplates = [],
+    recoveryState = null
 }) {
 
     const selectedCount = photos.filter(photo => photo?.selected).length;
@@ -166,6 +167,26 @@ function summaryText({
         );
     }
 
+    const recovery = recoveryState?.snapshot;
+    const recoveryTemplateName = registeredTemplates.find(
+        item => item.id === recovery?.currentTemplateId
+    )?.name || recovery?.currentTemplateId;
+    lines.push(
+        "",
+        "Recovery",
+        `Recovery Available: ${recoveryState?.available ? "Yes" : "No"}`,
+        `Recovery State: ${textValue(recoveryState?.classification, "NONE")}`,
+        `Previous Batch ID: ${textValue(recovery?.batchId)}`,
+        `Previous Batch Status: ${textValue(recovery?.lifecycle)}`,
+        `Completed: ${recovery?.completedTemplateIds?.length || 0}`,
+        `Successful: ${recovery?.successfulTemplateIds?.length || 0}`,
+        `Failed: ${recovery?.failedTemplateIds?.length || 0}`,
+        `Pending: ${recovery?.pendingTemplateIds?.length || 0}`,
+        `Last Template: ${textValue(recoveryTemplateName)}`,
+        `Last Stage: ${textValue(recovery?.lastCompletedStage)}`,
+        `Resume/Retry Result: ${textValue(recovery?.runMode)}`
+    );
+
     return lines.join("\n");
 
 }
@@ -187,7 +208,8 @@ function debugText({
     projectExecutionSummary,
     placementError,
     registeredTemplates = [],
-    registryError = null
+    registryError = null,
+    recoveryState = null
 }) {
 
     const template = document || healthTemplate;
@@ -285,6 +307,29 @@ function debugText({
         `Execution Warnings: ${(executionPlan?.warnings || []).map(warning => warning?.message || String(warning)).join(" | ") || "None"}`
     );
 
+    const recovery = recoveryState?.snapshot;
+    const recoveryTemplateName = registeredTemplates.find(
+        item => item.id === recovery?.currentTemplateId
+    )?.name || recovery?.currentTemplateId;
+    lines.push(
+        "",
+        "Batch Recovery",
+        `Available: ${recoveryState?.available ? "Yes" : "No"}`,
+        `Classification: ${textValue(recoveryState?.classification, "NONE")}`,
+        `Batch ID: ${textValue(recovery?.batchId)}`,
+        `Status: ${textValue(recovery?.lifecycle)}`,
+        `Run Mode: ${textValue(recovery?.runMode)}`,
+        `Completed/Success/Failed/Pending: ${recovery?.completedTemplateIds?.length || 0}/${recovery?.successfulTemplateIds?.length || 0}/${recovery?.failedTemplateIds?.length || 0}/${recovery?.pendingTemplateIds?.length || 0}`,
+        `Last Template: ${textValue(recoveryTemplateName)}`,
+        `Last Stage: ${textValue(recovery?.lastCompletedStage)}`,
+        `Warnings: ${(recovery?.warnings || []).join(" | ") || "None"}`,
+        `Fatal Error: ${textValue(recovery?.fatalError, "None")}`,
+        "Recovery Template Outcomes",
+        ...(recovery?.templateOutcomes || []).map(item =>
+            `${textValue(item.templateId)} — ${textValue(item.templateName)}: ${textValue(item.status)}${item.error ? ` (${item.error})` : ""}`
+        )
+    );
+
     return lines.join("\n");
 
 }
@@ -312,9 +357,26 @@ export function ExecutionDetails({
     executionLifecycle,
     projectExecutionSummary,
     registeredTemplates = [],
-    registryError = null
+    registryError = null,
+    recoveryState = null,
+    onResumeBatch,
+    onRetryFailed,
+    onClearRecovery,
+    recoveryBusy = false,
+    recoveryRefreshVersion = 0
 }) {
 
+    const recoverySnapshot = recoveryState?.snapshot || null;
+    const [clearRecoveryBusy, setClearRecoveryBusy] = useState(false);
+    const clearRecoveryInFlight = useRef(false);
+    const effectiveRecoveryBusy = recoveryBusy || clearRecoveryBusy;
+    const canClearRecovery = useMemo(
+        () => Boolean(recoverySnapshot) && !effectiveRecoveryBusy,
+        [recoverySnapshot, effectiveRecoveryBusy]
+    );
+    const lastRecoveryTemplate = registeredTemplates.find(
+        item => item.id === recoverySnapshot?.currentTemplateId
+    )?.name || recoverySnapshot?.currentTemplateId || "—";
     const [templateDetailsOpen, setTemplateDetailsOpen] = useState(false);
     const [layerListOpen, setLayerListOpen] = useState(false);
     const [detailSections, setDetailSections] = useState({
@@ -323,9 +385,28 @@ export function ExecutionDetails({
         template: false,
         placement: false,
         executionPlan: true,
-        batchProgress: true
+        batchProgress: true,
+        recovery: true
     });
     const [copyFeedback, setCopyFeedback] = useState("");
+    const [clearRecoveryFeedback, setClearRecoveryFeedback] = useState("");
+    const clearFeedbackThroughVersion = useRef(-1);
+    const clearFeedbackProjectId = useRef(projectId);
+
+    useEffect(() => {
+        if (clearFeedbackProjectId.current !== projectId) {
+            clearFeedbackProjectId.current = projectId;
+            clearFeedbackThroughVersion.current = -1;
+            setClearRecoveryFeedback("");
+            return;
+        }
+        if (
+            clearRecoveryFeedback &&
+            recoveryRefreshVersion > clearFeedbackThroughVersion.current
+        ) {
+            setClearRecoveryFeedback("");
+        }
+    }, [projectId, recoveryRefreshVersion]);
     const sectionStyle = {
         marginTop: 16,
         paddingTop: 12,
@@ -434,7 +515,8 @@ export function ExecutionDetails({
         batchProgress,
         executionLifecycle,
         projectExecutionSummary,
-        registeredTemplates
+        registeredTemplates,
+        recoveryState
     }), "Summary copied.");
     const copyDebugLog = () => copy(debugText({
         projectId,
@@ -453,8 +535,54 @@ export function ExecutionDetails({
         projectExecutionSummary,
         placementError,
         registeredTemplates,
-        registryError
+        registryError,
+        recoveryState
     }), "Debug log copied.");
+    const runClearRecovery = async () => {
+        if (effectiveRecoveryBusy || clearRecoveryInFlight.current) return null;
+
+        clearRecoveryInFlight.current = true;
+        setClearRecoveryBusy(true);
+        setClearRecoveryFeedback("");
+
+        try {
+            if (typeof onClearRecovery !== "function") {
+                throw new Error("Clear Recovery State is unavailable.");
+            }
+            const result = await onClearRecovery();
+            if (!result?.status) {
+                throw new Error("Clear Recovery State returned no result.");
+            }
+            setClearRecoveryFeedback(
+                result.status === "CLEARED"
+                    ? "CLEARED — Recovery state cleared."
+                    : "NOT_PRESENT — No recovery state was present."
+            );
+            clearFeedbackThroughVersion.current = recoveryRefreshVersion + 1;
+            return result;
+        } catch (error) {
+            setClearRecoveryFeedback(
+                `FAILED — ${error?.message || "Recovery state could not be cleared."}`
+            );
+            clearFeedbackThroughVersion.current = recoveryRefreshVersion + 1;
+            return {
+                status: "FAILED",
+                error: error?.message || "Recovery state could not be cleared."
+            };
+        } finally {
+            clearRecoveryInFlight.current = false;
+            setClearRecoveryBusy(false);
+        }
+    };
+    const handleClearRecoveryPointerDown = async () => {
+        if (effectiveRecoveryBusy) return;
+        await runClearRecovery();
+    };
+    const handleClearRecoveryKeyDown = async event => {
+        if (event?.repeat) return;
+        if (event?.key !== "Enter" && event?.key !== " " && event?.key !== "Spacebar") return;
+        await runClearRecovery();
+    };
 
     return (
         <section style={{ marginTop: 20, paddingBottom: 16, minWidth: 0, maxWidth: "100%", boxSizing: "border-box", overflowWrap: "anywhere", wordBreak: "break-word" }}>
@@ -575,6 +703,47 @@ export function ExecutionDetails({
                     })()}
                 </>}
             </DetailSection>
+
+            <DetailSection id="recovery" title="Recovery">
+                <>
+                        <Row label="Recovery Available" value={recoveryState?.available ? "Yes" : "No"} />
+                        <Row label="Recovery State" value={recoveryState?.classification || "NONE"} />
+                        <Row label="Previous Status" value={recoverySnapshot?.lifecycle || recoveryState?.classification || "NONE"} />
+                        <Row label="Completed" value={recoverySnapshot?.completedTemplateIds?.length || 0} />
+                        <Row label="Successful" value={recoverySnapshot?.successfulTemplateIds?.length || 0} />
+                        <Row label="Failed" value={recoverySnapshot?.failedTemplateIds?.length || 0} />
+                        <Row label="Pending" value={recoverySnapshot?.pendingTemplateIds?.length || 0} />
+                        <Row label="Last Template" value={lastRecoveryTemplate} />
+                        <Row label="Last Stage" value={recoverySnapshot?.lastCompletedStage || "—"} />
+                        {clearRecoveryFeedback && (
+                            <Row
+                                label="Clear Result"
+                                value={clearRecoveryFeedback}
+                                warning={clearRecoveryFeedback.startsWith("FAILED")}
+                            />
+                        )}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                            <button type="button" onClick={onResumeBatch}
+                                disabled={recoveryBusy || !recoveryState?.available || !(recoverySnapshot?.pendingTemplateIds?.length || recoverySnapshot?.failedTemplateIds?.length)}>
+                                Resume Batch
+                            </button>
+                            <button type="button" onClick={onRetryFailed}
+                                disabled={recoveryBusy || !recoveryState?.available || !recoverySnapshot?.failedTemplateIds?.length}>
+                                Retry Failed Templates
+                            </button>
+                            <button
+                                key="clear-recovery-state"
+                                type="button"
+                                className="clear-recovery-button"
+                                onPointerDown={handleClearRecoveryPointerDown}
+                                onKeyDown={handleClearRecoveryKeyDown}
+                                disabled={!canClearRecovery}
+                            >
+                                Clear Recovery State
+                            </button>
+                        </div>
+                </>
+            </DetailSection>
         </section>
     );
 
@@ -597,6 +766,10 @@ export default function TemplateDocumentPanel({
     getCurrentBatchProgress,
     getCurrentExecutionLifecycle,
     executeProject,
+    resumeProjectBatch,
+    retryFailedTemplates,
+    clearRecoveryState,
+    getBatchRecoveryState,
     getCurrentProjectExecutionSummary,
     getPhotos,
     getCurrentTemplate,
@@ -633,6 +806,15 @@ export default function TemplateDocumentPanel({
         getCurrentExecutionLifecycle?.() || null
     );
     const [projectExecutionSummary, setProjectExecutionSummary] = useState(null);
+    const [recoveryVersion, setRecoveryVersion] = useState(0);
+    const recoveryState = useMemo(
+        () => getBatchRecoveryState?.() || {
+            available: false,
+            classification: "NONE",
+            snapshot: null
+        },
+        [recoveryVersion, projectId, hasProject]
+    );
     const [autoSaveResult, setAutoSaveResult] = useState(() =>
         getCurrentAutoSaveResult?.() || null
     );
@@ -658,6 +840,10 @@ export default function TemplateDocumentPanel({
         setSelectedRegisteredId(current => entries.some(entry => entry.id === current)
             ? current
             : (entries[0]?.id || ""));
+    }
+
+    function refreshRecoveryState() {
+        setRecoveryVersion(value => value + 1);
     }
 
     useEffect(() => {
@@ -687,6 +873,12 @@ export default function TemplateDocumentPanel({
                 projectExecutionSummary={projectExecutionSummary}
                 registeredTemplates={registeredTemplates}
                 registryError={registryError}
+                recoveryState={recoveryState}
+                recoveryBusy={isExecuting}
+                onResumeBatch={() => executeRecoveryAction(resumeProjectBatch)}
+                onRetryFailed={() => executeRecoveryAction(retryFailedTemplates)}
+                onClearRecovery={clearRecovery}
+                recoveryRefreshVersion={recoveryVersion}
             />
         );
 
@@ -714,6 +906,9 @@ export default function TemplateDocumentPanel({
         projectExecutionSummary,
         registeredTemplates,
         registryError,
+        recoveryVersion,
+        recoveryState,
+        isExecuting,
         onExecutionDetailsChange
     ]);
 
@@ -734,6 +929,7 @@ export default function TemplateDocumentPanel({
                 setTemplates(files);
                 setSelectedName(files[0]?.name || "");
                 refreshRegisteredTemplates();
+                refreshRecoveryState();
 
             }
 
@@ -757,6 +953,7 @@ export default function TemplateDocumentPanel({
         try {
             await addCurrentPsdToProject?.(file);
             refreshRegisteredTemplates();
+            refreshRecoveryState();
             setRegistryError(null);
         } catch (error) {
             setRegistryError(error.message);
@@ -768,6 +965,7 @@ export default function TemplateDocumentPanel({
         try {
             await removeRegisteredProjectTemplate?.(selectedRegisteredId);
             refreshRegisteredTemplates();
+            refreshRecoveryState();
             setRegistryError(null);
         } catch (error) {
             setRegistryError(error.message);
@@ -947,6 +1145,7 @@ export default function TemplateDocumentPanel({
 
             const summary = await executeProject(nextSummary => {
                 setProjectExecutionSummary(nextSummary);
+                refreshRecoveryState();
             });
 
             setProjectExecutionSummary(
@@ -954,6 +1153,7 @@ export default function TemplateDocumentPanel({
             );
             setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
             setExportResult(getCurrentExportResult?.() || null);
+            refreshRecoveryState();
 
         }
 
@@ -967,6 +1167,45 @@ export default function TemplateDocumentPanel({
 
         }
 
+    }
+
+    async function executeRecoveryAction(action) {
+        if (typeof action !== "function" || isExecuting) return;
+        try {
+            const summary = await action(nextSummary => {
+                setProjectExecutionSummary(nextSummary);
+                refreshRecoveryState();
+            });
+            setProjectExecutionSummary(summary || getCurrentProjectExecutionSummary?.() || null);
+        } finally {
+            refreshRecoveryState();
+        }
+    }
+
+    async function clearRecovery() {
+        if (isExecuting) {
+            const error = new Error("A project batch is already running.");
+            throw error;
+        }
+        if (typeof clearRecoveryState !== "function") {
+            const error = new Error("Clear Recovery State is unavailable.");
+            throw error;
+        }
+
+        try {
+            const result = await clearRecoveryState();
+            if (result?.status === "FAILED") {
+                throw new Error(result.error || "Recovery state could not be cleared.");
+            }
+            if (!result?.status) {
+                throw new Error("Clear Recovery State returned no result.");
+            }
+            refreshRecoveryState();
+            return result;
+        } catch (error) {
+            refreshRecoveryState();
+            throw error;
+        }
     }
 
     return (

@@ -19,6 +19,9 @@ import ProjectExecutor from "../project/ProjectExecutor";
 import ProjectExecutionSummary, {
     ProjectExecutionStatus
 } from "../project/ProjectExecutionSummary";
+import BatchRecoverySnapshot, {
+    BATCH_RECOVERY_SCHEMA_VERSION
+} from "../project/BatchRecoverySnapshot";
 import TemplateAutoSaveService, {
     AutoSaveMode
 } from "../services/TemplateAutoSaveService";
@@ -31,6 +34,12 @@ export const ExecutionLifecycleStatus = Object.freeze({
     READY: "READY",
     RUNNING: "RUNNING",
     COMPLETED: "COMPLETED",
+    FAILED: "FAILED"
+});
+
+export const RecoveryClearStatus = Object.freeze({
+    CLEARED: "CLEARED",
+    NOT_PRESENT: "NOT_PRESENT",
     FAILED: "FAILED"
 });
 
@@ -91,6 +100,12 @@ class AppController {
             templateExportService: this.templateExportService
         });
         this.currentProjectExecutionSummary = null;
+        this.batchRecoverySnapshot = null;
+        this.batchRecoveryClassification = null;
+        this.recoveryWritePromise = Promise.resolve();
+        this.recoveryWriteGeneration = 0;
+        this.lastRecoveryClearResult = null;
+        this.projectBatchRunning = false;
 
     }
 
@@ -101,6 +116,7 @@ class AppController {
         if (project) {
             this.templateRegistry.clear();
             this.projectTemplateRegistry = new ProjectTemplateRegistry(project.metadata.templateRegistry);
+            this.loadRecovery(project.metadata.batchRecovery);
             this.clearCurrentPlacementPlan();
         }
 
@@ -115,6 +131,7 @@ class AppController {
         if (project) {
             this.templateRegistry.clear();
             this.projectTemplateRegistry = new ProjectTemplateRegistry(project.metadata.templateRegistry);
+            this.loadRecovery(project.metadata.batchRecovery);
             this.clearCurrentPlacementPlan();
         }
 
@@ -126,7 +143,8 @@ class AppController {
 
         return this.projectService.saveProject({
             ...values,
-            templateRegistry: this.projectTemplateRegistry.toJSON()
+            templateRegistry: this.projectTemplateRegistry.toJSON(),
+            batchRecovery: this.serializeRecoverySnapshot(this.batchRecoverySnapshot)
         });
 
     }
@@ -137,6 +155,8 @@ class AppController {
 
         this.templateRegistry.clear();
         this.projectTemplateRegistry = new ProjectTemplateRegistry();
+        this.batchRecoverySnapshot = null;
+        this.batchRecoveryClassification = null;
         this.clearCurrentPlacementPlan();
 
         return this.projectService.closeProject();
@@ -557,10 +577,15 @@ class AppController {
 
     }
 
-    async executeProject(onUpdate) {
+    async executeProject(onUpdate, options = {}) {
 
         const project = this.project.getProject();
-        const templates = this.projectTemplateRegistry.getAll();
+        if (this.projectBatchRunning ||
+            this.currentProjectExecutionSummary?.batchProgress?.lifecycle === "RUNNING") {
+            throw new Error("A project batch is already running.");
+        }
+        const registryTemplates = this.projectTemplateRegistry.getAll();
+        const templates = options.templates || registryTemplates;
         const photos = this.photoWorkspace.getPhotos();
         const startedAt = new Date().toISOString();
         const projectId = project?.metadata?.id ?? project?.metadata?.name ?? null;
@@ -591,6 +616,21 @@ class AppController {
             return this.currentProjectExecutionSummary;
         }
 
+        this.projectBatchRunning = true;
+        try {
+            await this.beginRecoverySnapshot({
+                projectId,
+                templates,
+                registryTemplates,
+                previous: options.previous || null,
+                runMode: options.runMode || "PROCESS_PROJECT",
+                startedAt
+            });
+        } catch (error) {
+            this.projectBatchRunning = false;
+            throw error;
+        }
+
         this.currentProjectExecutionSummary = new ProjectExecutionSummary({
             projectId,
             totalTemplates: templates.length,
@@ -605,6 +645,7 @@ class AppController {
 
         if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
 
+        try {
         this.currentProjectExecutionSummary = await this.projectExecutor.execute({
             project,
             photos,
@@ -649,6 +690,7 @@ class AppController {
                         failedTemplates: batch?.failedTemplates || 0
                     })
                 });
+                this.updateRecoveryStage(progress);
                 if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
             },
             onProgress: batch => {
@@ -675,10 +717,46 @@ class AppController {
                     elapsedMilliseconds: batch.durationMs,
                     status: ProjectExecutionStatus.RUNNING
                 });
+                this.updateRecoveryBatch(batch);
                 if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
             }
         });
+        } catch (error) {
+            this.markRecoveryFatal(error);
+            this.currentProjectExecutionSummary = new ProjectExecutionSummary({
+                projectId,
+                totalTemplates: templates.length,
+                registeredTemplates: this.projectTemplateRegistry.count(),
+                completedTemplates: this.batchRecoverySnapshot?.completedTemplateIds?.length || 0,
+                successfulTemplates: this.batchRecoverySnapshot?.successfulTemplateIds?.length || 0,
+                failedTemplates: this.batchRecoverySnapshot?.failedTemplateIds?.length || 0,
+                startedAt,
+                finishedAt: new Date().toISOString(),
+                batchProgress: this.projectBatchProgress({
+                    lifecycle: "FAILED",
+                    stage: "FAILED",
+                    totalTemplates: templates.length,
+                    completedTemplates: this.batchRecoverySnapshot?.completedTemplateIds?.length || 0,
+                    successfulTemplates: this.batchRecoverySnapshot?.successfulTemplateIds?.length || 0,
+                    failedTemplates: this.batchRecoverySnapshot?.failedTemplateIds?.length || 0
+                }),
+                status: ProjectExecutionStatus.FAILED
+            });
+            try {
+                await this.flushRecoveryWrites();
+            } finally {
+                this.projectBatchRunning = false;
+            }
+            if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
+            return this.currentProjectExecutionSummary;
+        }
 
+        this.updateRecoveryBatch(this.currentProjectExecutionSummary.batchExecution);
+        try {
+            await this.flushRecoveryWrites();
+        } finally {
+            this.projectBatchRunning = false;
+        }
         if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
 
         return this.currentProjectExecutionSummary;
@@ -689,6 +767,79 @@ class AppController {
 
         return this.currentProjectExecutionSummary;
 
+    }
+
+    async retryFailedTemplates(onUpdate) {
+        const snapshot = this.requireRecoverableSnapshot();
+        const failed = new Set(snapshot.failedTemplateIds);
+        const templates = this.projectTemplateRegistry.getAll().filter(item => failed.has(item.id));
+        if (!templates.length) throw new Error("There are no failed templates to retry.");
+        return this.executeProject(onUpdate, {
+            templates,
+            previous: snapshot,
+            runMode: "RETRY_FAILED"
+        });
+    }
+
+    async resumeProjectBatch(onUpdate) {
+        const snapshot = this.requireRecoverableSnapshot();
+        const successful = new Set(snapshot.successfulTemplateIds);
+        const required = new Set(snapshot.queueOrder.filter(id => !successful.has(id)));
+        const templates = this.projectTemplateRegistry.getAll().filter(item => required.has(item.id));
+        if (!templates.length) throw new Error("There are no pending templates to resume.");
+        return this.executeProject(onUpdate, {
+            templates,
+            previous: snapshot,
+            runMode: "RESUME_PENDING"
+        });
+    }
+
+    async clearRecoveryState() {
+        if (this.projectBatchRunning) throw new Error("A project batch is already running.");
+        const previousSnapshot = this.batchRecoverySnapshot;
+        const previousClassification = this.batchRecoveryClassification;
+        const recoveryWasPresent = Boolean(previousSnapshot);
+
+        if (!recoveryWasPresent) {
+            this.lastRecoveryClearResult = Object.freeze({
+                status: RecoveryClearStatus.NOT_PRESENT,
+                error: null
+            });
+            return this.lastRecoveryClearResult;
+        }
+
+        // Invalidate checkpoint callbacks that have not started, then wait for
+        // any already-started write. The explicit null write below is therefore
+        // guaranteed to be the last recovery persistence operation.
+        this.recoveryWriteGeneration += 1;
+        await this.recoveryWritePromise.catch(() => null);
+
+        this.batchRecoverySnapshot = null;
+        this.batchRecoveryClassification = null;
+
+        try {
+            await this.persistRecoverySnapshot(null, this.recoveryWriteGeneration);
+            this.lastRecoveryClearResult = Object.freeze({
+                status: RecoveryClearStatus.CLEARED,
+                error: null
+            });
+        } catch (error) {
+            this.batchRecoverySnapshot = previousSnapshot;
+            this.batchRecoveryClassification = previousClassification;
+            this.lastRecoveryClearResult = Object.freeze({
+                status: RecoveryClearStatus.FAILED,
+                error: error?.message || "Recovery state could not be cleared."
+            });
+        }
+
+        return this.lastRecoveryClearResult;
+    }
+
+    getBatchRecoveryState() {
+        return this.recoveryState(
+            this.batchRecoverySnapshot,
+            this.batchRecoveryClassification
+        );
     }
 
     projectBatchProgress(data = {}) {
@@ -708,6 +859,208 @@ class AppController {
             remainingTemplates: Math.max(0, totalTemplates - completedTemplates),
             percentage: totalTemplates ? Math.round((completedTemplates / totalTemplates) * 100) : 0
         });
+    }
+
+    registryRecoveryVersion(entries = this.projectTemplateRegistry.getAll()) {
+        return entries.map(item => `${item.id}:${item.fileReference}`).join("|");
+    }
+
+    loadRecovery(raw) {
+        const projectId = this.project.getProject()?.metadata?.id ?? null;
+        if (!raw) {
+            this.batchRecoverySnapshot = null;
+            this.batchRecoveryClassification = null;
+            return;
+        }
+        if (raw.schemaVersion !== BATCH_RECOVERY_SCHEMA_VERSION) {
+            this.batchRecoverySnapshot = BatchRecoverySnapshot.freeze(raw);
+            this.batchRecoveryClassification = "INCOMPATIBLE";
+            return;
+        }
+        const snapshot = new BatchRecoverySnapshot(raw);
+        this.batchRecoverySnapshot = snapshot;
+        const stale = snapshot.projectId !== projectId ||
+            snapshot.registryVersion !== this.registryRecoveryVersion();
+        this.batchRecoveryClassification = stale ? "STALE" : null;
+    }
+
+    recoveryState(snapshot, forcedStatus = null) {
+        if (!snapshot) {
+            return Object.freeze({ available: false, classification: forcedStatus || "NONE", snapshot: null });
+        }
+        const pending = snapshot.pendingTemplateIds?.length || 0;
+        const failed = snapshot.failedTemplateIds?.length || 0;
+        let classification = forcedStatus;
+        if (!classification) {
+            if (snapshot.lifecycle === "RUNNING") classification = "INTERRUPTED";
+            else if (snapshot.lifecycle === "COMPLETED" && !pending && !failed) classification = "COMPLETED";
+            else classification = "INTERRUPTED";
+        }
+        return Object.freeze({
+            available: classification === "INTERRUPTED" && (pending > 0 || failed > 0),
+            classification,
+            snapshot
+        });
+    }
+
+    requireRecoverableSnapshot() {
+        const state = this.getBatchRecoveryState();
+        if (!state?.available || !state.snapshot) {
+            throw new Error("No recoverable batch is available.");
+        }
+        const projectId = this.project.getProject()?.metadata?.id ?? null;
+        if (state.snapshot.projectId !== projectId) throw new Error("Recovery state belongs to another project.");
+        const registryIds = new Set(this.projectTemplateRegistry.getAll().map(item => item.id));
+        if (state.snapshot.queueOrder.some(id => !registryIds.has(id))) {
+            throw new Error("The project template registry no longer matches the recovery state.");
+        }
+        return state.snapshot;
+    }
+
+    async beginRecoverySnapshot({ projectId, templates, registryTemplates, previous, runMode, startedAt }) {
+        const queueOrder = previous?.queueOrder?.length
+            ? previous.queueOrder
+            : registryTemplates.map(item => item.id);
+        const successfulTemplateIds = previous?.successfulTemplateIds || [];
+        this.batchRecoverySnapshot = new BatchRecoverySnapshot({
+            recoveryVersion: (previous?.recoveryVersion || 0) + 1,
+            projectId,
+            registryVersion: this.registryRecoveryVersion(registryTemplates),
+            registrySnapshot: registryTemplates.map(item => ({
+                id: item.id,
+                name: item.name,
+                fileReference: item.fileReference,
+                registrationOrder: item.registrationOrder
+            })),
+            queueOrder,
+            lifecycle: "RUNNING",
+            startedAt,
+            updatedAt: startedAt,
+            completedTemplateIds: successfulTemplateIds,
+            successfulTemplateIds,
+            failedTemplateIds: [],
+            pendingTemplateIds: queueOrder.filter(id => !successfulTemplateIds.includes(id)),
+            currentTemplateId: templates[0]?.id ?? null,
+            currentTemplateIndex: 0,
+            lastCompletedStage: "IDLE",
+            templateOutcomes: previous?.templateOutcomes || [],
+            warnings: previous?.warnings || [],
+            runMode
+        });
+        this.batchRecoveryClassification = null;
+        await this.persistRecoverySnapshot();
+    }
+
+    updateRecoveryStage(progress) {
+        const current = this.batchRecoverySnapshot;
+        if (!current) return;
+        this.batchRecoverySnapshot = new BatchRecoverySnapshot({
+            ...current,
+            batchId: current.batchId,
+            currentTemplateId: progress.descriptor?.id ?? null,
+            currentTemplateIndex: progress.index,
+            lastCompletedStage: progress.stage,
+            updatedAt: new Date().toISOString()
+        });
+        this.batchRecoveryClassification = null;
+        this.queueRecoveryWrite();
+    }
+
+    updateRecoveryBatch(batch) {
+        if (!batch || !this.batchRecoverySnapshot) return;
+        const current = this.batchRecoverySnapshot;
+        const priorOutcomes = new Map((current.templateOutcomes || []).map(item => [item.templateId, item]));
+        (batch.templateResults || []).filter(item => item.status !== "RUNNING").forEach(item => {
+            priorOutcomes.set(item.templateId, {
+                templateId: item.templateId,
+                templateName: item.templateName,
+                status: item.status,
+                warnings: item.warnings || [],
+                error: item.error || null
+            });
+        });
+        const outcomes = [...priorOutcomes.values()];
+        const successful = new Set(current.successfulTemplateIds);
+        outcomes.forEach(item => {
+            if (item.status === "COMPLETED") successful.add(item.templateId);
+            if (item.status === "FAILED") successful.delete(item.templateId);
+        });
+        const failed = outcomes.filter(item => item.status === "FAILED").map(item => item.templateId);
+        const completed = outcomes.map(item => item.templateId);
+        const pending = current.queueOrder.filter(id => !completed.includes(id));
+        let lifecycle = batch.status;
+        if (batch.status !== "RUNNING" && batch.status !== "FAILED") {
+            lifecycle = failed.length ? "COMPLETED_WITH_ERRORS" : (pending.length ? "INTERRUPTED" : "COMPLETED");
+        }
+        this.batchRecoverySnapshot = new BatchRecoverySnapshot({
+            ...current,
+            batchId: current.batchId,
+            lifecycle,
+            updatedAt: new Date().toISOString(),
+            completedTemplateIds: completed,
+            successfulTemplateIds: [...successful],
+            failedTemplateIds: failed,
+            pendingTemplateIds: pending,
+            currentTemplateId: batch.currentTemplate?.id ?? current.currentTemplateId,
+            currentTemplateIndex: batch.templateIndex ?? current.currentTemplateIndex,
+            lastCompletedStage: lifecycle === "FAILED" ? "FAILED" : current.lastCompletedStage,
+            templateOutcomes: outcomes,
+            warnings: batch.warnings || current.warnings,
+            fatalError: batch.fatalError || null
+        });
+        this.batchRecoveryClassification = null;
+        this.queueRecoveryWrite();
+    }
+
+    markRecoveryFatal(error) {
+        const current = this.batchRecoverySnapshot;
+        if (!current) return;
+        this.batchRecoverySnapshot = new BatchRecoverySnapshot({
+            ...current,
+            batchId: current.batchId,
+            lifecycle: "FAILED",
+            lastCompletedStage: "FAILED",
+            updatedAt: new Date().toISOString(),
+            fatalError: error?.message || "Batch orchestration failed."
+        });
+        this.batchRecoveryClassification = null;
+        this.queueRecoveryWrite();
+    }
+
+    queueRecoveryWrite() {
+        const generation = this.recoveryWriteGeneration;
+        const snapshot = this.batchRecoverySnapshot;
+        this.recoveryWritePromise = this.recoveryWritePromise
+            .catch(() => null)
+            .then(() => {
+                if (generation !== this.recoveryWriteGeneration) return null;
+                return this.persistRecoverySnapshot(snapshot, generation);
+            });
+    }
+
+    async persistRecoverySnapshot(
+        snapshot = this.batchRecoverySnapshot,
+        generation = this.recoveryWriteGeneration
+    ) {
+        if (!this.project.getProject()) return;
+        if (generation !== this.recoveryWriteGeneration) return;
+        await this.projectService.saveProject({
+            templateRegistry: this.projectTemplateRegistry.toJSON(),
+            batchRecovery: this.serializeRecoverySnapshot(snapshot)
+        });
+    }
+
+    serializeRecoverySnapshot(snapshot) {
+        if (!snapshot) return null;
+        const value = snapshot?.toJSON?.() || snapshot;
+        // Return detached plain JSON data. The immutable in-memory snapshot
+        // remains untouched while functions/host objects cannot reach disk.
+        return JSON.parse(JSON.stringify(value));
+    }
+
+    async flushRecoveryWrites() {
+        await this.recoveryWritePromise.catch(() => null);
+        await this.persistRecoverySnapshot();
     }
 
     clearProjectExecutionSummary() {
@@ -768,13 +1121,17 @@ class AppController {
     getRegisteredProjectTemplates() { return this.projectTemplateRegistry.getAll(); }
 
     async addCurrentPsdToProject(file) {
+        if (this.projectBatchRunning) throw new Error("A project batch is already running.");
         const descriptor = this.projectTemplateRegistry.add(file);
+        if (this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
         await this.saveProject();
         return descriptor;
     }
 
     async removeRegisteredProjectTemplate(id) {
+        if (this.projectBatchRunning) throw new Error("A project batch is already running.");
         const removed = this.projectTemplateRegistry.remove(id);
+        if (removed && this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
         if (removed) await this.saveProject();
         return removed;
     }
