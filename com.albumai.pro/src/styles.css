@@ -20,3 +20,26 @@
 .tabsection * {
     margin: 0 4px;
 }
+
+.clear-recovery-button {
+    background: #454545;
+    border: 1px solid #707070;
+    color: #ffffff;
+    margin: 0;
+    padding: 4px 10px;
+    min-height: 24px;
+}
+
+.clear-recovery-button:hover:not(:disabled) {
+    background: #565656;
+}
+
+.clear-recovery-button:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 1px;
+}
+
+.clear-recovery-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
