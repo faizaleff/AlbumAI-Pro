@@ -603,6 +603,21 @@ class AppController {
             exportFormat: this.exportFormat,
             onExportResult: result => {
                 this.currentExportResult = result;
+            },
+            onProgress: batch => {
+                this.currentProjectExecutionSummary = new ProjectExecutionSummary({
+                    projectId,
+                    totalTemplates: batch.totalTemplates,
+                    completedTemplates: batch.completedTemplates,
+                    successfulTemplates: batch.successfulTemplates,
+                    failedTemplates: batch.failedTemplates,
+                    templateResults: batch.templateResults,
+                    batchExecution: batch,
+                    startedAt: batch.startedAt,
+                    elapsedMilliseconds: batch.durationMs,
+                    status: ProjectExecutionStatus.RUNNING
+                });
+                if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
             }
         });
 
