@@ -50,24 +50,34 @@ export default class ProjectExecutor {
         templates = null,
         registeredTemplates = null,
         resolveTemplate = null,
-        releaseTemplate = null
+        releaseTemplate = null,
+        onStageProgress = null
     } = {}) {
 
         const queue = new TemplateQueue(templates || this.templates());
         const batch = await this.batchExecutionService.execute({
             queue,
-            executeTemplate: async descriptor => {
+            executeTemplate: async (descriptor, index, total) => {
                 let template = null;
+                let completed = false;
+                const emitStage = stage => onStageProgress?.({ descriptor, index, total, stage });
                 try {
+                    emitStage("OPENING");
                     template = resolveTemplate ? await resolveTemplate(descriptor) : descriptor;
-                    return await this.executeTemplate({ project, photos, template, descriptor, autoSaveEnabled, autoSaveMode,
-                        onAutoSaveResult, exportEnabled, exportFormat, onExportResult
+                    emitStage("VALIDATING");
+                    const result = await this.executeTemplate({ project, photos, template, descriptor, autoSaveEnabled, autoSaveMode,
+                        onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress: emitStage
                     });
+                    completed = result.status === "COMPLETED";
+                    return result;
                 } catch (error) {
+                    emitStage("FAILED");
                     Logger.warn(`END TEMPLATE: ${descriptor?.name || "PSD Template"} — FAILED`);
                     throw error;
                 } finally {
+                    emitStage("CLOSING");
                     if (typeof releaseTemplate === "function") await releaseTemplate(template, descriptor);
+                    emitStage(completed ? "COMPLETED" : "FAILED");
                 }
             },
             onProgress
@@ -87,6 +97,18 @@ export default class ProjectExecutor {
             finishedAt: batch.completedAt,
             elapsedMilliseconds: batch.durationMs,
             batchExecution: batch,
+            batchProgress: {
+                lifecycle: batch.status,
+                stage: batch.status === BatchExecutionStatus.FAILED ? "FAILED" : "COMPLETED",
+                currentTemplate: batch.currentTemplate,
+                templateIndex: batch.templateIndex,
+                totalTemplates: batch.totalTemplates,
+                completedTemplates: batch.completedTemplates,
+                successfulTemplates: batch.successfulTemplates,
+                failedTemplates: batch.failedTemplates,
+                remainingTemplates: Math.max(0, batch.totalTemplates - batch.completedTemplates),
+                percentage: batch.totalTemplates ? Math.round((batch.completedTemplates / batch.totalTemplates) * 100) : 0
+            },
             status: batch.status === BatchExecutionStatus.FAILED || batch.failedTemplates
                 ? ProjectExecutionStatus.FAILED
                 : ProjectExecutionStatus.COMPLETED
@@ -94,23 +116,27 @@ export default class ProjectExecutor {
 
     }
 
-    async executeTemplate({ project, photos, template, descriptor = null, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult }) {
+    async executeTemplate({ project, photos, template, descriptor = null, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress }) {
 
         const context = this.documentContext(template, descriptor);
         Logger.info(`START TEMPLATE: ${context.documentName}`);
         Logger.info(`QUEUE DOCUMENT ID: ${context.documentId}`);
         this.templateRegistry.register(template);
         await this.activateContext(context, "EXECUTION");
+        onStageProgress?.("PLANNING");
         const placementResult = this.photoPlacementEngine.plan({ project, photos, template });
         await this.activateContext(context, "EXECUTION PLAN");
         const executionPlan = this.placementExecutionPlanBuilder.build({ placementResult, project, template, photos });
         const request = new ReplacementRequest({ executionPlan });
         await this.activateContext(context, "REPLACEMENT");
+        onStageProgress?.("REPLACING");
         const executionSummary = await this.replacementBatchExecutor.execute(request, { photos, templateName: template.name });
         await this.activateContext(context, "SAVE");
+        onStageProgress?.("SAVING");
         const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode });
         if (typeof onAutoSaveResult === "function") onAutoSaveResult(autoSaveResult);
         await this.activateContext(context, "EXPORT");
+        onStageProgress?.("EXPORTING");
         const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat });
         if (typeof onExportResult === "function") onExportResult(exportResult);
 
@@ -119,7 +145,7 @@ export default class ProjectExecutor {
             exportResult.status === ExportStatus.FAILED;
         Logger.info(`END TEMPLATE: ${context.documentName} — ${failed ? "FAILED" : "COMPLETED"}`);
 
-        return {
+        const result = {
             status: failed ? "FAILED" : "COMPLETED",
             completedSteps: executionSummary.completedSteps,
             failedSteps: executionSummary.failedSteps,
@@ -129,6 +155,8 @@ export default class ProjectExecutor {
             documentContext: context,
             warnings: [...autoSaveResult.warnings, ...exportResult.warnings]
         };
+        onStageProgress?.(failed ? "FAILED" : "COMPLETED");
+        return result;
 
     }
 
