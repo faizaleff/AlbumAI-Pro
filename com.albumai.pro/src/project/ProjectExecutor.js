@@ -7,6 +7,7 @@ import ExportResult, { ExportStatus } from "../services/ExportResult";
 import TemplateQueue from "./TemplateQueue";
 import BatchExecutionService from "./BatchExecutionService";
 import { BatchExecutionStatus } from "./BatchExecutionResult";
+import Logger from "../core/photoshop/Logger";
 
 /** Coordinates deterministic template execution through the batch executor. */
 export default class ProjectExecutor {
@@ -45,22 +46,39 @@ export default class ProjectExecutor {
         exportEnabled = false,
         exportFormat = "JPEG",
         onExportResult,
-        onProgress
+        onProgress,
+        templates = null,
+        registeredTemplates = null,
+        resolveTemplate = null,
+        releaseTemplate = null
     } = {}) {
 
-        const queue = new TemplateQueue(this.templates());
+        const queue = new TemplateQueue(templates || this.templates());
         const batch = await this.batchExecutionService.execute({
             queue,
-            executeTemplate: template => this.executeTemplate({
-                project, photos, template, autoSaveEnabled, autoSaveMode,
-                onAutoSaveResult, exportEnabled, exportFormat, onExportResult
-            }),
+            executeTemplate: async descriptor => {
+                let template = null;
+                try {
+                    template = resolveTemplate ? await resolveTemplate(descriptor) : descriptor;
+                    return await this.executeTemplate({ project, photos, template, descriptor, autoSaveEnabled, autoSaveMode,
+                        onAutoSaveResult, exportEnabled, exportFormat, onExportResult
+                    });
+                } catch (error) {
+                    Logger.warn(`END TEMPLATE: ${descriptor?.name || "PSD Template"} — FAILED`);
+                    throw error;
+                } finally {
+                    if (typeof releaseTemplate === "function") await releaseTemplate(template, descriptor);
+                }
+            },
             onProgress
         });
 
         return new ProjectExecutionSummary({
             projectId: this.projectId(project),
             totalTemplates: batch.totalTemplates,
+            registeredTemplates: Number.isInteger(registeredTemplates)
+                ? registeredTemplates
+                : batch.totalTemplates,
             completedTemplates: batch.completedTemplates,
             successfulTemplates: batch.successfulTemplates,
             failedTemplates: batch.failedTemplates,
@@ -76,28 +94,64 @@ export default class ProjectExecutor {
 
     }
 
-    async executeTemplate({ project, photos, template, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult }) {
+    async executeTemplate({ project, photos, template, descriptor = null, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult }) {
 
+        const context = this.documentContext(template, descriptor);
+        Logger.info(`START TEMPLATE: ${context.documentName}`);
+        Logger.info(`QUEUE DOCUMENT ID: ${context.documentId}`);
         this.templateRegistry.register(template);
+        await this.activateContext(context, "EXECUTION");
         const placementResult = this.photoPlacementEngine.plan({ project, photos, template });
+        await this.activateContext(context, "EXECUTION PLAN");
         const executionPlan = this.placementExecutionPlanBuilder.build({ placementResult, project, template, photos });
         const request = new ReplacementRequest({ executionPlan });
+        await this.activateContext(context, "REPLACEMENT");
         const executionSummary = await this.replacementBatchExecutor.execute(request, { photos, templateName: template.name });
-        const autoSaveResult = await this.autoSave({ project, template, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode });
+        await this.activateContext(context, "SAVE");
+        const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode });
         if (typeof onAutoSaveResult === "function") onAutoSaveResult(autoSaveResult);
-        const exportResult = await this.exportTemplate({ project, template, autoSaveResult, enabled: exportEnabled, format: exportFormat });
+        await this.activateContext(context, "EXPORT");
+        const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat });
         if (typeof onExportResult === "function") onExportResult(exportResult);
 
+        const failed = executionSummary.status !== "COMPLETED" ||
+            autoSaveResult.status === AutoSaveStatus.FAILED ||
+            exportResult.status === ExportStatus.FAILED;
+        Logger.info(`END TEMPLATE: ${context.documentName} — ${failed ? "FAILED" : "COMPLETED"}`);
+
         return {
-            status: executionSummary.status === "COMPLETED" ? "COMPLETED" : "FAILED",
+            status: failed ? "FAILED" : "COMPLETED",
             completedSteps: executionSummary.completedSteps,
             failedSteps: executionSummary.failedSteps,
             executionSummary,
             autoSaveResult,
             exportResult,
+            documentContext: context,
             warnings: [...autoSaveResult.warnings, ...exportResult.warnings]
         };
 
+    }
+
+    documentContext(template, descriptor) {
+        const documentId = template?.document?.id ?? template?.id;
+        if (documentId == null) throw new Error("Registered template did not open a Photoshop document.");
+        return Object.freeze({
+            descriptor,
+            documentId,
+            documentName: descriptor?.name || template?.name || "PSD Template",
+            fileReference: descriptor?.fileReference || template?.filePath || ""
+        });
+    }
+
+    async activateContext(context, stage) {
+        const documentManager = this.replacementBatchExecutor.replacementStepExecutor.documentManager;
+        const document = documentManager.byId(context.documentId);
+        if (!document) throw new Error(`Template document is no longer open: ${context.documentName}.`);
+        await documentManager.activate(document);
+        const active = documentManager.active;
+        Logger.info(`ACTIVE DOCUMENT BEFORE ${stage}: ${active?.id ?? "MISSING"}/${active?.title || "MISSING"}`);
+        if (active?.id !== context.documentId) throw new Error(`Template document could not be activated: ${context.documentName}.`);
+        return document;
     }
 
     templates() {

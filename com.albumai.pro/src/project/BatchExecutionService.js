@@ -103,6 +103,7 @@ export default class BatchExecutionService {
             warnings: data.warnings || [],
             error: data.error || null,
             executionSummary: data.executionSummary || null,
+            documentContext: data.documentContext || null,
             startedAt,
             completedAt,
             durationMs: startedAt && completedAt ? Date.parse(completedAt) - Date.parse(startedAt) : 0

@@ -182,9 +182,14 @@ export default function OpenFolder() {
 
     }
 
-    function closeProject() {
+    async function closeProject() {
 
-        App.closeProject();
+        try {
+            await App.closeProject();
+        } catch (error) {
+            setProjectError(error.message);
+            return;
+        }
         setFolderName("");
         setProjectError(null);
         forceRefresh(value => value + 1);
@@ -192,6 +197,12 @@ export default function OpenFolder() {
     }
 
     const loadTemplates = () => App.getProjectTemplates();
+    const getRegisteredProjectTemplates = () => App.getRegisteredProjectTemplates();
+
+    const addCurrentPsdToProject = file => App.addCurrentPsdToProject(file);
+
+    const removeRegisteredProjectTemplate = id =>
+        App.removeRegisteredProjectTemplate(id);
 
     const openTemplate = file =>
         App.openTemplateDocument(file);
@@ -351,6 +362,9 @@ export default function OpenFolder() {
 
                 <TemplateDocumentPanel
                     loadTemplates={loadTemplates}
+                    getRegisteredProjectTemplates={getRegisteredProjectTemplates}
+                    addCurrentPsdToProject={addCurrentPsdToProject}
+                    removeRegisteredProjectTemplate={removeRegisteredProjectTemplate}
                     openTemplate={openTemplate}
                     planPhotoPlacement={planPhotoPlacement}
                     getCurrentPlacementPlan={getCurrentPlacementPlan}

@@ -19,6 +19,11 @@ export default class ProjectExecutionSummary {
             startedAt: data.startedAt || null,
             finishedAt: data.finishedAt || null,
             elapsedMilliseconds: data.elapsedMilliseconds || 0,
+            // This is deliberately independent of placement validation.
+            registeredTemplates: Number.isInteger(data.registeredTemplates)
+                ? data.registeredTemplates
+                : (data.totalTemplates || 0),
+            registryValidationError: data.registryValidationError || null,
             status: data.status || ProjectExecutionStatus.RUNNING
         });
 

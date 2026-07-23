@@ -37,6 +37,7 @@ export default class TemplateDocumentReader {
             templateFile
         );
         const document = await this.openDocument(file);
+        await this.documentManager.activate(document);
 
         const layerTree = this.layerTreeReader.read(document);
 
@@ -54,6 +55,22 @@ export default class TemplateDocumentReader {
             smartObjects: this.layerTreeReader.smartObjects(),
             textLayers: this.layerTreeReader.textLayers()
         };
+
+    }
+
+    async resolveRegisteredTemplate(descriptor) {
+
+        const templates = await this.listTemplates();
+        const file = templates.find(entry =>
+            entry.nativePath === descriptor?.fileReference ||
+            entry.name === descriptor?.fileName
+        );
+
+        if (!file) {
+            throw new Error(`Registered PSD is missing: ${descriptor?.name || "template"}.`);
+        }
+
+        return this.read(file);
 
     }
 
@@ -110,6 +127,13 @@ export default class TemplateDocumentReader {
 
         if (existing) {
             return existing;
+        }
+
+        // The reader owns only one temporary PSD at a time. Releasing the
+        // previous one keeps project batches from retaining documents between
+        // queue items.
+        if (this.ownedDocument) {
+            await this.close();
         }
 
         const document = await this.documentManager.open(file);
