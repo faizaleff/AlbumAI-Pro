@@ -156,6 +156,10 @@ function summaryText({
         `Status: ${projectExecutionSummary.status}`,
             `Registered Templates: ${registeredTemplates.length}`,
             `Batch Status: ${projectExecutionSummary.batchExecution?.status || "NOT STARTED"}`,
+            `Current Stage: ${projectExecutionSummary.batchProgress?.stage || "IDLE"}`,
+            `Template: ${projectExecutionSummary.batchProgress?.templateIndex == null ? "—" : `${projectExecutionSummary.batchProgress.templateIndex + 1} / ${projectExecutionSummary.batchProgress.totalTemplates}`}`,
+            `Remaining Templates: ${projectExecutionSummary.batchProgress?.remainingTemplates ?? 0}`,
+            `Progress: ${projectExecutionSummary.batchProgress?.percentage ?? 0}%`,
             `Completed Templates: ${projectExecutionSummary.completedTemplates}`,
             `Successful Templates: ${projectExecutionSummary.successfulTemplates}`,
             `Failed Templates: ${projectExecutionSummary.failedTemplates}`
@@ -259,6 +263,11 @@ function debugText({
         `Current Template: ${textValue(projectExecutionSummary?.batchExecution?.currentTemplate?.name)}`,
         `Batch Warning: ${textValue(projectExecutionSummary?.batchExecution?.warnings?.[0], "None")}`,
         `Batch Fatal Error: ${textValue(projectExecutionSummary?.batchExecution?.fatalError, "None")}`,
+        `Batch Lifecycle: ${textValue(projectExecutionSummary?.batchProgress?.lifecycle, "IDLE")}`,
+        `Current Stage: ${textValue(projectExecutionSummary?.batchProgress?.stage, "IDLE")}`,
+        `Template Index: ${projectExecutionSummary?.batchProgress?.templateIndex == null ? "—" : `${projectExecutionSummary.batchProgress.templateIndex + 1} / ${projectExecutionSummary.batchProgress.totalTemplates}`}`,
+        `Remaining Templates: ${textValue(projectExecutionSummary?.batchProgress?.remainingTemplates, "0")}`,
+        `Progress: ${textValue(projectExecutionSummary?.batchProgress?.percentage, "0")}%`,
         `Registry Validation: ${textValue(projectExecutionSummary?.registryValidationError, "None")}`,
         "Registry Order:",
         ...(registeredTemplates.length ? registeredTemplates : [{ name: "None" }]).map((template, index) =>
@@ -545,14 +554,25 @@ export function ExecutionDetails({
                     <Row label="Failed" value={batchProgress.failedCount} />
                 </> : <Row label="Status" value="IDLE" />}
                 {projectExecutionSummary && <>
-                    <Row label="Project Status" value={projectExecutionSummary.status} />
+                    {(() => {
+                        const progress = projectExecutionSummary.batchProgress || {};
+                        return <>
+                    <Row label="Status" value={progress.lifecycle || "IDLE"} />
                     <Row label="Registered" value={registeredTemplates.length} />
-                    <Row label="Current Template" value={projectExecutionSummary.batchExecution?.currentTemplate?.name || "—"} />
-                    <Row label="Batch" value={projectExecutionSummary.batchExecution?.templateIndex == null ? "—" : `${projectExecutionSummary.batchExecution.templateIndex + 1} / ${projectExecutionSummary.totalTemplates}`} />
-                    <Row label="Templates Complete" value={projectExecutionSummary.completedTemplates} />
-                    <Row label="Templates Successful" value={projectExecutionSummary.successfulTemplates} />
-                    <Row label="Templates Failed" value={projectExecutionSummary.failedTemplates} />
+                    <Row label="Current Template" value={progress.currentTemplate?.name || "—"} />
+                    <Row label="Template" value={progress.templateIndex == null ? "—" : `${progress.templateIndex + 1} / ${progress.totalTemplates}`} />
+                    <Row label="Current Stage" value={progress.stage || "IDLE"} />
+                    <Row label="Completed" value={progress.completedTemplates || 0} />
+                    <Row label="Success" value={progress.successfulTemplates || 0} />
+                    <Row label="Failed" value={progress.failedTemplates || 0} />
+                    <Row label="Remaining" value={progress.remainingTemplates || 0} />
+                    <Row label="Progress" value={`${progress.percentage || 0}%`} />
+                    <div style={{ height: 6, background: "#4a4a4a", borderRadius: 3, overflow: "hidden", marginTop: 8 }}>
+                        <div style={{ width: `${Math.max(0, Math.min(100, progress.percentage || 0))}%`, height: "100%", background: "#3B82F6" }} />
+                    </div>
                     {projectExecutionSummary.registryValidationError && <Row label="Warning" value={projectExecutionSummary.registryValidationError} warning />}
+                        </>;
+                    })()}
                 </>}
             </DetailSection>
         </section>
@@ -629,7 +649,8 @@ export default function TemplateDocumentPanel({
     const autoSaveMode = getAutoSaveMode?.() || "SAVE_COPY";
     const exportEnabled = getExportEnabled?.() || false;
     const exportFormat = getExportFormat?.() || "JPEG";
-    const isExecuting = executionLifecycle?.status === "RUNNING";
+    const isExecuting = executionLifecycle?.status === "RUNNING" ||
+        projectExecutionSummary?.batchProgress?.lifecycle === "RUNNING";
 
     function refreshRegisteredTemplates() {
         const entries = getRegisteredProjectTemplates?.() || [];

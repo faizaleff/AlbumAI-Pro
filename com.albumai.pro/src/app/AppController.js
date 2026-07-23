@@ -599,6 +599,7 @@ class AppController {
             failedTemplates: 0,
             templateResults: [],
             startedAt,
+            batchProgress: this.projectBatchProgress({ lifecycle: "RUNNING", stage: "OPENING", totalTemplates: templates.length }),
             status: ProjectExecutionStatus.RUNNING
         });
 
@@ -630,6 +631,26 @@ class AppController {
             onExportResult: result => {
                 this.currentExportResult = result;
             },
+            onStageProgress: progress => {
+                const current = this.currentProjectExecutionSummary;
+                const batch = current?.batchExecution;
+                this.currentProjectExecutionSummary = new ProjectExecutionSummary({
+                    ...current,
+                    totalTemplates: progress.total,
+                    registeredTemplates: this.projectTemplateRegistry.count(),
+                    batchProgress: this.projectBatchProgress({
+                        lifecycle: batch?.status || "RUNNING",
+                        stage: progress.stage,
+                        currentTemplate: progress.descriptor,
+                        templateIndex: progress.index,
+                        totalTemplates: progress.total,
+                        completedTemplates: batch?.completedTemplates || 0,
+                        successfulTemplates: batch?.successfulTemplates || 0,
+                        failedTemplates: batch?.failedTemplates || 0
+                    })
+                });
+                if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
+            },
             onProgress: batch => {
                 this.currentProjectExecutionSummary = new ProjectExecutionSummary({
                     projectId,
@@ -640,6 +661,16 @@ class AppController {
                     failedTemplates: batch.failedTemplates,
                     templateResults: batch.templateResults,
                     batchExecution: batch,
+                    batchProgress: this.projectBatchProgress({
+                        lifecycle: batch.status,
+                        stage: this.currentProjectExecutionSummary?.batchProgress?.stage || "IDLE",
+                        currentTemplate: batch.currentTemplate || this.currentProjectExecutionSummary?.batchProgress?.currentTemplate,
+                        templateIndex: batch.templateIndex ?? this.currentProjectExecutionSummary?.batchProgress?.templateIndex,
+                        totalTemplates: batch.totalTemplates,
+                        completedTemplates: batch.completedTemplates,
+                        successfulTemplates: batch.successfulTemplates,
+                        failedTemplates: batch.failedTemplates
+                    }),
                     startedAt: batch.startedAt,
                     elapsedMilliseconds: batch.durationMs,
                     status: ProjectExecutionStatus.RUNNING
@@ -658,6 +689,25 @@ class AppController {
 
         return this.currentProjectExecutionSummary;
 
+    }
+
+    projectBatchProgress(data = {}) {
+        const totalTemplates = data.totalTemplates || 0;
+        const completedTemplates = data.completedTemplates || 0;
+        const failedTemplates = data.failedTemplates || 0;
+        const successfulTemplates = data.successfulTemplates || 0;
+        return Object.freeze({
+            lifecycle: data.lifecycle || "IDLE",
+            stage: data.stage || "IDLE",
+            currentTemplate: data.currentTemplate || null,
+            templateIndex: Number.isInteger(data.templateIndex) ? data.templateIndex : null,
+            totalTemplates,
+            completedTemplates,
+            successfulTemplates,
+            failedTemplates,
+            remainingTemplates: Math.max(0, totalTemplates - completedTemplates),
+            percentage: totalTemplates ? Math.round((completedTemplates / totalTemplates) * 100) : 0
+        });
     }
 
     clearProjectExecutionSummary() {
