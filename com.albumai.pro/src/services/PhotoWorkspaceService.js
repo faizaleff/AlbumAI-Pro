@@ -3,9 +3,11 @@ import { storage } from "uxp";
 import { importPhotoFolder } from "./FolderService";
 import ThumbnailService from "./ThumbnailService";
 import RefreshService from "./RefreshService";
-import ThumbnailWorker from "../queue/ThumbnailWorker";
+import ThumbnailQueue from "../queue/ThumbnailQueue";
+import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
 
 const METADATA_FILE = "photos.json";
+const INITIAL_VISIBLE_PHOTOS = 30;
 
 export default class PhotoWorkspaceService {
 
@@ -29,15 +31,24 @@ export default class PhotoWorkspaceService {
         this.projectService = projectService;
         this.localFileSystem = localFileSystem;
         this.sourceFolder = null;
+        this.persistencePromise = Promise.resolve();
+        this.lifecycleGeneration = 0;
 
     }
 
     async importPhotos(folder = null) {
 
         this.requireProject();
+        const persistenceReason = folder
+            ? "PHOTO_FOLDER_REFRESH"
+            : "PHOTO_FOLDER_IMPORT";
+
+        PhotoBrowserPerformance.beginFolderLoad();
 
         const sourceFolder = folder ||
             await this.localFileSystem.getFolder();
+
+        PhotoBrowserPerformance.markPickerComplete();
 
         if (!sourceFolder) {
             return null;
@@ -49,20 +60,74 @@ export default class PhotoWorkspaceService {
             return null;
         }
 
+        const sameFolder = this.sameFolder(
+            this.sourceFolder,
+            result.folder
+        );
+
+        this.lifecycleGeneration++;
+        PhotoBrowserPerformance.trace(
+            "FOLDER_SWITCH",
+            {
+                generation: this.lifecycleGeneration,
+                previousFolder:
+                    this.sourceFolder?.name || null,
+                nextFolder: result.folder?.name || null,
+                sameFolder
+            }
+        );
+        ThumbnailQueue.clear({
+            discardResults: !sameFolder
+        });
+        ThumbnailService.clear({
+            preserveCache: sameFolder
+        });
         this.sourceFolder = result.folder;
-        ThumbnailWorker.clear();
-        ThumbnailService.clear();
         this.selection.clear();
         this.library.load(result.images);
 
-        for (const photo of result.images) {
-            ThumbnailWorker.add(photo);
-        }
-
-        await this.persistProjectState();
-        await this.writeMetadataCache();
-
+        // Publish stable photo models before any image decoding starts.
+        PhotoBrowserPerformance.markPublishRequested();
         RefreshService.refresh();
+
+        const visible = result.images.slice(
+            0,
+            INITIAL_VISIBLE_PHOTOS
+        );
+        ThumbnailQueue.addBatch(result.images);
+        ThumbnailQueue.setVisible(visible);
+
+        // Project metadata writes are not part of the folder-open critical
+        // path. Keep them ordered and report failures without blocking paint.
+        this.persistencePromise = this.persistencePromise
+            .catch(() => {})
+            .then(async () => {
+                const persistenceStarted =
+                    PhotoBrowserPerformance.timestamp();
+                const { persistentTokenMs } =
+                    await this.persistProjectState(
+                        persistenceReason
+                    );
+                await this.writeMetadataCache();
+                const persistenceCompleted =
+                    PhotoBrowserPerformance.timestamp();
+                PhotoBrowserPerformance.recordPersistence({
+                    persistentTokenMs,
+                    projectPersistenceMs:
+                        Math.round(
+                            (
+                                persistenceCompleted -
+                                persistenceStarted
+                            ) * 10
+                        ) / 10
+                });
+            })
+            .catch(error => {
+                console.error(
+                    "Photo metadata persistence:",
+                    error
+                );
+            });
 
         return this.library.getPhotos();
 
@@ -89,7 +154,15 @@ export default class PhotoWorkspaceService {
 
         this.requireProject();
 
-        ThumbnailWorker.clear();
+        this.lifecycleGeneration++;
+        PhotoBrowserPerformance.trace(
+            "PHOTO_WORKSPACE_REMOVE",
+            {
+                generation: this.lifecycleGeneration,
+                photos: this.library.getPhotos().length
+            }
+        );
+        ThumbnailQueue.clear();
         ThumbnailService.clear();
         this.selection.clear();
         this.library.load([]);
@@ -98,7 +171,7 @@ export default class PhotoWorkspaceService {
         await this.projectService.saveProject({
             photoCount: 0,
             photoSource: null
-        });
+        }, { reason: "PHOTO_FOLDER_REMOVE" });
         await this.writeMetadataCache();
 
         RefreshService.refresh();
@@ -111,18 +184,75 @@ export default class PhotoWorkspaceService {
 
     }
 
-    async persistProjectState() {
+    prioritizePhoto(photo) {
+
+        ThumbnailQueue.addPriority(photo);
+
+    }
+
+    setVisiblePhotos(photos) {
+
+        ThumbnailQueue.setVisible(photos);
+
+    }
+
+    release() {
+
+        this.lifecycleGeneration++;
+        PhotoBrowserPerformance.trace(
+            "PHOTO_WORKSPACE_RELEASE",
+            {
+                generation: this.lifecycleGeneration,
+                photos: this.library.getPhotos().length
+            }
+        );
+        ThumbnailQueue.clear();
+        ThumbnailService.clear();
+        this.selection.clear();
+        this.library.load([]);
+        this.sourceFolder = null;
+
+    }
+
+    sameFolder(left, right) {
+
+        if (!left || !right) return false;
+
+        return left === right ||
+            (
+                left.nativePath &&
+                right.nativePath &&
+                left.nativePath === right.nativePath
+            );
+
+    }
+
+    async persistProjectState(
+        persistenceReason =
+            "PHOTO_FOLDER_PERSISTENCE"
+    ) {
 
         const source = this.sourceFolder;
+        const tokenStarted =
+            PhotoBrowserPerformance.timestamp();
+        const token = await this.createFolderToken(source);
+        const persistentTokenMs = Math.round(
+            (
+                PhotoBrowserPerformance.timestamp() -
+                tokenStarted
+            ) * 10
+        ) / 10;
         const photoSource = {
             name: source.name,
-            token: await this.createFolderToken(source)
+            token
         };
 
         await this.projectService.saveProject({
             photoCount: this.library.getPhotos().length,
             photoSource
-        });
+        }, { reason: persistenceReason });
+
+        return { persistentTokenMs };
 
     }
 
@@ -205,7 +335,12 @@ export default class PhotoWorkspaceService {
             modified: photo.modified
         }));
 
-        await file.write(JSON.stringify({ photos }, null, 2));
+        const serialized = JSON.stringify(
+            { photos },
+            null,
+            2
+        );
+        await file.write(serialized);
 
     }
 

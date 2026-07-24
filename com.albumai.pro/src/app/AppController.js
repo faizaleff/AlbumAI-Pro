@@ -139,20 +139,26 @@ class AppController {
 
     }
 
-    saveProject(values) {
+    saveProject(values, options) {
 
         return this.projectService.saveProject({
             ...values,
             templateRegistry: this.projectTemplateRegistry.toJSON(),
             batchRecovery: this.serializeRecoverySnapshot(this.batchRecoverySnapshot)
-        });
+        }, options);
 
     }
 
     async closeProject() {
 
-        if (this.project.getProject()) await this.saveProject();
+        if (this.project.getProject()) {
+            await this.saveProject(
+                undefined,
+                { reason: "CLOSE_PROJECT" }
+            );
+        }
 
+        this.photoWorkspace.release();
         this.templateRegistry.clear();
         this.projectTemplateRegistry = new ProjectTemplateRegistry();
         this.batchRecoverySnapshot = null;
@@ -1047,7 +1053,7 @@ class AppController {
         await this.projectService.saveProject({
             templateRegistry: this.projectTemplateRegistry.toJSON(),
             batchRecovery: this.serializeRecoverySnapshot(snapshot)
-        });
+        }, { reason: "RECOVERY_CHECKPOINT" });
     }
 
     serializeRecoverySnapshot(snapshot) {
@@ -1112,6 +1118,18 @@ class AppController {
 
     }
 
+    prioritizePhotoThumbnail(photo) {
+
+        this.photoWorkspace.prioritizePhoto(photo);
+
+    }
+
+    setVisiblePhotoThumbnails(photos) {
+
+        this.photoWorkspace.setVisiblePhotos(photos);
+
+    }
+
     getProjectTemplates() {
 
         return this.templateDocumentReader.listTemplates();
@@ -1124,7 +1142,10 @@ class AppController {
         if (this.projectBatchRunning) throw new Error("A project batch is already running.");
         const descriptor = this.projectTemplateRegistry.add(file);
         if (this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
-        await this.saveProject();
+        await this.saveProject(
+            undefined,
+            { reason: "TEMPLATE_REGISTRY_ADD" }
+        );
         return descriptor;
     }
 
@@ -1132,7 +1153,12 @@ class AppController {
         if (this.projectBatchRunning) throw new Error("A project batch is already running.");
         const removed = this.projectTemplateRegistry.remove(id);
         if (removed && this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
-        if (removed) await this.saveProject();
+        if (removed) {
+            await this.saveProject(
+                undefined,
+                { reason: "TEMPLATE_REGISTRY_REMOVE" }
+            );
+        }
         return removed;
     }
 

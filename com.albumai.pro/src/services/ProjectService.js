@@ -1,6 +1,10 @@
 import { storage } from "uxp";
+import AtomicJsonFileWriter from "./AtomicJsonFileWriter";
 
 const PROJECT_FILE = "project.json";
+const PROJECT_TEMP_FILE = "project.json.tmp";
+const PROJECT_BACKUP_FILE = "project.json.bak";
+const PROJECT_BACKUP_TEMP_FILE = "project.json.bak.tmp";
 const WORKSPACE_FOLDERS = [
     "Templates",
     "Photos",
@@ -51,9 +55,11 @@ export default class ProjectService {
             metadata
         );
 
-        await this.writeMetadata(
+        workspace.projectFile = await this.writeMetadata(
             workspace.projectFile,
-            projectMetadata
+            projectMetadata,
+            folder,
+            "CREATE_PROJECT"
         );
 
         return this.activate(
@@ -85,7 +91,8 @@ export default class ProjectService {
         }
 
         const metadata = await this.readMetadata(
-            workspace.projectFile
+            workspace.projectFile,
+            projectFolder
         );
 
         workspace = await this.ensureWorkspace(
@@ -101,7 +108,10 @@ export default class ProjectService {
 
     }
 
-    async saveProject(values = {}) {
+    async saveProject(
+        values = {},
+        { reason = "SAVE_PROJECT" } = {}
+    ) {
 
         const project = this.projectEngine.getProject();
 
@@ -117,7 +127,12 @@ export default class ProjectService {
         const projectFile = project.workspace.projectFile ||
             await this.getProjectFile(project.folder, true);
 
-        await this.writeMetadata(projectFile, metadata);
+        await this.writeMetadata(
+            projectFile,
+            metadata,
+            project.folder,
+            reason
+        );
 
         return this.projectEngine.getProject();
 
@@ -169,13 +184,6 @@ export default class ProjectService {
             createMissing
         );
 
-        if (!workspace.projectFile && createMissing) {
-            workspace.projectFile = await folder.createFile(
-                PROJECT_FILE,
-                { overwrite: true }
-            );
-        }
-
         return workspace;
 
     }
@@ -225,13 +233,7 @@ export default class ProjectService {
             entry => entry.name === PROJECT_FILE
         );
 
-        if (projectFile || !createIfMissing) {
-            return projectFile || null;
-        }
-
-        return folder.createFile(PROJECT_FILE, {
-            overwrite: true
-        });
+        return projectFile || null;
 
     }
 
@@ -253,7 +255,7 @@ export default class ProjectService {
 
     }
 
-    async readMetadata(file) {
+    async readMetadata(file, folder) {
 
         const content = await file.read();
 
@@ -262,18 +264,109 @@ export default class ProjectService {
         }
 
         catch (error) {
-            throw new Error(
-                `Invalid ${PROJECT_FILE}: ${error.message}`
+            const recovered =
+                await this.readRecoveryMetadata(folder);
+
+            if (!recovered) {
+                throw new Error(
+                    `Invalid ${PROJECT_FILE}: ${error.message}`
+                );
+            }
+
+            await this.writeMetadata(
+                file,
+                recovered.metadata,
+                folder,
+                "RECOVER_INVALID_PROJECT_JSON"
             );
+
+            console.warn(
+                `${PROJECT_FILE} was restored from the last valid backup.`
+            );
+
+            return recovered.metadata;
         }
 
     }
 
-    async writeMetadata(file, metadata) {
+    writeMetadata(
+        file,
+        metadata,
+        folder,
+        reason = "PROJECT_SERVICE"
+    ) {
 
-        await file.write(
-            JSON.stringify(metadata, null, 2)
-        );
+        // Serialization must finish before any file is created or opened
+        // for writing. This prevents serialization failures from truncating
+        // the current project.
+        const serialized = JSON.stringify(metadata, null, 2);
+        JSON.parse(serialized);
+
+        return AtomicJsonFileWriter.write({
+            folder,
+            fileName: PROJECT_FILE,
+            serialized,
+            currentFile: file,
+            reason
+        }).then(committed => {
+            const project = this.projectEngine.getProject();
+
+            if (
+                project?.folder === folder &&
+                project.workspace
+            ) {
+                project.workspace.projectFile = committed;
+            }
+
+            return committed;
+        });
+
+    }
+
+    async readRecoveryMetadata(folder) {
+
+        if (!folder) return null;
+
+        for (const name of [
+            PROJECT_BACKUP_FILE,
+            PROJECT_BACKUP_TEMP_FILE,
+            PROJECT_TEMP_FILE
+        ]) {
+            const recovered =
+                await this.readJsonEntry(folder, name);
+
+            if (recovered) return recovered;
+        }
+
+        return null;
+
+    }
+
+    async readJsonEntry(folder, name) {
+
+        let entry;
+
+        try {
+            entry = typeof folder.getEntry === "function"
+                ? await folder.getEntry(name)
+                : (await folder.getEntries()).find(
+                    candidate => candidate.name === name
+                );
+        } catch (_) {
+            return null;
+        }
+
+        if (!entry || entry.isFolder) return null;
+
+        try {
+            const content = await entry.read();
+            return {
+                metadata: JSON.parse(content),
+                content
+            };
+        } catch (_) {
+            return null;
+        }
 
     }
 

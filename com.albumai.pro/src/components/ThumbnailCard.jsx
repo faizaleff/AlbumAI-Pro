@@ -1,9 +1,17 @@
 import React, { useCallback, useState } from "react";
 import PhotoImage from "./PhotoImage";
+import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 
-function ThumbnailCard({ photo, onClick, compact = false }) {
+function ThumbnailCard({
+    photo,
+    onClick,
+    compact = false,
+    thumbnailRevision,
+    loading,
+    selected
+}) {
 
-    const selected = photo.selected === true;
+    PhotoBrowserPerformance.recordRender("ThumbnailCard");
     const imageHeight = compact ? 76 : 110;
     const [hovered, setHovered] = useState(false);
 
@@ -37,8 +45,16 @@ function ThumbnailCard({ photo, onClick, compact = false }) {
             >
                 <PhotoImage
                     photo={photo}
+                    sourceRevision={thumbnailRevision}
+                    loadingRevision={loading}
+                    allowFileFallback={false}
+                    onImageLoad={() =>
+                        PhotoBrowserPerformance.thumbnailVisible(
+                            photo.id
+                        )
+                    }
                     alt={photo.name}
-                    fallback={photo.loading ? (
+                    fallback={loading ? (
                         <div style={{ color: "#888", fontSize: 12 }}>Loading...</div>
                     ) : (
                         <div style={{ fontSize: 10, color: "#888" }}>No preview</div>
@@ -94,4 +110,15 @@ function ThumbnailCard({ photo, onClick, compact = false }) {
 
 }
 
-export default ThumbnailCard;
+export default React.memo(
+    ThumbnailCard,
+    (previous, next) =>
+        previous.photo?.id === next.photo?.id &&
+        previous.photo?.name === next.photo?.name &&
+        previous.onClick === next.onClick &&
+        previous.compact === next.compact &&
+        previous.thumbnailRevision ===
+            next.thumbnailRevision &&
+        previous.loading === next.loading &&
+        previous.selected === next.selected
+);

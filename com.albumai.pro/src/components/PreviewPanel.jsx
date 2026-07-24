@@ -1,15 +1,81 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import PhotoImage from "./PhotoImage";
+import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 
-export default function PreviewPanel({
+function PreviewPanel({
     photos = [],
-    selectedPhotoId = null,
+    selection,
     executionDetails
 }) {
+
+    PhotoBrowserPerformance.recordRender("PreviewPanel");
+    const [selectedPhotoId, setSelectedPhotoId] = useState(
+        () => selection?.getSelected()[0]?.id || null
+    );
+
+    useEffect(() => {
+
+        PhotoBrowserPerformance.recordRenderUpdate(
+            "PreviewPanel",
+            "selectionEffectEntry"
+        );
+
+        if (!selection) return undefined;
+
+        const initialId =
+            selection.getSelected()[0]?.id || null;
+        setSelectedPhotoId(previous =>
+            previous === initialId ? previous : initialId
+        );
+
+        return selection.subscribe(selectedIds => {
+            const selected = photos.find(
+                photo => selectedIds.has(photo?.id)
+            );
+            const nextId = selected?.id || null;
+            PhotoBrowserPerformance.recordRenderUpdate(
+                "PreviewPanel",
+                "selectionSubscription",
+                {
+                    nextId
+                }
+            );
+            setSelectedPhotoId(previous =>
+                previous === nextId ? previous : nextId
+            );
+        });
+
+    }, [photos, selection]);
 
     const activePhoto = selectedPhotoId == null
         ? null
         : photos.find(photo => photo?.id === selectedPhotoId) || null;
+
+    useEffect(() => {
+
+        PhotoBrowserPerformance.trace(
+            "PREVIEW_SOURCE_CHANGED",
+            {
+                name: activePhoto?.name || null,
+                source: activePhoto?.thumbnail
+                    ? "thumbnail"
+                    : activePhoto?.file
+                        ? "file-fallback"
+                        : "none"
+            }
+        );
+
+        return () => {
+            PhotoBrowserPerformance.trace(
+                "PREVIEW_SOURCE_RELEASED",
+                {
+                    name: activePhoto?.name || null
+                }
+            );
+        };
+
+    }, [activePhoto?.id, activePhoto?.thumbnail]);
+
     return (
         <div
             style={{
@@ -70,3 +136,5 @@ export default function PreviewPanel({
         </div>
     );
 }
+
+export default React.memo(PreviewPanel);

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 
 function LayerTree({ layers = [], depth = 0 }) {
 
@@ -848,6 +849,10 @@ export default function TemplateDocumentPanel({
 
     useEffect(() => {
 
+        PhotoBrowserPerformance.recordRenderUpdate(
+            "TemplateDocumentPanel",
+            "executionDetailsEffect"
+        );
         onExecutionDetailsChange?.(
             <ExecutionDetails
                 hasProject={hasProject}
@@ -914,11 +919,22 @@ export default function TemplateDocumentPanel({
 
     useEffect(() => {
 
+        let active = true;
+        PhotoBrowserPerformance.recordRenderUpdate(
+            "TemplateDocumentPanel",
+            "loadEffectEntry",
+            { hasProject, projectId }
+        );
+
         async function load() {
 
             if (!hasProject) {
-                setTemplates([]);
-                setSelectedName("");
+                setTemplates(current =>
+                    current.length ? [] : current
+                );
+                setSelectedName(current =>
+                    current ? "" : current
+                );
                 return;
             }
 
@@ -926,6 +942,13 @@ export default function TemplateDocumentPanel({
 
                 const files = await loadTemplates();
 
+                if (!active) return;
+
+                PhotoBrowserPerformance.recordRenderUpdate(
+                    "TemplateDocumentPanel",
+                    "loadEffectStateUpdate",
+                    { templates: files.length }
+                );
                 setTemplates(files);
                 setSelectedName(files[0]?.name || "");
                 refreshRegisteredTemplates();
@@ -934,6 +957,8 @@ export default function TemplateDocumentPanel({
             }
 
             catch (_) {
+
+                if (!active) return;
 
                 setTemplates([]);
                 setSelectedName("");
@@ -945,7 +970,16 @@ export default function TemplateDocumentPanel({
 
         load();
 
-    }, [loadTemplates, hasProject]);
+        return () => {
+            PhotoBrowserPerformance.recordRenderUpdate(
+                "TemplateDocumentPanel",
+                "loadEffectCleanup",
+                { projectId }
+            );
+            active = false;
+        };
+
+    }, [loadTemplates, hasProject, projectId]);
 
     async function addCurrentPsd() {
         const file = templates.find(item => item.name === selectedName);

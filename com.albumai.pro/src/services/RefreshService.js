@@ -1,3 +1,5 @@
+import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
+
 class RefreshService {
 
     constructor() {
@@ -19,9 +21,17 @@ class RefreshService {
 
     }
 
-    refresh() {
+    refresh(scope = "all") {
 
-        this.listeners.forEach(listener => listener());
+        PhotoBrowserPerformance.recordRenderUpdate(
+            "RefreshService",
+            "publish",
+            {
+                scope,
+                listeners: this.listeners.length
+            }
+        );
+        this.listeners.forEach(listener => listener(scope));
 
     }
 

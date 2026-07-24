@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
-import ThumbnailGrid from "./ThumbnailGrid";
+import PhotoBrowserSection from "./PhotoBrowserSection";
 import PreviewPanel from "./PreviewPanel";
 import TemplateDocumentPanel from "./TemplateDocumentPanel";
 import Toolbar from "./Toolbar";
+import SelectionCount from "./SelectionCount";
 
 import App from "../app/AppController";
 import RefreshService from "../services/RefreshService";
+import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 
 export default function OpenFolder() {
 
@@ -14,21 +16,40 @@ export default function OpenFolder() {
     const [projectName, setProjectName] = useState("");
     const [projectError, setProjectError] = useState(null);
     const [executionDetails, setExecutionDetails] = useState(null);
-    const [photoViewMode, setPhotoViewMode] = useState("icons");
     const [, forceRefresh] = useState(0);
 
+    PhotoBrowserPerformance.recordRender("OpenFolder");
     const project = App.project.getProject();
     const hasProject = !!project;
 
     useEffect(() => {
+        PhotoBrowserPerformance.markPublished();
+    });
 
-        const unsubscribe = RefreshService.subscribe(() => {
+    useEffect(() => {
 
+        const unsubscribe = RefreshService.subscribe(scope => {
+
+            if (scope === "thumbnails") return;
+            PhotoBrowserPerformance.recordRenderUpdate(
+                "OpenFolder",
+                "forceRefresh",
+                { scope }
+            );
+            PhotoBrowserPerformance.refresh();
             forceRefresh(value => value + 1);
 
         });
 
-        return unsubscribe;
+        return () => {
+            PhotoBrowserPerformance.trace(
+                "PHOTO_BROWSER_COMPONENT_UNMOUNT",
+                {
+                    photos: App.getPhotos().length
+                }
+            );
+            unsubscribe();
+        };
 
     }, []);
 
@@ -92,23 +113,19 @@ export default function OpenFolder() {
 
         App.selection.selectAll();
 
-        forceRefresh(value => value + 1);
-
     }
 
     function clearSelection() {
 
         App.selection.clear();
 
-        forceRefresh(value => value + 1);
-
     }
 
-    function onPhotoClick() {
+    const onPhotoClick = useCallback(photo => {
 
-        forceRefresh(value => value + 1);
+        App.prioritizePhotoThumbnail(photo);
 
-    }
+    }, []);
 
     async function createProject() {
 
@@ -168,7 +185,10 @@ export default function OpenFolder() {
 
         try {
 
-            await App.saveProject();
+            await App.saveProject(
+                undefined,
+                { reason: "MANUAL_SAVE_PROJECT" }
+            );
             setProjectError(null);
             forceRefresh(value => value + 1);
 
@@ -196,7 +216,10 @@ export default function OpenFolder() {
 
     }
 
-    const loadTemplates = () => App.getProjectTemplates();
+    const loadTemplates = useCallback(
+        () => App.getProjectTemplates(),
+        []
+    );
     const getRegisteredProjectTemplates = () => App.getRegisteredProjectTemplates();
 
     const addCurrentPsdToProject = file => App.addCurrentPsdToProject(file);
@@ -329,7 +352,7 @@ export default function OpenFolder() {
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, marginBottom: 10 }}>
                         <span>Project: {hasProject ? project.metadata.name : "MISSING"}</span>
                         <span>Photos: {App.getPhotos().length}</span>
-                        <span>Selected: {App.selection.getSelected().length}</span>
+                        <span>Selected: <SelectionCount selection={App.selection} /></span>
                     </div>
 
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -366,8 +389,6 @@ export default function OpenFolder() {
                     onSelectAll={selectAll}
                     onClearSelection={clearSelection}
                     projectActive={hasProject}
-                    photoCount={App.getPhotos().length}
-                    selectedCount={App.selection.getSelected().length}
                 />
 
                 <TemplateDocumentPanel
@@ -410,53 +431,16 @@ export default function OpenFolder() {
                     hasProject={hasProject}
                 />
                 </div>
-                <div
-                    className="fixed-view-toolbar"
-                    style={{
-                        flex: "0 0 auto",
-                        display: "flex",
-                        gap: 6,
-                        marginBottom: 8
-                    }}
-                >
-                    {[
-                        ["icons", "Icons"],
-                        ["list", "List"]
-                    ].map(([mode, label]) => (
-                        <button
-                            key={mode}
-                            type="button"
-                            onClick={() => setPhotoViewMode(mode)}
-                            aria-pressed={photoViewMode === mode}
-                            style={{
-                                fontWeight: photoViewMode === mode ? 700 : 400,
-                                color: "#fff",
-                                background: photoViewMode === mode ? "#17355d" : "transparent",
-                                backgroundColor: photoViewMode === mode ? "#17355d" : "transparent",
-                                border: photoViewMode === mode
-                                    ? "2px solid #3B82F6"
-                                    : "2px solid #b5b5b5",
-                                borderRadius: 16,
-                                padding: "4px 14px",
-                                outline: "none"
-                            }}
-                        >
-                            {label}
-                        </button>
-                    ))}
-                </div>
-
-                <ThumbnailGrid
+                <PhotoBrowserSection
                     photos={App.getPhotos()}
                     onPhotoClick={onPhotoClick}
-                    viewMode={photoViewMode}
                 />
 
             </div>
 
             <PreviewPanel
                 photos={App.getPhotos()}
-                selectedPhotoId={App.selection.getSelected()[0]?.id || null}
+                selection={App.selection}
                 executionDetails={executionDetails}
             />
 
