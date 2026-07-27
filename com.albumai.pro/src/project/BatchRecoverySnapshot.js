@@ -28,6 +28,11 @@ export default class BatchRecoverySnapshot {
             warnings: data.warnings || [],
             fatalError: data.fatalError || null,
             runMode: data.runMode || "PROCESS_PROJECT"
+            ,cancellationRequestedAt: data.cancellationRequestedAt || null
+            ,cancellationEffectiveAt: data.cancellationEffectiveAt || null
+            ,cancellationReason: data.cancellationReason || null
+            ,cancelledAtStage: data.cancelledAtStage || null
+            ,retainedProgressPercent: Number(data.retainedProgressPercent) || 0
             ,selectedPhotoOrder: data.selectedPhotoOrder || []
             ,photoCursor: Number.isInteger(data.photoCursor) ? data.photoCursor : 0
             ,consumedPhotoIds: data.consumedPhotoIds || []

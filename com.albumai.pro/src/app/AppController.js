@@ -29,6 +29,8 @@ import TemplateAutoSaveService, {
 import TemplateExportService, {
     ExportFormat
 } from "../services/TemplateExportService";
+import BatchCancellationController from "../project/BatchCancellationController";
+import calculateBatchProgress from "../project/calculateBatchProgress";
 
 export const ExecutionLifecycleStatus = Object.freeze({
     IDLE: "IDLE",
@@ -107,6 +109,10 @@ class AppController {
         this.recoveryWriteGeneration = 0;
         this.lastRecoveryClearResult = null;
         this.projectBatchRunning = false;
+        this.batchCancellationController = null;
+        this.projectBatchUpdate = null;
+        console.info("ALB-034-safe-batch-cancel-v1");
+        console.info("ALB-034.1-cancel-outcome-progress-fix-v1");
         this.registryMutationInProgress = false;
 
     }
@@ -152,6 +158,10 @@ class AppController {
     }
 
     async closeProject() {
+
+        if (this.projectBatchRunning) {
+            throw new Error("A project batch is running. Request cancellation and wait for it to stop safely.");
+        }
 
         if (this.project.getProject()) {
             await this.saveProject(
@@ -606,6 +616,11 @@ class AppController {
         }
         const registryTemplates = this.projectTemplateRegistry.getAll();
         const templates = options.templates || registryTemplates;
+        const resumeSnapshot = options.runMode === "RESUME_PENDING" ? options.previous : null;
+        const initialTotalTemplates = resumeSnapshot?.queueOrder?.length || templates.length;
+        const initialCompletedTemplates = resumeSnapshot?.completedTemplateIds?.length || 0;
+        const initialSuccessfulTemplates = resumeSnapshot?.successfulTemplateIds?.length || 0;
+        const initialFailedTemplates = resumeSnapshot?.failedTemplateIds?.length || 0;
         const photos = this.photoWorkspace.getPhotos();
         const startedAt = new Date().toISOString();
         const projectId = project?.metadata?.id ?? project?.metadata?.name ?? null;
@@ -637,6 +652,8 @@ class AppController {
         }
 
         this.projectBatchRunning = true;
+        this.batchCancellationController = new BatchCancellationController();
+        this.projectBatchUpdate = onUpdate;
         try {
             await this.beginRecoverySnapshot({
                 projectId,
@@ -653,13 +670,19 @@ class AppController {
 
         this.currentProjectExecutionSummary = new ProjectExecutionSummary({
             projectId,
-            totalTemplates: templates.length,
+            totalTemplates: initialTotalTemplates,
             registeredTemplates: this.projectTemplateRegistry.count(),
-            completedTemplates: 0,
-            failedTemplates: 0,
+            completedTemplates: initialCompletedTemplates,
+            successfulTemplates: initialSuccessfulTemplates,
+            failedTemplates: initialFailedTemplates,
             templateResults: [],
             startedAt,
-            batchProgress: this.projectBatchProgress({ lifecycle: "RUNNING", stage: "OPENING", totalTemplates: templates.length }),
+            batchProgress: this.projectBatchProgress({
+                lifecycle: "RUNNING", stage: "OPENING", totalTemplates: initialTotalTemplates,
+                completedTemplates: initialCompletedTemplates, successfulTemplates: initialSuccessfulTemplates,
+                failedTemplates: initialFailedTemplates,
+                retainedProgressPercent: resumeSnapshot?.retainedProgressPercent || 0
+            }),
             status: ProjectExecutionStatus.RUNNING
         });
 
@@ -692,6 +715,14 @@ class AppController {
             selectedPhotoIds: this.batchRecoverySnapshot?.selectedPhotoOrder ||
                 photos.filter(photo => photo?.selected).map(photo => photo.id),
             photoCursor: this.batchRecoverySnapshot?.photoCursor || 0,
+            cancellationController: this.batchCancellationController,
+            resumeState: resumeSnapshot ? {
+                totalTemplates: initialTotalTemplates,
+                completedTemplates: initialCompletedTemplates,
+                successfulTemplates: initialSuccessfulTemplates,
+                failedTemplates: initialFailedTemplates,
+                skippedTemplates: 0
+            } : null,
             onExportResult: result => {
                 this.currentExportResult = result;
             },
@@ -711,6 +742,7 @@ class AppController {
                         completedTemplates: batch?.completedTemplates || 0,
                         successfulTemplates: batch?.successfulTemplates || 0,
                         failedTemplates: batch?.failedTemplates || 0
+                        ,retainedProgressPercent: batch?.retainedProgressPercent || this.batchCancellationController?.getSnapshot().retainedProgressPercent || 0
                     })
                 });
                 if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
@@ -727,13 +759,16 @@ class AppController {
                     batchExecution: batch,
                     batchProgress: this.projectBatchProgress({
                         lifecycle: batch.status,
-                        stage: this.currentProjectExecutionSummary?.batchProgress?.stage || "IDLE",
+                        stage: ["CANCELLING", "CANCELLED"].includes(batch.status)
+                            ? (batch.cancelledAtStage || this.currentProjectExecutionSummary?.batchProgress?.stage || "IDLE")
+                            : (this.currentProjectExecutionSummary?.batchProgress?.stage || "IDLE"),
                         currentTemplate: batch.currentTemplate || this.currentProjectExecutionSummary?.batchProgress?.currentTemplate,
                         templateIndex: batch.templateIndex ?? this.currentProjectExecutionSummary?.batchProgress?.templateIndex,
                         totalTemplates: batch.totalTemplates,
                         completedTemplates: batch.completedTemplates,
                         successfulTemplates: batch.successfulTemplates,
                         failedTemplates: batch.failedTemplates
+                        ,retainedProgressPercent: batch.retainedProgressPercent || this.batchCancellationController?.getSnapshot().retainedProgressPercent || 0
                     }),
                     startedAt: batch.startedAt,
                     elapsedMilliseconds: batch.durationMs,
@@ -768,6 +803,8 @@ class AppController {
                 await this.flushRecoveryWrites();
             } finally {
                 this.projectBatchRunning = false;
+                this.projectBatchUpdate = null;
+                this.batchCancellationController = null;
             }
             if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
             return this.currentProjectExecutionSummary;
@@ -778,8 +815,21 @@ class AppController {
             await this.flushRecoveryWrites();
         } finally {
             this.projectBatchRunning = false;
+            this.projectBatchUpdate = null;
+            this.batchCancellationController = null;
         }
         if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
+
+        if (options.runMode === "RESUME_PENDING") {
+            console.info("BATCH_RESUME_COMPLETED", JSON.stringify({
+                totalTemplates: this.currentProjectExecutionSummary.totalTemplates,
+                completed: this.currentProjectExecutionSummary.completedTemplates,
+                successful: this.currentProjectExecutionSummary.successfulTemplates,
+                failed: this.currentProjectExecutionSummary.failedTemplates,
+                photoCursor: this.batchRecoverySnapshot?.photoCursor || 0,
+                recoveryLifecycle: this.batchRecoverySnapshot?.lifecycle || null
+            }));
+        }
 
         return this.currentProjectExecutionSummary;
 
@@ -789,6 +839,29 @@ class AppController {
 
         return this.currentProjectExecutionSummary;
 
+    }
+
+    requestBatchCancellation() {
+        if (!this.projectBatchRunning || !this.batchCancellationController) return null;
+        const current = this.currentProjectExecutionSummary;
+        this.batchCancellationController.captureProgress(calculateBatchProgress(current));
+        const cancellation = this.batchCancellationController.requestCancel("USER_REQUEST");
+        console.info("BATCH_CANCEL_REQUESTED", JSON.stringify(cancellation));
+        if (["REPLACING", "SAVING", "EXPORTING", "CLOSING"].includes(current?.batchProgress?.stage)) {
+            console.info("BATCH_CANCEL_DEFERRED", JSON.stringify({ stage: current.batchProgress.stage }));
+        }
+        if (current) {
+            this.currentProjectExecutionSummary = new ProjectExecutionSummary({
+                ...current,
+                batchProgress: this.projectBatchProgress({
+                    ...current.batchProgress,
+                    lifecycle: "CANCEL_REQUESTED",
+                    retainedProgressPercent: cancellation.retainedProgressPercent
+                })
+            });
+            this.projectBatchUpdate?.(this.currentProjectExecutionSummary);
+        }
+        return cancellation;
     }
 
     async retryFailedTemplates(onUpdate) {
@@ -819,6 +892,24 @@ class AppController {
         const required = new Set(snapshot.queueOrder.filter(id => !successful.has(id)));
         const templates = this.projectTemplateRegistry.getAll().filter(item => required.has(item.id));
         if (!templates.length) throw new Error("There are no pending templates to resume.");
+        const details = {
+            totalTemplates: snapshot.queueOrder.length,
+            completed: snapshot.completedTemplateIds.length,
+            successful: snapshot.successfulTemplateIds.length,
+            failed: snapshot.failedTemplateIds.length,
+            pending: snapshot.pendingTemplateIds.length,
+            completedTemplateIds: snapshot.completedTemplateIds,
+            pendingTemplateIds: snapshot.pendingTemplateIds,
+            resumeQueueTemplateIds: templates.map(item => item.id),
+            photoCursor: snapshot.photoCursor,
+            recoveryLifecycle: snapshot.lifecycle
+        };
+        console.info("BATCH_RESUME_STARTED", JSON.stringify(details));
+        console.info("BATCH_RESUME_STATE_RESTORED", JSON.stringify(details));
+        console.info("BATCH_RESUME_QUEUE_BUILT", JSON.stringify(details));
+        snapshot.completedTemplateIds.forEach(templateId =>
+            console.info("BATCH_RESUME_TEMPLATE_SKIPPED", JSON.stringify({ templateId }))
+        );
         return this.executeProject(onUpdate, {
             templates,
             previous: snapshot,
@@ -889,7 +980,8 @@ class AppController {
             successfulTemplates,
             failedTemplates,
             remainingTemplates: Math.max(0, totalTemplates - completedTemplates),
-            percentage: totalTemplates ? Math.round((completedTemplates / totalTemplates) * 100) : 0
+            percentage: totalTemplates ? Math.round((completedTemplates / totalTemplates) * 100) : 0,
+            retainedProgressPercent: Math.max(0, Number(data.retainedProgressPercent) || 0)
         });
     }
 
@@ -1028,7 +1120,10 @@ class AppController {
                 status: item.status,
                 warnings: item.warnings || [],
                 error: item.error || null,
-                photoAllocation: item.photoAllocation || null
+                photoAllocation: item.photoAllocation || null,
+                autosaveResult: item.autosaveResult || null,
+                exportResult: item.exportResult || null,
+                cancelledAtStage: item.cancelledAtStage || null
             });
         });
         const outcomes = [...priorOutcomes.values()];
@@ -1038,7 +1133,7 @@ class AppController {
             if (item.status === "FAILED") successful.delete(item.templateId);
         });
         const failed = outcomes.filter(item => item.status === "FAILED").map(item => item.templateId);
-        const completed = outcomes.map(item => item.templateId);
+        const completed = outcomes.filter(item => item.status !== "CANCELLED").map(item => item.templateId);
         const pending = current.queueOrder.filter(id => !completed.includes(id));
         const successfulAllocations = terminalResults.filter(item =>
             item.status === "COMPLETED"
@@ -1048,7 +1143,9 @@ class AppController {
             current.photoCursor || 0
         );
         let lifecycle = batch.status;
-        if (batch.status !== "RUNNING" && batch.status !== "FAILED") {
+        if (batch.status === "CANCELLED") {
+            lifecycle = "CANCELLED";
+        } else if (batch.status !== "RUNNING" && batch.status !== "FAILED") {
             lifecycle = failed.length ? "COMPLETED_WITH_ERRORS" : (pending.length ? "INTERRUPTED" : "COMPLETED");
         }
         this.batchRecoverySnapshot = new BatchRecoverySnapshot({
@@ -1062,10 +1159,17 @@ class AppController {
             pendingTemplateIds: pending,
             currentTemplateId: batch.currentTemplate?.id ?? current.currentTemplateId,
             currentTemplateIndex: batch.templateIndex ?? current.currentTemplateIndex,
-            lastCompletedStage: lifecycle === "FAILED" ? "FAILED" : current.lastCompletedStage,
+            lastCompletedStage: lifecycle === "CANCELLED"
+                ? (batch.cancelledAtStage || current.lastCompletedStage)
+                : (lifecycle === "FAILED" ? "FAILED" : current.lastCompletedStage),
             templateOutcomes: outcomes,
             warnings: batch.warnings || current.warnings,
             fatalError: batch.fatalError || null,
+            cancellationRequestedAt: this.batchCancellationController?.getSnapshot().requestedAt || current.cancellationRequestedAt,
+            cancellationEffectiveAt: this.batchCancellationController?.getSnapshot().effectiveAt || current.cancellationEffectiveAt,
+            cancellationReason: batch.cancelReason || this.batchCancellationController?.getSnapshot().reason || current.cancellationReason,
+            cancelledAtStage: batch.cancelledAtStage || current.cancelledAtStage,
+            retainedProgressPercent: batch.retainedProgressPercent || this.batchCancellationController?.getSnapshot().retainedProgressPercent || current.retainedProgressPercent,
             photoCursor,
             consumedPhotoIds: current.selectedPhotoOrder.slice(0, photoCursor),
             remainingPhotoIds: current.selectedPhotoOrder.slice(photoCursor)

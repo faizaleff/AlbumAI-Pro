@@ -3,6 +3,9 @@ export const BatchExecutionStatus = Object.freeze({
     RUNNING: "RUNNING",
     COMPLETED: "COMPLETED",
     COMPLETED_WITH_ERRORS: "COMPLETED_WITH_ERRORS",
+    CANCEL_REQUESTED: "CANCEL_REQUESTED",
+    CANCELLING: "CANCELLING",
+    CANCELLED: "CANCELLED",
     FAILED: "FAILED"
 });
 
@@ -25,7 +28,12 @@ export default class BatchExecutionResult {
             warnings: data.warnings || [],
             fatalError: data.fatalError || null,
             currentTemplate: data.currentTemplate || null,
-            templateIndex: Number.isInteger(data.templateIndex) ? data.templateIndex : null
+            templateIndex: Number.isInteger(data.templateIndex) ? data.templateIndex : null,
+            pendingTemplates: data.pendingTemplates || 0,
+            cancelReason: data.cancelReason || null,
+            cancelledAtTemplateId: data.cancelledAtTemplateId || null,
+            cancelledAtStage: data.cancelledAtStage || null
+            ,retainedProgressPercent: Number(data.retainedProgressPercent) || 0
         });
 
     }

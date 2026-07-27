@@ -16,10 +16,15 @@ export default function calculateBatchProgress(summary) {
     const status = progress.lifecycle || summary?.batchExecution?.status || summary?.status || "IDLE";
     const total = Number(progress.totalTemplates ?? summary?.totalTemplates) || 0;
     const completed = Math.max(0, Number(progress.completedTemplates ?? summary?.completedTemplates) || 0);
+    const retained = Math.max(0, Number(progress.retainedProgressPercent) || 0);
     if (!total) return 0;
     if (["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"].includes(status) && completed >= total) return 100;
     const stageWeight = STAGE_WEIGHTS[progress.stage] || 0;
     const value = ((completed + stageWeight / 100) / total) * 100;
     // A running batch must reserve 100% for its terminal summary.
-    return Math.max(0, Math.min(status === "RUNNING" || status === "PREPARING" ? 99 : 100, Math.round(value)));
+    const calculated = Math.max(0, Math.min(status === "RUNNING" || status === "PREPARING" ? 99 : 100, Math.round(value)));
+    if (["CANCEL_REQUESTED", "CANCELLING", "CANCELLED"].includes(status)) {
+        return Math.min(99, Math.max(calculated, retained));
+    }
+    return calculated;
 }

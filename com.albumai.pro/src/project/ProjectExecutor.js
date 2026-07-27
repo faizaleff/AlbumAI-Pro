@@ -54,6 +54,8 @@ export default class ProjectExecutor {
         onStageProgress = null,
         photoCursor = 0,
         selectedPhotoIds = null
+        ,cancellationController = null
+        ,resumeState = null
     } = {}) {
 
         const queue = new TemplateQueue(templates || this.templates());
@@ -66,12 +68,25 @@ export default class ProjectExecutor {
             queue,
             autoSaveEnabled || exportEnabled
         );
+        const cancelled = stage => cancellationController?.isCancellationRequested()
+            ? { status: "CANCELLED", cancelledAtStage: stage }
+            : null;
         const batch = await this.batchExecutionService.execute({
             queue,
             executeTemplate: async (descriptor, index, total) => {
                 let template = null;
                 let completed = false;
-                const emitStage = stage => onStageProgress?.({ descriptor, index, total, stage });
+                let isCancelledOutcome = false;
+                let currentStage = "OPENING";
+                const emitStage = stage => {
+                    currentStage = stage;
+                    onStageProgress?.({
+                        descriptor,
+                        index: (Number(resumeState?.completedTemplates) || 0) + index,
+                        total: Number(resumeState?.totalTemplates) || total,
+                        stage
+                    });
+                };
                 try {
                     if (distribution.cursor >= distribution.selected.length) {
                         return this.skippedNoPhotos(descriptor, distribution);
@@ -83,10 +98,13 @@ export default class ProjectExecutor {
                     Logger.info(`OPEN_PSD_DONE: ${descriptor?.name || template?.name || "PSD Template"}`);
                     Logger.info(`SMART_OBJECTS_READY: ${template?.smartObjects?.length || 0}`);
                     emitStage("VALIDATING");
+                    const afterOpen = cancelled("OPENING");
+                    if (afterOpen) return afterOpen;
                     const allocation = this.allocatePhotos(template, distribution);
                     const result = await this.executeTemplate({ project, photos: allocation.photos, template, descriptor, autoSaveEnabled, autoSaveMode,
-                        onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress: emitStage
+                        onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress: emitStage, cancellationController
                     });
+                    isCancelledOutcome = result?.status === "CANCELLED";
                     completed = result.status === "COMPLETED";
                     const outcome = {
                         ...result,
@@ -105,22 +123,39 @@ export default class ProjectExecutor {
                     );
                     return outcome;
                 } catch (error) {
-                    emitStage("FAILED");
-                    Logger.warn(`END TEMPLATE: ${descriptor?.name || "PSD Template"} — FAILED`);
+                    Logger.error(`TEMPLATE_EXECUTION_ERROR ${JSON.stringify({
+                        errorName: error?.name || "Error",
+                        errorMessage: error?.message || "Template execution failed.",
+                        stack: error?.stack || null,
+                        templateId: descriptor?.id ?? null,
+                        templateName: descriptor?.name || template?.name || "PSD Template",
+                        currentStage,
+                        cancellationRequested: Boolean(cancellationController?.isCancellationRequested()),
+                        cancellationToken: cancellationController?.getSnapshot?.() || null
+                    })}`);
+                    if (!isCancelledOutcome) {
+                        emitStage("FAILED");
+                        Logger.warn(`END TEMPLATE: ${descriptor?.name || "PSD Template"} — FAILED`);
+                    }
                     throw error;
                 } finally {
-                    emitStage("CLOSING");
+                    // Closing is required cleanup, but must not overwrite the
+                    // user-visible cancellation boundary.
+                    if (!isCancelledOutcome) emitStage("CLOSING");
                     if (typeof releaseTemplate === "function") {
                         await releaseTemplate(template, descriptor);
                     }
                     Logger.info(`BATCH_CLOSE_DONE: ${descriptor?.name || "PSD Template"}`);
                     Logger.info(`DOCUMENT_CLOSE_DONE: ${descriptor?.name || "PSD Template"}`);
-                    emitStage(completed ? "COMPLETED" : "FAILED");
-                    Logger.info(`TEMPLATE_FINAL_OUTCOME: ${completed ? "COMPLETED" : "FAILED"}`);
-                    Logger.info(`BATCH_TEMPLATE_COMPLETE: ${descriptor?.name || "PSD Template"} — ${completed ? "COMPLETED" : "FAILED"}`);
+                    if (!isCancelledOutcome) emitStage(completed ? "COMPLETED" : "FAILED");
+                    const outcome = isCancelledOutcome ? "CANCELLED" : (completed ? "COMPLETED" : "FAILED");
+                    Logger.info(`TEMPLATE_FINAL_OUTCOME: ${outcome}`);
+                    Logger.info(`BATCH_TEMPLATE_COMPLETE: ${descriptor?.name || "PSD Template"} — ${outcome}`);
                 }
             },
-            onProgress
+            onProgress,
+            cancellationController,
+            resumeState
         });
 
         Logger.info(`BATCH_QUEUE_COMPLETE: ${batch.completedTemplates}/${batch.totalTemplates} completed, ${batch.failedTemplates} failed`);
@@ -152,6 +187,7 @@ export default class ProjectExecutor {
                 skippedTemplates: batch.skippedTemplates,
                 remainingTemplates: Math.max(0, batch.totalTemplates - batch.completedTemplates),
                 percentage: batch.totalTemplates ? Math.round((batch.completedTemplates / batch.totalTemplates) * 100) : 0
+                ,retainedProgressPercent: batch.retainedProgressPercent || 0
             },
             status: batch.status === BatchExecutionStatus.FAILED || batch.failedTemplates
                 ? ProjectExecutionStatus.FAILED
@@ -160,7 +196,7 @@ export default class ProjectExecutor {
 
     }
 
-    async executeTemplate({ project, photos, template, descriptor = null, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress }) {
+    async executeTemplate({ project, photos, template, descriptor = null, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress, cancellationController = null }) {
 
         const context = this.documentContext(template, descriptor);
         Logger.info(`START TEMPLATE: ${context.documentName}`);
@@ -178,6 +214,7 @@ export default class ProjectExecutor {
         const request = new ReplacementRequest({ executionPlan });
         Logger.info(`TEMPLATE_REQUEST_STEP_COUNT: ${request.steps?.length || 0}`);
         this.requireReplacementPlan(placementResult, executionPlan, request, context);
+        if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "PLANNING" };
         await this.activateContext(context, "REPLACEMENT");
         onStageProgress?.("REPLACING");
         const executionSummary = await this.replacementBatchExecutor.execute(request, { photos, templateName: template.name });
@@ -185,6 +222,7 @@ export default class ProjectExecutor {
         Logger.info(`REPLACEMENT_DONE: ${context.documentName}`);
         Logger.info(`TEMPLATE_REPLACEMENT_STATUS: ${executionSummary.status}`);
         Logger.info(`TEMPLATE_REPLACEMENT_COMPLETED: ${executionSummary.status === "COMPLETED"}`);
+        if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "REPLACING", executionSummary, placementResult, executionPlan, replacementRequest: request };
         await this.activateContext(context, "SAVE");
         onStageProgress?.("SAVING");
         const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode });
@@ -192,6 +230,7 @@ export default class ProjectExecutor {
         Logger.info(`AUTOSAVE_DONE: ${context.documentName} — ${autoSaveResult.status}`);
         Logger.info(`TEMPLATE_AUTOSAVE_STATUS: ${autoSaveResult.status}`);
         if (typeof onAutoSaveResult === "function") onAutoSaveResult(autoSaveResult);
+        if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "SAVING", executionSummary, placementResult, executionPlan, replacementRequest: request, autoSaveResult };
         await this.activateContext(context, "EXPORT");
         onStageProgress?.("EXPORTING");
         const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat });
@@ -199,6 +238,7 @@ export default class ProjectExecutor {
         Logger.info(`EXPORT_DONE: ${context.documentName} — ${exportResult.status}`);
         Logger.info(`TEMPLATE_EXPORT_STATUS: ${exportResult.status}`);
         if (typeof onExportResult === "function") onExportResult(exportResult);
+        if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "EXPORTING", executionSummary, placementResult, executionPlan, replacementRequest: request, autoSaveResult, exportResult };
 
         const succeeded = this.isTemplateSuccessful({
             placementResult,

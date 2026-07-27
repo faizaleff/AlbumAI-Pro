@@ -343,6 +343,7 @@ export default function OpenFolder() {
         App.removeRegisteredProjectTemplate(id);
     const moveRegisteredProjectTemplate = (id, targetIndex, method) =>
         App.moveRegisteredProjectTemplate(id, targetIndex, method);
+    const requestBatchCancellation = () => App.requestBatchCancellation();
 
     const openTemplate = file =>
         App.openTemplateDocument(file);
@@ -506,6 +507,7 @@ export default function OpenFolder() {
                     addCurrentPsdToProject={addCurrentPsdToProject}
                     removeRegisteredProjectTemplate={removeRegisteredProjectTemplate}
                     moveRegisteredProjectTemplate={moveRegisteredProjectTemplate}
+                    requestBatchCancellation={requestBatchCancellation}
                     openTemplate={openTemplate}
                     planPhotoPlacement={planPhotoPlacement}
                     getCurrentPlacementPlan={getCurrentPlacementPlan}

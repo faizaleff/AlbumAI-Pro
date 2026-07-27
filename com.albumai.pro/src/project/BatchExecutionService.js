@@ -9,13 +9,13 @@ export default class BatchExecutionService {
 
     }
 
-    async execute({ queue, executeTemplate, onProgress } = {}) {
+    async execute({ queue, executeTemplate, onProgress, cancellationController = null, resumeState = null } = {}) {
 
         if (this.inFlight) throw new Error("A template batch is already running.");
         if (!queue || typeof queue.total !== "number") throw new Error("A template queue is required.");
         if (typeof executeTemplate !== "function") throw new Error("A single-template execution callback is required.");
 
-        this.inFlight = this.run({ queue, executeTemplate, onProgress });
+        this.inFlight = this.run({ queue, executeTemplate, onProgress, cancellationController, resumeState });
         try {
             return await this.inFlight;
         } finally {
@@ -24,19 +24,21 @@ export default class BatchExecutionService {
 
     }
 
-    async run({ queue, executeTemplate, onProgress }) {
+    async run({ queue, executeTemplate, onProgress, cancellationController, resumeState }) {
 
         const startedAt = new Date().toISOString();
         const startedMs = Date.now();
         const templateResults = [];
-        let successfulTemplates = 0;
-        let failedTemplates = 0;
-        let skippedTemplates = 0;
-        const emit = (status, currentIndex = -1, fatalError = null) => {
+        const totalTemplates = Math.max(queue.total, Number(resumeState?.totalTemplates) || 0);
+        const resumeOffset = Number(resumeState?.completedTemplates) || 0;
+        let successfulTemplates = Number(resumeState?.successfulTemplates) || 0;
+        let failedTemplates = Number(resumeState?.failedTemplates) || 0;
+        let skippedTemplates = Number(resumeState?.skippedTemplates) || 0;
+        const emit = (status, currentIndex = -1, fatalError = null, cancellation = null) => {
             const completedTemplates = successfulTemplates + failedTemplates + skippedTemplates;
             const result = new BatchExecutionResult({
                 status,
-                totalTemplates: queue.total,
+                totalTemplates,
                 completedTemplates,
                 successfulTemplates,
                 failedTemplates,
@@ -48,7 +50,12 @@ export default class BatchExecutionService {
                 warnings: templateResults.flatMap(item => item.warnings || []),
                 fatalError,
                 currentTemplate: queue.descriptorAt(currentIndex),
-                templateIndex: currentIndex >= 0 ? currentIndex : null
+                templateIndex: currentIndex >= 0 ? resumeOffset + currentIndex : null,
+                pendingTemplates: Math.max(0, totalTemplates - completedTemplates),
+                cancelReason: cancellation?.reason || null,
+                cancelledAtTemplateId: queue.descriptorAt(currentIndex)?.id || null,
+                cancelledAtStage: cancellation?.stage || null,
+                retainedProgressPercent: cancellation?.retainedProgressPercent || 0
             });
             if (typeof onProgress === "function") onProgress(result);
             return result;
@@ -58,12 +65,33 @@ export default class BatchExecutionService {
             emit(BatchExecutionStatus.RUNNING);
             for (let index = 0; index < queue.total; index += 1) {
                 const template = queue.descriptorAt(index);
+                if (cancellationController?.isCancellationRequested()) {
+                    cancellationController.markEffective();
+                    const cancellation = { ...cancellationController.getSnapshot(), stage: "OPENING" };
+                    console.info("BATCH_CANCEL_BOUNDARY_REACHED", JSON.stringify(cancellation));
+                    console.info("BATCH_CANCELLING", JSON.stringify(cancellation));
+                    emit(BatchExecutionStatus.CANCELLING, index, null, cancellation);
+                    const cancelled = emit(BatchExecutionStatus.CANCELLED, index, null, cancellation);
+                    console.info("BATCH_CANCELLED", JSON.stringify(cancellation));
+                    return cancelled;
+                }
                 const running = this.templateResult(template, "RUNNING", { startedAt: new Date().toISOString() });
                 templateResults.push(running);
                 emit(BatchExecutionStatus.RUNNING, index);
 
                 try {
                     const result = await executeTemplate(template, index, queue.total);
+                    if (result?.status === "CANCELLED") {
+                        templateResults.splice(index, 1, this.templateResult(template, "CANCELLED", { ...result, startedAt: running.startedAt }));
+                        cancellationController?.markEffective();
+                        const cancellation = { ...cancellationController?.getSnapshot(), stage: result.cancelledAtStage || "SAFE_BOUNDARY" };
+                        console.info("BATCH_CANCEL_BOUNDARY_REACHED", JSON.stringify(cancellation));
+                        console.info("BATCH_CANCELLING", JSON.stringify(cancellation));
+                        emit(BatchExecutionStatus.CANCELLING, index, null, cancellation);
+                        const cancelled = emit(BatchExecutionStatus.CANCELLED, index, null, cancellation);
+                        console.info("BATCH_CANCELLED", JSON.stringify(cancellation));
+                        return cancelled;
+                    }
                     // Callback completion is not proof of a usable template
                     // result. Only the explicit terminal success status counts.
                     const succeeded = result?.status === "COMPLETED";
