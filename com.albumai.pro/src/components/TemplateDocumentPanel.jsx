@@ -837,6 +837,7 @@ export default function TemplateDocumentPanel({
     addCurrentPsdToProject,
     removeRegisteredProjectTemplate,
     moveRegisteredProjectTemplate,
+    requestBatchCancellation,
     openTemplate,
     planPhotoPlacement,
     getCurrentPlacementPlan,
@@ -924,8 +925,10 @@ export default function TemplateDocumentPanel({
     const autoSaveMode = getAutoSaveMode?.() || "SAVE_COPY";
     const exportEnabled = getExportEnabled?.() || false;
     const exportFormat = getExportFormat?.() || "JPEG";
-    const isExecuting = executionLifecycle?.status === "RUNNING" ||
-        projectExecutionSummary?.batchProgress?.lifecycle === "RUNNING";
+    const activeBatchLifecycle = ["RUNNING", "CANCEL_REQUESTED", "CANCELLING"].includes(
+        projectExecutionSummary?.batchProgress?.lifecycle
+    );
+    const isExecuting = executionLifecycle?.status === "RUNNING" || activeBatchLifecycle;
     const registryLocked = isExecuting || registryMutating;
 
     useEffect(() => {
@@ -1759,7 +1762,7 @@ export default function TemplateDocumentPanel({
                 </button>
                 </div>
 
-                <BatchProgressPanel summary={projectExecutionSummary} />
+                <BatchProgressPanel summary={projectExecutionSummary} onRequestCancel={requestBatchCancellation} />
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                 <label style={{ fontSize: 12 }}>

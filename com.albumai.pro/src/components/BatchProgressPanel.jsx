@@ -12,7 +12,7 @@ function statusFor(summary) {
     return summary?.batchProgress?.lifecycle || summary?.batchExecution?.status || summary?.status || "IDLE";
 }
 
-export default function BatchProgressPanel({ summary }) {
+export default function BatchProgressPanel({ summary, onRequestCancel }) {
     const lastDiagnostic = useRef(null);
     const status = statusFor(summary);
     const progress = summary?.batchProgress || {};
@@ -24,11 +24,12 @@ export default function BatchProgressPanel({ summary }) {
     const remaining = Math.max(0, Number(progress.remainingTemplates ?? (total - completed)) || 0);
     const percent = calculateBatchProgress(summary);
     const current = progress.currentTemplate;
-    const terminal = ["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"].includes(status);
-    const visible = ["PREPARING", "RUNNING", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"].includes(status);
+    const terminal = ["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "CANCELLED"].includes(status);
+    const active = ["RUNNING", "CANCEL_REQUESTED", "CANCELLING"].includes(status);
+    const visible = ["PREPARING", "RUNNING", "CANCEL_REQUESTED", "CANCELLING", "CANCELLED", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"].includes(status);
     const title = status === "COMPLETED" ? "Project Completed" :
         status === "COMPLETED_WITH_ERRORS" ? "Completed with Errors" :
-            status === "FAILED" ? "Project Failed" : "Project Processing";
+            status === "FAILED" ? "Project Failed" : status === "CANCELLED" ? "Batch Cancelled Safely" : status === "CANCEL_REQUESTED" || status === "CANCELLING" ? "Stopping safely…" : "Project Processing";
     const templateName = terminal && status !== "FAILED" ? "All Templates Completed" : (current?.name || "—");
     const templatePosition = progress.templateIndex == null ? "—" : `${progress.templateIndex + 1} of ${total}`;
     const stage = STAGE_LABELS[progress.stage] || STAGE_LABELS[status] || "Ready";
@@ -54,7 +55,7 @@ export default function BatchProgressPanel({ summary }) {
 
     if (!visible) return null;
 
-    const tone = status === "FAILED" ? "#ff8f8f" : status === "COMPLETED_WITH_ERRORS" ? "#f4c76b" : status === "COMPLETED" ? "#8ce09b" : "#d7e8ff";
+    const tone = status === "FAILED" ? "#ff8f8f" : status === "COMPLETED_WITH_ERRORS" || status === "CANCELLED" ? "#f4c76b" : status === "COMPLETED" ? "#8ce09b" : "#d7e8ff";
     return <section style={{ marginTop: 10, padding: 10, borderRadius: 5, background: "#252525", border: `1px solid ${tone}`, fontSize: 12 }} aria-label="Project processing progress">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, color: tone, fontWeight: 600 }}><span>{title}</span><span>{percent}%</span></div>
         <div style={{ marginTop: 7 }}>Template: {templateName}</div>
@@ -66,6 +67,9 @@ export default function BatchProgressPanel({ summary }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 10px", marginTop: 7 }}>
             <span>Completed: {completed}</span><span>Successful: {successful}</span><span>Failed: {failed}</span><span>Skipped: {skipped}</span><span>Remaining: {remaining}</span>
         </div>
+        {status === "RUNNING" && <button onClick={onRequestCancel} style={{ marginTop: 8 }}>Cancel</button>}
+        {(status === "CANCEL_REQUESTED" || status === "CANCELLING") && <button disabled style={{ marginTop: 8 }}>Stopping…</button>}
+        {status === "CANCELLED" && <div style={{ marginTop: 6, color: tone }}>Cancelled at: {stage}. You can resume the remaining templates.</div>}
         {status === "COMPLETED" && <div style={{ marginTop: 6 }}>Project Completed — {successful} of {total} templates processed successfully</div>}
         {status === "COMPLETED_WITH_ERRORS" && <div style={{ marginTop: 6, color: tone }}>Successful: {successful} · Failed: {failed}</div>}
         {fatalError && <div style={{ marginTop: 6, color: "#ff9999" }}>{fatalError}</div>}
