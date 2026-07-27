@@ -50,6 +50,14 @@ export default class PhotoPlacementEngine {
         let emptySlots = [];
 
         if (selectedPhotos.length > 1) {
+            if (selectedPhotos.length > slots.length) {
+                warnings.push({
+                    type: "EXCESS_SELECTED_PHOTOS",
+                    message: `Using ${slots.length} selected photos for ${slots.length} Smart Object slots; ${selectedPhotos.length - slots.length} selected photos were not assigned.`,
+                    selectedPhotos: selectedPhotos.length,
+                    availableSlots: slots.length
+                });
+            }
             Logger.info("Placement planner: sequential multi-photo assignment.");
             const assignmentList = this.photoAssignmentService.assign({
                 photos: candidates,

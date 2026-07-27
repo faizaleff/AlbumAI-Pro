@@ -113,7 +113,7 @@ export default class TemplateExportService {
         const extension = format === ExportFormat.PSD ? "psd" : "jpg";
         const baseName = this.baseName(descriptor?.name || template?.name || document?.title || "template");
 
-        return exportFolder.createFile(`${baseName}-processed.${extension}`, {
+        return exportFolder.createFile(`${baseName}.${extension}`, {
             overwrite: true
         });
 

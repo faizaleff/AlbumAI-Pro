@@ -6,6 +6,8 @@ import { PanelController } from "./controllers/PanelController.jsx";
 import { AlbumBrowser } from "./panels/AlbumBrowser.jsx.jsx";
 
 import { entrypoints } from "uxp";
+import { selectAllBrowserPhotos } from "./services/BrowserSelectionCommands";
+import { ALBUMAI_BUILD_ID } from "./config/buildIdentity";
 
 const albumController = new PanelController(
     () => <AlbumBrowser />,
@@ -25,9 +27,16 @@ const albumController = new PanelController(
 
 entrypoints.setup({
 
+    commands: {
+
+        selectAllPhotos: selectAllBrowserPhotos
+
+    },
+
     plugin: {
 
         create(plugin) {
+            console.log("ALBUMAI_BUILD_ID", ALBUMAI_BUILD_ID);
             console.log("AlbumAI Started", plugin);
         },
 

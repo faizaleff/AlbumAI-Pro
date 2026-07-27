@@ -101,8 +101,43 @@ function summaryText({
     recoveryState = null
 }) {
 
+    const batchResult = [...(projectExecutionSummary?.batchExecution?.templateResults || [])]
+        .reverse()
+        .find(result => result.status !== "RUNNING") || null;
+    const batchPlacement = batchResult
+        ? batchResult.placementResult
+        : placementPlan;
+    const batchExecutionPlan = batchResult
+        ? batchResult.executionPlan
+        : executionPlan;
+    const batchExecutionSummary = batchResult
+        ? batchResult.executionSummary
+        : executionSummary;
+    const batchAutoSave = batchResult
+        ? batchResult.autosaveResult
+        : autoSaveResult;
+    const batchExport = batchResult
+        ? batchResult.exportResult
+        : exportResult;
     const selectedCount = photos.filter(photo => photo?.selected).length;
-    const template = document || healthTemplate;
+    const terminalTemplate = batchResult?.templateContext || null;
+    const template = terminalTemplate
+        ? { id: terminalTemplate.id, document: { id: terminalTemplate.documentId }, name: terminalTemplate.name, smartObjects: terminalTemplate.smartObjects }
+        : (document || healthTemplate);
+    const terminalBatch = projectExecutionSummary?.batchExecution || null;
+    const isTerminalBatch = terminalBatch?.status &&
+        terminalBatch.status !== "RUNNING";
+    const summaryProgress = isTerminalBatch
+        ? terminalBatch
+        : batchProgress;
+    const currentTemplateName = isTerminalBatch
+        ? "All Templates Completed"
+        : projectExecutionSummary?.batchProgress?.currentTemplate?.name ||
+            template?.name || "—";
+    PhotoBrowserPerformance.trace("SUMMARY_STATE_SOURCE", {
+        source: isTerminalBatch ? "terminal-batch" : "live-ui",
+        selectedCount
+    });
     const lines = [
         "AlbumAI Summary",
         `Generated: ${new Date().toISOString()}`,
@@ -115,7 +150,7 @@ function summaryText({
         `Selected: ${selectedCount}`,
         "",
         "Template",
-        `Name: ${textValue(template?.name)}`,
+        `Name: ${textValue(currentTemplateName)}`,
         `Smart Objects: ${template?.smartObjects?.length || 0}`,
         "",
         "Project Template Registry",
@@ -126,29 +161,29 @@ function summaryText({
             : ["None"]),
         "",
         "Placement",
-        `Assigned: ${placementPlan?.statistics?.assignedSlots || 0}`,
-        `Empty: ${placementPlan?.statistics?.emptySlots || 0}`,
-        `Unassigned: ${placementPlan?.statistics?.unassignedPhotos || 0}`,
+        `Assigned: ${batchPlacement?.statistics?.assignedSlots || 0}`,
+        `Empty: ${batchPlacement?.statistics?.emptySlots || 0}`,
+        `Unassigned: ${batchPlacement?.statistics?.unassignedPhotos || 0}`,
         "",
         "Execution",
-        `Plan Status: ${executionPlan?.status || "NOT READY"}`,
-        `Ready Steps: ${executionPlan?.statistics?.readySteps || 0}`,
-        `Completed: ${batchProgress?.completedSteps ?? executionSummary?.completedSteps ?? 0}`,
-        `Success: ${batchProgress?.successCount ?? executionSummary?.completedSteps ?? 0}`,
-        `Failed: ${batchProgress?.failedCount ?? executionSummary?.failedSteps ?? 0}`,
-        `Lifecycle: ${executionLifecycle?.status || "IDLE"}`,
+        `Plan Status: ${batchExecutionPlan?.status || "NOT READY"}`,
+        `Ready Steps: ${batchExecutionPlan?.statistics?.readySteps || 0}`,
+        `Completed: ${summaryProgress?.completedTemplates ?? batchProgress?.completedSteps ?? batchExecutionSummary?.completedSteps ?? 0} / ${summaryProgress?.totalTemplates ?? batchProgress?.totalSteps ?? 0}`,
+        `Success: ${summaryProgress?.successfulTemplates ?? batchProgress?.successCount ?? batchExecutionSummary?.completedSteps ?? 0}`,
+        `Failed: ${summaryProgress?.failedTemplates ?? batchProgress?.failedCount ?? batchExecutionSummary?.failedSteps ?? 0}`,
+        `Lifecycle: ${isTerminalBatch ? terminalBatch.status : (executionLifecycle?.status || "IDLE")}`,
         "",
         "Auto Save",
         `Enabled: ${autoSaveEnabled ? "ON" : "OFF"}`,
         `Mode: ${autoSaveMode === "SAVE_COPY" ? "Save Copy" : "Overwrite Original"}`,
-        `Result: ${autoSaveResult?.status || "NOT RUN"}`,
-        `Output: ${fileName(autoSaveResult?.outputPath)}`,
+        `Result: ${batchAutoSave?.status || "NOT RUN"}`,
+        `Output: ${fileName(batchAutoSave?.outputPath)}`,
         "",
         "Export",
         `Enabled: ${exportEnabled ? "ON" : "OFF"}`,
         `Format: ${exportFormat}`,
-        `Result: ${exportResult?.status || "NOT RUN"}`,
-        `Output: ${fileName(exportResult?.outputPath)}`
+        `Result: ${batchExport?.status || "NOT RUN"}`,
+        `Output: ${fileName(batchExport?.outputPath)}`
     ];
 
     if (projectExecutionSummary) {
@@ -164,7 +199,8 @@ function summaryText({
             `Progress: ${projectExecutionSummary.batchProgress?.percentage ?? 0}%`,
             `Completed Templates: ${projectExecutionSummary.completedTemplates}`,
             `Successful Templates: ${projectExecutionSummary.successfulTemplates}`,
-            `Failed Templates: ${projectExecutionSummary.failedTemplates}`
+            `Failed Templates: ${projectExecutionSummary.failedTemplates}`,
+            `Skipped Templates: ${projectExecutionSummary.skippedTemplates || 0}`
         );
     }
 
@@ -213,7 +249,50 @@ function debugText({
     recoveryState = null
 }) {
 
-    const template = document || healthTemplate;
+    const batchResult = [...(projectExecutionSummary?.batchExecution?.templateResults || [])]
+        .reverse()
+        .find(result => result.status !== "RUNNING") || null;
+    const batchPlacement = batchResult
+        ? batchResult.placementResult
+        : placementPlan;
+    const batchExecutionPlan = batchResult
+        ? batchResult.executionPlan
+        : executionPlan;
+    const batchRequest = batchResult
+        ? batchResult.replacementRequest
+        : replacementRequest;
+    const batchExecutionSummary = batchResult
+        ? batchResult.executionSummary
+        : executionSummary;
+    const batchAutoSave = batchResult
+        ? batchResult.autosaveResult
+        : autoSaveResult;
+    const batchExport = batchResult
+        ? batchResult.exportResult
+        : exportResult;
+    const terminalBatch = projectExecutionSummary?.batchExecution || null;
+    const isTerminalBatch = terminalBatch?.status &&
+        terminalBatch.status !== "RUNNING";
+    const debugProgress = isTerminalBatch ? terminalBatch : batchProgress;
+    PhotoBrowserPerformance.trace("DEBUG_STATE_SOURCE", {
+        source: isTerminalBatch ? "terminal-batch" : "live-ui"
+    });
+    if (batchResult) {
+        console.info(
+            "BATCH_CONTEXT_SHAPE",
+            JSON.stringify({
+                assignmentCount: batchPlacement?.assignments?.length || 0,
+                planStepCount: batchExecutionPlan?.steps?.length || 0,
+                requestStepCount: batchRequest?.steps?.length || 0,
+                replacementCompleted:
+                    batchExecutionSummary?.status === "COMPLETED"
+            })
+        );
+    }
+    const terminalTemplate = batchResult?.templateContext || null;
+    const template = terminalTemplate
+        ? { id: terminalTemplate.id, document: { id: terminalTemplate.documentId }, name: terminalTemplate.name, smartObjects: terminalTemplate.smartObjects }
+        : (document || healthTemplate);
     const selectedPhotos = photos.filter(photo => photo?.selected);
     const slots = template?.smartObjects || [];
     const photoNameById = new Map(photos.map(photo => [photo?.id, photo?.name]));
@@ -240,41 +319,41 @@ function debugText({
     addList(lines, "Smart Object Slots", slots.map(slot =>
         `${textValue(slot?.layerId)} — ${textValue(slot?.layerName)}`
     ));
-    addList(lines, "Placement Assignments", (placementPlan?.assignments || []).map(assignment =>
+    addList(lines, "Placement Assignments", (batchPlacement?.assignments || []).map(assignment =>
         `photo=${photoName(assignment?.photoId, assignment?.photoName)}, slot=${textValue(assignment?.slotLayerId ?? assignment?.layerId)}, fit=${textValue(assignment?.fitMode)}`
     ));
-    addList(lines, "Execution Plan Steps", (executionPlan?.steps || []).map(step =>
+    addList(lines, "Execution Plan Steps", (batchExecutionPlan?.steps || []).map(step =>
         `#${textValue(step?.order)} photo=${photoName(step?.photoId, step?.photoName)}, slot=${textValue(step?.slotLayerId)} (${textValue(step?.slotName)})`
     ));
-    addList(lines, "Replacement Request Steps", (replacementRequest?.steps || []).map(step =>
+    addList(lines, "Replacement Request Steps", (batchRequest?.steps || []).map(step =>
         `#${textValue(step?.stepNumber)} photo=${photoName(step?.photoId, step?.photoName)}, slot=${textValue(step?.slotLayerId)} (${textValue(step?.slotName)})`
     ));
 
     lines.push(
         "Batch Progress",
-        `Status: ${textValue(batchProgress?.status)}`,
-        `Completed: ${textValue(batchProgress?.completedSteps, "0")} / ${textValue(batchProgress?.totalSteps, "0")}`,
-        `Success: ${textValue(batchProgress?.successCount, "0")}`,
-        `Failed: ${textValue(batchProgress?.failedCount, "0")}`,
+        `Status: ${textValue(debugProgress?.status)}`,
+        `Completed: ${textValue(debugProgress?.completedTemplates ?? debugProgress?.completedSteps, "0")} / ${textValue(debugProgress?.totalTemplates ?? debugProgress?.totalSteps, "0")}`,
+        `Success: ${textValue(debugProgress?.successfulTemplates ?? debugProgress?.successCount, "0")}`,
+        `Failed: ${textValue(debugProgress?.failedTemplates ?? debugProgress?.failedCount, "0")}`,
         "",
         "Execution Summary",
-        `Status: ${textValue(executionSummary?.status)}`,
-        `Completed: ${textValue(executionSummary?.completedSteps, "0")}`,
-        `Failed: ${textValue(executionSummary?.failedSteps, "0")}`,
+        `Status: ${textValue(batchExecutionSummary?.status)}`,
+        `Completed: ${textValue(batchExecutionSummary?.completedSteps, "0")}`,
+        `Failed: ${textValue(batchExecutionSummary?.failedSteps, "0")}`,
         `Lifecycle: ${textValue(executionLifecycle?.status, "IDLE")}`,
         `Lifecycle Error: ${textValue(executionLifecycle?.error, "None")}`,
         "",
         "Auto Save Result",
-        `Status: ${textValue(autoSaveResult?.status)}`,
-        `Output: ${fileName(autoSaveResult?.outputPath)}`,
-        `Warnings: ${(autoSaveResult?.warnings || []).join(" | ") || "None"}`,
-        `Error: ${textValue(autoSaveResult?.error, "None")}`,
+        `Status: ${textValue(batchAutoSave?.status)}`,
+        `Output: ${fileName(batchAutoSave?.outputPath)}`,
+        `Warnings: ${(batchAutoSave?.warnings || []).join(" | ") || "None"}`,
+        `Error: ${textValue(batchAutoSave?.error, "None")}`,
         "",
         "Export Result",
-        `Status: ${textValue(exportResult?.status)}`,
-        `Output: ${fileName(exportResult?.outputPath)}`,
-        `Warnings: ${(exportResult?.warnings || []).join(" | ") || "None"}`,
-        `Error: ${textValue(exportResult?.error, "None")}`,
+        `Status: ${textValue(batchExport?.status)}`,
+        `Output: ${fileName(batchExport?.outputPath)}`,
+        `Warnings: ${(batchExport?.warnings || []).join(" | ") || "None"}`,
+        `Error: ${textValue(batchExport?.error, "None")}`,
         "",
         "Project Execution Summary",
         `Status: ${textValue(projectExecutionSummary?.status)}`,
@@ -282,6 +361,7 @@ function debugText({
         `Completed Templates: ${textValue(projectExecutionSummary?.completedTemplates, "0")}`,
         `Successful Templates: ${textValue(projectExecutionSummary?.successfulTemplates, "0")}`,
         `Failed Templates: ${textValue(projectExecutionSummary?.failedTemplates, "0")}`,
+        `Skipped Templates: ${textValue(projectExecutionSummary?.skippedTemplates, "0")}`,
         `Batch Status: ${textValue(projectExecutionSummary?.batchExecution?.status)}`,
         `Current Template: ${textValue(projectExecutionSummary?.batchExecution?.currentTemplate?.name)}`,
         `Batch Warning: ${textValue(projectExecutionSummary?.batchExecution?.warnings?.[0], "None")}`,
@@ -298,14 +378,14 @@ function debugText({
         ),
         "Per-template Batch Outcomes",
         ...(projectExecutionSummary?.batchExecution?.templateResults || []).map(result =>
-            `${textValue(result.templateId)} — ${textValue(result.templateName)} [document=${textValue(result.documentContext?.documentId)}]: ${textValue(result.status)}${result.error ? ` (${result.error})` : ""}`
+            `${textValue(result.templateId)} — ${textValue(result.templateName)} [document=${textValue(result.documentContext?.documentId)}]: ${textValue(result.status)}${result.photoAllocation ? ` [${result.photoAllocation.assignedCount ? `photos ${result.photoAllocation.startCursor + 1}-${result.photoAllocation.endCursor}` : "photos: none"}, assigned=${result.photoAllocation.assignedCount}, remaining=${result.photoAllocation.remainingCount}]` : ""}${result.error ? ` (${result.error})` : ""}`
         ),
         "",
         "Stored Warnings and Errors",
         `Registry: ${textValue(registryError || projectExecutionSummary?.registryValidationError, "None")}`,
         `Placement: ${textValue(placementError, "None")}`,
-        `Placement Warnings: ${(placementPlan?.warnings || []).map(warning => warning?.message || String(warning)).join(" | ") || "None"}`,
-        `Execution Warnings: ${(executionPlan?.warnings || []).map(warning => warning?.message || String(warning)).join(" | ") || "None"}`
+        `Placement Warnings: ${(batchPlacement?.warnings || []).map(warning => warning?.message || String(warning)).join(" | ") || "None"}`,
+        `Execution Warnings: ${(batchExecutionPlan?.warnings || []).map(warning => warning?.message || String(warning)).join(" | ") || "None"}`
     );
 
     const recovery = recoveryState?.snapshot;
@@ -320,14 +400,14 @@ function debugText({
         `Batch ID: ${textValue(recovery?.batchId)}`,
         `Status: ${textValue(recovery?.lifecycle)}`,
         `Run Mode: ${textValue(recovery?.runMode)}`,
-        `Completed/Success/Failed/Pending: ${recovery?.completedTemplateIds?.length || 0}/${recovery?.successfulTemplateIds?.length || 0}/${recovery?.failedTemplateIds?.length || 0}/${recovery?.pendingTemplateIds?.length || 0}`,
+        `Completed/Success/Failed/Skipped/Pending: ${recovery?.completedTemplateIds?.length || 0}/${recovery?.successfulTemplateIds?.length || 0}/${recovery?.failedTemplateIds?.length || 0}/${(recovery?.templateOutcomes || []).filter(item => item.status === "SKIPPED_NO_PHOTOS").length}/${recovery?.pendingTemplateIds?.length || 0}`,
         `Last Template: ${textValue(recoveryTemplateName)}`,
         `Last Stage: ${textValue(recovery?.lastCompletedStage)}`,
         `Warnings: ${(recovery?.warnings || []).join(" | ") || "None"}`,
         `Fatal Error: ${textValue(recovery?.fatalError, "None")}`,
         "Recovery Template Outcomes",
         ...(recovery?.templateOutcomes || []).map(item =>
-            `${textValue(item.templateId)} — ${textValue(item.templateName)}: ${textValue(item.status)}${item.error ? ` (${item.error})` : ""}`
+            `${textValue(item.templateId)} — ${textValue(item.templateName)}: ${textValue(item.status)}${item.photoAllocation ? ` [${item.photoAllocation.assignedCount ? `photos ${item.photoAllocation.startCursor + 1}-${item.photoAllocation.endCursor}` : "photos: none"}, assigned=${item.photoAllocation.assignedCount}, remaining=${item.photoAllocation.remainingCount}]` : ""}${item.error ? ` (${item.error})` : ""}`
         )
     );
 
@@ -755,6 +835,7 @@ export default function TemplateDocumentPanel({
     getRegisteredProjectTemplates,
     addCurrentPsdToProject,
     removeRegisteredProjectTemplate,
+    moveRegisteredProjectTemplate,
     openTemplate,
     planPhotoPlacement,
     getCurrentPlacementPlan,
@@ -794,6 +875,16 @@ export default function TemplateDocumentPanel({
     const [selectedName, setSelectedName] = useState("");
     const [registeredTemplates, setRegisteredTemplates] = useState([]);
     const [selectedRegisteredId, setSelectedRegisteredId] = useState("");
+    const [draggedTemplateId, setDraggedTemplateId] = useState(null);
+    const [dropTarget, setDropTarget] = useState(null);
+    const [registryMutating, setRegistryMutating] = useState(false);
+    const draggedTemplateIdRef = useRef(null);
+    const registeredTemplatesRef = useRef([]);
+    const dragStateRef = useRef(null);
+    const templateRowRefs = useRef(new Map());
+    const templateListRef = useRef(null);
+    const mountedRef = useRef(true);
+    const renderedDragHandlesRef = useRef(new Set());
     const [registryError, setRegistryError] = useState(null);
     const [document, setDocument] = useState(null);
     const [, setPlacementVersion] = useState(0);
@@ -834,6 +925,15 @@ export default function TemplateDocumentPanel({
     const exportFormat = getExportFormat?.() || "JPEG";
     const isExecuting = executionLifecycle?.status === "RUNNING" ||
         projectExecutionSummary?.batchProgress?.lifecycle === "RUNNING";
+    const registryLocked = isExecuting || registryMutating;
+
+    useEffect(() => {
+        registeredTemplatesRef.current = registeredTemplates;
+    }, [registeredTemplates]);
+
+    useEffect(() => {
+        console.info("ALB-032.3-mouse-drag-v1");
+    }, []);
 
     function refreshRegisteredTemplates() {
         const entries = getRegisteredProjectTemplates?.() || [];
@@ -994,17 +1094,265 @@ export default function TemplateDocumentPanel({
         }
     }
 
-    async function removeSelectedRegisteredTemplate() {
-        if (!selectedRegisteredId) return;
+    async function removeSelectedRegisteredTemplate(id = selectedRegisteredId) {
+        if (!id || registryLocked) return;
         try {
-            await removeRegisteredProjectTemplate?.(selectedRegisteredId);
+            setRegistryMutating(true);
+            await removeRegisteredProjectTemplate?.(id);
             refreshRegisteredTemplates();
             refreshRecoveryState();
             setRegistryError(null);
         } catch (error) {
             setRegistryError(error.message);
+        } finally {
+            setRegistryMutating(false);
         }
     }
+
+    async function moveRegisteredTemplate(id, targetIndex, method) {
+        if (registryLocked) return;
+        try {
+            setRegistryMutating(true);
+            const moved = await moveRegisteredProjectTemplate?.(id, targetIndex, method);
+            if (!moved) return;
+            refreshRegisteredTemplates();
+            refreshRecoveryState();
+            setRegistryError(null);
+        } catch (error) {
+            setRegistryError(error.message);
+        } finally {
+            setRegistryMutating(false);
+        }
+    }
+
+    function reorderDiagnostic(event, details) {
+        console.info(event, JSON.stringify({
+            method: "drag",
+            batchRunning: isExecuting,
+            mutationRunning: registryMutating,
+            ...details
+        }));
+    }
+
+    function detachMouseDragListeners(drag) {
+        const target = drag?.listNode;
+        const listeners = drag?.listeners;
+        if (!target || !listeners || typeof target.removeEventListener !== "function") return;
+        target.removeEventListener("mousemove", listeners.move);
+        target.removeEventListener("mouseup", listeners.up);
+        target.removeEventListener("mouseleave", listeners.leave);
+    }
+
+    function clearTemplateDrag({ cancelled = false, reason = null, updateState = mountedRef.current } = {}) {
+        const drag = dragStateRef.current;
+        if (cancelled && drag) {
+            const entries = registeredTemplatesRef.current;
+            const entry = entries[drag.sourceIndex];
+            reorderDiagnostic("TEMPLATE_REORDER_CANCELLED", {
+                templateId: drag.templateId,
+                templateName: entry?.name || "",
+                sourceIndex: drag.sourceIndex,
+                targetIndex: drag.targetIndex,
+                reason
+            });
+        }
+        detachMouseDragListeners(drag);
+        dragStateRef.current = null;
+        draggedTemplateIdRef.current = null;
+        if (updateState) {
+            setDraggedTemplateId(null);
+            setDropTarget(null);
+        }
+    }
+
+    function cancelTemplateDrag(templateId, reason = "cancelled") {
+        if (dragStateRef.current?.templateId === templateId) {
+            clearTemplateDrag({ cancelled: true, reason });
+        } else if (templateId) {
+            console.info("TEMPLATE_REORDER_CANCELLED", JSON.stringify({
+                templateId,
+                templateName: registeredTemplates.find(entry => entry.id === templateId)?.name || "",
+                sourceIndex: registeredTemplates.findIndex(entry => entry.id === templateId),
+                targetIndex: null,
+                method: "drag",
+                batchRunning: isExecuting,
+                mutationRunning: registryMutating,
+                reason
+            }));
+        }
+    }
+
+    function targetFromMouse(clientY) {
+        const drag = dragStateRef.current;
+        const entries = registeredTemplatesRef.current;
+        if (!drag || !entries.length) return null;
+        let insertIndex = entries.length;
+        let position = "after";
+        let targetId = entries[entries.length - 1]?.id || null;
+        for (let index = 0; index < entries.length; index += 1) {
+            const entry = entries[index];
+            const row = drag.rowNodes.get(entry.id);
+            if (!row) continue;
+            const bounds = row.getBoundingClientRect();
+            if (clientY < bounds.top + bounds.height / 2) {
+                insertIndex = index;
+                position = "before";
+                targetId = entry.id;
+                break;
+            }
+        }
+        let targetIndex = insertIndex;
+        if (drag.sourceIndex < targetIndex) targetIndex -= 1;
+        targetIndex = Math.max(0, Math.min(entries.length - 1, targetIndex));
+        return { id: targetId, position, targetIndex };
+    }
+
+    function updateMouseDragTarget(clientY) {
+        const drag = dragStateRef.current;
+        const target = targetFromMouse(clientY);
+        if (!drag || !target) return;
+        if (drag.targetIndex !== target.targetIndex) {
+            drag.targetIndex = target.targetIndex;
+            reorderDiagnostic("TEMPLATE_REORDER_DRAG_TARGET", {
+                templateId: drag.templateId,
+                templateName: registeredTemplatesRef.current[drag.sourceIndex]?.name || "",
+                sourceIndex: drag.sourceIndex,
+                targetIndex: target.targetIndex
+            });
+        }
+        setDropTarget(target);
+    }
+
+    function finishMouseDrag(event) {
+        const drag = dragStateRef.current;
+        if (!drag) return;
+        const bounds = drag.listNode?.getBoundingClientRect?.();
+        const releasedOutsideList = bounds && (
+            event.clientX < bounds.left || event.clientX > bounds.right ||
+            event.clientY < bounds.top || event.clientY > bounds.bottom
+        );
+        if (releasedOutsideList) {
+            clearTemplateDrag({ cancelled: true, reason: "pointer-released-outside-list" });
+            return;
+        }
+        const { templateId, sourceIndex, targetIndex } = drag;
+        clearTemplateDrag();
+        if (targetIndex !== sourceIndex) {
+            moveRegisteredTemplate(templateId, targetIndex, "drag");
+        }
+    }
+
+    function moveMouseDrag(event) {
+        const drag = dragStateRef.current;
+        if (!drag) return;
+        const distance = Math.max(
+            Math.abs(event.clientX - drag.startClientX),
+            Math.abs(event.clientY - drag.startClientY)
+        );
+        if (!drag.thresholdPassed) {
+            if (distance < 4) return;
+            drag.thresholdPassed = true;
+            reorderDiagnostic("TEMPLATE_DRAG_THRESHOLD_PASSED", {
+                templateId: drag.templateId,
+                sourceIndex: drag.sourceIndex,
+                targetIndex: drag.targetIndex,
+                clientX: event.clientX,
+                clientY: event.clientY,
+                thresholdPassed: true
+            });
+            reorderDiagnostic("TEMPLATE_REORDER_DRAG_START", {
+                templateId: drag.templateId,
+                templateName: drag.templateName,
+                sourceIndex: drag.sourceIndex,
+                targetIndex: drag.targetIndex
+            });
+            setDraggedTemplateId(drag.templateId);
+        }
+        updateMouseDragTarget(event.clientY);
+    }
+
+    function beginTemplateMouseDrag(event, entry, sourceIndex) {
+        reorderDiagnostic("TEMPLATE_DRAG_HANDLE_MOUSEDOWN", {
+            templateId: entry.id,
+            sourceIndex,
+            button: event.button,
+            hasListNode: Boolean(templateListRef.current),
+            rowCount: templateRowRefs.current.size,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            thresholdPassed: false,
+            targetIndex: sourceIndex
+        });
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (registryLocked) {
+            reorderDiagnostic("TEMPLATE_REORDER_REJECTED", {
+                templateId: entry.id,
+                templateName: entry.name,
+                sourceIndex,
+                targetIndex: sourceIndex,
+                reason: isExecuting ? "batch-running" : "registry-mutation-running"
+            });
+            return;
+        }
+        const listNode = templateListRef.current;
+        if (!listNode || typeof listNode.addEventListener !== "function") {
+            reorderDiagnostic("TEMPLATE_REORDER_REJECTED", {
+                templateId: entry.id,
+                sourceIndex,
+                targetIndex: sourceIndex,
+                reason: "template-list-unavailable"
+            });
+            return;
+        }
+        dragStateRef.current = {
+            templateId: entry.id,
+            templateName: entry.name,
+            sourceIndex,
+            targetIndex: sourceIndex,
+            listNode,
+            rowNodes: new Map(templateRowRefs.current),
+            startClientX: event.clientX,
+            startClientY: event.clientY,
+            thresholdPassed: false,
+            listeners: null
+        };
+        draggedTemplateIdRef.current = entry.id;
+        const listeners = {
+            move: moveMouseDrag,
+            up: finishMouseDrag,
+            leave: () => clearTemplateDrag({ cancelled: true, reason: "mouse-left-list" })
+        };
+        dragStateRef.current.listeners = listeners;
+        listNode.addEventListener("mousemove", listeners.move);
+        listNode.addEventListener("mouseup", listeners.up);
+        listNode.addEventListener("mouseleave", listeners.leave);
+        reorderDiagnostic("TEMPLATE_DRAG_LISTENER_ATTACHED", {
+            templateId: entry.id,
+            sourceIndex,
+            button: event.button,
+            hasListNode: true,
+            rowCount: dragStateRef.current.rowNodes.size,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            thresholdPassed: false,
+            targetIndex: sourceIndex
+        });
+    }
+
+    useEffect(() => () => {
+        mountedRef.current = false;
+        if (dragStateRef.current) {
+            clearTemplateDrag({ cancelled: true, reason: "component-unmount", updateState: false });
+        }
+    }, []);
+
+    useEffect(() => {
+        if (registryLocked && dragStateRef.current) {
+            clearTemplateDrag({ cancelled: true, reason: isExecuting ? "batch-running" : "registry-mutation-running" });
+        }
+    }, [registryLocked, isExecuting]);
 
     useEffect(() => {
 
@@ -1287,31 +1635,92 @@ export default function TemplateDocumentPanel({
                 </button>
                 <button
                     onClick={addCurrentPsd}
-                    disabled={isExecuting || !hasProject || !selectedName}
+                    disabled={registryLocked || !hasProject || !selectedName}
                 >
                     Add Current PSD
-                </button>
-                <select
-                    value={selectedRegisteredId}
-                    onChange={event => setSelectedRegisteredId(event.target.value)}
-                    disabled={!registeredTemplates.length || isExecuting}
-                    aria-label="Registered project templates"
-                >
-                    {registeredTemplates.map(entry => (
-                        <option key={entry.id} value={entry.id}>
-                            {entry.name}{entry.validationState === "MISSING" ? " (missing)" : ""}
-                        </option>
-                    ))}
-                </select>
-                <button
-                    onClick={removeSelectedRegisteredTemplate}
-                    disabled={isExecuting || !selectedRegisteredId}
-                >
-                    Remove Selected Template
                 </button>
                 <span style={{ fontSize: 12, color: "#b8b8b8" }}>
                     Registered: {registeredTemplates.length}
                 </span>
+                </div>
+
+                <div
+                    ref={templateListRef}
+                    aria-label="Registered project templates in batch execution order"
+                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
+                >
+                    {registeredTemplates.map((entry, index) => {
+                        const isSelected = entry.id === selectedRegisteredId;
+                        const isDropBefore = dropTarget?.id === entry.id && dropTarget?.position === "before";
+                        const isDropAfter = dropTarget?.id === entry.id && dropTarget?.position === "after";
+                        const status = entry.validationState === "VALID" ? "READY" : entry.validationState;
+                        return (
+                            <div key={entry.id}>
+                                {isDropBefore && <div className="drop-before" style={{ height: 2, background: "#4da3ff", marginBottom: 3 }} />}
+                                <div
+                                    ref={node => {
+                                        if (node) templateRowRefs.current.set(entry.id, node);
+                                        else templateRowRefs.current.delete(entry.id);
+                                    }}
+                                    role="button"
+                                    className={`template-row${draggedTemplateId === entry.id ? " dragging" : ""}${isDropBefore ? " drop-before" : ""}${isDropAfter ? " drop-after" : ""}`}
+                                    tabIndex={0}
+                                    title={`Select ${entry.name}`}
+                                    aria-label={`Template ${index + 1}: ${entry.name}, ${status}`}
+                                    onClick={() => {
+                                        if (!draggedTemplateId) setSelectedRegisteredId(entry.id);
+                                    }}
+                                    onKeyDown={event => {
+                                        if (event.key === "Enter" || event.key === " ") {
+                                            event.preventDefault();
+                                            setSelectedRegisteredId(entry.id);
+                                        }
+                                    }}
+                                    style={{
+                                        display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
+                                        borderRadius: 4, cursor: registryLocked ? "default" : "pointer",
+                                        background: isSelected ? "#3c5a78" : "#252525",
+                                        border: draggedTemplateId === entry.id ? "1px dashed #61aef7" : (isSelected ? "1px solid #61aef7" : "1px solid #444"),
+                                        opacity: draggedTemplateId === entry.id ? 0.65 : 1
+                                    }}
+                                >
+                                    <div
+                                        className="template-drag-handle"
+                                        ref={node => {
+                                            if (node && !renderedDragHandlesRef.current.has(entry.id)) {
+                                                renderedDragHandlesRef.current.add(entry.id);
+                                                console.info("TEMPLATE_DRAG_HANDLE_RENDERED", JSON.stringify({
+                                                    templateId: entry.id,
+                                                    sourceIndex: index,
+                                                    disabled: registryLocked
+                                                }));
+                                            }
+                                        }}
+                                        role="button"
+                                        tabIndex={registryLocked ? -1 : 0}
+                                        aria-disabled={registryLocked}
+                                        title={`Drag to reorder ${entry.name}`}
+                                        aria-label={`Drag handle for ${entry.name}`}
+                                        onClick={event => event.stopPropagation()}
+                                        onMouseDown={event => beginTemplateMouseDrag(event, entry, index)}
+                                        onKeyDown={event => {
+                                            if (event.key === "Escape" && dragStateRef.current) {
+                                                clearTemplateDrag({ cancelled: true, reason: "escape" });
+                                            }
+                                        }}
+                                        style={{ cursor: registryLocked ? "not-allowed" : "grab", touchAction: "none", pointerEvents: "auto", userSelect: "none" }}
+                                    >☰</div>
+                                    <span aria-label={`Order ${index + 1}`}>{index + 1}</span>
+                                    <span style={{ flex: 1 }}>{entry.name}</span>
+                                    <span title={`Validation status: ${status}`} aria-label={`Status ${status}`} style={{ fontSize: 11, color: status === "MISSING" ? "#ff9999" : "#9ee6a5" }}>{status}</span>
+                                    <button title={`Move ${entry.name} up`} aria-label={`Move ${entry.name} up`} disabled={registryLocked || index === 0} onClick={event => { event.stopPropagation(); moveRegisteredTemplate(entry.id, index - 1, "keyboard"); }}>↑</button>
+                                    <button title={`Move ${entry.name} down`} aria-label={`Move ${entry.name} down`} disabled={registryLocked || index === registeredTemplates.length - 1} onClick={event => { event.stopPropagation(); moveRegisteredTemplate(entry.id, index + 1, "keyboard"); }}>↓</button>
+                                    <button title={`Remove ${entry.name}`} aria-label={`Remove ${entry.name}`} disabled={registryLocked} onClick={event => { event.stopPropagation(); removeSelectedRegisteredTemplate(entry.id); }}>×</button>
+                                </div>
+                                {isDropAfter && <div className="drop-after" style={{ height: 2, background: "#4da3ff", marginTop: 3 }} />}
+                            </div>
+                        );
+                    })}
                 </div>
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>

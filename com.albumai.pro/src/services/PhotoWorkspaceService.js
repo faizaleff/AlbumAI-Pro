@@ -3,11 +3,15 @@ import { storage } from "uxp";
 import { importPhotoFolder } from "./FolderService";
 import ThumbnailService from "./ThumbnailService";
 import RefreshService from "./RefreshService";
-import ThumbnailQueue from "../queue/ThumbnailQueue";
+import ThumbnailQueue, {
+    ThumbnailPriority
+} from "../queue/ThumbnailQueue";
 import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
+import { logPhotoRuntimeSchemaOnce } from "./PhotoFileEntry";
 
 const METADATA_FILE = "photos.json";
 const INITIAL_VISIBLE_PHOTOS = 30;
+const INITIAL_OVERSCAN_PHOTOS = 30;
 
 export default class PhotoWorkspaceService {
 
@@ -64,6 +68,16 @@ export default class PhotoWorkspaceService {
             this.sourceFolder,
             result.folder
         );
+        const previousPhotos = this.library.getPhotos();
+        const previousById = new Map(
+            previousPhotos.map(photo => [photo?.id, photo])
+        );
+        const images = sameFolder
+            ? result.images.map(photo => previousById.get(photo.id) || photo)
+            : result.images;
+        const reused = sameFolder
+            ? images.filter(photo => previousById.get(photo.id) === photo).length
+            : 0;
 
         this.lifecycleGeneration++;
         PhotoBrowserPerformance.trace(
@@ -83,19 +97,53 @@ export default class PhotoWorkspaceService {
             preserveCache: sameFolder
         });
         this.sourceFolder = result.folder;
-        this.selection.clear();
-        this.library.load(result.images);
+        if (!sameFolder) this.selection.clear();
+        // Placeholder mode is the normal browser fallback. Cache hydration is
+        // only useful when this bounded session cache already has entries;
+        // never start work for uncached originals here.
+        if (ThumbnailService.hasCachedThumbnails()) {
+            for (const photo of images) {
+                ThumbnailService.restoreCachedThumbnail(photo);
+            }
+        }
+        this.library.load(images);
+        logPhotoRuntimeSchemaOnce(images[0]);
+        PhotoBrowserPerformance.trace(
+            sameFolder
+                ? "SAME_FOLDER_REFRESH_REUSED"
+                : "SAME_FOLDER_REFRESH_REMOUNTED",
+            {
+                reused,
+                remounted: images.length - reused,
+                total: images.length
+            }
+        );
 
         // Publish stable photo models before any image decoding starts.
         PhotoBrowserPerformance.markPublishRequested();
         RefreshService.refresh();
 
-        const visible = result.images.slice(
+        const visible = images.slice(
             0,
             INITIAL_VISIBLE_PHOTOS
         );
-        ThumbnailQueue.addBatch(result.images);
-        ThumbnailQueue.setVisible(visible);
+        const overscan = images.slice(
+            INITIAL_VISIBLE_PHOTOS,
+            INITIAL_VISIBLE_PHOTOS + INITIAL_OVERSCAN_PHOTOS
+        );
+        ThumbnailQueue.addBatch(
+            visible,
+            ThumbnailPriority.VISIBLE
+        );
+        ThumbnailQueue.addBatch(
+            overscan,
+            ThumbnailPriority.OVERSCAN
+        );
+        ThumbnailQueue.addBatch(
+            images.slice(
+                INITIAL_VISIBLE_PHOTOS + INITIAL_OVERSCAN_PHOTOS
+            )
+        );
 
         // Project metadata writes are not part of the folder-open critical
         // path. Keep them ordered and report failures without blocking paint.
@@ -150,6 +198,42 @@ export default class PhotoWorkspaceService {
 
     }
 
+    async getPhotoFolderStatus() {
+
+        const photoSource =
+            this.projectEngine.getProject()?.metadata?.photoSource;
+        const hadFolderReference = !!photoSource;
+
+        if (this.sourceFolder) {
+            return {
+                available: true,
+                hadFolderReference
+            };
+        }
+
+        const folder = await this.resolveSourceFolder();
+
+        if (folder) {
+            this.sourceFolder = folder;
+            return {
+                available: true,
+                hadFolderReference
+            };
+        }
+
+        return {
+            available: false,
+            hadFolderReference
+        };
+
+    }
+
+    markPhotoFolderUnavailable() {
+
+        this.sourceFolder = null;
+
+    }
+
     async removePhotos() {
 
         this.requireProject();
@@ -192,7 +276,12 @@ export default class PhotoWorkspaceService {
 
     setVisiblePhotos(photos) {
 
-        ThumbnailQueue.setVisible(photos);
+        if (Array.isArray(photos)) {
+            ThumbnailQueue.setVisible(photos);
+            return;
+        }
+
+        ThumbnailQueue.setViewport(photos);
 
     }
 

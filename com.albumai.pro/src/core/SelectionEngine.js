@@ -10,6 +10,7 @@ export default class SelectionEngine {
         this.listeners = new Set();
         this.indexedPhotos = null;
         this.photosById = new Map();
+        this.orderedIds = null;
 
     }
 
@@ -58,17 +59,15 @@ export default class SelectionEngine {
             next.add(photo.id);
         }
 
-        this.apply(next, photo.id, "toggle");
+        this.apply(next, this.anchorId, "toggle");
 
     }
 
     range(photo) {
 
-        const photos = this.library.getPhotos();
-        const currentIndex = photos.indexOf(photo);
-        const anchorIndex = photos.findIndex(
-            item => item?.id === this.anchorId
-        );
+        const orderedIds = this.order();
+        const currentIndex = orderedIds.indexOf(photo?.id);
+        const anchorIndex = orderedIds.indexOf(this.anchorId);
 
         if (currentIndex < 0) return;
 
@@ -82,7 +81,7 @@ export default class SelectionEngine {
         const next = new Set();
 
         for (let index = start; index <= end; index++) {
-            const id = photos[index]?.id;
+            const id = orderedIds[index];
             if (id != null) next.add(id);
         }
 
@@ -104,11 +103,7 @@ export default class SelectionEngine {
 
     selectAll() {
 
-        const next = new Set(
-            this.library.getPhotos()
-                .map(photo => photo?.id)
-                .filter(id => id != null)
-        );
+        const next = new Set(this.order());
 
         this.apply(next, this.anchorId, "select-all");
 
@@ -125,6 +120,26 @@ export default class SelectionEngine {
         return this.library.getPhotos().filter(
             photo => this.ids.has(photo?.id)
         );
+
+    }
+
+    setOrderedPhotos(photos = []) {
+
+        this.orderedIds = (Array.isArray(photos) ? photos : [])
+            .map(photo => photo?.id)
+            .filter(id => id != null);
+
+    }
+
+    order() {
+
+        if (Array.isArray(this.orderedIds)) {
+            return this.orderedIds;
+        }
+
+        return this.library.getPhotos()
+            .map(photo => photo?.id)
+            .filter(id => id != null);
 
     }
 

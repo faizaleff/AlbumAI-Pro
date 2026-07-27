@@ -141,7 +141,7 @@ export default class TemplateAutoSaveService {
 
         const baseName = this.baseName(descriptor?.name || template?.name || document?.title || "template");
 
-        return processed.createFile(`${baseName}-processed.psd`, {
+        return processed.createFile(`${baseName}.psd`, {
             overwrite: true
         });
 

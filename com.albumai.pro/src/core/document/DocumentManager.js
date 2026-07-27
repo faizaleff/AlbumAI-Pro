@@ -4,6 +4,7 @@ import { app, core } from "photoshop";
 import { storage } from "uxp";
 
 import Logger from "../photoshop/Logger";
+import PhotoBrowserPerformance from "../../services/PhotoBrowserPerformance";
 
 
 /**
@@ -48,6 +49,7 @@ class DocumentManager {
         return core.executeAsModal(async () => {
             const document = await app.open(entry);
             this.activeDocumentId = document.id;
+            PhotoBrowserPerformance.documentOpened(document.id);
             return document;
         }, { commandName: "Open Album Template" });
     }
@@ -122,6 +124,7 @@ class DocumentManager {
         }, { commandName: "Close Album Document" });
 
         if (this.activeDocumentId === liveDocument.id) this.activeDocumentId = this.activeId;
+        PhotoBrowserPerformance.documentClosed(liveDocument.id);
     }
 
     requireOpen(document) {

@@ -49,6 +49,7 @@ export default class Photo {
 
         // Cache
         this.thumbnailLoaded = false;
+        this.thumbnailUnavailable = false;
         this.previewLoaded = false;
         this.lastAccess = 0;
 
@@ -74,6 +75,7 @@ export default class Photo {
 
         this.thumbnail = thumbnail;
         this.thumbnailLoaded = !!thumbnail;
+        this.thumbnailUnavailable = false;
         this.loading = false;
 
     }
@@ -82,6 +84,7 @@ export default class Photo {
 
         this.thumbnail = null;
         this.thumbnailLoaded = false;
+        this.thumbnailUnavailable = false;
 
     }
 

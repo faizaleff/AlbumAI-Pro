@@ -20,6 +20,7 @@ export default class ProjectExecutionSummary {
             completedTemplates: data.completedTemplates || 0,
             successfulTemplates: data.successfulTemplates ?? data.completedTemplates ?? 0,
             failedTemplates: data.failedTemplates || 0,
+            skippedTemplates: data.skippedTemplates || 0,
             templateResults: data.templateResults || [],
             batchExecution: data.batchExecution || null,
             batchProgress: data.batchProgress || {
@@ -28,6 +29,7 @@ export default class ProjectExecutionSummary {
                 completedTemplates: data.completedTemplates || 0,
                 successfulTemplates: data.successfulTemplates ?? data.completedTemplates ?? 0,
                 failedTemplates: data.failedTemplates || 0
+                ,skippedTemplates: data.skippedTemplates || 0
             },
             startedAt: data.startedAt || null,
             finishedAt: data.finishedAt || null,

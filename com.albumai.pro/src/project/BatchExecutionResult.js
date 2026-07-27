@@ -17,6 +17,7 @@ export default class BatchExecutionResult {
             completedTemplates: data.completedTemplates || 0,
             successfulTemplates: data.successfulTemplates || 0,
             failedTemplates: data.failedTemplates || 0,
+            skippedTemplates: data.skippedTemplates || 0,
             startedAt: data.startedAt || null,
             completedAt: data.completedAt || null,
             durationMs: data.durationMs || 0,

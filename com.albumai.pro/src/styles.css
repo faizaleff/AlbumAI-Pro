@@ -43,3 +43,308 @@
     opacity: 0.5;
     cursor: default;
 }
+
+.photo-browser-toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px 10px;
+    min-width: 0;
+    padding: 8px;
+    margin-bottom: 0;
+    overflow: visible;
+    background: #292929;
+    border: 1px solid #424242;
+    border-bottom: 0;
+    border-radius: 7px 7px 0 0;
+}
+
+.photo-browser-toolbar-group {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.photo-browser-shell {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 180px;
+    overflow: hidden;
+}
+
+.photo-browser-control {
+    flex: 0 0 auto;
+    min-width: 0;
+    min-height: 30px;
+    box-sizing: border-box;
+    padding: 5px 10px;
+    border: 1px solid #606060;
+    border-radius: 5px;
+    color: #f4f4f4;
+    background: #383838;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+    white-space: nowrap;
+    transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 80ms ease;
+}
+
+button.photo-browser-control {
+    cursor: pointer;
+}
+
+button.photo-browser-control:hover:not(:disabled) {
+    background: #484848;
+    border-color: #7a7a7a;
+}
+
+button.photo-browser-control:active:not(:disabled) {
+    background: #303030;
+    transform: translateY(1px);
+}
+
+.photo-browser-control:focus,
+.photo-browser-control:focus-visible {
+    outline: 2px solid #62a8ff;
+    outline-offset: 2px;
+}
+
+.photo-browser-control:disabled {
+    color: #858585;
+    background: #303030;
+    border-color: #454545;
+    cursor: default;
+    opacity: 0.72;
+}
+
+.photo-browser-view-button.is-active {
+    color: #fff;
+    background: #174b7a;
+    border-color: #5aa8ff;
+    box-shadow: inset 0 0 0 1px rgba(110, 180, 255, 0.25);
+}
+
+.photo-browser-view-button.is-active:hover {
+    background: #1b568c;
+}
+
+.photo-browser-control-icon {
+    display: inline-flex;
+    width: 14px;
+    height: 14px;
+    margin-right: 5px;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    line-height: 14px;
+}
+
+.photo-browser-sort-group {
+    flex: 1 1 225px;
+}
+
+.photo-browser-sort-label {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    color: #cfcfcf;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.photo-browser-sort-select {
+    flex: 1 1 110px !important;
+    min-width: 100px !important;
+    max-width: 180px;
+    color: #fff;
+    background: #343434;
+    padding-right: 24px;
+}
+
+.photo-browser-selection-group button {
+    min-width: 68px;
+}
+
+.photo-browser-selection-group {
+    margin-left: auto;
+}
+
+.photo-browser-direction-button {
+    min-width: 62px;
+}
+
+.photo-browser-content {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+    border-right: 1px solid #424242;
+    border-left: 1px solid #424242;
+}
+
+.photo-browser-viewport {
+    scrollbar-color: #626262 #292929;
+}
+
+.photo-browser-state {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 28px 18px;
+    text-align: center;
+    color: #f1f1f1;
+    background: #2f2f2f;
+}
+
+.photo-browser-state h2 {
+    margin: 9px 0 5px;
+    font-size: 17px;
+    font-weight: 650;
+}
+
+.photo-browser-state p {
+    max-width: 330px;
+    margin: 0 0 16px;
+    color: #b9b9b9;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.photo-browser-state .photo-browser-folder-message {
+    margin-top: -7px;
+    color: #e8b36a;
+}
+
+.photo-browser-empty-icon {
+    font-size: 36px;
+    line-height: 1;
+}
+
+.photo-browser-primary-button {
+    min-width: 112px;
+    color: #fff;
+    background: #1769aa;
+    border-color: #4d9fe0;
+}
+
+.photo-browser-primary-button:hover:not(:disabled) {
+    background: #2079bd;
+}
+
+.photo-browser-spinner {
+    width: 25px;
+    height: 25px;
+    box-sizing: border-box;
+    border: 3px solid #555;
+    border-top-color: #62a8ff;
+    border-radius: 50%;
+    animation: photo-browser-spin 900ms linear infinite;
+}
+
+@keyframes photo-browser-spin {
+    to { transform: rotate(360deg); }
+}
+
+.photo-browser-statusbar {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px 16px;
+    min-height: 28px;
+    box-sizing: border-box;
+    padding: 5px 9px;
+    color: #bdbdbd;
+    background: #292929;
+    border: 1px solid #424242;
+    border-radius: 0 0 7px 7px;
+    font-size: 10px;
+}
+
+.photo-browser-statusbar strong {
+    color: #ededed;
+    font-weight: 600;
+}
+
+.photo-thumbnail-card {
+    box-sizing: border-box;
+    background: #393939;
+    border: 2px solid #484848;
+    transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.photo-thumbnail-card:hover {
+    background: #444;
+    border-color: #707070;
+    transform: translateY(-1px);
+}
+
+.photo-thumbnail-card.is-selected {
+    background: #243d58;
+    border-color: #58a8ff;
+    box-shadow: inset 0 0 0 1px rgba(128, 193, 255, 0.35);
+}
+
+.photo-grid-item.is-focused .photo-thumbnail-card {
+    outline: 2px solid #a9d3ff;
+    outline-offset: -4px;
+}
+
+.photo-list-row {
+    background: #292929;
+    border-bottom: 1px solid #414141;
+    transition: background-color 100ms ease, box-shadow 100ms ease;
+}
+
+.photo-list-row:hover {
+    background: #383838;
+}
+
+.photo-list-row.is-selected {
+    background: #294564;
+}
+
+.photo-list-row.is-focused {
+    box-shadow: inset 0 0 0 2px #8ec5ff;
+}
+
+@media (max-width: 420px) {
+    .photo-browser-toolbar {
+        gap: 6px;
+    }
+
+    .photo-browser-sort-group {
+        flex-basis: 100%;
+    }
+
+    .photo-browser-selection-group {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .photo-browser-selection-group .photo-browser-control {
+        flex: 1 1 auto;
+    }
+
+    .photo-browser-statusbar {
+        gap: 4px 10px;
+    }
+}

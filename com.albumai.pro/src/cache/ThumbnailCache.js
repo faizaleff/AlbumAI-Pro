@@ -2,7 +2,7 @@ import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 
 class ThumbnailCache {
 
-    constructor(maxItems = 2000) {
+    constructor(maxItems = 250) {
 
         this.maxItems = maxItems;
         this.cache = new Map();
@@ -40,6 +40,16 @@ class ThumbnailCache {
         }
 
         if (this.cache.has(key)) {
+            const previous = this.cache.get(key);
+            if (
+                previous?.value !== value &&
+                typeof previous?.value === "string" &&
+                previous.value.startsWith("blob:")
+            ) {
+                PhotoBrowserPerformance.releaseObjectUrl(
+                    previous.value
+                );
+            }
             this.cache.delete(key);
         }
 
@@ -49,6 +59,9 @@ class ThumbnailCache {
         });
 
         this.evict();
+        PhotoBrowserPerformance.trace("THUMB_CACHE_SIZE", {
+            size: this.cache.size
+        });
 
     }
 
@@ -78,6 +91,10 @@ class ThumbnailCache {
             } catch (_) {}
 
             this.cache.delete(oldestKey);
+            PhotoBrowserPerformance.trace("THUMB_CACHE_EVICT", {
+                key: oldestKey,
+                size: this.cache.size
+            });
 
         }
 
@@ -178,4 +195,4 @@ class ThumbnailCache {
 
 }
 
-export default new ThumbnailCache(2000);
+export default new ThumbnailCache(250);

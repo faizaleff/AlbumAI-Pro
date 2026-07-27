@@ -1,4 +1,4 @@
-export const BATCH_RECOVERY_SCHEMA_VERSION = 1;
+export const BATCH_RECOVERY_SCHEMA_VERSION = 2;
 
 /** Immutable, serializable orchestration checkpoint for a project batch. */
 export default class BatchRecoverySnapshot {
@@ -28,6 +28,10 @@ export default class BatchRecoverySnapshot {
             warnings: data.warnings || [],
             fatalError: data.fatalError || null,
             runMode: data.runMode || "PROCESS_PROJECT"
+            ,selectedPhotoOrder: data.selectedPhotoOrder || []
+            ,photoCursor: Number.isInteger(data.photoCursor) ? data.photoCursor : 0
+            ,consumedPhotoIds: data.consumedPhotoIds || []
+            ,remainingPhotoIds: data.remainingPhotoIds || []
         });
     }
 

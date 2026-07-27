@@ -31,14 +31,16 @@ export default class BatchExecutionService {
         const templateResults = [];
         let successfulTemplates = 0;
         let failedTemplates = 0;
+        let skippedTemplates = 0;
         const emit = (status, currentIndex = -1, fatalError = null) => {
-            const completedTemplates = successfulTemplates + failedTemplates;
+            const completedTemplates = successfulTemplates + failedTemplates + skippedTemplates;
             const result = new BatchExecutionResult({
                 status,
                 totalTemplates: queue.total,
                 completedTemplates,
                 successfulTemplates,
                 failedTemplates,
+                skippedTemplates,
                 startedAt,
                 completedAt: status === BatchExecutionStatus.RUNNING ? null : new Date().toISOString(),
                 durationMs: Date.now() - startedMs,
@@ -62,13 +64,21 @@ export default class BatchExecutionService {
 
                 try {
                     const result = await executeTemplate(template, index, queue.total);
-                    const failed = result?.status === "FAILED";
-                    templateResults.splice(index, 1, this.templateResult(template, failed ? "FAILED" : "COMPLETED", {
+                    // Callback completion is not proof of a usable template
+                    // result. Only the explicit terminal success status counts.
+                    const succeeded = result?.status === "COMPLETED";
+                    const skipped = result?.status === "SKIPPED_NO_PHOTOS";
+                    const failed = !succeeded && !skipped;
+                    templateResults.splice(index, 1, this.templateResult(template, skipped ? "SKIPPED_NO_PHOTOS" : (failed ? "FAILED" : "COMPLETED"), {
                         ...result,
+                        error: failed
+                            ? result?.error || "Template execution did not report successful replacement."
+                            : null,
                         startedAt: running.startedAt
                     }));
                     if (failed) failedTemplates += 1;
-                    else successfulTemplates += 1;
+                    else if (succeeded) successfulTemplates += 1;
+                    else if (skipped) skippedTemplates += 1;
                 } catch (error) {
                     failedTemplates += 1;
                     templateResults.splice(index, 1, this.templateResult(template, "FAILED", {
@@ -103,6 +113,11 @@ export default class BatchExecutionService {
             warnings: data.warnings || [],
             error: data.error || null,
             executionSummary: data.executionSummary || null,
+            placementResult: data.placementResult || null,
+            executionPlan: data.executionPlan || null,
+            replacementRequest: data.replacementRequest || null,
+            photoAllocation: data.photoAllocation || null,
+            templateContext: data.templateContext || null,
             documentContext: data.documentContext || null,
             startedAt,
             completedAt,

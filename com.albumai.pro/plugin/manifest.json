@@ -17,6 +17,13 @@
 
   "entrypoints": [
     {
+      "type": "command",
+      "id": "selectAllPhotos",
+      "label": {
+        "default": "Select All Photos"
+      }
+    },
+    {
       "type": "panel",
       "id": "albumai",
 

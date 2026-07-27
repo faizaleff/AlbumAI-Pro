@@ -6,17 +6,18 @@ const MAX_CONCURRENT = 2;
 const REFRESH_BATCH_SIZE = 6;
 const REFRESH_INTERVAL_MS = 75;
 
-const PRIORITY = Object.freeze({
+export const ThumbnailPriority = Object.freeze({
     SELECTED: 0,
     VISIBLE: 1,
-    REMAINING: 2
+    OVERSCAN: 2,
+    REMAINING: 3
 });
 
 class ThumbnailQueue {
 
     constructor() {
 
-        this.queues = [[], [], []];
+        this.queues = [[], [], [], []];
         this.queued = new Set();
         this.active = new Set();
         this.activeGenerations = new Map();
@@ -27,32 +28,50 @@ class ThumbnailQueue {
         this.onThumbnailReady = null;
         this.completedSinceRefresh = 0;
         this.refreshTimer = null;
+        this.viewportPhotos = new Set();
+        this.cancelled = new Set();
 
     }
 
-    add(photo, priority = PRIORITY.REMAINING) {
+    add(photo, priority = ThumbnailPriority.REMAINING) {
 
         if (
             !photo ||
             photo.loaded ||
+            photo.thumbnailUnavailable === true ||
             this.active.has(photo) ||
             this.queued.has(photo)
         ) return;
 
-        this.queues[priority].push(photo);
-        this.queued.add(photo);
+        const cached = ThumbnailService.getCachedThumbnail(photo, {
+            diagnostic: false
+        });
 
-        if (!this.timings.has(photo)) {
-            this.timings.set(photo, {
-                queuedAt:
-                    PhotoBrowserPerformance.timestamp()
+        if (cached) {
+            photo.setThumbnail?.(cached);
+            photo.thumbnail = cached;
+            photo.loaded = true;
+            PhotoBrowserPerformance.trace("THUMB_MODEL_UPDATED", {
+                photoId: photo?.id || null,
+                cacheKey: null,
+                resultStatus: "CACHE_HIT",
+                sourceType: typeof cached,
+                sourcePresent: true,
+                generation: this.generation,
+                cacheSize: null
             });
+            return;
         }
-        this.process();
+
+        // With no compliant source producer, a cache miss is a final browser
+        // placeholder state. Avoid creating thousands of no-op queue jobs.
+        photo.thumbnailUnavailable = true;
+        photo.loaded = true;
+        return;
 
     }
 
-    addBatch(photos = [], priority = PRIORITY.REMAINING) {
+    addBatch(photos = [], priority = ThumbnailPriority.REMAINING) {
 
         for (const photo of photos) {
             this.add(photo, priority);
@@ -62,14 +81,50 @@ class ThumbnailQueue {
 
     addPriority(photo) {
 
-        this.reprioritize(photo, PRIORITY.SELECTED);
+        this.reprioritize(photo, ThumbnailPriority.SELECTED);
 
     }
 
     setVisible(photos = []) {
 
         for (const photo of photos) {
-            this.reprioritize(photo, PRIORITY.VISIBLE);
+            this.reprioritize(photo, ThumbnailPriority.VISIBLE);
+        }
+
+    }
+
+    setViewport({ visible = [], overscan = [] } = {}) {
+
+        this.viewportPhotos = new Set([...visible, ...overscan]);
+        this.cancelOutsideViewport();
+
+        for (const photo of overscan) {
+            this.reprioritize(photo, ThumbnailPriority.OVERSCAN);
+        }
+
+        for (const photo of visible) {
+            this.reprioritize(photo, ThumbnailPriority.VISIBLE);
+        }
+
+    }
+
+    cancelOutsideViewport() {
+
+        for (const queue of this.queues) {
+            for (let index = queue.length - 1; index >= 0; index -= 1) {
+                const photo = queue[index];
+                if (!this.viewportPhotos.has(photo)) {
+                    queue.splice(index, 1);
+                    this.queued.delete(photo);
+                    this.timings.delete(photo);
+                }
+            }
+        }
+
+        for (const photo of this.active) {
+            if (!this.viewportPhotos.has(photo)) {
+                this.cancelled.add(photo);
+            }
         }
 
     }
@@ -108,6 +163,7 @@ class ThumbnailQueue {
             this.running++;
             this.queued.delete(photo);
             this.active.add(photo);
+            this.cancelled.delete(photo);
             this.activeGenerations.set(photo, generation);
             const performanceSession =
                 PhotoBrowserPerformance.thumbnailStarted();
@@ -131,6 +187,9 @@ class ThumbnailQueue {
                 generation,
                 performanceSession
             );
+            PhotoBrowserPerformance.trace("ACTIVE_THUMBNAIL_JOBS", {
+                active: this.running
+            });
         }
 
     }
@@ -163,44 +222,66 @@ class ThumbnailQueue {
             const timing = this.timings.get(photo) || {};
             timing.serviceStart =
                 PhotoBrowserPerformance.timestamp();
-            const thumbnail =
-                await ThumbnailService.getThumbnail(photo);
+            const result = ThumbnailService.getThumbnailResult(photo);
+            const thumbnail = result.source;
             timing.serviceEnd =
                 PhotoBrowserPerformance.timestamp();
             this.timings.set(photo, timing);
 
             if (
+                result.status === "CACHE_HIT" &&
                 thumbnail &&
                 generation === this.generation
             ) {
                 photo.setThumbnail?.(thumbnail);
                 photo.thumbnail = thumbnail;
                 photo.loaded = true;
+                PhotoBrowserPerformance.trace("THUMB_MODEL_UPDATED", {
+                    photoId: photo?.id || null,
+                    cacheKey: result.cacheKey,
+                    resultStatus: result.status,
+                    sourceType: typeof thumbnail,
+                    sourcePresent: true,
+                    generation,
+                    cacheSize: null
+                });
 
                 if (
-                    ThumbnailService.isPlaceholder(thumbnail)
+                    !this.cancelled.has(photo) &&
+                    typeof this.onThumbnailReady === "function"
                 ) {
-                    PhotoBrowserPerformance.thumbnailVisible(
-                        photo.id
-                    );
-                }
-
-                if (typeof this.onThumbnailReady === "function") {
                     this.onThumbnailReady(photo);
                 }
             } else if (
-                thumbnail &&
-                this.discardedGenerations.has(generation)
+                result.status === "UNSUPPORTED" &&
+                generation === this.generation &&
+                !this.cancelled.has(photo)
             ) {
-                ThumbnailService.removeThumbnail(photo);
+                // Browser tiles are cached-thumbnail-only. Do not requeue an
+                // uncached file when the host cannot generate one without
+                // opening a Photoshop document.
+                photo.thumbnailUnavailable = true;
+                photo.loaded = true;
+            } else {
+                PhotoBrowserPerformance.trace("THUMB_STALE_RESULT_IGNORED", {
+                    photoId: photo?.id || null,
+                    cacheKey: null,
+                    generation,
+                    viewMode: null,
+                    visible: this.viewportPhotos.has(photo)
+                });
             }
         } catch (error) {
             console.error("ThumbnailQueue:", error);
         } finally {
             photo.loading = false;
+            this.cancelled.delete(photo);
             this.active.delete(photo);
             this.activeGenerations.delete(photo);
             this.running = Math.max(0, this.running - 1);
+            PhotoBrowserPerformance.trace("ACTIVE_THUMBNAIL_JOBS", {
+                active: this.running
+            });
             if (
                 ![...this.activeGenerations.values()]
                     .includes(generation)
@@ -315,6 +396,8 @@ class ThumbnailQueue {
             queue.length = 0;
         });
         this.queued.clear();
+        this.viewportPhotos.clear();
+        this.cancelled.clear();
         this.flushRefresh();
 
     }

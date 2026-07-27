@@ -8,6 +8,7 @@ import TemplateDocumentReader from "../services/TemplateDocumentReader";
 import TemplateRegistry from "../services/TemplateRegistry";
 import Template from "../templates/Template";
 import ProjectTemplateRegistry from "../project/ProjectTemplateRegistry";
+import Logger from "../core/photoshop/Logger";
 import PhotoPlacementEngine from "../placement/PhotoPlacementEngine";
 import PlacementExecutionPlanBuilder from "../placement/PlacementExecutionPlanBuilder";
 import ReplacementRequest from "../placement/ReplacementRequest";
@@ -106,6 +107,7 @@ class AppController {
         this.recoveryWriteGeneration = 0;
         this.lastRecoveryClearResult = null;
         this.projectBatchRunning = false;
+        this.registryMutationInProgress = false;
 
     }
 
@@ -194,6 +196,18 @@ class AppController {
         this.clearCurrentPlacementPlan();
 
         return photos;
+
+    }
+
+    getPhotoFolderStatus() {
+
+        return this.photoWorkspace.getPhotoFolderStatus();
+
+    }
+
+    markPhotoFolderUnavailable() {
+
+        this.photoWorkspace.markPhotoFolderUnavailable();
 
     }
 
@@ -675,6 +689,9 @@ class AppController {
             },
             exportEnabled: this.exportEnabled,
             exportFormat: this.exportFormat,
+            selectedPhotoIds: this.batchRecoverySnapshot?.selectedPhotoOrder ||
+                photos.filter(photo => photo?.selected).map(photo => photo.id),
+            photoCursor: this.batchRecoverySnapshot?.photoCursor || 0,
             onExportResult: result => {
                 this.currentExportResult = result;
             },
@@ -696,7 +713,6 @@ class AppController {
                         failedTemplates: batch?.failedTemplates || 0
                     })
                 });
-                this.updateRecoveryStage(progress);
                 if (typeof onUpdate === "function") onUpdate(this.currentProjectExecutionSummary);
             },
             onProgress: batch => {
@@ -780,9 +796,19 @@ class AppController {
         const failed = new Set(snapshot.failedTemplateIds);
         const templates = this.projectTemplateRegistry.getAll().filter(item => failed.has(item.id));
         if (!templates.length) throw new Error("There are no failed templates to retry.");
+        const firstFailedAllocation = (snapshot.templateOutcomes || [])
+            .find(item => failed.has(item.templateId))?.photoAllocation;
+        const retryCursor = Number.isInteger(firstFailedAllocation?.startCursor)
+            ? firstFailedAllocation.startCursor
+            : snapshot.photoCursor;
         return this.executeProject(onUpdate, {
             templates,
-            previous: snapshot,
+            previous: {
+                ...snapshot,
+                photoCursor: retryCursor,
+                consumedPhotoIds: snapshot.selectedPhotoOrder.slice(0, retryCursor),
+                remainingPhotoIds: snapshot.selectedPhotoOrder.slice(retryCursor)
+            },
             runMode: "RETRY_FAILED"
         });
     }
@@ -878,7 +904,7 @@ class AppController {
             this.batchRecoveryClassification = null;
             return;
         }
-        if (raw.schemaVersion !== BATCH_RECOVERY_SCHEMA_VERSION) {
+        if (raw.schemaVersion > BATCH_RECOVERY_SCHEMA_VERSION) {
             this.batchRecoverySnapshot = BatchRecoverySnapshot.freeze(raw);
             this.batchRecoveryClassification = "INCOMPATIBLE";
             return;
@@ -928,6 +954,12 @@ class AppController {
             ? previous.queueOrder
             : registryTemplates.map(item => item.id);
         const successfulTemplateIds = previous?.successfulTemplateIds || [];
+        const selectedPhotoOrder = previous?.selectedPhotoOrder?.length
+            ? previous.selectedPhotoOrder
+            : this.photoWorkspace.getPhotos()
+                .filter(photo => photo?.selected)
+                .map(photo => photo.id);
+        const photoCursor = previous?.photoCursor || 0;
         this.batchRecoverySnapshot = new BatchRecoverySnapshot({
             recoveryVersion: (previous?.recoveryVersion || 0) + 1,
             projectId,
@@ -951,7 +983,13 @@ class AppController {
             lastCompletedStage: "IDLE",
             templateOutcomes: previous?.templateOutcomes || [],
             warnings: previous?.warnings || [],
-            runMode
+            runMode,
+            selectedPhotoOrder,
+            photoCursor,
+            consumedPhotoIds: previous?.consumedPhotoIds ||
+                selectedPhotoOrder.slice(0, photoCursor),
+            remainingPhotoIds: previous?.remainingPhotoIds ||
+                selectedPhotoOrder.slice(photoCursor)
         });
         this.batchRecoveryClassification = null;
         await this.persistRecoverySnapshot();
@@ -974,15 +1012,23 @@ class AppController {
 
     updateRecoveryBatch(batch) {
         if (!batch || !this.batchRecoverySnapshot) return;
+        const terminalResults = (batch.templateResults || []).filter(
+            item => item.status !== "RUNNING"
+        );
+        // A recovery checkpoint represents only a durable template outcome.
+        // Save, export, and document close have all completed before the
+        // executor reports a terminal template result.
+        if (!terminalResults.length) return;
         const current = this.batchRecoverySnapshot;
         const priorOutcomes = new Map((current.templateOutcomes || []).map(item => [item.templateId, item]));
-        (batch.templateResults || []).filter(item => item.status !== "RUNNING").forEach(item => {
+        terminalResults.forEach(item => {
             priorOutcomes.set(item.templateId, {
                 templateId: item.templateId,
                 templateName: item.templateName,
                 status: item.status,
                 warnings: item.warnings || [],
-                error: item.error || null
+                error: item.error || null,
+                photoAllocation: item.photoAllocation || null
             });
         });
         const outcomes = [...priorOutcomes.values()];
@@ -994,6 +1040,13 @@ class AppController {
         const failed = outcomes.filter(item => item.status === "FAILED").map(item => item.templateId);
         const completed = outcomes.map(item => item.templateId);
         const pending = current.queueOrder.filter(id => !completed.includes(id));
+        const successfulAllocations = terminalResults.filter(item =>
+            item.status === "COMPLETED"
+        ).map(item => item.photoAllocation).filter(Boolean);
+        const photoCursor = successfulAllocations.reduce(
+            (cursor, allocation) => Math.max(cursor, allocation.endCursor || 0),
+            current.photoCursor || 0
+        );
         let lifecycle = batch.status;
         if (batch.status !== "RUNNING" && batch.status !== "FAILED") {
             lifecycle = failed.length ? "COMPLETED_WITH_ERRORS" : (pending.length ? "INTERRUPTED" : "COMPLETED");
@@ -1012,7 +1065,10 @@ class AppController {
             lastCompletedStage: lifecycle === "FAILED" ? "FAILED" : current.lastCompletedStage,
             templateOutcomes: outcomes,
             warnings: batch.warnings || current.warnings,
-            fatalError: batch.fatalError || null
+            fatalError: batch.fatalError || null,
+            photoCursor,
+            consumedPhotoIds: current.selectedPhotoOrder.slice(0, photoCursor),
+            remainingPhotoIds: current.selectedPhotoOrder.slice(photoCursor)
         });
         this.batchRecoveryClassification = null;
         this.queueRecoveryWrite();
@@ -1139,27 +1195,84 @@ class AppController {
     getRegisteredProjectTemplates() { return this.projectTemplateRegistry.getAll(); }
 
     async addCurrentPsdToProject(file) {
-        if (this.projectBatchRunning) throw new Error("A project batch is already running.");
-        const descriptor = this.projectTemplateRegistry.add(file);
-        if (this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
-        await this.saveProject(
-            undefined,
-            { reason: "TEMPLATE_REGISTRY_ADD" }
-        );
-        return descriptor;
+        if (this.projectBatchRunning || this.registryMutationInProgress) {
+            throw new Error("Template registry is currently unavailable.");
+        }
+        this.registryMutationInProgress = true;
+        try {
+            const descriptor = this.projectTemplateRegistry.add(file);
+            if (this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
+            await this.saveProject(
+                undefined,
+                { reason: "TEMPLATE_REGISTRY_ADD" }
+            );
+            return descriptor;
+        } finally {
+            this.registryMutationInProgress = false;
+        }
     }
 
     async removeRegisteredProjectTemplate(id) {
-        if (this.projectBatchRunning) throw new Error("A project batch is already running.");
-        const removed = this.projectTemplateRegistry.remove(id);
-        if (removed && this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
-        if (removed) {
-            await this.saveProject(
-                undefined,
-                { reason: "TEMPLATE_REGISTRY_REMOVE" }
-            );
+        if (this.projectBatchRunning || this.registryMutationInProgress) {
+            throw new Error("Template registry is currently unavailable.");
         }
-        return removed;
+        this.registryMutationInProgress = true;
+        try {
+            const removed = this.projectTemplateRegistry.remove(id);
+            if (removed && this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
+            if (removed) {
+                await this.saveProject(
+                    undefined,
+                    { reason: "TEMPLATE_REGISTRY_REMOVE" }
+                );
+            }
+            return removed;
+        } finally {
+            this.registryMutationInProgress = false;
+        }
+    }
+
+    async moveRegisteredProjectTemplate(id, targetIndex, method = "drag") {
+        const entries = this.projectTemplateRegistry.getAll();
+        const previousIndex = entries.findIndex(entry => entry.id === id);
+        const template = entries[previousIndex];
+        const details = {
+            templateId: id,
+            templateName: template?.name || "",
+            previousIndex,
+            nextIndex: targetIndex,
+            sourceIndex: previousIndex,
+            targetIndex,
+            registryCount: entries.length,
+            method,
+            batchRunning: this.projectBatchRunning,
+            mutationRunning: this.registryMutationInProgress,
+            persisted: false
+        };
+        if (this.projectBatchRunning || this.registryMutationInProgress ||
+            !template || !Number.isInteger(targetIndex) ||
+            targetIndex < 0 || targetIndex >= entries.length ||
+            targetIndex === previousIndex) {
+            Logger.warn(`TEMPLATE_REORDER_REJECTED ${JSON.stringify(details)}`);
+            return false;
+        }
+
+        this.registryMutationInProgress = true;
+        Logger.info(`TEMPLATE_REORDER_BEGIN ${JSON.stringify(details)}`);
+        try {
+            const moved = this.projectTemplateRegistry.move(id, targetIndex);
+            if (!moved) {
+                Logger.warn(`TEMPLATE_REORDER_REJECTED ${JSON.stringify(details)}`);
+                return false;
+            }
+            if (this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
+            await this.saveProject(undefined, { reason: "TEMPLATE_REGISTRY_REORDER" });
+            details.persisted = true;
+            Logger.info(`TEMPLATE_REORDER_DONE ${JSON.stringify(details)}`);
+            return true;
+        } finally {
+            this.registryMutationInProgress = false;
+        }
     }
 
     async openTemplateDocument(file) {

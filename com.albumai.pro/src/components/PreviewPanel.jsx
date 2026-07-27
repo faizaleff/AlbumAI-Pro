@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import PhotoImage from "./PhotoImage";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+import { getPhotoFileEntry } from "../services/PhotoFileEntry";
 
 function PreviewPanel({
     photos = [],
     selection,
+    focusedPhotoId = null,
     executionDetails
 }) {
 
@@ -12,6 +14,7 @@ function PreviewPanel({
     const [selectedPhotoId, setSelectedPhotoId] = useState(
         () => selection?.getSelected()[0]?.id || null
     );
+    const [previewState, setPreviewState] = useState("idle");
 
     useEffect(() => {
 
@@ -47,9 +50,15 @@ function PreviewPanel({
 
     }, [photos, selection]);
 
-    const activePhoto = selectedPhotoId == null
+    const activePhotoId = focusedPhotoId || selectedPhotoId;
+    const activePhoto = activePhotoId == null
         ? null
-        : photos.find(photo => photo?.id === selectedPhotoId) || null;
+        : photos.find(photo => photo?.id === activePhotoId) || null;
+    const activeFileEntry = getPhotoFileEntry(activePhoto);
+
+    useEffect(() => {
+        setPreviewState(activeFileEntry ? "loading" : "unavailable");
+    }, [activeFileEntry, activePhoto?.id]);
 
     useEffect(() => {
 
@@ -57,11 +66,7 @@ function PreviewPanel({
             "PREVIEW_SOURCE_CHANGED",
             {
                 name: activePhoto?.name || null,
-                source: activePhoto?.thumbnail
-                    ? "thumbnail"
-                    : activePhoto?.file
-                        ? "file-fallback"
-                        : "none"
+                source: activeFileEntry ? "original-file" : "none"
             }
         );
 
@@ -74,7 +79,7 @@ function PreviewPanel({
             );
         };
 
-    }, [activePhoto?.id, activePhoto?.thumbnail]);
+    }, [activeFileEntry, activePhoto?.id, activePhoto?.thumbnail]);
 
     return (
         <div
@@ -102,10 +107,17 @@ function PreviewPanel({
                         style={{ position: "relative", height: 240, background: "#1f1f1f", border: "1px solid #444", borderRadius: 6, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
                         <PhotoImage
-                            photo={activePhoto}
+                            photoId={activePhoto.id}
+                            fileEntry={activeFileEntry}
+                            cachedSource={null}
+                            role="preview"
+                            viewMode="preview"
+                            retryGeneration={0}
                             alt={activePhoto.name}
-                            fallback={activePhoto.loading ? (
-                                <div style={{ color: "#aaa", fontSize: 14 }}>Loading...</div>
+                            onImageLoad={() => setPreviewState("ready")}
+                            onImageError={() => setPreviewState("unavailable")}
+                            fallback={previewState === "loading" ? (
+                                <div style={{ color: "#aaa", fontSize: 14 }}>Loading preview…</div>
                             ) : (
                                 <div style={{ color: "#888", fontSize: 14 }}>Preview unavailable</div>
                             )}
@@ -122,7 +134,7 @@ function PreviewPanel({
                         {activePhoto.width > 0 && activePhoto.height > 0 && <div><strong>Dimensions:</strong> {activePhoto.width} × {activePhoto.height}</div>}
                         {activePhoto.file?.size > 0 && <div><strong>Size:</strong> {(activePhoto.file.size / 1024 / 1024).toFixed(2)} MB</div>}
                         {(activePhoto.file?.type || activePhoto.extension) && <div style={{ overflowWrap: "anywhere" }}><strong>Type:</strong> {activePhoto.file?.type || activePhoto.extension}</div>}
-                        <div><strong>Status:</strong> {activePhoto.loaded ? "Ready" : "Loading"}</div>
+                        <div><strong>Status:</strong> {previewState === "ready" ? "Ready" : previewState === "loading" ? "Loading preview…" : "Preview unavailable"}</div>
                     </div>
                 </>}
             </div>

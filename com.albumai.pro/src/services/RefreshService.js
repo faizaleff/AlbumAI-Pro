@@ -4,18 +4,23 @@ class RefreshService {
 
     constructor() {
 
-        this.listeners = [];
+        this.listeners = new Set();
 
     }
 
     subscribe(listener) {
 
-        this.listeners.push(listener);
+        this.listeners.add(listener);
+        PhotoBrowserPerformance.trace("REFRESH_SUBSCRIBE", {
+            subscribers: this.listeners.size
+        });
 
         return () => {
 
-            this.listeners =
-                this.listeners.filter(l => l !== listener);
+            this.listeners.delete(listener);
+            PhotoBrowserPerformance.trace("REFRESH_UNSUBSCRIBE", {
+                subscribers: this.listeners.size
+            });
 
         };
 
@@ -28,10 +33,16 @@ class RefreshService {
             "publish",
             {
                 scope,
-                listeners: this.listeners.length
+                listeners: this.listeners.size
             }
         );
-        this.listeners.forEach(listener => listener(scope));
+        const listeners = [...this.listeners];
+        PhotoBrowserPerformance.trace("REFRESH_SUBSCRIBER_COUNT", {
+            subscribers: listeners.length
+        });
+        listeners.forEach(listener => {
+            if (this.listeners.has(listener)) listener(scope);
+        });
 
     }
 

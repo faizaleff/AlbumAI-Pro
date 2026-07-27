@@ -1,9 +1,13 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useRef,
+    useState
+} from "react";
 
 import PhotoBrowserSection from "./PhotoBrowserSection";
 import PreviewPanel from "./PreviewPanel";
 import TemplateDocumentPanel from "./TemplateDocumentPanel";
-import Toolbar from "./Toolbar";
 import SelectionCount from "./SelectionCount";
 
 import App from "../app/AppController";
@@ -16,6 +20,12 @@ export default function OpenFolder() {
     const [projectName, setProjectName] = useState("");
     const [projectError, setProjectError] = useState(null);
     const [executionDetails, setExecutionDetails] = useState(null);
+    const [focusedPhotoId, setFocusedPhotoId] = useState(null);
+    const [isImportingPhotos, setIsImportingPhotos] = useState(false);
+    const [importedPhotoCount, setImportedPhotoCount] = useState(0);
+    const [photoFolderAvailable, setPhotoFolderAvailable] = useState(false);
+    const [photoFolderMessage, setPhotoFolderMessage] = useState(null);
+    const unavailableDiagnosticRef = useRef(null);
     const [, forceRefresh] = useState(0);
 
     PhotoBrowserPerformance.recordRender("OpenFolder");
@@ -25,6 +35,79 @@ export default function OpenFolder() {
     useEffect(() => {
         PhotoBrowserPerformance.markPublished();
     });
+
+    const markFolderUnavailable = useCallback((
+        reason,
+        hadFolderReference
+    ) => {
+        App.markPhotoFolderUnavailable();
+        setPhotoFolderAvailable(false);
+        setPhotoFolderMessage(
+            hadFolderReference
+                ? "Photo folder is unavailable. Open the folder again."
+                : null
+        );
+
+        const diagnosticKey =
+            `${project?.metadata?.id || "no-project"}:${reason}`;
+        if (unavailableDiagnosticRef.current !== diagnosticKey) {
+            unavailableDiagnosticRef.current = diagnosticKey;
+            PhotoBrowserPerformance.trace(
+                "PHOTO_FOLDER_UNAVAILABLE",
+                {
+                    reason,
+                    hadFolderReference,
+                    photoCount: App.getPhotos().length,
+                    recoverable: true
+                }
+            );
+        }
+    }, [project?.metadata?.id]);
+
+    useEffect(() => {
+        let active = true;
+        unavailableDiagnosticRef.current = null;
+
+        if (!hasProject) {
+            setPhotoFolderAvailable(false);
+            setPhotoFolderMessage(null);
+            return () => {
+                active = false;
+            };
+        }
+
+        App.getPhotoFolderStatus()
+            .then(status => {
+                if (!active) return;
+                if (status.available) {
+                    setPhotoFolderAvailable(true);
+                    setPhotoFolderMessage(null);
+                    return;
+                }
+                markFolderUnavailable(
+                    status.hadFolderReference
+                        ? "folder-reference-unavailable"
+                        : "folder-reference-missing",
+                    status.hadFolderReference
+                );
+            })
+            .catch(error => {
+                if (!active) return;
+                markFolderUnavailable(
+                    error?.message || "folder-validation-failed",
+                    !!project?.metadata?.photoSource
+                );
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [
+        hasProject,
+        markFolderUnavailable,
+        project?.metadata?.id,
+        project?.metadata?.photoSource
+    ]);
 
     useEffect(() => {
 
@@ -56,14 +139,25 @@ export default function OpenFolder() {
     async function openFolder() {
 
         if (!hasProject) {
+            setProjectError("Create or open a project to continue.");
             return;
         }
 
+        let progressTimer = null;
         try {
+            setImportedPhotoCount(App.getPhotos().length);
+            setIsImportingPhotos(true);
+            progressTimer = setInterval(() => {
+                setImportedPhotoCount(App.getPhotos().length);
+            }, 150);
 
             const photos = await App.importPhotos();
 
             if (!photos) return;
+
+            setPhotoFolderAvailable(true);
+            setPhotoFolderMessage(null);
+            unavailableDiagnosticRef.current = null;
 
             if (photos.length > 0) {
 
@@ -81,15 +175,23 @@ export default function OpenFolder() {
         }
         catch (error) {
 
-            console.error("OpenFolder:", error);
+            setPhotoFolderMessage("Unable to open the photo folder. Try again.");
+            PhotoBrowserPerformance.trace("PHOTO_FOLDER_OPEN_FAILED", {
+                recoverable: true
+            });
 
+        }
+        finally {
+            if (progressTimer != null) clearInterval(progressTimer);
+            setImportedPhotoCount(App.getPhotos().length);
+            setIsImportingPhotos(false);
         }
 
     }
 
     async function refreshFolder() {
 
-        if (!hasProject) {
+        if (!hasProject || !photoFolderAvailable) {
             return;
         }
 
@@ -97,11 +199,33 @@ export default function OpenFolder() {
 
             await App.refreshPhotos();
 
+            setPhotoFolderAvailable(true);
+            setPhotoFolderMessage(null);
             forceRefresh(value => value + 1);
 
         }
 
         catch (error) {
+
+            const reason = String(
+                error?.message || error || "folder-refresh-failed"
+            );
+            const isUnavailable = [
+                "no such file or directory",
+                "invalid token",
+                "unavailable volume",
+                "folder before refreshing",
+                "not found",
+                "disconnected"
+            ].some(value => reason.toLowerCase().includes(value));
+
+            if (isUnavailable) {
+                markFolderUnavailable(
+                    reason,
+                    !!project?.metadata?.photoSource
+                );
+                return;
+            }
 
             console.error("Refresh photos:", error);
 
@@ -109,20 +233,9 @@ export default function OpenFolder() {
 
     }
 
-    function selectAll() {
-
-        App.selection.selectAll();
-
-    }
-
-    function clearSelection() {
-
-        App.selection.clear();
-
-    }
-
     const onPhotoClick = useCallback(photo => {
 
+        setFocusedPhotoId(photo?.id || null);
         App.prioritizePhotoThumbnail(photo);
 
     }, []);
@@ -211,6 +324,8 @@ export default function OpenFolder() {
             return;
         }
         setFolderName("");
+        setPhotoFolderAvailable(false);
+        setPhotoFolderMessage(null);
         setProjectError(null);
         forceRefresh(value => value + 1);
 
@@ -226,6 +341,8 @@ export default function OpenFolder() {
 
     const removeRegisteredProjectTemplate = id =>
         App.removeRegisteredProjectTemplate(id);
+    const moveRegisteredProjectTemplate = (id, targetIndex, method) =>
+        App.moveRegisteredProjectTemplate(id, targetIndex, method);
 
     const openTemplate = file =>
         App.openTemplateDocument(file);
@@ -383,19 +500,12 @@ export default function OpenFolder() {
                     )}
                 </section>
 
-                <Toolbar
-                    onOpen={openFolder}
-                    onRefresh={refreshFolder}
-                    onSelectAll={selectAll}
-                    onClearSelection={clearSelection}
-                    projectActive={hasProject}
-                />
-
                 <TemplateDocumentPanel
                     loadTemplates={loadTemplates}
                     getRegisteredProjectTemplates={getRegisteredProjectTemplates}
                     addCurrentPsdToProject={addCurrentPsdToProject}
                     removeRegisteredProjectTemplate={removeRegisteredProjectTemplate}
+                    moveRegisteredProjectTemplate={moveRegisteredProjectTemplate}
                     openTemplate={openTemplate}
                     planPhotoPlacement={planPhotoPlacement}
                     getCurrentPlacementPlan={getCurrentPlacementPlan}
@@ -434,6 +544,15 @@ export default function OpenFolder() {
                 <PhotoBrowserSection
                     photos={App.getPhotos()}
                     onPhotoClick={onPhotoClick}
+                    focusedPhotoId={focusedPhotoId}
+                    onFocusPhoto={setFocusedPhotoId}
+                    projectId={project?.metadata?.id || null}
+                    folderLoaded={photoFolderAvailable}
+                    folderMessage={photoFolderMessage}
+                    onOpenFolder={openFolder}
+                    onRefresh={refreshFolder}
+                    isLoading={isImportingPhotos}
+                    loadingPhotoCount={importedPhotoCount}
                 />
 
             </div>
@@ -441,6 +560,7 @@ export default function OpenFolder() {
             <PreviewPanel
                 photos={App.getPhotos()}
                 selection={App.selection}
+                focusedPhotoId={focusedPhotoId}
                 executionDetails={executionDetails}
             />
 

@@ -1,3 +1,25 @@
+/**
+ * Return a reordered copy without changing either the input array or its entries.
+ * Invalid/no-op moves are deliberately rejected as `null` so callers cannot
+ * accidentally replace a registry with a partial collection.
+ */
+export function reorderTemplates(templates, sourceIndex, targetIndex) {
+    if (!Array.isArray(templates) ||
+        !Number.isInteger(sourceIndex) ||
+        !Number.isInteger(targetIndex) ||
+        sourceIndex < 0 || targetIndex < 0 ||
+        sourceIndex >= templates.length || targetIndex >= templates.length ||
+        sourceIndex === targetIndex) {
+        return null;
+    }
+
+    const reordered = templates.slice();
+    const [template] = reordered.splice(sourceIndex, 1);
+    if (!template) return null;
+    reordered.splice(targetIndex, 0, template);
+    return reordered;
+}
+
 /** Serializable, ordered descriptors for PSDs registered with one project. */
 export default class ProjectTemplateRegistry {
 
@@ -51,6 +73,16 @@ export default class ProjectTemplateRegistry {
         this.entries = this.entries.filter(entry => entry.id !== id)
             .map((entry, registrationOrder) => Object.freeze({ ...entry, registrationOrder }));
         return before !== this.entries.length;
+    }
+
+    move(id, targetIndex) {
+        const sourceIndex = this.entries.findIndex(entry => entry.id === id);
+        const reordered = reorderTemplates(this.entries, sourceIndex, targetIndex);
+        if (!reordered) return null;
+        this.entries = reordered.map((entry, registrationOrder) =>
+            Object.freeze({ ...entry, registrationOrder })
+        );
+        return this.getAll();
     }
 
     updateValidation(id, validationState) {

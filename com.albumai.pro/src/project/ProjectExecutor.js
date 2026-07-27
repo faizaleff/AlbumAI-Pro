@@ -51,10 +51,21 @@ export default class ProjectExecutor {
         registeredTemplates = null,
         resolveTemplate = null,
         releaseTemplate = null,
-        onStageProgress = null
+        onStageProgress = null,
+        photoCursor = 0,
+        selectedPhotoIds = null
     } = {}) {
 
         const queue = new TemplateQueue(templates || this.templates());
+        const selected = this.selectedPhotos(photos, selectedPhotoIds);
+        const distribution = {
+            selected,
+            cursor: Math.max(0, Math.min(photoCursor, selected.length))
+        };
+        this.requireUniqueOutputBaseNames(
+            queue,
+            autoSaveEnabled || exportEnabled
+        );
         const batch = await this.batchExecutionService.execute({
             queue,
             executeTemplate: async (descriptor, index, total) => {
@@ -62,26 +73,57 @@ export default class ProjectExecutor {
                 let completed = false;
                 const emitStage = stage => onStageProgress?.({ descriptor, index, total, stage });
                 try {
+                    if (distribution.cursor >= distribution.selected.length) {
+                        return this.skippedNoPhotos(descriptor, distribution);
+                    }
+                    Logger.info(`BATCH_TEMPLATE_BEGIN: ${descriptor?.name || "PSD Template"} (${index + 1}/${total})`);
                     emitStage("OPENING");
                     template = resolveTemplate ? await resolveTemplate(descriptor) : descriptor;
+                    Logger.info(`BATCH_OPEN_DONE: ${descriptor?.name || template?.name || "PSD Template"}`);
+                    Logger.info(`OPEN_PSD_DONE: ${descriptor?.name || template?.name || "PSD Template"}`);
+                    Logger.info(`SMART_OBJECTS_READY: ${template?.smartObjects?.length || 0}`);
                     emitStage("VALIDATING");
-                    const result = await this.executeTemplate({ project, photos, template, descriptor, autoSaveEnabled, autoSaveMode,
+                    const allocation = this.allocatePhotos(template, distribution);
+                    const result = await this.executeTemplate({ project, photos: allocation.photos, template, descriptor, autoSaveEnabled, autoSaveMode,
                         onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress: emitStage
                     });
                     completed = result.status === "COMPLETED";
-                    return result;
+                    const outcome = {
+                        ...result,
+                        photoAllocation: this.allocationSnapshot(
+                            allocation,
+                            completed ? "COMPLETED" : "FAILED"
+                        ),
+                        warnings: [
+                            ...(result.warnings || []),
+                            ...(allocation.warning ? [allocation.warning] : [])
+                        ]
+                    };
+                    if (completed) distribution.cursor = allocation.endCursor;
+                    else outcome.warnings.push(
+                        "Template failed; selected photos were not consumed."
+                    );
+                    return outcome;
                 } catch (error) {
                     emitStage("FAILED");
                     Logger.warn(`END TEMPLATE: ${descriptor?.name || "PSD Template"} — FAILED`);
                     throw error;
                 } finally {
                     emitStage("CLOSING");
-                    if (typeof releaseTemplate === "function") await releaseTemplate(template, descriptor);
+                    if (typeof releaseTemplate === "function") {
+                        await releaseTemplate(template, descriptor);
+                    }
+                    Logger.info(`BATCH_CLOSE_DONE: ${descriptor?.name || "PSD Template"}`);
+                    Logger.info(`DOCUMENT_CLOSE_DONE: ${descriptor?.name || "PSD Template"}`);
                     emitStage(completed ? "COMPLETED" : "FAILED");
+                    Logger.info(`TEMPLATE_FINAL_OUTCOME: ${completed ? "COMPLETED" : "FAILED"}`);
+                    Logger.info(`BATCH_TEMPLATE_COMPLETE: ${descriptor?.name || "PSD Template"} — ${completed ? "COMPLETED" : "FAILED"}`);
                 }
             },
             onProgress
         });
+
+        Logger.info(`BATCH_QUEUE_COMPLETE: ${batch.completedTemplates}/${batch.totalTemplates} completed, ${batch.failedTemplates} failed`);
 
         return new ProjectExecutionSummary({
             projectId: this.projectId(project),
@@ -92,6 +134,7 @@ export default class ProjectExecutor {
             completedTemplates: batch.completedTemplates,
             successfulTemplates: batch.successfulTemplates,
             failedTemplates: batch.failedTemplates,
+            skippedTemplates: batch.skippedTemplates,
             templateResults: batch.templateResults,
             startedAt: batch.startedAt,
             finishedAt: batch.completedAt,
@@ -106,6 +149,7 @@ export default class ProjectExecutor {
                 completedTemplates: batch.completedTemplates,
                 successfulTemplates: batch.successfulTemplates,
                 failedTemplates: batch.failedTemplates,
+                skippedTemplates: batch.skippedTemplates,
                 remainingTemplates: Math.max(0, batch.totalTemplates - batch.completedTemplates),
                 percentage: batch.totalTemplates ? Math.round((batch.completedTemplates / batch.totalTemplates) * 100) : 0
             },
@@ -125,24 +169,48 @@ export default class ProjectExecutor {
         await this.activateContext(context, "EXECUTION");
         onStageProgress?.("PLANNING");
         const placementResult = this.photoPlacementEngine.plan({ project, photos, template });
+        Logger.info(`TEMPLATE_ASSIGNMENT_COUNT: ${placementResult.assignments?.length || 0}`);
+        this.requireReplacementPlan(placementResult, null, null, context);
         await this.activateContext(context, "EXECUTION PLAN");
         const executionPlan = this.placementExecutionPlanBuilder.build({ placementResult, project, template, photos });
+        Logger.info(`TEMPLATE_PLAN_STEP_COUNT: ${executionPlan.steps?.length || 0}`);
+        this.requireReplacementPlan(placementResult, executionPlan, null, context);
         const request = new ReplacementRequest({ executionPlan });
+        Logger.info(`TEMPLATE_REQUEST_STEP_COUNT: ${request.steps?.length || 0}`);
+        this.requireReplacementPlan(placementResult, executionPlan, request, context);
         await this.activateContext(context, "REPLACEMENT");
         onStageProgress?.("REPLACING");
         const executionSummary = await this.replacementBatchExecutor.execute(request, { photos, templateName: template.name });
+        Logger.info(`BATCH_REPLACE_DONE: ${context.documentName}`);
+        Logger.info(`REPLACEMENT_DONE: ${context.documentName}`);
+        Logger.info(`TEMPLATE_REPLACEMENT_STATUS: ${executionSummary.status}`);
+        Logger.info(`TEMPLATE_REPLACEMENT_COMPLETED: ${executionSummary.status === "COMPLETED"}`);
         await this.activateContext(context, "SAVE");
         onStageProgress?.("SAVING");
         const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode });
+        Logger.info(`BATCH_AUTOSAVE_DONE: ${context.documentName} — ${autoSaveResult.status}`);
+        Logger.info(`AUTOSAVE_DONE: ${context.documentName} — ${autoSaveResult.status}`);
+        Logger.info(`TEMPLATE_AUTOSAVE_STATUS: ${autoSaveResult.status}`);
         if (typeof onAutoSaveResult === "function") onAutoSaveResult(autoSaveResult);
         await this.activateContext(context, "EXPORT");
         onStageProgress?.("EXPORTING");
         const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat });
+        Logger.info(`BATCH_EXPORT_DONE: ${context.documentName} — ${exportResult.status}`);
+        Logger.info(`EXPORT_DONE: ${context.documentName} — ${exportResult.status}`);
+        Logger.info(`TEMPLATE_EXPORT_STATUS: ${exportResult.status}`);
         if (typeof onExportResult === "function") onExportResult(exportResult);
 
-        const failed = executionSummary.status !== "COMPLETED" ||
-            autoSaveResult.status === AutoSaveStatus.FAILED ||
-            exportResult.status === ExportStatus.FAILED;
+        const succeeded = this.isTemplateSuccessful({
+            placementResult,
+            executionPlan,
+            request,
+            executionSummary,
+            autoSaveResult,
+            exportResult,
+            autoSaveEnabled,
+            exportEnabled
+        });
+        const failed = !succeeded;
         Logger.info(`END TEMPLATE: ${context.documentName} — ${failed ? "FAILED" : "COMPLETED"}`);
 
         const result = {
@@ -150,6 +218,10 @@ export default class ProjectExecutor {
             completedSteps: executionSummary.completedSteps,
             failedSteps: executionSummary.failedSteps,
             executionSummary,
+            placementResult,
+            executionPlan,
+            replacementRequest: request,
+            templateContext: this.templateSnapshot(template, context),
             autoSaveResult,
             exportResult,
             documentContext: context,
@@ -157,6 +229,79 @@ export default class ProjectExecutor {
         };
         onStageProgress?.(failed ? "FAILED" : "COMPLETED");
         return result;
+
+    }
+
+    requireReplacementPlan(
+        placementResult,
+        executionPlan,
+        request,
+        context
+    ) {
+
+        const placementCount = Array.isArray(placementResult?.assignments)
+            ? placementResult.assignments.length
+            : 0;
+        const planCount = executionPlan == null
+            ? null
+            : (Array.isArray(executionPlan.steps)
+                ? executionPlan.steps.length
+                : 0);
+        const requestCount = request == null
+            ? null
+            : (Array.isArray(request.steps)
+                ? request.steps.length
+                : 0);
+
+        if (
+            placementCount > 0 &&
+            (planCount == null || planCount > 0) &&
+            (requestCount == null || requestCount > 0)
+        ) {
+            Logger.info(`TEMPLATE_PLAN_STATUS: READY — assignments=${placementCount}, plan=${planCount ?? "pending"}, request=${requestCount ?? "pending"}`);
+            return;
+        }
+
+        const error = "No valid replacement plan was created.";
+        Logger.error(`TEMPLATE_PLAN_STATUS: FAILED — ${error}`);
+        Logger.warn("TEMPLATE_REPLACEMENT_STATUS: SKIPPED");
+        Logger.warn("TEMPLATE_AUTOSAVE_STATUS: SKIPPED");
+        Logger.warn("TEMPLATE_EXPORT_STATUS: SKIPPED");
+        throw new Error(error);
+
+    }
+
+    isTemplateSuccessful({
+        placementResult,
+        executionPlan,
+        request,
+        executionSummary,
+        autoSaveResult,
+        exportResult,
+        autoSaveEnabled,
+        exportEnabled
+    }) {
+
+        const hasPlacement = Array.isArray(placementResult?.assignments) &&
+            placementResult.assignments.length > 0;
+        const hasExecutionPlan = Array.isArray(executionPlan?.steps) &&
+            executionPlan.steps.length > 0;
+        const hasRequest = Array.isArray(request?.steps) &&
+            request.steps.length > 0;
+        const replacementSucceeded = executionSummary?.status === "COMPLETED" &&
+            executionSummary.completedSteps === request.steps.length &&
+            executionSummary.failedSteps === 0;
+        const autoSaveSucceeded = !autoSaveEnabled ||
+            autoSaveResult?.status === AutoSaveStatus.SAVED;
+        const exportSucceeded = !exportEnabled ||
+            exportResult?.status === ExportStatus.SUCCESS;
+
+        return hasPlacement &&
+            hasExecutionPlan &&
+            hasRequest &&
+            replacementSucceeded &&
+            autoSaveSucceeded &&
+            exportSucceeded;
 
     }
 
@@ -169,6 +314,20 @@ export default class ProjectExecutor {
             documentName: descriptor?.name || template?.name || "PSD Template",
             fileReference: descriptor?.fileReference || template?.filePath || ""
         });
+    }
+
+    templateSnapshot(template, context) {
+
+        return Object.freeze({
+            id: template?.id ?? null,
+            documentId: context?.documentId ?? null,
+            name: context?.documentName || template?.name || "PSD Template",
+            smartObjects: (template?.smartObjects || []).map(slot => ({
+                layerId: slot?.layerId ?? null,
+                layerName: slot?.layerName || ""
+            }))
+        });
+
     }
 
     async activateContext(context, stage) {
@@ -217,6 +376,91 @@ export default class ProjectExecutor {
     projectId(project) {
 
         return project?.metadata?.id ?? project?.metadata?.name ?? null;
+
+    }
+
+    selectedPhotos(photos, selectedPhotoIds) {
+
+        const source = Array.isArray(photos) ? photos : [];
+        if (Array.isArray(selectedPhotoIds) && selectedPhotoIds.length) {
+            const byId = new Map(source.map(photo => [photo?.id, photo]));
+            return selectedPhotoIds.map(id => byId.get(id)).filter(Boolean);
+        }
+        return source.filter(photo => photo?.selected);
+
+    }
+
+    allocatePhotos(template, distribution) {
+
+        const slots = Array.isArray(template?.smartObjects)
+            ? template.smartObjects.filter(slot => slot?.layerId != null)
+            : [];
+        const startCursor = distribution.cursor;
+        const photos = distribution.selected.slice(
+            startCursor,
+            startCursor + slots.length
+        );
+        const warning = photos.length < slots.length
+            ? `Only ${photos.length} selected photos remain for ${slots.length} Smart Object slots.`
+            : null;
+        return {
+            startCursor,
+            endCursor: startCursor + photos.length,
+            remainingPhotos: Math.max(0, distribution.selected.length - startCursor - photos.length),
+            photos,
+            warning
+        };
+
+    }
+
+    allocationSnapshot(allocation, status) {
+
+        return {
+            startCursor: allocation.startCursor,
+            endCursor: allocation.endCursor,
+            assignedCount: allocation.photos.length,
+            assignedPhotoIds: allocation.photos.map(photo => photo?.id),
+            remainingCount: allocation.remainingPhotos,
+            status
+        };
+
+    }
+
+    skippedNoPhotos(descriptor, distribution) {
+
+        return {
+            status: "SKIPPED_NO_PHOTOS",
+            error: null,
+            warnings: ["No selected photos remain; template was not opened."],
+            photoAllocation: {
+                startCursor: distribution.cursor,
+                endCursor: distribution.cursor,
+                assignedCount: 0,
+                assignedPhotoIds: [],
+                remainingCount: 0,
+                status: "SKIPPED_NO_PHOTOS"
+            }
+        };
+
+    }
+
+    requireUniqueOutputBaseNames(queue, outputsEnabled) {
+
+        if (!outputsEnabled) return;
+
+        const owners = new Map();
+        for (let index = 0; index < queue.total; index += 1) {
+            const descriptor = queue.descriptorAt(index);
+            const baseName = String(
+                descriptor?.name || descriptor?.fileName || "template"
+            ).replace(/\.[^.]+$/, "").toLocaleLowerCase();
+            if (owners.has(baseName)) {
+                throw new Error(
+                    `Registered templates share the output filename "${descriptor?.name || "template"}". Rename one template before processing.`
+                );
+            }
+            owners.set(baseName, descriptor?.id || index);
+        }
 
     }
 

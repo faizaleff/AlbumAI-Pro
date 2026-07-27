@@ -39,7 +39,16 @@ export default class TemplateQueue {
 
     static key(template) {
 
-        return String(template?.id ?? template?.filePath ?? template?.name ?? "");
+        // Registry file references are the durable per-template identity. IDs
+        // can be duplicated in legacy/corrupt project metadata, but must not
+        // make a distinct registered template disappear from a batch.
+        return String(
+            template?.fileReference ??
+            template?.filePath ??
+            template?.id ??
+            template?.name ??
+            ""
+        );
 
     }
 

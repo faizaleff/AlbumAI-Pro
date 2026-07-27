@@ -1,6 +1,10 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect } from "react";
 import PhotoImage from "./PhotoImage";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+import ThumbnailService, {
+    getThumbnailCacheKey
+} from "../services/ThumbnailService";
+import { getPhotoFileEntry } from "../services/PhotoFileEntry";
 
 function ThumbnailCard({
     photo,
@@ -8,29 +12,68 @@ function ThumbnailCard({
     compact = false,
     thumbnailRevision,
     loading,
-    selected
+    selected,
+    viewMode = "icons",
+    visible = false
 }) {
 
     PhotoBrowserPerformance.recordRender("ThumbnailCard");
     const imageHeight = compact ? 76 : 110;
-    const [hovered, setHovered] = useState(false);
+    const cacheKey = getThumbnailCacheKey(photo);
+    const cachedThumbnail = ThumbnailService.getCachedThumbnail(photo, {
+        viewMode,
+        visible,
+        diagnostic: false
+    });
+
+    useEffect(() => {
+        ThumbnailService.getCachedThumbnail(photo, { viewMode, visible });
+        PhotoBrowserPerformance.trace("THUMB_CARD_REMOUNT", {
+            photoId: photo?.id || null,
+            cacheKey,
+            generation: null,
+            viewMode,
+            visible
+        });
+    }, [cacheKey, photo?.id, viewMode, visible]);
 
     const handleClick = useCallback(event => onClick(photo, event), [photo, onClick]);
+    const dimensions = photo.width > 0 && photo.height > 0
+        ? `${photo.width} × ${photo.height}`
+        : null;
+    const date = photo.modified || photo.created;
+    const dateLabel = date
+        ? new Date(date).toLocaleDateString()
+        : null;
+    const placeholder = (
+        <div style={{ color: "#999", textAlign: "center", lineHeight: 1.25, padding: 6, maxWidth: "100%" }}>
+            <div style={{ fontSize: 24, color: "#666" }}>▧</div>
+            <div style={{ fontSize: 10 }}>Thumbnail unavailable</div>
+            <div style={{ fontSize: 9, color: "#777", marginTop: 2 }}>
+                {photo.name || "Unnamed file"} · {photo.extension || "FILE"}
+            </div>
+            {(dimensions || dateLabel) && (
+                <div style={{ fontSize: 8, color: "#707070", marginTop: 3 }}>
+                    {[dimensions, dateLabel].filter(Boolean).join(" · ")}
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <div
             onClick={handleClick}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
+            className={`photo-thumbnail-card${selected ? " is-selected" : ""}`}
+            role="option"
+            aria-selected={selected}
+            title={photo.name}
             style={{
                 width: "100%",
                 height: "100%",
                 cursor: "pointer",
                 userSelect: "none",
                 overflow: "hidden",
-                borderRadius: compact ? 4 : 8,
-                background: hovered ? "#454545" : "#3a3a3a",
-                border: selected ? "2px solid #3B82F6" : hovered ? "2px solid #666" : "2px solid #444"
+                borderRadius: compact ? 5 : 8
             }}
         >
             <div
@@ -44,21 +87,23 @@ function ThumbnailCard({
                 }}
             >
                 <PhotoImage
-                    photo={photo}
-                    sourceRevision={thumbnailRevision}
-                    loadingRevision={loading}
-                    allowFileFallback={false}
+                    photoId={photo.id}
+                    fileEntry={getPhotoFileEntry(photo)}
+                    cachedSource={cachedThumbnail || thumbnailRevision}
+                    role="browser"
+                    viewMode={viewMode}
+                    retryGeneration={thumbnailRevision}
+                    cacheKey={cacheKey}
+                    visible={visible}
                     onImageLoad={() =>
                         PhotoBrowserPerformance.thumbnailVisible(
                             photo.id
                         )
                     }
                     alt={photo.name}
-                    fallback={loading ? (
+                    fallback={loading && !photo.thumbnailUnavailable ? (
                         <div style={{ color: "#888", fontSize: 12 }}>Loading...</div>
-                    ) : (
-                        <div style={{ fontSize: 10, color: "#888" }}>No preview</div>
-                    )}
+                    ) : placeholder}
                     style={{
                         width: "100%",
                         height: "100%",
@@ -114,6 +159,7 @@ export default React.memo(
     ThumbnailCard,
     (previous, next) =>
         previous.photo?.id === next.photo?.id &&
+        previous.photo?.file === next.photo?.file &&
         previous.photo?.name === next.photo?.name &&
         previous.onClick === next.onClick &&
         previous.compact === next.compact &&
