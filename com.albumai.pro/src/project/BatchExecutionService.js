@@ -31,9 +31,23 @@ export default class BatchExecutionService {
         const templateResults = [];
         const totalTemplates = Math.max(queue.total, Number(resumeState?.totalTemplates) || 0);
         const resumeOffset = Number(resumeState?.completedTemplates) || 0;
+        const originalIndex = template => resumeState?.templateIndexes?.[template?.id];
         let successfulTemplates = Number(resumeState?.successfulTemplates) || 0;
         let failedTemplates = Number(resumeState?.failedTemplates) || 0;
         let skippedTemplates = Number(resumeState?.skippedTemplates) || 0;
+        const accountOutcome = (template, outcome) => {
+            if (outcome === "COMPLETED") successfulTemplates += 1;
+            else if (outcome === "SKIPPED_NO_PHOTOS") skippedTemplates += 1;
+            else if (outcome === "FAILED") failedTemplates += 1;
+            console.info("BATCH_OUTCOME_ACCOUNTING", JSON.stringify({
+                templateId: template?.id ?? null,
+                outcome,
+                completed: successfulTemplates + failedTemplates + skippedTemplates,
+                successful: successfulTemplates,
+                failed: failedTemplates,
+                skipped: skippedTemplates
+            }));
+        };
         const emit = (status, currentIndex = -1, fatalError = null, cancellation = null) => {
             const completedTemplates = successfulTemplates + failedTemplates + skippedTemplates;
             const result = new BatchExecutionResult({
@@ -50,7 +64,11 @@ export default class BatchExecutionService {
                 warnings: templateResults.flatMap(item => item.warnings || []),
                 fatalError,
                 currentTemplate: queue.descriptorAt(currentIndex),
-                templateIndex: currentIndex >= 0 ? resumeOffset + currentIndex : null,
+                templateIndex: currentIndex >= 0
+                    ? (Number.isInteger(originalIndex(queue.descriptorAt(currentIndex)))
+                        ? originalIndex(queue.descriptorAt(currentIndex))
+                        : resumeOffset + currentIndex)
+                    : null,
                 pendingTemplates: Math.max(0, totalTemplates - completedTemplates),
                 cancelReason: cancellation?.reason || null,
                 cancelledAtTemplateId: queue.descriptorAt(currentIndex)?.id || null,
@@ -94,25 +112,24 @@ export default class BatchExecutionService {
                     }
                     // Callback completion is not proof of a usable template
                     // result. Only the explicit terminal success status counts.
-                    const succeeded = result?.status === "COMPLETED";
-                    const skipped = result?.status === "SKIPPED_NO_PHOTOS";
-                    const failed = !succeeded && !skipped;
-                    templateResults.splice(index, 1, this.templateResult(template, skipped ? "SKIPPED_NO_PHOTOS" : (failed ? "FAILED" : "COMPLETED"), {
+                    const outcome = result?.status === "COMPLETED"
+                        ? "COMPLETED"
+                        : (result?.status === "SKIPPED_NO_PHOTOS" ? "SKIPPED_NO_PHOTOS" : "FAILED");
+                    const failed = outcome === "FAILED";
+                    templateResults.splice(index, 1, this.templateResult(template, outcome, {
                         ...result,
                         error: failed
                             ? result?.error || "Template execution did not report successful replacement."
                             : null,
                         startedAt: running.startedAt
                     }));
-                    if (failed) failedTemplates += 1;
-                    else if (succeeded) successfulTemplates += 1;
-                    else if (skipped) skippedTemplates += 1;
+                    accountOutcome(template, outcome);
                 } catch (error) {
-                    failedTemplates += 1;
                     templateResults.splice(index, 1, this.templateResult(template, "FAILED", {
                         error: error?.message || "Template execution failed.",
                         startedAt: running.startedAt
                     }));
+                    accountOutcome(template, "FAILED");
                 }
 
                 emit(BatchExecutionStatus.RUNNING, index);

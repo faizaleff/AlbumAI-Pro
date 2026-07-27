@@ -80,9 +80,12 @@ export default class ProjectExecutor {
                 let currentStage = "OPENING";
                 const emitStage = stage => {
                     currentStage = stage;
+                    const originalIndex = resumeState?.templateIndexes?.[descriptor?.id];
                     onStageProgress?.({
                         descriptor,
-                        index: (Number(resumeState?.completedTemplates) || 0) + index,
+                        index: Number.isInteger(originalIndex)
+                            ? originalIndex
+                            : (Number(resumeState?.completedTemplates) || 0) + index,
                         total: Number(resumeState?.totalTemplates) || total,
                         stage
                     });

@@ -113,6 +113,7 @@ class AppController {
         this.projectBatchUpdate = null;
         console.info("ALB-034-safe-batch-cancel-v1");
         console.info("ALB-034.1-cancel-outcome-progress-fix-v1");
+        console.info("ALB-035-retry-failed-v1");
         this.registryMutationInProgress = false;
 
     }
@@ -616,11 +617,16 @@ class AppController {
         }
         const registryTemplates = this.projectTemplateRegistry.getAll();
         const templates = options.templates || registryTemplates;
-        const resumeSnapshot = options.runMode === "RESUME_PENDING" ? options.previous : null;
+        const resumeSnapshot = ["RESUME_PENDING", "RETRY_FAILED"].includes(options.runMode)
+            ? options.previous
+            : null;
         const initialTotalTemplates = resumeSnapshot?.queueOrder?.length || templates.length;
-        const initialCompletedTemplates = resumeSnapshot?.completedTemplateIds?.length || 0;
+        const retryingFailed = options.runMode === "RETRY_FAILED";
+        const initialCompletedTemplates = retryingFailed
+            ? (resumeSnapshot?.successfulTemplateIds?.length || 0)
+            : (resumeSnapshot?.completedTemplateIds?.length || 0);
         const initialSuccessfulTemplates = resumeSnapshot?.successfulTemplateIds?.length || 0;
-        const initialFailedTemplates = resumeSnapshot?.failedTemplateIds?.length || 0;
+        const initialFailedTemplates = retryingFailed ? 0 : (resumeSnapshot?.failedTemplateIds?.length || 0);
         const photos = this.photoWorkspace.getPhotos();
         const startedAt = new Date().toISOString();
         const projectId = project?.metadata?.id ?? project?.metadata?.name ?? null;
@@ -721,7 +727,10 @@ class AppController {
                 completedTemplates: initialCompletedTemplates,
                 successfulTemplates: initialSuccessfulTemplates,
                 failedTemplates: initialFailedTemplates,
-                skippedTemplates: 0
+                skippedTemplates: 0,
+                templateIndexes: Object.fromEntries(
+                    (resumeSnapshot?.queueOrder || []).map((id, index) => [id, index])
+                )
             } : null,
             onExportResult: result => {
                 this.currentExportResult = result;
@@ -755,6 +764,7 @@ class AppController {
                     completedTemplates: batch.completedTemplates,
                     successfulTemplates: batch.successfulTemplates,
                     failedTemplates: batch.failedTemplates,
+                    skippedTemplates: batch.skippedTemplates,
                     templateResults: batch.templateResults,
                     batchExecution: batch,
                     batchProgress: this.projectBatchProgress({
@@ -768,6 +778,7 @@ class AppController {
                         completedTemplates: batch.completedTemplates,
                         successfulTemplates: batch.successfulTemplates,
                         failedTemplates: batch.failedTemplates
+                        ,skippedTemplates: batch.skippedTemplates
                         ,retainedProgressPercent: batch.retainedProgressPercent || this.batchCancellationController?.getSnapshot().retainedProgressPercent || 0
                     }),
                     startedAt: batch.startedAt,
@@ -830,6 +841,31 @@ class AppController {
                 recoveryLifecycle: this.batchRecoverySnapshot?.lifecycle || null
             }));
         }
+        if (options.runMode === "RETRY_FAILED") {
+            const retryOutcome = {
+                totalTemplates: this.currentProjectExecutionSummary.totalTemplates,
+                completed: this.currentProjectExecutionSummary.completedTemplates,
+                successful: this.currentProjectExecutionSummary.successfulTemplates,
+                failed: this.currentProjectExecutionSummary.failedTemplates,
+                pending: this.batchRecoverySnapshot?.pendingTemplateIds?.length || 0,
+                successfulTemplateIds: this.batchRecoverySnapshot?.successfulTemplateIds || [],
+                failedTemplateIds: this.batchRecoverySnapshot?.failedTemplateIds || [],
+                photoCursor: this.batchRecoverySnapshot?.photoCursor || 0,
+                recoveryLifecycle: this.batchRecoverySnapshot?.lifecycle || null
+            };
+            const retryCompleted = retryOutcome.failed === 0 &&
+                retryOutcome.pending === 0 &&
+                retryOutcome.successful === retryOutcome.totalTemplates &&
+                retryOutcome.recoveryLifecycle === "COMPLETED";
+            if (retryOutcome.recoveryLifecycle === "CANCELLED") {
+                console.info("BATCH_RETRY_CANCELLED", JSON.stringify(retryOutcome));
+            } else if (retryCompleted) {
+                console.info("BATCH_RETRY_COMPLETED", JSON.stringify(retryOutcome));
+            } else if (retryOutcome.failed > 0 &&
+                retryOutcome.recoveryLifecycle === "COMPLETED_WITH_ERRORS") {
+                console.info("BATCH_RETRY_FAILED_REMAINING", JSON.stringify(retryOutcome));
+            }
+        }
 
         return this.currentProjectExecutionSummary;
 
@@ -874,6 +910,24 @@ class AppController {
         const retryCursor = Number.isInteger(firstFailedAllocation?.startCursor)
             ? firstFailedAllocation.startCursor
             : snapshot.photoCursor;
+        const details = {
+            totalTemplates: snapshot.queueOrder.length,
+            completed: snapshot.successfulTemplateIds.length,
+            successful: snapshot.successfulTemplateIds.length,
+            failed: 0,
+            pending: snapshot.failedTemplateIds.length,
+            successfulTemplateIds: snapshot.successfulTemplateIds,
+            failedTemplateIds: snapshot.failedTemplateIds,
+            retryQueueTemplateIds: templates.map(item => item.id),
+            photoCursor: retryCursor,
+            recoveryLifecycle: snapshot.lifecycle
+        };
+        console.info("BATCH_RETRY_STARTED", JSON.stringify(details));
+        console.info("BATCH_RETRY_STATE_RESTORED", JSON.stringify(details));
+        console.info("BATCH_RETRY_QUEUE_BUILT", JSON.stringify(details));
+        snapshot.queueOrder.filter(id => !failed.has(id)).forEach(templateId =>
+            console.info("BATCH_RETRY_TEMPLATE_SKIPPED", JSON.stringify({ ...details, templateId }))
+        );
         return this.executeProject(onUpdate, {
             templates,
             previous: {
@@ -969,6 +1023,7 @@ class AppController {
         const totalTemplates = data.totalTemplates || 0;
         const completedTemplates = data.completedTemplates || 0;
         const failedTemplates = data.failedTemplates || 0;
+        const skippedTemplates = data.skippedTemplates || 0;
         const successfulTemplates = data.successfulTemplates || 0;
         return Object.freeze({
             lifecycle: data.lifecycle || "IDLE",
@@ -979,6 +1034,7 @@ class AppController {
             completedTemplates,
             successfulTemplates,
             failedTemplates,
+            skippedTemplates,
             remainingTemplates: Math.max(0, totalTemplates - completedTemplates),
             percentage: totalTemplates ? Math.round((completedTemplates / totalTemplates) * 100) : 0,
             retainedProgressPercent: Math.max(0, Number(data.retainedProgressPercent) || 0)
