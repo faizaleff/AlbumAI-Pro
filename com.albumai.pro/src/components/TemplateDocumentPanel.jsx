@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+import BatchProgressPanel from "./BatchProgressPanel";
 
 function LayerTree({ layers = [], depth = 0 }) {
 
@@ -1754,9 +1755,11 @@ export default function TemplateDocumentPanel({
                     onClick={executeProjectRequest}
                     disabled={isExecuting || !hasProject}
                 >
-                    Process Project
+                    {isExecuting ? "Processing…" : "Process Project"}
                 </button>
                 </div>
+
+                <BatchProgressPanel summary={projectExecutionSummary} />
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                 <label style={{ fontSize: 12 }}>
