@@ -1013,6 +1013,7 @@ export default function TemplateDocumentPanel({
     useEffect(() => {
         console.info("ALB-032.3-mouse-drag-v1");
         console.info("ALB-036-recovery-ui-hardening-v1");
+        console.info("ALB-037.4-restored-template-status-refresh-v1");
     }, []);
 
     function refreshRegisteredTemplates() {
@@ -1605,6 +1606,8 @@ export default function TemplateDocumentPanel({
 
         try {
 
+            setRegistryError(null);
+
             const summary = await executeProject(nextSummary => {
                 setProjectExecutionSummary(nextSummary);
                 refreshRecoveryState();
@@ -1619,7 +1622,11 @@ export default function TemplateDocumentPanel({
 
         }
 
-        catch (_) {
+        catch (error) {
+
+            if (error?.code === "NO_SELECTED_PHOTOS") {
+                setRegistryError("Select at least one photo before processing.");
+            }
 
             setProjectExecutionSummary(
                 getCurrentProjectExecutionSummary?.() || null
@@ -1638,7 +1645,15 @@ export default function TemplateDocumentPanel({
                 setProjectExecutionSummary(nextSummary);
                 refreshRecoveryState();
             });
-            setProjectExecutionSummary(summary || getCurrentProjectExecutionSummary?.() || null);
+            const finalSummary = summary || getCurrentProjectExecutionSummary?.() || null;
+            setProjectExecutionSummary(finalSummary);
+            // Resolution updates the authoritative registry during execution;
+            // refresh the copied row data only after a successful retry ends.
+            if (action === retryFailedTemplates &&
+                finalSummary?.failedTemplates === 0 &&
+                finalSummary?.batchProgress?.lifecycle === "COMPLETED") {
+                refreshRegisteredTemplates();
+            }
         } finally {
             refreshRecoveryState();
         }

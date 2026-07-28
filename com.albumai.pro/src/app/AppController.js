@@ -114,6 +114,7 @@ class AppController {
         console.info("ALB-034-safe-batch-cancel-v1");
         console.info("ALB-034.1-cancel-outcome-progress-fix-v1");
         console.info("ALB-035-retry-failed-v1");
+        console.info("ALB-037.1-no-photo-preflight-v1");
         this.registryMutationInProgress = false;
 
     }
@@ -630,6 +631,14 @@ class AppController {
         const photos = this.photoWorkspace.getPhotos();
         const startedAt = new Date().toISOString();
         const projectId = project?.metadata?.id ?? project?.metadata?.name ?? null;
+
+        // Fresh project processing requires an explicit selection. Recovery
+        // runs retain their persisted selection and are validated downstream.
+        if (!options.runMode && !photos.some(photo => photo?.selected)) {
+            const error = new Error("Select at least one photo before processing.");
+            error.code = "NO_SELECTED_PHOTOS";
+            throw error;
+        }
 
         this.clearExecutionSummary();
         this.clearBatchProgress();

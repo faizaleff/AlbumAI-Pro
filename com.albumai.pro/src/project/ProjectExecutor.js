@@ -60,6 +60,13 @@ export default class ProjectExecutor {
 
         const queue = new TemplateQueue(templates || this.templates());
         const selected = this.selectedPhotos(photos, selectedPhotoIds);
+
+        if (selected.length === 0) {
+            const error = new Error("Select at least one photo before processing.");
+            error.code = "NO_SELECTED_PHOTOS";
+            throw error;
+        }
+
         const distribution = {
             selected,
             cursor: Math.max(0, Math.min(photoCursor, selected.length))
