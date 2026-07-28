@@ -1,15 +1,18 @@
 const path = require("path");
-const CleanWebpackPlugin = require("clean-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
 
-module.exports = {
+module.exports = (_env, argv = {}) => {
+    const isProduction = argv.mode === "production";
+
+    return {
     entry: './src/index.jsx',
     output: {
         path: path.resolve(__dirname, 'dist'),
         filename: 'index.js',
+        clean: isProduction,
         //libraryTarget: "commonjs2"
     },
-    devtool: 'eval-cheap-source-map', // won't work on XD due to lack of eval
+    devtool: isProduction ? false : 'eval-cheap-source-map',
     externals: {
         uxp: 'commonjs2 uxp',
         photoshop: 'commonjs2 photoshop',
@@ -44,9 +47,13 @@ module.exports = {
         ]
     },
     plugins: [
-        //new CleanWebpackPlugin(),
-        new CopyPlugin(['plugin'], {
+        new CopyPlugin([{
+            from: 'plugin',
+            to: '.',
+            ignore: ['.DS_Store', '**/.DS_Store']
+        }], {
             copyUnmodified: true
         })
     ]
+    };
 };
