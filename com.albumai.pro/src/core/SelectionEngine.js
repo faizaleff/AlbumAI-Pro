@@ -115,6 +115,29 @@ export default class SelectionEngine {
 
     }
 
+    retainAvailable(photos = this.library.getPhotos()) {
+
+        const availableIds = new Set(
+            (Array.isArray(photos) ? photos : [])
+                .map(photo => photo?.id)
+                .filter(id => id != null)
+        );
+        const next = new Set(
+            [...this.ids].filter(id => availableIds.has(id))
+        );
+        const anchorId = availableIds.has(this.anchorId)
+            ? this.anchorId
+            : null;
+
+        if (
+            next.size === this.ids.size &&
+            anchorId === this.anchorId
+        ) return;
+
+        this.apply(next, anchorId, "reconcile-available");
+
+    }
+
     getSelected() {
 
         return this.library.getPhotos().filter(

@@ -37,12 +37,14 @@ export default class PhotoWorkspaceService {
         this.sourceFolder = null;
         this.persistencePromise = Promise.resolve();
         this.lifecycleGeneration = 0;
+        this.importRequestId = 0;
 
     }
 
     async importPhotos(folder = null) {
 
         this.requireProject();
+        const requestId = ++this.importRequestId;
         const persistenceReason = folder
             ? "PHOTO_FOLDER_REFRESH"
             : "PHOTO_FOLDER_IMPORT";
@@ -54,13 +56,19 @@ export default class PhotoWorkspaceService {
 
         PhotoBrowserPerformance.markPickerComplete();
 
-        if (!sourceFolder) {
+        if (!sourceFolder || requestId !== this.importRequestId) {
             return null;
         }
 
         const result = await importPhotoFolder(sourceFolder);
 
-        if (!result) {
+        if (!result || requestId !== this.importRequestId) {
+            if (result) {
+                PhotoBrowserPerformance.trace(
+                    "STALE_FOLDER_IMPORT_IGNORED",
+                    { requestId }
+                );
+            }
             return null;
         }
 
@@ -107,6 +115,7 @@ export default class PhotoWorkspaceService {
             }
         }
         this.library.load(images);
+        this.selection.retainAvailable(images);
         logPhotoRuntimeSchemaOnce(images[0]);
         PhotoBrowserPerformance.trace(
             sameFolder
@@ -237,6 +246,7 @@ export default class PhotoWorkspaceService {
     async removePhotos() {
 
         this.requireProject();
+        this.importRequestId++;
 
         this.lifecycleGeneration++;
         PhotoBrowserPerformance.trace(
@@ -287,6 +297,7 @@ export default class PhotoWorkspaceService {
 
     release() {
 
+        this.importRequestId++;
         this.lifecycleGeneration++;
         PhotoBrowserPerformance.trace(
             "PHOTO_WORKSPACE_RELEASE",
