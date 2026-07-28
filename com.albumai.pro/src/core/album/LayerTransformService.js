@@ -25,7 +25,9 @@ export default class LayerTransformService {
 
         offsetY = 0,
 
-        rotation = 0
+        rotation = 0,
+
+        batchPlayOptions = {}
 
     }) {
 
@@ -161,7 +163,7 @@ export default class LayerTransformService {
 
             }
 
-        ]);
+        ], batchPlayOptions);
 
         return true;
 

@@ -1,6 +1,8 @@
+import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+
 class ThumbnailCache {
 
-    constructor(maxItems = 2000) {
+    constructor(maxItems = 250) {
 
         this.maxItems = maxItems;
         this.cache = new Map();
@@ -38,6 +40,16 @@ class ThumbnailCache {
         }
 
         if (this.cache.has(key)) {
+            const previous = this.cache.get(key);
+            if (
+                previous?.value !== value &&
+                typeof previous?.value === "string" &&
+                previous.value.startsWith("blob:")
+            ) {
+                PhotoBrowserPerformance.releaseObjectUrl(
+                    previous.value
+                );
+            }
             this.cache.delete(key);
         }
 
@@ -47,6 +59,9 @@ class ThumbnailCache {
         });
 
         this.evict();
+        PhotoBrowserPerformance.trace("THUMB_CACHE_SIZE", {
+            size: this.cache.size
+        });
 
     }
 
@@ -67,13 +82,19 @@ class ThumbnailCache {
                     oldest.value.startsWith("blob:")
                 ) {
 
-                    URL.revokeObjectURL(oldest.value);
+                    PhotoBrowserPerformance.releaseObjectUrl(
+                        oldest.value
+                    );
 
                 }
 
             } catch (_) {}
 
             this.cache.delete(oldestKey);
+            PhotoBrowserPerformance.trace("THUMB_CACHE_EVICT", {
+                key: oldestKey,
+                size: this.cache.size
+            });
 
         }
 
@@ -86,6 +107,14 @@ class ThumbnailCache {
         }
 
         const entry = this.cache.get(key);
+        PhotoBrowserPerformance.trace(
+            "THUMBNAIL_CACHE_REMOVE",
+            {
+                hasBlobUrl:
+                    typeof entry?.value === "string" &&
+                    entry.value.startsWith("blob:")
+            }
+        );
 
         try {
 
@@ -94,7 +123,7 @@ class ThumbnailCache {
                 entry.value.startsWith("blob:")
             ) {
 
-                URL.revokeObjectURL(entry.value);
+                PhotoBrowserPerformance.releaseObjectUrl(entry.value);
 
             }
 
@@ -106,6 +135,11 @@ class ThumbnailCache {
 
     clear() {
 
+        PhotoBrowserPerformance.trace(
+            "THUMBNAIL_CACHE_CLEAR_BEGIN",
+            { entries: this.cache.size }
+        );
+
         for (const [, entry] of this.cache) {
 
             try {
@@ -115,7 +149,9 @@ class ThumbnailCache {
                     entry.value.startsWith("blob:")
                 ) {
 
-                    URL.revokeObjectURL(entry.value);
+                    PhotoBrowserPerformance.releaseObjectUrl(
+                        entry.value
+                    );
 
                 }
 
@@ -124,6 +160,10 @@ class ThumbnailCache {
         }
 
         this.cache.clear();
+        PhotoBrowserPerformance.trace(
+            "THUMBNAIL_CACHE_CLEAR_END",
+            { entries: this.cache.size }
+        );
 
     }
 
@@ -155,4 +195,4 @@ class ThumbnailCache {
 
 }
 
-export default new ThumbnailCache(2000);
+export default new ThumbnailCache(250);

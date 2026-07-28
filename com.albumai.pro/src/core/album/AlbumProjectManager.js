@@ -1,5 +1,6 @@
 import FileSystemService from "../files/FileSystemService";
 import Logger from "../photoshop/Logger";
+import AtomicJsonFileWriter from "../../services/AtomicJsonFileWriter";
 
 export default class AlbumProjectManager {
 
@@ -163,31 +164,26 @@ export default class AlbumProjectManager {
 
         try {
 
-            const file =
+            const fileName = `${this.project.name}.json`;
+            const serialized = JSON.stringify(
+                this.project,
+                null,
+                2
+            );
+            JSON.parse(serialized);
 
-                await this.fileSystem.createFile(
-
-                    folder,
-
-                    `${this.project.name}.json`
-
-                );
-
-            await file.write(
-
-                JSON.stringify(
-
-                    this.project,
-
-                    null,
-
-                    2
-
-                )
-
+            const entries = await folder.getEntries();
+            const current = entries.find(
+                entry => entry.name === fileName
             );
 
-            return file;
+            return await AtomicJsonFileWriter.write({
+                folder,
+                fileName,
+                serialized,
+                currentFile: current || null,
+                reason: "LEGACY_ALBUM_PROJECT_MANAGER"
+            });
 
         }
 

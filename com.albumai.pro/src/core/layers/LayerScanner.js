@@ -12,7 +12,9 @@ class LayerScanner {
         if (!document)
             throw new Error("Document is required.");
 
-        return this.scanLayers(document.layers, null, document.id);
+        const layers = document.layers;
+
+        return this.scanLayers(layers, null, document.id);
 
     }
 

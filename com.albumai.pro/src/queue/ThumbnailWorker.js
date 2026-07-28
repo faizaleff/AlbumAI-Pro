@@ -74,15 +74,16 @@ class ThumbnailWorker {
 
         try {
 
-            photo.loading = true;
+            const thumbnailPromise =
+                ThumbnailService.getThumbnail(photo);
 
             RefreshService.refresh();
 
-            const thumbnail = await ThumbnailService.getThumbnail(photo);
+            const thumbnail = await thumbnailPromise;
 
             photo.thumbnail = thumbnail;
 
-            photo.loaded = true;
+            photo.loaded = !!thumbnail;
 
         } catch (error) {
 

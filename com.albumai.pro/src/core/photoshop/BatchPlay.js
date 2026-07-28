@@ -26,12 +26,21 @@ class BatchPlay {
         const {
             commandName = "AlbumAI Operation",
             synchronousExecution = true,
-            modalBehavior = "fail"
+            modalBehavior = "fail",
+            alreadyInModal = false
         } = options;
 
         if (commands.length === 0) return [];
 
-        return ExecuteModal.run(async () => {
+        const execute = async () => {
+
+            const batchPlayOptions = {
+                synchronousExecution
+            };
+
+            if (!alreadyInModal) {
+                batchPlayOptions.modalBehavior = modalBehavior;
+            }
 
             Logger.debug(
                 `BatchPlay -> ${commandName}`
@@ -39,12 +48,8 @@ class BatchPlay {
 
             const results = await action.batchPlay(
                 commands,
-                {
-                    synchronousExecution,
-                    modalBehavior
-                }
+                batchPlayOptions
             );
-
             const failed = results.find(result => result?._obj === "error");
             if (failed) {
                 throw new Error(failed.message || failed._message || "Photoshop rejected a BatchPlay command.");
@@ -52,9 +57,11 @@ class BatchPlay {
 
             return results;
 
-        }, {
-            commandName
-        });
+        };
+
+        return alreadyInModal
+            ? execute()
+            : ExecuteModal.run(execute, { commandName });
 
     }
 

@@ -1,10 +1,8 @@
 import { storage } from "uxp";
 
 import Photo from "../models/Photo";
-import ThumbnailQueue from "../queue/ThumbnailQueue";
 import { isImage } from "../utils/FileUtils";
-
-const BATCH_SIZE = 200;
+import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
 
 export async function openWeddingFolder() {
 
@@ -15,40 +13,29 @@ export async function openWeddingFolder() {
         return null;
     }
 
+    return importPhotoFolder(folder);
+
+}
+
+export async function importPhotoFolder(folder) {
+
+    if (!folder) {
+        return null;
+    }
+
+    PhotoBrowserPerformance.markEnumerationStart();
     const files = await folder.getEntries();
+    PhotoBrowserPerformance.markEnumerationComplete();
 
-    ThumbnailQueue.clear();
-
-    const images = [];
-
-    let batch = [];
-
-    for (const file of files) {
-
-        if (!isImage(file)) {
-            continue;
-        }
-
-        const photo = new Photo(file);
-
-        images.push(photo);
-        batch.push(photo);
-
-        if (batch.length >= BATCH_SIZE) {
-
-            ThumbnailQueue.addBatch(batch);
-
-            batch = [];
-
-        }
-
-    }
-
-    if (batch.length) {
-
-        ThumbnailQueue.addBatch(batch);
-
-    }
+    // Filter entries before constructing models or reading image data.
+    PhotoBrowserPerformance.markFilteringStart();
+    const imageFiles = files.filter(
+        file => !file.isFolder && isImage(file.name)
+    );
+    PhotoBrowserPerformance.markFilteringComplete();
+    PhotoBrowserPerformance.markMetadataStart();
+    const images = imageFiles.map(file => new Photo(file));
+    PhotoBrowserPerformance.markModelsComplete(images.length);
 
     return {
         folder,

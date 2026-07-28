@@ -1,322 +1,397 @@
 import React, {
     useCallback,
     useEffect,
-    useMemo,
+    useLayoutEffect,
     useRef,
     useState
 } from "react";
 
 import ThumbnailCard from "./ThumbnailCard";
-import DragSelectionOverlay from "./DragSelectionOverlay";
-import SelectionService from "../services/SelectionService";
+import PhotoImage from "./PhotoImage";
+import App from "../app/AppController";
+import RefreshService from "../services/RefreshService";
+import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+import ThumbnailService, {
+    getThumbnailCacheKey
+} from "../services/ThumbnailService";
+import { getPhotoFileEntry } from "../services/PhotoFileEntry";
 
-const CARD_WIDTH = 130;
-const CARD_HEIGHT = 170;
-const GAP = 10;
-const OVERSCAN = 2;
+const ICON_WIDTH = 104;
+const ICON_HEIGHT = 122;
+const ICON_GAP = 8;
+const ICON_PADDING = 6;
+const ICON_ROW_HEIGHT = ICON_HEIGHT + ICON_GAP;
+const ICON_OVERSCAN_ROWS = 3;
+const LIST_ROW_HEIGHT = 38;
+const LIST_OVERSCAN_ROWS = 8;
+const LIST_IMAGE_STYLE = {
+    width: "100%", height: "100%", objectFit: "cover",
+    display: "block", pointerEvents: "none"
+};
 
-export default function ThumbnailGrid({
-    photos = [],
-    onPhotoClick
-}) {
-
-    const containerRef = useRef(null);
-    const animationFrame = useRef(null);
-
-    const [, forceUpdate] = useState(0);
-
-    const [viewport, setViewport] = useState({
-        width: 1000,
-        height: 700,
-        scrollTop: 0
-    });
-
-    useEffect(() => {
-
-        SelectionService.setPhotos(photos);
-
-    }, [photos]);
-
-    useEffect(() => {
-
-        const element = containerRef.current;
-
-        if (!element) return;
-
-        const updateViewport = () => {
-
-            setViewport(v => {
-
-                const width = element.clientWidth;
-                const height = element.clientHeight;
-                const scrollTop = element.scrollTop;
-
-                if (
-                    v.width === width &&
-                    v.height === height &&
-                    v.scrollTop === scrollTop
-                ) {
-                    return v;
-                }
-
-                return {
-                    width,
-                    height,
-                    scrollTop
-                };
-
-            });
-
-        };
-
-        updateViewport();
-
-        const resizeObserver = new ResizeObserver(updateViewport);
-        resizeObserver.observe(element);
-
-        return () => {
-
-            resizeObserver.disconnect();
-
-            if (animationFrame.current) {
-                cancelAnimationFrame(animationFrame.current);
-            }
-
-        };
-
-    }, []);
+function usePhotoItemState(photo) {
+    const mountedRef = useRef(false);
+    const photoIdRef = useRef(photo?.id || null);
+    const [state, setState] = useState(() => ({
+        selected: App.selection.isSelected(photo?.id),
+        thumbnailRevision: photo?.thumbnail || null,
+        loading: photo?.loading === true
+    }));
 
     useEffect(() => {
-
-        function handleKeyDown(e) {
-
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
-
-                e.preventDefault();
-
-                SelectionService.selectAll();
-
-                forceUpdate(v => v + 1);
-
-                return;
-
-            }
-
-            if (e.key === "Escape") {
-
-                SelectionService.clear();
-
-                forceUpdate(v => v + 1);
-
-            }
-
+        const photoId = photo?.id || null;
+        mountedRef.current = true;
+        photoIdRef.current = photoId;
+        const canUpdate = () =>
+            mountedRef.current && photoIdRef.current === photoId;
+        if (canUpdate()) {
+            setState({ selected: App.selection.isSelected(photoId), thumbnailRevision: photo?.thumbnail || null, loading: photo?.loading === true });
         }
-
-        window.addEventListener("keydown", handleKeyDown);
-
-        return () =>
-            window.removeEventListener("keydown", handleKeyDown);
-
-    }, []);
-
-    const {
-        columns,
-        totalHeight,
-        startIndex,
-        visiblePhotos
-    } = useMemo(() => {
-
-        const columns = Math.max(
-            1,
-            Math.floor(viewport.width / (CARD_WIDTH + GAP))
-        );
-
-        const totalRows = Math.ceil(
-            photos.length / columns
-        );
-
-        const totalHeight =
-            totalRows * (CARD_HEIGHT + GAP);
-
-        const firstRow = Math.max(
-            0,
-            Math.floor(
-                viewport.scrollTop /
-                (CARD_HEIGHT + GAP)
-            ) - OVERSCAN
-        );
-
-        const visibleRows =
-            Math.ceil(
-                viewport.height /
-                (CARD_HEIGHT + GAP)
-            ) +
-            OVERSCAN * 2;
-
-        const startIndex =
-            firstRow * columns;
-
-        const endIndex = Math.min(
-            photos.length,
-            (firstRow + visibleRows) * columns
-        );
-
-        return {
-            columns,
-            totalHeight,
-            startIndex,
-            visiblePhotos: photos.slice(
-                startIndex,
-                endIndex
-            )
-        };
-
-    }, [photos, viewport]);
-
-    const handleScroll = useCallback((e) => {
-
-        const el = e.currentTarget;
-
-        if (animationFrame.current) {
-            cancelAnimationFrame(animationFrame.current);
-        }
-
-        animationFrame.current =
-            requestAnimationFrame(() => {
-
-                setViewport(v => {
-
-                    const width = el.clientWidth;
-                    const height = el.clientHeight;
-                    const scrollTop = el.scrollTop;
-
-                    if (
-                        v.width === width &&
-                        v.height === height &&
-                        v.scrollTop === scrollTop
-                    ) {
-                        return v;
-                    }
-
-                    return {
-                        width,
-                        height,
-                        scrollTop
-                    };
-
+        const unsubscribeSelection = App.selection.subscribe((selectedIds, changedIds) => {
+            if (!changedIds.has(photoId)) return;
+            if (!canUpdate()) {
+                PhotoBrowserPerformance.trace("THUMB_UNMOUNTED_UPDATE_IGNORED", {
+                    photoId,
+                    cacheKey: getThumbnailCacheKey(photo),
+                    generation: null,
+                    viewMode: null,
+                    visible: false
                 });
-
+                return;
+            }
+            setState(previous => ({ ...previous, selected: selectedIds.has(photo.id) }));
+        });
+        const unsubscribeRefresh = RefreshService.subscribe(scope => {
+            if (scope !== "thumbnails" && scope !== "all") return;
+            if (!canUpdate()) {
+                PhotoBrowserPerformance.trace("THUMB_UNMOUNTED_UPDATE_IGNORED", {
+                    photoId,
+                    cacheKey: getThumbnailCacheKey(photo),
+                    generation: null,
+                    viewMode: null,
+                    visible: false
+                });
+                return;
+            }
+            setState(previous => {
+                const thumbnailRevision = photo?.thumbnail || null;
+                const loading = photo?.loading === true;
+                return previous.thumbnailRevision === thumbnailRevision && previous.loading === loading
+                    ? previous : { ...previous, thumbnailRevision, loading };
             });
+        });
+        return () => {
+            mountedRef.current = false;
+            unsubscribeSelection();
+            unsubscribeRefresh();
+        };
+    }, [photo]);
+    return state;
+}
 
-    }, []);
+const IconsPhotoItem = React.memo(function IconsPhotoItem({ photo, onPhotoClick, style, focused, viewMode, visible }) {
+    PhotoBrowserPerformance.recordRender("IconsPhotoItem");
+    const state = usePhotoItemState(photo);
+    return <div className={`photo-grid-item${focused ? " is-focused" : ""}`} style={style}><ThumbnailCard photo={photo} onClick={onPhotoClick} compact thumbnailRevision={state.thumbnailRevision} loading={state.loading} selected={state.selected} viewMode={viewMode} visible={visible} /></div>;
+});
 
-    const handlePhotoClick = useCallback((photo, event) => {
+const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, style, focused, viewMode, visible }) {
+    PhotoBrowserPerformance.recordRender("ListPhotoRow");
+    const state = usePhotoItemState(photo);
+    const cacheKey = getThumbnailCacheKey(photo);
+    const cachedThumbnail = ThumbnailService.getCachedThumbnail(photo, {
+        viewMode,
+        visible,
+        diagnostic: false
+    });
+    useEffect(() => {
+        ThumbnailService.getCachedThumbnail(photo, { viewMode, visible });
+        PhotoBrowserPerformance.trace("THUMB_CARD_REMOUNT", {
+            photoId: photo?.id || null,
+            cacheKey,
+            generation: null,
+            viewMode,
+            visible
+        });
+    }, [cacheKey, photo, viewMode, visible]);
+    const handleClick = useCallback(event => onPhotoClick(photo, event), [photo, onPhotoClick]);
+    return <div onClick={handleClick} role="option" aria-selected={state.selected} title={photo.name} className={`photo-list-row${state.selected ? " is-selected" : ""}${focused ? " is-focused" : ""}`} style={{ ...style, display: "flex", gap: 8, alignItems: "center", padding: "0 8px", boxSizing: "border-box", cursor: "pointer", color: "#fff" }}>
+        <div style={{ flex: "0 0 30px", width: 30, height: 30, background: "#1f1f1f", overflow: "hidden" }}><PhotoImage photoId={photo.id} fileEntry={getPhotoFileEntry(photo)} cachedSource={cachedThumbnail || state.thumbnailRevision} role="browser" viewMode={viewMode} retryGeneration={state.thumbnailRevision} cacheKey={cacheKey} visible={visible} onImageLoad={() => PhotoBrowserPerformance.thumbnailVisible(photo.id)} fallback={<div style={{ color: "#777", fontSize: 13, textAlign: "center", lineHeight: "30px" }}>▧</div>} style={LIST_IMAGE_STYLE} /></div>
+        <div style={{ flex: "1 1 auto", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12 }}>{photo.name}</div>
+        <div style={{ flex: "0 0 42px", color: "#aaa", fontSize: 11, textTransform: "uppercase" }}>{photo.extension || "—"}</div>
+        <div style={{ flex: "0 0 16px", width: 16, height: 16, borderRadius: 8, background: state.selected ? "#3B82F6" : "#555", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{state.selected ? "✓" : ""}</div>
+    </div>;
+});
 
-        SelectionService.handleClick(photo, event);
+function equalWindow(left, right) {
+    return left.start === right.start &&
+        left.end === right.end &&
+        left.columns === right.columns &&
+        left.totalHeight === right.totalHeight &&
+        left.visibleStart === right.visibleStart &&
+        left.visibleEnd === right.visibleEnd;
+}
 
-        forceUpdate(v => v + 1);
-
-        onPhotoClick?.(photo);
-
-    }, [onPhotoClick]);
-
-    if (!photos.length) {
-
-        return (
-            <div
-                style={{
-                    flex: 1,
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    background: "#2f2f2f",
-                    color: "#999"
-                }}
-            >
-                No photos loaded.
-            </div>
-        );
-
-    }
-
-    return (
-
-        <div
-            ref={containerRef}
-            onScroll={handleScroll}
-            style={{
-                flex: 1,
-                overflow: "auto",
-                background: "#2f2f2f"
-            }}
-        >
-
-            <div
-                style={{
-                    position: "relative",
-                    height: totalHeight
-                }}
-            >
-
-                {visiblePhotos.map((photo, index) => {
-
-                    const realIndex =
-                        startIndex + index;
-
-                    const row =
-                        Math.floor(realIndex / columns);
-
-                    const column =
-                        realIndex % columns;
-
-                    return (
-
-                        <div
-                            key={
-                                photo.file?.nativePath ||
-                                photo.name ||
-                                realIndex
-                            }
-                            style={{
-                                position: "absolute",
-                                top:
-                                    row *
-                                    (CARD_HEIGHT + GAP),
-                                left:
-                                    column *
-                                    (CARD_WIDTH + GAP),
-                                width: CARD_WIDTH,
-                                height: CARD_HEIGHT
-                            }}
-                        >
-
-                            <ThumbnailCard
-                                photo={photo}
-                                onClick={handlePhotoClick}
-                            />
-
-                        </div>
-
-                    );
-
-                })}
-
-                <DragSelectionOverlay
-                    containerRef={containerRef}
-                    photos={photos}
-                    columns={columns}
-                    cardWidth={CARD_WIDTH}
-                    cardHeight={CARD_HEIGHT}
-                    gap={GAP}
-                    onSelectionChanged={() =>
-                        forceUpdate(v => v + 1)
-                    }
-                />
-
-            </div>
-
-        </div>
-
+function bootstrapWindow(photos, viewMode) {
+    const isList = viewMode === "list";
+    const end = Math.min(
+        photos.length,
+        isList
+            ? LIST_OVERSCAN_ROWS + 1
+            : ICON_OVERSCAN_ROWS + 1
     );
 
+    return {
+        start: 0,
+        end,
+        columns: 1,
+        totalHeight: photos.length * (
+            isList ? LIST_ROW_HEIGHT : ICON_ROW_HEIGHT
+        ),
+        visibleStart: 0,
+        visibleEnd: Math.min(photos.length, 1)
+    };
 }
+
+function ThumbnailGrid({
+    photos = [],
+    onPhotoClick,
+    viewMode = "icons",
+    focusedPhotoId = null,
+    onFocusPhoto
+}) {
+    PhotoBrowserPerformance.recordRender("ThumbnailGrid");
+    const viewportRef = useRef(null);
+    const frameRef = useRef(null);
+    const initialRenderAt = useRef(PhotoBrowserPerformance.timestamp());
+    const pendingScrollAt = useRef(null);
+    const scrollMeasurementRequested = useRef(false);
+    const layoutRef = useRef({ width: null, height: null });
+    const windowRef = useRef({ start: 0, end: 0, columns: 1, totalHeight: 0, visibleStart: 0, visibleEnd: 0 });
+    const [windowState, setWindowState] = useState(windowRef.current);
+    // UXP can publish photos before the viewport has a measurable size.
+    // Bootstrap a bounded window for both views so neither Icons nor List can
+    // render a transient empty browser before the layout pass replaces it.
+    const renderWindow = photos.length > 0 &&
+        windowState.end === windowState.start
+        ? bootstrapWindow(photos, viewMode)
+        : windowState;
+
+    const handlePhotoClick = useCallback((photo, event) => {
+        App.selection.handleClick(photo, event);
+        onFocusPhoto?.(photo);
+        onPhotoClick?.(photo);
+    }, [onFocusPhoto, onPhotoClick]);
+
+    const calculateWindow = useCallback((reason = "layout") => {
+        const viewport = viewportRef.current;
+        if (!viewport) return false;
+        const viewportWidth = viewport.clientWidth;
+        const viewportHeight = viewport.clientHeight;
+        let columns = 1;
+        let totalHeight = 0;
+        let visibleStart = 0;
+        let visibleEnd = 0;
+        let start = 0;
+        let end = 0;
+        let scrollTop = viewport.scrollTop;
+        let rowCount = 0;
+        if (viewMode === "list") {
+            totalHeight = photos.length * LIST_ROW_HEIGHT;
+            rowCount = photos.length;
+            scrollTop = Math.min(
+                scrollTop,
+                Math.max(0, totalHeight - viewportHeight)
+            );
+            visibleStart = Math.floor(scrollTop / LIST_ROW_HEIGHT);
+            visibleEnd = Math.min(photos.length, Math.ceil((scrollTop + viewportHeight) / LIST_ROW_HEIGHT));
+            start = Math.max(0, visibleStart - LIST_OVERSCAN_ROWS);
+            end = Math.min(photos.length, visibleEnd + LIST_OVERSCAN_ROWS);
+        } else {
+            columns = Math.max(1, Math.floor((viewportWidth - ICON_PADDING * 2 + ICON_GAP) / (ICON_WIDTH + ICON_GAP)));
+            rowCount = Math.ceil(photos.length / columns);
+            totalHeight = rowCount ? ICON_PADDING * 2 + rowCount * ICON_HEIGHT + Math.max(0, rowCount - 1) * ICON_GAP : 0;
+            scrollTop = Math.min(
+                scrollTop,
+                Math.max(0, totalHeight - viewportHeight)
+            );
+            const firstRow = Math.floor(Math.max(0, scrollTop - ICON_PADDING) / ICON_ROW_HEIGHT);
+            const visibleRows = Math.max(1, Math.ceil(viewportHeight / ICON_ROW_HEIGHT) + 1);
+            visibleStart = Math.min(photos.length, firstRow * columns);
+            visibleEnd = Math.min(photos.length, (firstRow + visibleRows) * columns);
+            start = Math.max(0, (firstRow - ICON_OVERSCAN_ROWS) * columns);
+            end = Math.min(photos.length, (firstRow + visibleRows + ICON_OVERSCAN_ROWS) * columns);
+        }
+        // A view switch can reduce the scrollable height. Apply the clamped
+        // position before rendering so virtual indices always address photos.
+        if (viewport.scrollTop !== scrollTop) viewport.scrollTop = scrollTop;
+        const previousLayout = layoutRef.current;
+        const maxScrollTop = Math.max(0, totalHeight - viewportHeight);
+        layoutRef.current = {
+            width: viewportWidth,
+            height: viewportHeight
+        };
+        const next = { start, end, columns, totalHeight, visibleStart, visibleEnd };
+        const visible = photos.slice(visibleStart, visibleEnd);
+        const overscan = photos.slice(start, visibleStart).concat(photos.slice(visibleEnd, end));
+        PhotoBrowserPerformance.trace("BROWSER_VIRTUAL_WINDOW", {
+            viewMode,
+            itemCount: photos.length,
+            rowHeight: viewMode === "list" ? LIST_ROW_HEIGHT : ICON_ROW_HEIGHT,
+            containerHeight: totalHeight,
+            viewportHeight,
+            viewportWidth,
+            visibleStart,
+            visibleEnd,
+            windowStart: start,
+            windowEnd: end,
+            renderedRows: end - start
+        });
+        PhotoBrowserPerformance.trace("BROWSER_LAYOUT_RECALCULATED", {
+            reason,
+            previousWidth: previousLayout.width,
+            newWidth: viewportWidth,
+            previousHeight: previousLayout.height,
+            newHeight: viewportHeight,
+            viewMode,
+            columnCount: columns,
+            rowCount,
+            renderedItems: end - start,
+            scrollTop,
+            maxScrollTop
+        });
+        App.setVisiblePhotoThumbnails({ visible, overscan });
+        const changed = !equalWindow(windowRef.current, next);
+        if (changed) {
+            windowRef.current = next;
+            setWindowState(next);
+        }
+        return changed;
+    }, [photos, viewMode]);
+
+    const scheduleWindow = useCallback(event => {
+        if (event) scrollMeasurementRequested.current = true;
+        if (frameRef.current != null) return;
+        frameRef.current = requestAnimationFrame(() => {
+            frameRef.current = null;
+            pendingScrollAt.current =
+                scrollMeasurementRequested.current
+                    ? PhotoBrowserPerformance.timestamp()
+                    : null;
+            scrollMeasurementRequested.current = false;
+            const changed = calculateWindow("scroll");
+            if (!changed) pendingScrollAt.current = null;
+        });
+    }, [calculateWindow]);
+
+    const handleResize = useCallback(entries => {
+        const entry = entries?.[0];
+        const width = Math.round(entry?.contentRect?.width ??
+            viewportRef.current?.clientWidth ?? 0);
+        const height = Math.round(entry?.contentRect?.height ??
+            viewportRef.current?.clientHeight ?? 0);
+        const previous = layoutRef.current;
+
+        if (width === previous.width && height === previous.height) return;
+
+        PhotoBrowserPerformance.trace("BROWSER_RESIZE", {
+            previousWidth: previous.width,
+            newWidth: width,
+            previousHeight: previous.height,
+            newHeight: height,
+            viewMode
+        });
+        calculateWindow("resize");
+    }, [calculateWindow, viewMode]);
+
+    // Scroll events can be queued while Photoshop is showing the folder
+    // picker or while a refreshed photo array is being published. They do not
+    // belong to the next layout generation. Reset the timing boundary before
+    // measuring the new photo set/view so diagnostics cannot report modal
+    // wait time as scroll-render latency.
+    useLayoutEffect(() => {
+        pendingScrollAt.current = null;
+        scrollMeasurementRequested.current = false;
+        initialRenderAt.current =
+            PhotoBrowserPerformance.timestamp();
+    }, [photos, viewMode]);
+
+    // The initial window used to depend solely on requestAnimationFrame or a
+    // ResizeObserver notification. In Photoshop UXP neither is guaranteed to
+    // fire after this viewport is first attached, leaving the initial 0..0
+    // range in place. Calculate once in the layout pass; the existing async
+    // observers continue to own all later resize and scroll updates.
+    useLayoutEffect(() => {
+        calculateWindow("initial-layout");
+    }, [calculateWindow]);
+
+    useEffect(() => {
+        scheduleWindow();
+        const retryTimer = setTimeout(
+            () => calculateWindow("initial-retry"),
+            0
+        );
+        window.addEventListener("resize", scheduleWindow);
+        const resizeObserver = typeof ResizeObserver === "undefined"
+            ? null
+            : new ResizeObserver(handleResize);
+        if (resizeObserver && viewportRef.current) {
+            resizeObserver.observe(viewportRef.current);
+        }
+        return () => {
+            window.removeEventListener("resize", scheduleWindow);
+            resizeObserver?.disconnect();
+            clearTimeout(retryTimer);
+            pendingScrollAt.current = null;
+            scrollMeasurementRequested.current = false;
+            if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
+        };
+    }, [calculateWindow, handleResize, scheduleWindow]);
+
+    useEffect(() => {
+        const scrollRenderMs = pendingScrollAt.current == null ? null : PhotoBrowserPerformance.timestamp() - pendingScrollAt.current;
+        const initialRenderMs = initialRenderAt.current == null ? null : PhotoBrowserPerformance.timestamp() - initialRenderAt.current;
+        PhotoBrowserPerformance.recordVirtualization({ visibleItems: renderWindow.visibleEnd - renderWindow.visibleStart, renderedItems: renderWindow.end - renderWindow.start, overscanItems: (renderWindow.end - renderWindow.start) - (renderWindow.visibleEnd - renderWindow.visibleStart), scrollRenderMs, initialRenderMs, viewMode });
+        pendingScrollAt.current = null;
+        initialRenderAt.current = null;
+    }, [renderWindow, viewMode]);
+
+    useEffect(() => {
+        PhotoBrowserPerformance.browserCards({
+            visible: renderWindow.visibleEnd - renderWindow.visibleStart,
+            mounted: renderWindow.end - renderWindow.start,
+            viewMode
+        });
+    }, [renderWindow, viewMode]);
+
+    const items = [];
+    for (let index = renderWindow.start; index < renderWindow.end; index++) {
+        const photo = photos[index];
+        if (!photo) continue;
+        const key = photo.id || photo.name || index;
+        if (viewMode === "list") {
+            items.push(<ListPhotoRow key={key} photo={photo} onPhotoClick={handlePhotoClick} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} style={{ position: "absolute", top: index * LIST_ROW_HEIGHT, left: 0, right: 0, height: LIST_ROW_HEIGHT }} />);
+        } else {
+            const row = Math.floor(index / renderWindow.columns);
+            const column = index % renderWindow.columns;
+            items.push(<IconsPhotoItem key={key} photo={photo} onPhotoClick={handlePhotoClick} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} style={{ position: "absolute", left: ICON_PADDING + column * (ICON_WIDTH + ICON_GAP), top: ICON_PADDING + row * ICON_ROW_HEIGHT, width: ICON_WIDTH, height: ICON_HEIGHT }} />);
+        }
+    }
+
+    useEffect(() => {
+        PhotoBrowserPerformance.trace("BROWSER_RENDER_ROWS", {
+            viewMode,
+            itemCount: photos.length,
+            virtualWindowCount: renderWindow.end - renderWindow.start,
+            renderedRows: items.length,
+            cardMountCount:
+                PhotoBrowserPerformance.mountedBrowserImages
+        });
+    }, [items.length, photos.length, renderWindow, viewMode]);
+
+    return <div ref={viewportRef} onScroll={scheduleWindow} className="photo-browser-viewport" data-photo-browser-viewport="true" style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", background: "#2f2f2f" }}>
+        {!photos.length ? <div style={{ minHeight: 100, display: "flex", justifyContent: "center", alignItems: "center", color: "#999" }}>No photos loaded.</div> : <div style={{ position: "relative", height: renderWindow.totalHeight, minHeight: "100%" }}>{items}</div>}
+    </div>;
+}
+
+export default React.memo(ThumbnailGrid);

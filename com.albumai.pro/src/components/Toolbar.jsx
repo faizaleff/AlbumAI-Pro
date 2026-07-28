@@ -5,11 +5,13 @@ export default function Toolbar({
     onRefresh,
     onSelectAll,
     onClearSelection,
-    photoCount = 0,
-    selectedCount = 0
+    projectActive = false,
+    photoCount: _photoCount = 0,
+    selectedCount: _selectedCount = 0
 }) {
     const buttonStyle = {
-        padding: "8px 14px",
+        minHeight: 34,
+        padding: "6px 12px",
         background: "#3a3a3a",
         color: "#fff",
         border: "1px solid #555",
@@ -23,22 +25,30 @@ export default function Toolbar({
             style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: 12,
-                marginBottom: 15
+                gap: 8,
+                marginBottom: 12
             }}
         >
             <div
                 style={{
                     display: "flex",
-                    gap: 10,
+                    gap: 8,
                     flexWrap: "wrap"
                 }}
             >
-                <button style={buttonStyle} onClick={onOpen}>
+                <button
+                    style={buttonStyle}
+                    onClick={onOpen}
+                    disabled={!projectActive}
+                >
                     📂 Open
                 </button>
 
-                <button style={buttonStyle} onClick={onRefresh}>
+                <button
+                    style={buttonStyle}
+                    onClick={onRefresh}
+                    disabled={!projectActive}
+                >
                     🔄 Refresh
                 </button>
 
@@ -49,18 +59,6 @@ export default function Toolbar({
                 <button style={buttonStyle} onClick={onClearSelection}>
                     ✖ Clear
                 </button>
-            </div>
-
-            <div
-                style={{
-                    color: "#bbb",
-                    fontSize: 13,
-                    display: "flex",
-                    gap: 20
-                }}
-            >
-                <span>Photos: {photoCount}</span>
-                <span>Selected: {selectedCount}</span>
             </div>
         </div>
     );

@@ -5,6 +5,7 @@ export default class TemplateRegistry {
     constructor() {
 
         this.templates = new Map();
+        this.currentTemplateId = null;
 
     }
 
@@ -20,6 +21,7 @@ export default class TemplateRegistry {
             template.name;
 
         this.templates.set(id, template);
+        this.currentTemplateId = id;
 
         Logger.info(
             `Template Registered: ${id}`
@@ -38,6 +40,14 @@ export default class TemplateRegistry {
     get(id) {
 
         return this.templates.get(id) ?? null;
+
+    }
+
+    current() {
+
+        return this.currentTemplateId == null
+            ? null
+            : this.get(this.currentTemplateId);
 
     }
 
@@ -76,6 +86,7 @@ export default class TemplateRegistry {
     clear() {
 
         this.templates.clear();
+        this.currentTemplateId = null;
 
         Logger.info(
             "Template Registry Cleared."

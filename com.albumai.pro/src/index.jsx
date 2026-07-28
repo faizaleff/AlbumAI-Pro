@@ -1,122 +1,55 @@
 import React from "react";
-import { createRoot } from "react-dom/client";
 
-import App from "./App";
+import "./styles.css";
 
-import "./styles/index.css";
+import { PanelController } from "./controllers/PanelController.jsx";
+import { AlbumBrowser } from "./panels/AlbumBrowser.jsx.jsx";
 
-import {
+import { entrypoints } from "uxp";
+import { selectAllBrowserPhotos } from "./services/BrowserSelectionCommands";
+import { ALBUMAI_BUILD_ID } from "./config/buildIdentity";
 
-    start,
-
-    stop
-
-} from "./main";
-
-async function initialize() {
-
-    try {
-
-        await start();
-
+const albumController = new PanelController(
+    () => <AlbumBrowser />,
+    {
+        id: "albumai",
+        menuItems: [
+            {
+                id: "reload",
+                label: "Reload AlbumAI",
+                enabled: true,
+                checked: false,
+                oninvoke: () => location.reload()
+            }
+        ]
     }
-
-    catch (error) {
-
-        console.error(
-
-            "AlbumAI initialization failed.",
-
-            error
-
-        );
-
-    }
-
-}
-
-initialize();
-
-const container =
-
-    document.getElementById("root");
-
-if (!container) {
-
-    throw new Error(
-
-        'Root element "#root" not found.'
-
-    );
-
-}
-
-const root =
-
-    createRoot(container);
-
-root.render(
-
-    <React.StrictMode>
-
-        <App />
-
-    </React.StrictMode>
-
 );
 
-if (
+entrypoints.setup({
 
-    typeof window !== "undefined"
+    commands: {
 
-) {
+        selectAllPhotos: selectAllBrowserPhotos
 
-    window.addEventListener(
+    },
 
-        "beforeunload",
+    plugin: {
 
-        async () => {
+        create(plugin) {
+            console.log("ALBUMAI_BUILD_ID", ALBUMAI_BUILD_ID);
+            console.log("AlbumAI Started", plugin);
+        },
 
-            try {
-
-                await stop();
-
-            }
-
-            catch (error) {
-
-                console.error(
-
-                    "AlbumAI shutdown failed.",
-
-                    error
-
-                );
-
-            }
-
+        destroy() {
+            console.log("AlbumAI Closed");
         }
 
-    );
+    },
 
-}
+    panels: {
 
-if (
+        albumai: albumController
 
-    import.meta?.hot
+    }
 
-) {
-
-    import.meta.hot.accept();
-
-    import.meta.hot.dispose(
-
-        async () => {
-
-            await stop();
-
-        }
-
-    );
-
-}
+});

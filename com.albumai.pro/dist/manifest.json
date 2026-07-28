@@ -11,10 +11,18 @@
   },
 
   "requiredPermissions": {
-    "allowCodeGenerationFromStrings": true
+    "allowCodeGenerationFromStrings": true,
+    "clipboard": "readAndWrite"
   },
 
   "entrypoints": [
+    {
+      "type": "command",
+      "id": "selectAllPhotos",
+      "label": {
+        "default": "Select All Photos"
+      }
+    },
     {
       "type": "panel",
       "id": "albumai",

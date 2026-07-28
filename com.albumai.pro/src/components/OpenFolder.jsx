@@ -1,171 +1,569 @@
-import React, { useEffect, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useRef,
+    useState
+} from "react";
 
-import { openWeddingFolder } from "../services/FolderService";
-
-import ThumbnailGrid from "./ThumbnailGrid";
+import PhotoBrowserSection from "./PhotoBrowserSection";
 import PreviewPanel from "./PreviewPanel";
-import Toolbar from "./Toolbar";
+import TemplateDocumentPanel from "./TemplateDocumentPanel";
+import SelectionCount from "./SelectionCount";
 
 import App from "../app/AppController";
-import ThumbnailWorker from "../queue/ThumbnailWorker";
 import RefreshService from "../services/RefreshService";
+import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 
 export default function OpenFolder() {
 
     const [folderName, setFolderName] = useState("");
+    const [projectName, setProjectName] = useState("");
+    const [projectError, setProjectError] = useState(null);
+    const [executionDetails, setExecutionDetails] = useState(null);
+    const [focusedPhotoId, setFocusedPhotoId] = useState(null);
+    const [isImportingPhotos, setIsImportingPhotos] = useState(false);
+    const [importedPhotoCount, setImportedPhotoCount] = useState(0);
+    const [photoFolderAvailable, setPhotoFolderAvailable] = useState(false);
+    const [photoFolderMessage, setPhotoFolderMessage] = useState(null);
+    const unavailableDiagnosticRef = useRef(null);
     const [, forceRefresh] = useState(0);
+
+    PhotoBrowserPerformance.recordRender("OpenFolder");
+    const project = App.project.getProject();
+    const hasProject = !!project;
+
+    useEffect(() => {
+        PhotoBrowserPerformance.markPublished();
+    });
+
+    const markFolderUnavailable = useCallback((
+        reason,
+        hadFolderReference
+    ) => {
+        App.markPhotoFolderUnavailable();
+        setPhotoFolderAvailable(false);
+        setPhotoFolderMessage(
+            hadFolderReference
+                ? "Photo folder is unavailable. Open the folder again."
+                : null
+        );
+
+        const diagnosticKey =
+            `${project?.metadata?.id || "no-project"}:${reason}`;
+        if (unavailableDiagnosticRef.current !== diagnosticKey) {
+            unavailableDiagnosticRef.current = diagnosticKey;
+            PhotoBrowserPerformance.trace(
+                "PHOTO_FOLDER_UNAVAILABLE",
+                {
+                    reason,
+                    hadFolderReference,
+                    photoCount: App.getPhotos().length,
+                    recoverable: true
+                }
+            );
+        }
+    }, [project?.metadata?.id]);
+
+    useEffect(() => {
+        let active = true;
+        unavailableDiagnosticRef.current = null;
+
+        if (!hasProject) {
+            setPhotoFolderAvailable(false);
+            setPhotoFolderMessage(null);
+            return () => {
+                active = false;
+            };
+        }
+
+        App.getPhotoFolderStatus()
+            .then(status => {
+                if (!active) return;
+                if (status.available) {
+                    setPhotoFolderAvailable(true);
+                    setPhotoFolderMessage(null);
+                    return;
+                }
+                markFolderUnavailable(
+                    status.hadFolderReference
+                        ? "folder-reference-unavailable"
+                        : "folder-reference-missing",
+                    status.hadFolderReference
+                );
+            })
+            .catch(error => {
+                if (!active) return;
+                markFolderUnavailable(
+                    error?.message || "folder-validation-failed",
+                    !!project?.metadata?.photoSource
+                );
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [
+        hasProject,
+        markFolderUnavailable,
+        project?.metadata?.id,
+        project?.metadata?.photoSource
+    ]);
 
     useEffect(() => {
 
-        const unsubscribe = RefreshService.subscribe(() => {
+        const unsubscribe = RefreshService.subscribe(scope => {
 
+            if (scope === "thumbnails") return;
+            PhotoBrowserPerformance.recordRenderUpdate(
+                "OpenFolder",
+                "forceRefresh",
+                { scope }
+            );
+            PhotoBrowserPerformance.refresh();
             forceRefresh(value => value + 1);
 
         });
 
-        return unsubscribe;
+        return () => {
+            PhotoBrowserPerformance.trace(
+                "PHOTO_BROWSER_COMPONENT_UNMOUNT",
+                {
+                    photos: App.getPhotos().length
+                }
+            );
+            unsubscribe();
+        };
 
     }, []);
 
     async function openFolder() {
 
+        if (!hasProject) {
+            setProjectError("Create or open a project to continue.");
+            return;
+        }
+
+        let progressTimer = null;
         try {
+            setImportedPhotoCount(App.getPhotos().length);
+            setIsImportingPhotos(true);
+            progressTimer = setInterval(() => {
+                setImportedPhotoCount(App.getPhotos().length);
+            }, 150);
 
-            const result = await openWeddingFolder();
+            const photos = await App.importPhotos();
 
-            if (!result) return;
+            if (!photos) return;
 
-            App.library.load(result.images);
+            setPhotoFolderAvailable(true);
+            setPhotoFolderMessage(null);
+            unavailableDiagnosticRef.current = null;
 
-            ThumbnailWorker.clear();
+            if (photos.length > 0) {
 
-            for (const photo of result.images) {
-
-                ThumbnailWorker.add(photo);
+                App.selection.select(photos[0]);
 
             }
 
-            if (result.images.length > 0) {
-
-                App.selection.select(result.images[0]);
-
-            }
-
-            setFolderName(result.folder.name);
+            setFolderName(
+                App.project.getProject()?.metadata?.photoSource?.name ||
+                ""
+            );
 
             forceRefresh(value => value + 1);
 
         }
         catch (error) {
 
-            console.error("OpenFolder:", error);
+            setPhotoFolderMessage("Unable to open the photo folder. Try again.");
+            PhotoBrowserPerformance.trace("PHOTO_FOLDER_OPEN_FAILED", {
+                recoverable: true
+            });
+
+        }
+        finally {
+            if (progressTimer != null) clearInterval(progressTimer);
+            setImportedPhotoCount(App.getPhotos().length);
+            setIsImportingPhotos(false);
+        }
+
+    }
+
+    async function refreshFolder() {
+
+        if (!hasProject || !photoFolderAvailable) {
+            return;
+        }
+
+        try {
+
+            await App.refreshPhotos();
+
+            setPhotoFolderAvailable(true);
+            setPhotoFolderMessage(null);
+            forceRefresh(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            const reason = String(
+                error?.message || error || "folder-refresh-failed"
+            );
+            const isUnavailable = [
+                "no such file or directory",
+                "invalid token",
+                "unavailable volume",
+                "folder before refreshing",
+                "not found",
+                "disconnected"
+            ].some(value => reason.toLowerCase().includes(value));
+
+            if (isUnavailable) {
+                markFolderUnavailable(
+                    reason,
+                    !!project?.metadata?.photoSource
+                );
+                return;
+            }
+
+            console.error("Refresh photos:", error);
 
         }
 
     }
 
-    function refreshFolder() {
+    const onPhotoClick = useCallback(photo => {
 
+        setFocusedPhotoId(photo?.id || null);
+        App.prioritizePhotoThumbnail(photo);
+
+    }, []);
+
+    async function createProject() {
+
+        const name = projectName.trim();
+
+        if (!name) {
+            setProjectError("Enter a project name.");
+            return;
+        }
+
+        try {
+
+            const created = await App.createProject({ name });
+
+            if (!created) {
+                return;
+            }
+
+            setProjectName("");
+            setProjectError(null);
+            forceRefresh(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            setProjectError(error.message);
+
+        }
+
+    }
+
+    async function openProject() {
+
+        try {
+
+            const opened = await App.openProject();
+
+            if (!opened) {
+                return;
+            }
+
+            setProjectError(null);
+            forceRefresh(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            setProjectError(error.message);
+
+        }
+
+    }
+
+    async function saveProject() {
+
+        try {
+
+            await App.saveProject(
+                undefined,
+                { reason: "MANUAL_SAVE_PROJECT" }
+            );
+            setProjectError(null);
+            forceRefresh(value => value + 1);
+
+        }
+
+        catch (error) {
+
+            setProjectError(error.message);
+
+        }
+
+    }
+
+    async function closeProject() {
+
+        try {
+            await App.closeProject();
+        } catch (error) {
+            setProjectError(error.message);
+            return;
+        }
+        setFolderName("");
+        setPhotoFolderAvailable(false);
+        setPhotoFolderMessage(null);
+        setProjectError(null);
         forceRefresh(value => value + 1);
 
     }
 
-    function selectAll() {
+    const loadTemplates = useCallback(
+        () => App.getProjectTemplates(),
+        []
+    );
+    const getRegisteredProjectTemplates = () => App.getRegisteredProjectTemplates();
 
-        App.selection.selectAll();
+    const addCurrentPsdToProject = file => App.addCurrentPsdToProject(file);
 
-        forceRefresh(value => value + 1);
+    const removeRegisteredProjectTemplate = id =>
+        App.removeRegisteredProjectTemplate(id);
+    const moveRegisteredProjectTemplate = (id, targetIndex, method) =>
+        App.moveRegisteredProjectTemplate(id, targetIndex, method);
+    const requestBatchCancellation = () => App.requestBatchCancellation();
 
-    }
+    const openTemplate = file =>
+        App.openTemplateDocument(file);
 
-    function clearSelection() {
+    const planPhotoPlacement = options =>
+        App.planPhotoPlacement(options);
 
-        App.selection.clear();
+    const getCurrentPlacementPlan = () =>
+        App.getCurrentPlacementPlan();
 
-        forceRefresh(value => value + 1);
+    const buildPlacementExecutionPlan = () =>
+        App.buildPlacementExecutionPlan();
 
-    }
+    const getCurrentPlacementExecutionPlan = () =>
+        App.getCurrentPlacementExecutionPlan();
 
-    function onPhotoClick(photo) {
+    const getCurrentReplacementRequest = () =>
+        App.getCurrentReplacementRequest();
 
-        App.selection.select(photo);
+    const executeReplacementStep = step =>
+        App.executeReplacementStep(step);
 
-        forceRefresh(value => value + 1);
+    const executeReplacementBatch = onProgress =>
+        App.executeReplacementBatch(onProgress);
 
-    }
+    const getCurrentExecutionSummary = () =>
+        App.getCurrentExecutionSummary();
+
+    const getCurrentBatchProgress = () =>
+        App.getCurrentBatchProgress();
+
+    const getCurrentExecutionLifecycle = () =>
+        App.getCurrentExecutionLifecycle();
+
+    const executeProject = onUpdate =>
+        App.executeProject(onUpdate);
+    const resumeProjectBatch = onUpdate =>
+        App.resumeProjectBatch(onUpdate);
+    const retryFailedTemplates = onUpdate =>
+        App.retryFailedTemplates(onUpdate);
+    const clearRecoveryState = async () => {
+        const result = await App.clearRecoveryState();
+        return result;
+    };
+    const getBatchRecoveryState = () =>
+        App.getBatchRecoveryState();
+
+    const getCurrentProjectExecutionSummary = () =>
+        App.getCurrentProjectExecutionSummary();
+
+    const getPhotos = () =>
+        App.getPhotos();
+
+    const getCurrentTemplate = () =>
+        App.getCurrentTemplate();
+
+    const setAutoSaveEnabled = enabled =>
+        App.setAutoSaveEnabled(enabled);
+
+    const getAutoSaveEnabled = () =>
+        App.getAutoSaveEnabled();
+
+    const setAutoSaveMode = mode =>
+        App.setAutoSaveMode(mode);
+
+    const getAutoSaveMode = () =>
+        App.getAutoSaveMode();
+
+    const getCurrentAutoSaveResult = () =>
+        App.getCurrentAutoSaveResult();
+
+    const setExportEnabled = enabled =>
+        App.setExportEnabled(enabled);
+
+    const getExportEnabled = () =>
+        App.getExportEnabled();
+
+    const setExportFormat = format =>
+        App.setExportFormat(format);
+
+    const getExportFormat = () =>
+        App.getExportFormat();
+
+    const getCurrentExportResult = () =>
+        App.getCurrentExportResult();
 
     return (
 
         <div
             style={{
                 display: "flex",
-                height: "100vh",
+                height: "100%",
+                width: "100%",
+                boxSizing: "border-box",
+                minHeight: 0,
+                overflow: "hidden",
                 color: "#ffffff",
                 background: "#1e1e1e"
             }}
         >
 
             <div
+                className="left-pane"
                 style={{
                     flex: 2,
                     display: "flex",
                     flexDirection: "column",
                     padding: 15,
+                    minHeight: 0,
+                    minWidth: 0,
                     overflow: "hidden"
                 }}
             >
 
-                <Toolbar
-                    onOpen={openFolder}
-                    onRefresh={refreshFolder}
-                    onSelectAll={selectAll}
-                    onClearSelection={clearSelection}
-                    photoCount={App.library.getPhotos().length}
-                    selectedCount={App.selection.getSelected().length}
-                />
-
-                <div
+                <div className="fixed-controls" style={{ flex: "0 0 auto" }}>
+                <section
                     style={{
-                        marginBottom: 15
+                        marginBottom: 15,
+                        padding: 12,
+                        background: "#2f2f2f",
+                        borderRadius: 6
                     }}
                 >
-                    <h3
-                        style={{
-                            margin: 0
-                        }}
-                    >
-                        {folderName || "No Folder Open"}
-                    </h3>
-
-                    <div
-                        style={{
-                            marginTop: 6,
-                            color: "#aaaaaa",
-                            fontSize: 13
-                        }}
-                    >
-                        Photos : {App.library.getPhotos().length}
-                        {"  |  "}
-                        Selected : {App.selection.getSelected().length}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, marginBottom: 10 }}>
+                        <span>Project: {hasProject ? project.metadata.name : "MISSING"}</span>
+                        <span>Photos: {App.getPhotos().length}</span>
+                        <span>Selected: <SelectionCount selection={App.selection} /></span>
                     </div>
-                </div>
 
-                <div
-                    style={{
-                        flex: 1,
-                        overflow: "hidden"
-                    }}
-                >
-                    <ThumbnailGrid
-                        photos={App.library.getPhotos()}
-                        onPhotoClick={onPhotoClick}
-                    />
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <input
+                            value={projectName}
+                            onChange={event => setProjectName(event.target.value)}
+                            placeholder="Project name"
+                            disabled={hasProject}
+                        />
+                        <button onClick={createProject} disabled={hasProject}>
+                            Create Project
+                        </button>
+                        <button onClick={openProject} disabled={hasProject}>
+                            Open Project
+                        </button>
+                        <button onClick={saveProject} disabled={!hasProject}>
+                            Save Project
+                        </button>
+                        <button onClick={closeProject} disabled={!hasProject}>
+                            Close Project
+                        </button>
+                    </div>
+
+                    {projectError && (
+                        <div style={{ marginTop: 8, fontSize: 12, color: "#ff9999" }}>
+                            Project: {projectError}
+                        </div>
+                    )}
+                </section>
+
+                <TemplateDocumentPanel
+                    loadTemplates={loadTemplates}
+                    getRegisteredProjectTemplates={getRegisteredProjectTemplates}
+                    addCurrentPsdToProject={addCurrentPsdToProject}
+                    removeRegisteredProjectTemplate={removeRegisteredProjectTemplate}
+                    moveRegisteredProjectTemplate={moveRegisteredProjectTemplate}
+                    requestBatchCancellation={requestBatchCancellation}
+                    openTemplate={openTemplate}
+                    planPhotoPlacement={planPhotoPlacement}
+                    getCurrentPlacementPlan={getCurrentPlacementPlan}
+                    buildPlacementExecutionPlan={buildPlacementExecutionPlan}
+                    getCurrentPlacementExecutionPlan={getCurrentPlacementExecutionPlan}
+                    getCurrentReplacementRequest={getCurrentReplacementRequest}
+                    executeReplacementStep={executeReplacementStep}
+                    executeReplacementBatch={executeReplacementBatch}
+                    getCurrentExecutionSummary={getCurrentExecutionSummary}
+                    getCurrentBatchProgress={getCurrentBatchProgress}
+                    getCurrentExecutionLifecycle={getCurrentExecutionLifecycle}
+                    executeProject={executeProject}
+                    resumeProjectBatch={resumeProjectBatch}
+                    retryFailedTemplates={retryFailedTemplates}
+                    clearRecoveryState={clearRecoveryState}
+                    getBatchRecoveryState={getBatchRecoveryState}
+                    getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
+                    getPhotos={getPhotos}
+                    getCurrentTemplate={getCurrentTemplate}
+                    setAutoSaveEnabled={setAutoSaveEnabled}
+                    getAutoSaveEnabled={getAutoSaveEnabled}
+                    setAutoSaveMode={setAutoSaveMode}
+                    getAutoSaveMode={getAutoSaveMode}
+                    getCurrentAutoSaveResult={getCurrentAutoSaveResult}
+                    setExportEnabled={setExportEnabled}
+                    getExportEnabled={getExportEnabled}
+                    setExportFormat={setExportFormat}
+                    getExportFormat={getExportFormat}
+                    getCurrentExportResult={getCurrentExportResult}
+                    onExecutionDetailsChange={setExecutionDetails}
+                    projectId={project?.metadata?.id || null}
+                    projectName={project?.metadata?.name || ""}
+                    hasProject={hasProject}
+                />
                 </div>
+                <PhotoBrowserSection
+                    photos={App.getPhotos()}
+                    onPhotoClick={onPhotoClick}
+                    focusedPhotoId={focusedPhotoId}
+                    onFocusPhoto={setFocusedPhotoId}
+                    projectId={project?.metadata?.id || null}
+                    folderLoaded={photoFolderAvailable}
+                    folderMessage={photoFolderMessage}
+                    onOpenFolder={openFolder}
+                    onRefresh={refreshFolder}
+                    isLoading={isImportingPhotos}
+                    loadingPhotoCount={importedPhotoCount}
+                />
 
             </div>
 
             <PreviewPanel
-                photo={App.selection.getSelected()[0]}
+                photos={App.getPhotos()}
+                selection={App.selection}
+                focusedPhotoId={focusedPhotoId}
+                executionDetails={executionDetails}
             />
 
         </div>
