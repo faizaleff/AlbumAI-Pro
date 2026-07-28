@@ -787,16 +787,77 @@ export function ExecutionDetails({
             </DetailSection>
 
             <DetailSection id="recovery" title="Recovery">
-                <>
-                        <Row label="Recovery Available" value={recoveryState?.available ? "Yes" : "No"} />
-                        <Row label="Recovery State" value={recoveryState?.classification || "NONE"} />
-                        <Row label="Previous Status" value={recoverySnapshot?.lifecycle || recoveryState?.classification || "NONE"} />
-                        <Row label="Completed" value={recoverySnapshot?.completedTemplateIds?.length || 0} />
-                        <Row label="Successful" value={recoverySnapshot?.successfulTemplateIds?.length || 0} />
-                        <Row label="Failed" value={recoverySnapshot?.failedTemplateIds?.length || 0} />
-                        <Row label="Pending" value={recoverySnapshot?.pendingTemplateIds?.length || 0} />
+                {(() => {
+                    const classification = recoveryState?.classification || "NONE";
+                    const lifecycle = recoverySnapshot?.lifecycle || "NONE";
+                    const runMode = recoverySnapshot?.runMode || "PROCESS_PROJECT";
+                    const pendingCount = recoverySnapshot?.pendingTemplateIds?.length || 0;
+                    const failedCount = recoverySnapshot?.failedTemplateIds?.length || 0;
+                    const completedCount = recoverySnapshot?.completedTemplateIds?.length || 0;
+                    const successfulCount = recoverySnapshot?.successfulTemplateIds?.length || 0;
+                    const recoveryAvailable = Boolean(recoveryState?.available);
+                    const invalidRecovery = ["STALE", "INCOMPATIBLE"].includes(classification);
+                    const retryRecovery = runMode === "RETRY_FAILED";
+
+                    const showResume = recoveryAvailable &&
+                        !invalidRecovery &&
+                        !retryRecovery &&
+                        pendingCount > 0 &&
+                        ["RUNNING", "INTERRUPTED", "CANCELLED"].includes(lifecycle);
+
+                    const showRetry = recoveryAvailable &&
+                        !invalidRecovery &&
+                        failedCount > 0 &&
+                        (
+                            lifecycle === "COMPLETED_WITH_ERRORS" ||
+                            (lifecycle === "CANCELLED" && retryRecovery)
+                        );
+
+                    let recoveryMessage = "No recovery action is required.";
+
+                    if (recoveryBusy) {
+                        recoveryMessage = retryRecovery
+                            ? "Retrying failed templates…"
+                            : "Recovery in progress…";
+                    } else if (invalidRecovery) {
+                        recoveryMessage = classification === "STALE"
+                            ? "Recovery state no longer matches this project or template registry."
+                            : "Recovery state was created by a newer unsupported version.";
+                    } else if (showRetry) {
+                        recoveryMessage = `${failedCount} failed template${failedCount === 1 ? "" : "s"} ready to retry.`;
+                    } else if (showResume) {
+                        recoveryMessage = `Batch stopped with ${completedCount} completed and ${pendingCount} remaining.`;
+                    } else if (lifecycle === "COMPLETED" && failedCount === 0 && pendingCount === 0) {
+                        recoveryMessage = "Batch completed successfully.";
+                    } else if (lifecycle === "COMPLETED_WITH_ERRORS") {
+                        recoveryMessage = `Batch completed with ${failedCount} failed template${failedCount === 1 ? "" : "s"}.`;
+                    }
+
+                    const failedOutcomes = (recoverySnapshot?.templateOutcomes || [])
+                        .filter(item => item.status === "FAILED");
+
+                    return <>
+                        <Row label="Recovery Available" value={recoveryAvailable ? "Yes" : "No"} />
+                        <Row label="Recovery State" value={classification} warning={invalidRecovery} />
+                        <Row label="Previous Status" value={lifecycle} />
+                        <Row label="Run Mode" value={runMode} />
+                        <Row label="Message" value={recoveryMessage} warning={invalidRecovery || failedCount > 0} />
+                        <Row label="Completed" value={completedCount} />
+                        <Row label="Successful" value={successfulCount} />
+                        <Row label="Failed" value={failedCount} />
+                        <Row label="Pending" value={pendingCount} />
                         <Row label="Last Template" value={lastRecoveryTemplate} />
                         <Row label="Last Stage" value={recoverySnapshot?.lastCompletedStage || "—"} />
+
+                        {failedOutcomes.map(item => (
+                            <Row
+                                key={`failed-recovery-${item.templateId}`}
+                                label={`Failed: ${item.templateName || item.templateId}`}
+                                value={item.error || "Template execution failed."}
+                                warning
+                            />
+                        ))}
+
                         {clearRecoveryFeedback && (
                             <Row
                                 label="Clear Result"
@@ -804,15 +865,28 @@ export function ExecutionDetails({
                                 warning={clearRecoveryFeedback.startsWith("FAILED")}
                             />
                         )}
+
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-                            <button type="button" onClick={onResumeBatch}
-                                disabled={recoveryBusy || !recoveryState?.available || !(recoverySnapshot?.pendingTemplateIds?.length || recoverySnapshot?.failedTemplateIds?.length)}>
-                                Resume Batch
-                            </button>
-                            <button type="button" onClick={onRetryFailed}
-                                disabled={recoveryBusy || !recoveryState?.available || !recoverySnapshot?.failedTemplateIds?.length}>
-                                Retry Failed Templates
-                            </button>
+                            {showResume && (
+                                <button
+                                    type="button"
+                                    onClick={onResumeBatch}
+                                    disabled={recoveryBusy}
+                                >
+                                    {recoveryBusy ? "Resuming…" : "Resume Batch"}
+                                </button>
+                            )}
+
+                            {showRetry && (
+                                <button
+                                    type="button"
+                                    onClick={onRetryFailed}
+                                    disabled={recoveryBusy}
+                                >
+                                    {recoveryBusy ? "Retrying…" : "Retry Failed Templates"}
+                                </button>
+                            )}
+
                             <button
                                 key="clear-recovery-state"
                                 type="button"
@@ -824,7 +898,8 @@ export function ExecutionDetails({
                                 Clear Recovery State
                             </button>
                         </div>
-                </>
+                    </>;
+                })()}
             </DetailSection>
         </section>
     );
@@ -937,6 +1012,7 @@ export default function TemplateDocumentPanel({
 
     useEffect(() => {
         console.info("ALB-032.3-mouse-drag-v1");
+        console.info("ALB-036-recovery-ui-hardening-v1");
     }, []);
 
     function refreshRegisteredTemplates() {
