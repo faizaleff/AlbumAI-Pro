@@ -1605,6 +1605,8 @@ export default function TemplateDocumentPanel({
 
         try {
 
+            setRegistryError(null);
+
             const summary = await executeProject(nextSummary => {
                 setProjectExecutionSummary(nextSummary);
                 refreshRecoveryState();
@@ -1619,7 +1621,11 @@ export default function TemplateDocumentPanel({
 
         }
 
-        catch (_) {
+        catch (error) {
+
+            if (error?.code === "NO_SELECTED_PHOTOS") {
+                setRegistryError("Select at least one photo before processing.");
+            }
 
             setProjectExecutionSummary(
                 getCurrentProjectExecutionSummary?.() || null
