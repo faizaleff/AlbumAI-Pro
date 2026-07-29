@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import PhotoImage from "./PhotoImage";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
-import { getPhotoFileEntry } from "../services/PhotoFileEntry";
 
 function PreviewPanel({
     photos = [],
@@ -54,32 +53,14 @@ function PreviewPanel({
     const activePhoto = activePhotoId == null
         ? null
         : photos.find(photo => photo?.id === activePhotoId) || null;
-    const activeFileEntry = getPhotoFileEntry(activePhoto);
-
     useEffect(() => {
-        setPreviewState(activeFileEntry ? "loading" : "unavailable");
-    }, [activeFileEntry, activePhoto?.id]);
-
-    useEffect(() => {
-
-        PhotoBrowserPerformance.trace(
-            "PREVIEW_SOURCE_CHANGED",
-            {
-                name: activePhoto?.name || null,
-                source: activeFileEntry ? "original-file" : "none"
-            }
-        );
-
-        return () => {
-            PhotoBrowserPerformance.trace(
-                "PREVIEW_SOURCE_RELEASED",
-                {
-                    name: activePhoto?.name || null
-                }
-            );
-        };
-
-    }, [activeFileEntry, activePhoto?.id, activePhoto?.thumbnail]);
+        if (!activePhoto) {
+            setPreviewState("unavailable");
+            return undefined;
+        }
+        setPreviewState("loading");
+        return undefined;
+    }, [activePhoto]);
 
     return (
         <div
@@ -107,15 +88,17 @@ function PreviewPanel({
                         style={{ position: "relative", height: 240, background: "#1f1f1f", border: "1px solid #444", borderRadius: 6, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
                         <PhotoImage
-                            photoId={activePhoto.id}
-                            fileEntry={activeFileEntry}
-                            cachedSource={null}
+                            photo={activePhoto}
+                            profile="preview"
+                            priority={0}
                             role="preview"
-                            viewMode="preview"
-                            retryGeneration={0}
                             alt={activePhoto.name}
-                            onImageLoad={() => setPreviewState("ready")}
-                            onImageError={() => setPreviewState("unavailable")}
+                            onImageLoad={() => {
+                                setPreviewState("ready");
+                            }}
+                            onImageError={() => {
+                                setPreviewState("unavailable");
+                            }}
                             fallback={previewState === "loading" ? (
                                 <div style={{ color: "#aaa", fontSize: 14 }}>Loading preview…</div>
                             ) : (

@@ -1,4 +1,5 @@
 const path = require("path");
+const webpack = require("webpack");
 const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = (_env, argv = {}) => {
@@ -47,6 +48,9 @@ module.exports = (_env, argv = {}) => {
         ]
     },
     plugins: [
+        new webpack.ProvidePlugin({
+            Buffer: ["buffer", "Buffer"]
+        }),
         new CopyPlugin([{
             from: 'plugin',
             to: '.',

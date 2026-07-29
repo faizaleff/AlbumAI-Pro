@@ -1,6 +1,9 @@
 import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
 
-const MAX_CONCURRENT = 2;
+// Software JPEG decoding temporarily holds the source pixel buffer. Keep a
+// single decode active so large camera files cannot multiply that peak.
+const MAX_CONCURRENT = 1;
+const MAX_CONSECUTIVE_PREVIEW_JOBS = 2;
 const DEFAULT_TIMEOUT_MS = 15000;
 
 class BrowserDecodeScheduler {
@@ -10,6 +13,8 @@ class BrowserDecodeScheduler {
         this.active = 0;
         this.pending = [];
         this.jobs = new Map();
+        this.consecutivePreviewJobs = 0;
+        this.idleResolvers = new Set();
 
     }
 
@@ -19,10 +24,29 @@ class BrowserDecodeScheduler {
 
     }
 
+    snapshot() {
+
+        let activePreviewDecodes = 0;
+        for (const job of this.jobs.values()) {
+            if (job.active && job.priority === 0) {
+                activePreviewDecodes++;
+            }
+        }
+        return {
+            activeBrowserDecodes:
+                Math.max(0, this.active - activePreviewDecodes),
+            activePreviewDecodes,
+            pendingJobs: this.pending.length + this.active
+        };
+
+    }
+
     request(key, start, {
+        priority = 2,
         timeoutMs = DEFAULT_TIMEOUT_MS,
         onTimeout = null,
-        onCancel = null
+        onCancel = null,
+        generation = null
     } = {}) {
 
         if (this.jobs.has(key)) return false;
@@ -30,14 +54,20 @@ class BrowserDecodeScheduler {
         const job = {
             key,
             start,
+            priority,
             onTimeout,
             onCancel,
             timeoutMs,
+            generation,
             released: false,
+            cancelled: false,
             timer: null
         };
         this.jobs.set(key, job);
         this.pending.push(job);
+        this.pending.sort((left, right) =>
+            left.priority - right.priority
+        );
         this.process();
         return true;
 
@@ -46,22 +76,56 @@ class BrowserDecodeScheduler {
     cancel(key) {
 
         const job = this.jobs.get(key);
-        if (!job) return;
+        if (!job || job.cancelled) return;
 
         const index = this.pending.indexOf(job);
         if (index >= 0) this.pending.splice(index, 1);
-        job.onCancel?.();
-        this.release(job);
+        job.cancelled = true;
+        if (job.timer != null) {
+            clearTimeout(job.timer);
+            job.timer = null;
+        }
+        job.onCancel?.({ active: job.active });
+        // An active File.read/render promise cannot be interrupted safely.
+        // Keep its scheduler slot and job identity until its own finally()
+        // releases it, so runtime summaries never report a detached render.
+        if (!job.active) this.release(job);
+
+    }
+
+    reprioritize(key, priority) {
+
+        const job = this.jobs.get(key);
+        if (!job || job.active || job.priority <= priority) return;
+        job.priority = priority;
+        this.pending.sort((left, right) =>
+            left.priority - right.priority
+        );
 
     }
 
     process() {
 
         while (this.active < MAX_CONCURRENT && this.pending.length) {
-            const job = this.pending.shift();
+            let nextIndex = 0;
+            if (
+                this.consecutivePreviewJobs >=
+                    MAX_CONSECUTIVE_PREVIEW_JOBS
+            ) {
+                const browserIndex = this.pending.findIndex(
+                    pendingJob => pendingJob.priority > 0
+                );
+                if (browserIndex >= 0) nextIndex = browserIndex;
+            }
+            const [job] = this.pending.splice(nextIndex, 1);
             if (!this.jobs.has(job.key)) continue;
 
             job.active = true;
+            if (job.priority === 0) {
+                this.consecutivePreviewJobs++;
+            } else {
+                this.consecutivePreviewJobs = 0;
+            }
             this.active++;
             PhotoBrowserPerformance.trace("ACTIVE_BROWSER_DECODES", {
                 active: this.active
@@ -69,7 +133,6 @@ class BrowserDecodeScheduler {
             job.timer = setTimeout(() => {
                 if (job.released) return;
                 job.onTimeout?.();
-                this.release(job);
             }, job.timeoutMs);
             try {
                 job.start(() => this.release(job));
@@ -98,6 +161,26 @@ class BrowserDecodeScheduler {
             });
         }
         this.process();
+        this.resolveIdle();
+
+    }
+
+    whenIdle() {
+
+        if (!this.jobs.size && !this.pending.length && !this.active) {
+            return Promise.resolve();
+        }
+        return new Promise(resolve => {
+            this.idleResolvers.add(resolve);
+        });
+
+    }
+
+    resolveIdle() {
+
+        if (this.jobs.size || this.pending.length || this.active) return;
+        for (const resolve of this.idleResolvers) resolve();
+        this.idleResolvers.clear();
 
     }
 

@@ -133,52 +133,11 @@ function PhotoBrowserSection({
     const focusPhoto = useCallback(photo => {
         if (!photo?.id) return;
         onFocusPhoto?.(photo.id);
-        PhotoBrowserPerformance.trace("BROWSER_FOCUSED_PHOTO", {
-            photoId: photo.id,
-            name: photo.name || null
-        });
     }, [onFocusPhoto]);
-
-    useEffect(() => {
-        PhotoBrowserPerformance.trace("BROWSER_SORT_INPUT", {
-            projectPhotos: photos.length,
-            filteredPhotos: photos.length,
-            sortedPhotos: sortedPhotos.length,
-            passedToThumbnailGrid: sortedPhotos.length,
-            sort
-        });
-        PhotoBrowserPerformance.trace("BROWSER_SOURCE_COUNT", {
-            count: sortedPhotos.length
-        });
-        PhotoBrowserPerformance.trace("BROWSER_SORT_STATE", sort);
-    }, [photos.length, sortedPhotos, sort]);
 
     useEffect(() => App.selection.subscribe(selectedIds => {
         setSelectedCount(selectedIds.size);
-        PhotoBrowserPerformance.trace("BROWSER_SELECTION_COUNT", {
-            selected: selectedIds.size,
-            total: sortedPhotos.length
-        });
-    }), [sortedPhotos.length]);
-
-    useEffect(() => {
-        PhotoBrowserPerformance.trace("UI_POLISH_READY", {
-            toolbarControls: [
-                "icons",
-                "list",
-                "sort",
-                "sortDirection",
-                "refresh",
-                "selectAll",
-                "clearSelection"
-            ],
-            statusBar: true,
-            emptyState: true,
-            loadingState: true,
-            buttons: true,
-            dropdown: true
-        });
-    }, []);
+    }), []);
 
     useEffect(() => {
         const handleKeyDown = event => {
@@ -192,14 +151,6 @@ function PhotoBrowserSection({
                 (event.ctrlKey || event.metaKey) &&
                 (event.key?.toLowerCase() === "a" ||
                     event.code === "KeyA");
-
-            PhotoBrowserPerformance.trace("BROWSER_KEYBOARD_EVENT", {
-                key: event.key || null,
-                ctrl: !!event.ctrlKey,
-                meta: !!event.metaKey,
-                shift: !!event.shiftKey,
-                editable: isEditable
-            });
 
             if (isEditable) return;
 

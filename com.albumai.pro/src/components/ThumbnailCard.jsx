@@ -1,10 +1,6 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback } from "react";
 import PhotoImage from "./PhotoImage";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
-import ThumbnailService, {
-    getThumbnailCacheKey
-} from "../services/ThumbnailService";
-import { getPhotoFileEntry } from "../services/PhotoFileEntry";
 
 function ThumbnailCard({
     photo,
@@ -19,23 +15,6 @@ function ThumbnailCard({
 
     PhotoBrowserPerformance.recordRender("ThumbnailCard");
     const imageHeight = compact ? 76 : 110;
-    const cacheKey = getThumbnailCacheKey(photo);
-    const cachedThumbnail = ThumbnailService.getCachedThumbnail(photo, {
-        viewMode,
-        visible,
-        diagnostic: false
-    });
-
-    useEffect(() => {
-        ThumbnailService.getCachedThumbnail(photo, { viewMode, visible });
-        PhotoBrowserPerformance.trace("THUMB_CARD_REMOUNT", {
-            photoId: photo?.id || null,
-            cacheKey,
-            generation: null,
-            viewMode,
-            visible
-        });
-    }, [cacheKey, photo?.id, viewMode, visible]);
 
     const handleClick = useCallback(event => onClick(photo, event), [photo, onClick]);
     const dimensions = photo.width > 0 && photo.height > 0
@@ -87,23 +66,23 @@ function ThumbnailCard({
                 }}
             >
                 <PhotoImage
-                    photoId={photo.id}
-                    fileEntry={getPhotoFileEntry(photo)}
-                    cachedSource={cachedThumbnail || thumbnailRevision}
+                    photo={photo}
+                    profile="thumbnail"
+                    priority={visible ? 1 : 2}
                     role="browser"
-                    viewMode={viewMode}
-                    retryGeneration={thumbnailRevision}
-                    cacheKey={cacheKey}
-                    visible={visible}
-                    onImageLoad={() =>
+                    onImageLoad={() => {
                         PhotoBrowserPerformance.thumbnailVisible(
                             photo.id
-                        )
-                    }
+                        );
+                    }}
                     alt={photo.name}
-                    fallback={loading && !photo.thumbnailUnavailable ? (
-                        <div style={{ color: "#888", fontSize: 12 }}>Loading...</div>
-                    ) : placeholder}
+                    fallback={status =>
+                        status === "loading" ? (
+                            <div style={{ color: "#888", fontSize: 12 }}>
+                                Loading...
+                            </div>
+                        ) : placeholder
+                    }
                     style={{
                         width: "100%",
                         height: "100%",
@@ -166,5 +145,7 @@ export default React.memo(
         previous.thumbnailRevision ===
             next.thumbnailRevision &&
         previous.loading === next.loading &&
-        previous.selected === next.selected
+        previous.selected === next.selected &&
+        previous.viewMode === next.viewMode &&
+        previous.visible === next.visible
 );
