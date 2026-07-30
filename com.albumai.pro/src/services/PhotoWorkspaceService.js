@@ -13,6 +13,24 @@ const METADATA_FILE = "photos.json";
 const INITIAL_VISIBLE_PHOTOS = 30;
 const INITIAL_OVERSCAN_PHOTOS = 30;
 
+function revisionValue(value) {
+
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === "number") return value;
+    if (!value) return 0;
+    return new Date(value).getTime() || 0;
+
+}
+
+function sameSourceRevision(previous, next) {
+
+    return Number(previous?.fileSize || previous?.file?.size || 0) ===
+            Number(next?.fileSize || next?.file?.size || 0) &&
+        revisionValue(previous?.modified || previous?.file?.modified) ===
+            revisionValue(next?.modified || next?.file?.modified);
+
+}
+
 export default class PhotoWorkspaceService {
 
     constructor({
@@ -80,9 +98,25 @@ export default class PhotoWorkspaceService {
         const previousById = new Map(
             previousPhotos.map(photo => [photo?.id, photo])
         );
+        const nextIds = new Set(
+            result.images.map(photo => photo?.id).filter(Boolean)
+        );
         const images = sameFolder
-            ? result.images.map(photo => previousById.get(photo.id) || photo)
+            ? result.images.map(photo => {
+                const previous = previousById.get(photo.id);
+                if (!previous) return photo;
+                if (sameSourceRevision(previous, photo)) return previous;
+                ThumbnailService.invalidatePhoto(previous);
+                return photo;
+            })
             : result.images;
+        if (sameFolder) {
+            for (const previous of previousPhotos) {
+                if (!nextIds.has(previous?.id)) {
+                    ThumbnailService.invalidatePhoto(previous);
+                }
+            }
+        }
         const reused = sameFolder
             ? images.filter(photo => previousById.get(photo.id) === photo).length
             : 0;
@@ -99,11 +133,17 @@ export default class PhotoWorkspaceService {
             }
         );
         ThumbnailQueue.clear({
-            discardResults: !sameFolder
+            discardResults: !sameFolder,
+            workspaceGeneration: this.lifecycleGeneration
         });
-        ThumbnailService.clear({
-            preserveCache: sameFolder
+        await ThumbnailService.clear({
+            preserveCache: sameFolder,
+            reason: sameFolder
+                ? "same-folder-refresh"
+                : "folder-switch",
+            workspaceGeneration: this.lifecycleGeneration
         });
+        if (requestId !== this.importRequestId) return null;
         this.sourceFolder = result.folder;
         if (!sameFolder) this.selection.clear();
         // Placeholder mode is the normal browser fallback. Cache hydration is
@@ -116,6 +156,12 @@ export default class PhotoWorkspaceService {
         }
         this.library.load(images);
         this.selection.retainAvailable(images);
+        ThumbnailService.activateWorkspace(
+            this.lifecycleGeneration
+        );
+        ThumbnailQueue.activateGeneration(
+            this.lifecycleGeneration
+        );
         logPhotoRuntimeSchemaOnce(images[0]);
         PhotoBrowserPerformance.trace(
             sameFolder
@@ -147,11 +193,6 @@ export default class PhotoWorkspaceService {
         ThumbnailQueue.addBatch(
             overscan,
             ThumbnailPriority.OVERSCAN
-        );
-        ThumbnailQueue.addBatch(
-            images.slice(
-                INITIAL_VISIBLE_PHOTOS + INITIAL_OVERSCAN_PHOTOS
-            )
         );
 
         // Project metadata writes are not part of the folder-open critical
@@ -256,8 +297,13 @@ export default class PhotoWorkspaceService {
                 photos: this.library.getPhotos().length
             }
         );
-        ThumbnailQueue.clear();
-        ThumbnailService.clear();
+        ThumbnailQueue.clear({
+            workspaceGeneration: this.lifecycleGeneration
+        });
+        await ThumbnailService.clear({
+            reason: "photo-folder-remove",
+            workspaceGeneration: this.lifecycleGeneration
+        });
         this.selection.clear();
         this.library.load([]);
         this.sourceFolder = null;
@@ -295,7 +341,7 @@ export default class PhotoWorkspaceService {
 
     }
 
-    release() {
+    async release() {
 
         this.importRequestId++;
         this.lifecycleGeneration++;
@@ -306,8 +352,13 @@ export default class PhotoWorkspaceService {
                 photos: this.library.getPhotos().length
             }
         );
-        ThumbnailQueue.clear();
-        ThumbnailService.clear();
+        ThumbnailQueue.clear({
+            workspaceGeneration: this.lifecycleGeneration
+        });
+        await ThumbnailService.clear({
+            reason: "photo-workspace-release",
+            workspaceGeneration: this.lifecycleGeneration
+        });
         this.selection.clear();
         this.library.load([]);
         this.sourceFolder = null;

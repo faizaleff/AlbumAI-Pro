@@ -172,7 +172,7 @@ class AppController {
             );
         }
 
-        this.photoWorkspace.release();
+        await this.photoWorkspace.release();
         this.templateRegistry.clear();
         this.projectTemplateRegistry = new ProjectTemplateRegistry();
         this.batchRecoverySnapshot = null;

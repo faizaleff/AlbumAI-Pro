@@ -6,10 +6,27 @@ const now = () => (
 );
 
 const HIGH_FREQUENCY_TRACES = new Set([
+    "ACTIVE_BROWSER_DECODES",
+    "LIVE_BLOBS",
+    "OBJECT_URL_CREATED",
+    "OBJECT_URL_REVOKED",
+    "SOFTWARE_JPEG_RENDER_FAILURE",
+    "SOFTWARE_JPEG_RENDER_START",
+    "SOFTWARE_JPEG_RENDER_SUCCESS",
+    "THUMB_CACHE_EVICT",
+    "THUMB_CACHE_SIZE"
+]);
+const QUIET_BY_DEFAULT_TRACES = new Set([
+    "BROWSER_FOCUSED_PHOTO",
     "BROWSER_IMAGE_COUNT",
+    "BROWSER_KEYBOARD_EVENT",
     "BROWSER_LAYOUT_RECALCULATED",
     "BROWSER_RENDER_ROWS",
     "BROWSER_RESIZE",
+    "BROWSER_SELECTION_COUNT",
+    "BROWSER_SORT_INPUT",
+    "BROWSER_SORT_STATE",
+    "BROWSER_SOURCE_COUNT",
     "BROWSER_VIRTUAL_WINDOW",
     "CACHE_KEY",
     "CACHE_MISS",
@@ -23,14 +40,20 @@ const HIGH_FREQUENCY_TRACES = new Set([
     "PHOTOIMAGE_SOURCE_INPUT",
     "PHOTOIMAGE_SOURCE_NORMALIZED",
     "PHOTOIMAGE_UNMOUNT",
+    "PREVIEW_MOUNT",
+    "PREVIEW_SOURCE_CHANGED",
+    "PREVIEW_SOURCE_RELEASED",
+    "PREVIEW_UNMOUNT",
     "REFRESH_SUBSCRIBE",
     "REFRESH_UNSUBSCRIBE",
     "THUMB_CACHE_RESTORE_MISS",
     "THUMB_CARD_REMOUNT",
     "THUMB_SOURCE_CLEARED",
+    "THUMB_UNMOUNTED_UPDATE_IGNORED",
+    "UI_POLISH_READY",
     "VISIBLE_CARDS"
 ]);
-const INITIAL_TRACE_SAMPLES = 5;
+const INITIAL_TRACE_SAMPLES = 3;
 const TRACE_SAMPLE_INTERVAL = 100;
 
 class PhotoBrowserPerformance {
@@ -48,6 +71,8 @@ class PhotoBrowserPerformance {
         this.documentIds = new Set();
         this.docOpenCount = 0;
         this.docCloseCount = 0;
+        this.browserDocumentOpenViolations = 0;
+        this.browserDocumentBaselineUnavailableLogged = false;
         this.liveImageBuffers = 0;
         this.photoImageMounts = 0;
         this.mountedPhotoImages = 0;
@@ -55,6 +80,22 @@ class PhotoBrowserPerformance {
         this.mountedPreviewImages = 0;
         this.traceCounts = Object.create(null);
         this.lastVirtualizationLogAt = 0;
+        this.runtimeCounts = {
+            thumbnailSuccesses: 0,
+            thumbnailFailures: 0,
+            previewSuccesses: 0,
+            previewFailures: 0,
+            objectUrlsCreated: 0,
+            objectUrlsRevoked: 0,
+            staleJobsRejected: 0,
+            cancelledBeforeRead: 0,
+            cancelledAfterRead: 0,
+            cancelledBeforePublish: 0
+        };
+        this.uniqueFailureSources = {
+            thumbnail: new Set(),
+            preview: new Set()
+        };
 
     }
 
@@ -378,6 +419,92 @@ class PhotoBrowserPerformance {
 
     }
 
+    beginBrowserDocumentInvariant() {
+
+        return {
+            openCount: this.docOpenCount,
+            liveReferences: this.documentIds.size
+        };
+
+    }
+
+    verifyBrowserDocumentInvariant(baseline, role) {
+
+        if (
+            typeof process !== "undefined" &&
+            process.env?.NODE_ENV === "production"
+        ) return;
+
+        const beforeOpenCount = baseline?.openCount;
+        const afterOpenCount = this.docOpenCount;
+        const beforeLiveReferences = baseline?.liveReferences;
+        const liveReferences = this.documentIds.size;
+        const canCompareOpenCount =
+            Number.isFinite(beforeOpenCount) &&
+            Number.isFinite(afterOpenCount);
+        const canCompareLiveReferences =
+            Number.isFinite(beforeLiveReferences) &&
+            Number.isFinite(liveReferences);
+
+        if (
+            (!canCompareOpenCount || !canCompareLiveReferences) &&
+            !this.browserDocumentBaselineUnavailableLogged
+        ) {
+            this.browserDocumentBaselineUnavailableLogged = true;
+            console.info(
+                "BROWSER_DOCUMENT_INVARIANT_BASELINE_UNAVAILABLE",
+                {
+                    role,
+                    openCountComparable: canCompareOpenCount,
+                    liveReferencesComparable:
+                        canCompareLiveReferences,
+                    afterOpenCount:
+                        Number.isFinite(afterOpenCount)
+                            ? afterOpenCount
+                            : null,
+                    liveReferences:
+                        Number.isFinite(liveReferences)
+                            ? liveReferences
+                            : null
+                }
+            );
+        }
+
+        const openCountDelta = canCompareOpenCount
+            ? afterOpenCount - beforeOpenCount
+            : 0;
+        const liveReferenceDelta = canCompareLiveReferences
+            ? liveReferences - beforeLiveReferences
+            : 0;
+        if (openCountDelta <= 0 && liveReferenceDelta <= 0) return;
+
+        this.browserDocumentOpenViolations += Math.max(
+            openCountDelta,
+            liveReferenceDelta
+        );
+
+        console.error("BROWSER_DOCUMENT_INVARIANT_FAILED", {
+            role,
+            beforeOpenCount:
+                canCompareOpenCount ? beforeOpenCount : null,
+            afterOpenCount:
+                Number.isFinite(afterOpenCount)
+                    ? afterOpenCount
+                    : null,
+            openCountDelta,
+            beforeLiveReferences:
+                canCompareLiveReferences
+                    ? beforeLiveReferences
+                    : null,
+            liveReferences:
+                Number.isFinite(liveReferences)
+                    ? liveReferences
+                    : null,
+            liveReferenceDelta
+        });
+
+    }
+
     imageBufferAcquired() {
 
         this.liveImageBuffers++;
@@ -403,20 +530,6 @@ class PhotoBrowserPerformance {
         } else if (role === "browser") {
             this.mountedBrowserImages++;
         }
-        this.trace("PHOTOIMAGE_MOUNT", {
-            totalMounts: this.photoImageMounts,
-            mounted: this.mountedPhotoImages,
-            browserMounted: this.mountedBrowserImages,
-            role
-        });
-        this.trace("IMAGE_ELEMENT_COUNT", {
-            count: this.mountedPhotoImages
-        });
-        if (role === "preview") {
-            this.trace("PREVIEW_MOUNT", {
-                count: this.mountedPreviewImages
-            });
-        }
 
     }
 
@@ -434,32 +547,13 @@ class PhotoBrowserPerformance {
                 this.mountedBrowserImages - 1
             );
         }
-        this.trace("PHOTOIMAGE_UNMOUNT", {
-            mounted: this.mountedPhotoImages,
-            browserMounted: this.mountedBrowserImages,
-            role
-        });
-        this.trace("IMAGE_ELEMENT_COUNT", {
-            count: this.mountedPhotoImages
-        });
-        if (role === "preview") {
-            this.trace("PREVIEW_UNMOUNT", {
-                count: this.mountedPreviewImages
-            });
-        }
 
     }
 
     browserCards(details) {
 
-        this.trace("VISIBLE_CARDS", {
-            count: details.visible || 0,
-            viewMode: details.viewMode
-        });
-        this.trace("MOUNTED_CARDS", {
-            count: details.mounted || 0,
-            viewMode: details.viewMode
-        });
+        this.visibleBrowserCards = details.visible || 0;
+        this.mountedBrowserCards = details.mounted || 0;
 
     }
 
@@ -495,24 +589,29 @@ class PhotoBrowserPerformance {
         const pending = this.pendingViewSwitch;
 
         if (!pending || pending.to !== view) return;
-
-        console.info(
-            "[PhotoBrowser:view-switch]",
-            JSON.stringify({
-                from: pending.from,
-                to: pending.to,
-                durationMs: this.duration(
-                    pending.startedAt,
-                    now()
-                )
-            })
-        );
+        if (this.isDevelopment()) {
+            console.info(
+                "[PhotoBrowser:view-switch]",
+                JSON.stringify({
+                    from: pending.from,
+                    to: pending.to,
+                    durationMs: this.duration(
+                        pending.startedAt,
+                        now()
+                    )
+                })
+            );
+        }
         this.pendingViewSwitch = null;
 
     }
 
     recordSelection(details) {
 
+        if (
+            !this.isDevelopment() ||
+            !this.isVerboseDiagnosticsEnabled()
+        ) return;
         console.info(
             "[PhotoBrowser:selection]",
             JSON.stringify({
@@ -532,7 +631,10 @@ class PhotoBrowserPerformance {
 
     recordRenderUpdate(component, update, details = {}) {
 
-        if (!this.isRenderProfilingEnabled()) return;
+        if (
+            !this.isDevelopment() ||
+            !this.isRenderProfilingEnabled()
+        ) return;
 
         console.info(
             "[PhotoBrowser:update]",
@@ -547,6 +649,10 @@ class PhotoBrowserPerformance {
 
     recordVirtualization(details) {
 
+        if (
+            !this.isDevelopment() ||
+            !this.isVerboseDiagnosticsEnabled()
+        ) return;
         const values = {
             visibleItems: details.visibleItems || 0,
             renderedItems: details.renderedItems || 0,
@@ -561,10 +667,7 @@ class PhotoBrowserPerformance {
         };
 
         const timestamp = now();
-        if (
-            !this.isVerboseDiagnosticsEnabled() &&
-            timestamp - this.lastVirtualizationLogAt < 1000
-        ) {
+        if (timestamp - this.lastVirtualizationLogAt < 1000) {
             return;
         }
         this.lastVirtualizationLogAt = timestamp;
@@ -598,6 +701,13 @@ class PhotoBrowserPerformance {
 
     }
 
+    isDevelopment() {
+
+        return typeof process === "undefined" ||
+            process.env?.NODE_ENV !== "production";
+
+    }
+
     refresh() {
 
         if (this.session) this.session.refreshes++;
@@ -610,7 +720,9 @@ class PhotoBrowserPerformance {
             typeof url === "string" &&
             url.startsWith("blob:")
         ) {
+            if (this.objectUrls.has(url)) return url;
             this.objectUrls.add(url);
+            this.runtimeCounts.objectUrlsCreated++;
             this.objectUrlIds.set(
                 url,
                 this.nextObjectUrlId++
@@ -639,24 +751,22 @@ class PhotoBrowserPerformance {
         }
 
         try {
-            this.trace("OBJECT_URL_REVOKED", {
-                urlId,
-                activeUrls: this.objectUrls.size
-            });
             URL.revokeObjectURL(url);
-            this.trace("OBJECT_URL_REVOKED", {
-                urlId,
-                activeUrls: this.objectUrls.size - 1
-            });
         } catch (error) {
             this.trace("BLOB_URL_REVOKE_ERROR", {
                 urlId,
                 message: error?.message || String(error)
             });
+            return;
         }
 
         this.objectUrls.delete(url);
         this.objectUrlIds.delete(url);
+        this.runtimeCounts.objectUrlsRevoked++;
+        this.trace("OBJECT_URL_REVOKED", {
+            urlId,
+            activeUrls: this.objectUrls.size
+        });
         this.trace("LIVE_BLOBS", { count: this.objectUrls.size });
 
     }
@@ -667,12 +777,53 @@ class PhotoBrowserPerformance {
 
     }
 
+    recordGenerationOutcome({
+        profile,
+        success,
+        failureIdentity = null
+    }) {
+
+        const normalizedProfile =
+            profile === "preview" ? "preview" : "thumbnail";
+        const counter = success
+            ? `${normalizedProfile}Successes`
+            : `${normalizedProfile}Failures`;
+        this.runtimeCounts[counter]++;
+        if (!success && failureIdentity) {
+            this.uniqueFailureSources[normalizedProfile].add(
+                failureIdentity
+            );
+        }
+
+    }
+
+    recordStaleJobRejection(checkpoint) {
+
+        this.runtimeCounts.staleJobsRejected++;
+        if (checkpoint === "before-read") {
+            this.runtimeCounts.cancelledBeforeRead++;
+        } else if (
+            checkpoint === "before-cache-publication" ||
+            checkpoint === "before-component-publication"
+        ) {
+            this.runtimeCounts.cancelledBeforePublish++;
+        } else {
+            this.runtimeCounts.cancelledAfterRead++;
+        }
+
+    }
+
     trace(operation, details = {}) {
 
-        this.traceSequence++;
         const operationCount =
             (this.traceCounts[operation] || 0) + 1;
         this.traceCounts[operation] = operationCount;
+        if (!this.isDevelopment()) return;
+        if (
+            QUIET_BY_DEFAULT_TRACES.has(operation) &&
+            !this.isVerboseDiagnosticsEnabled()
+        ) return;
+        this.traceSequence++;
 
         if (
             HIGH_FREQUENCY_TRACES.has(operation) &&
@@ -684,7 +835,7 @@ class PhotoBrowserPerformance {
         }
 
         console.info(
-            `[ALB014-CRASH ${this.traceSequence}] ${operation}`,
+            `[AlbumAI:browser ${this.traceSequence}] ${operation}`,
             JSON.stringify({
                 ...details,
                 ...(HIGH_FREQUENCY_TRACES.has(operation)
@@ -692,6 +843,39 @@ class PhotoBrowserPerformance {
                     : {})
             })
         );
+
+    }
+
+    emitRuntimeSummary({
+        reason = "explicit",
+        thumbnailCacheEntries = 0,
+        activeBrowserDecodes = 0,
+        activePreviewDecodes = 0,
+        pendingJobs = 0
+    } = {}) {
+
+        const summary = {
+            thumbnailCacheEntries,
+            activeObjectUrls: this.objectUrls.size,
+            liveBlobs: this.objectUrls.size,
+            activeBrowserDecodes,
+            activePreviewDecodes,
+            pendingJobs,
+            photoshopDocumentsOpenedByBrowser:
+                this.browserDocumentOpenViolations,
+            ...this.runtimeCounts,
+            uniqueThumbnailFailureSources:
+                this.uniqueFailureSources.thumbnail.size,
+            uniquePreviewFailureSources:
+                this.uniqueFailureSources.preview.size
+        };
+        if (this.isDevelopment()) {
+            console.info(
+                "ALB_042_RUNTIME_SUMMARY",
+                JSON.stringify({ reason, ...summary })
+            );
+        }
+        return summary;
 
     }
 
