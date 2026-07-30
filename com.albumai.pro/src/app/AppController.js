@@ -2,7 +2,9 @@ import LibraryEngine from "../core/LibraryEngine";
 import SelectionEngine from "../core/SelectionEngine";
 import ProjectEngine from "../core/ProjectEngine";
 import ProjectService from "../services/ProjectService";
-import PhotoWorkspaceService from "../services/PhotoWorkspaceService";
+import PhotoWorkspaceService, {
+    PhotoFolderChangeStatus
+} from "../services/PhotoWorkspaceService";
 import RecentFilesService from "../services/RecentFilesService";
 import TemplateDocumentReader from "../services/TemplateDocumentReader";
 import TemplateRegistry from "../services/TemplateRegistry";
@@ -208,6 +210,109 @@ class AppController {
         this.clearCurrentPlacementPlan();
 
         return photos;
+
+    }
+
+    async preparePhotoFolderChange(folder = null) {
+
+        if (this.projectBatchRunning) {
+            return Object.freeze({
+                status:
+                    PhotoFolderChangeStatus.BLOCKED_ACTIVE_BATCH
+            });
+        }
+
+        const prepared =
+            await this.photoWorkspace
+                .preparePhotoFolderChange(folder);
+        if (
+            prepared.status ===
+            PhotoFolderChangeStatus.PREPARED
+        ) {
+            return Object.freeze({
+                ...prepared,
+                recoveryDecisionRequired:
+                    Boolean(this.batchRecoverySnapshot),
+                recoveryClassification:
+                    this.batchRecoveryClassification
+            });
+        }
+        return prepared;
+
+    }
+
+    async commitPhotoFolderChange(
+        prepared,
+        { clearRecovery = false } = {}
+    ) {
+
+        if (this.projectBatchRunning) {
+            return Object.freeze({
+                status:
+                    PhotoFolderChangeStatus.BLOCKED_ACTIVE_BATCH
+            });
+        }
+
+        if (
+            prepared?.status ===
+            PhotoFolderChangeStatus.SAME_FOLDER
+        ) {
+            const result = await this.photoWorkspace
+                .commitPreparedPhotoFolderChange(prepared);
+            if (
+                result.status ===
+                PhotoFolderChangeStatus.SAME_FOLDER
+            ) {
+                this.clearCurrentPlacementPlan();
+            }
+            return result;
+        }
+
+        const recoveryPresent =
+            Boolean(this.batchRecoverySnapshot);
+        if (recoveryPresent && !clearRecovery) {
+            return Object.freeze({
+                status:
+                    PhotoFolderChangeStatus
+                        .RECOVERY_DECISION_REQUIRED,
+                transactionId:
+                    prepared?.transactionId || null,
+                recoveryClassification:
+                    this.batchRecoveryClassification
+            });
+        }
+
+        if (recoveryPresent) {
+            // Prevent an older checkpoint callback from writing old-photo
+            // recovery after the authoritative folder-change save.
+            this.recoveryWriteGeneration += 1;
+            await this.recoveryWritePromise.catch(() => null);
+        }
+
+        const result = await this.photoWorkspace
+            .commitPreparedPhotoFolderChange(
+                prepared,
+                {
+                    projectValues: {
+                        templateRegistry:
+                            this.projectTemplateRegistry.toJSON(),
+                        batchRecovery: recoveryPresent
+                            ? null
+                            : this.serializeRecoverySnapshot(
+                                this.batchRecoverySnapshot
+                            )
+                    }
+                }
+            );
+
+        if (result.status === PhotoFolderChangeStatus.SUCCESS) {
+            if (recoveryPresent) {
+                this.batchRecoverySnapshot = null;
+                this.batchRecoveryClassification = null;
+            }
+            this.clearCurrentPlacementPlan();
+        }
+        return result;
 
     }
 

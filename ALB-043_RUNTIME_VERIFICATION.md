@@ -2,7 +2,47 @@
 
 Branch: `feature/alb-043-change-photo-folder`
 
-Status: Phase 1 proposed runtime matrix
+Status: ALB-043.1 backend implemented; UI/runtime execution pending ALB-043.2
+
+## Automated foundation verification
+
+Run:
+
+```text
+cd com.albumai.pro
+npm test -- --runInBand
+```
+
+The checked-in service harness verifies eight deterministic groups:
+
+| Foundation scenario | Automated result |
+| --- | --- |
+| Browser-renderable classification accepts JPG/JPEG and rejects PNG | PASS |
+| Valid preparation leaves active folder/library/selection/cache/persistence/token state untouched | PASS |
+| Cancel, empty, unsupported-only, inaccessible, and token-failure classification | PASS |
+| Atomic project-save failure restores metadata and leaves old runtime untouched | PASS |
+| Successful save precedes one runtime replacement and preserves template metadata | PASS |
+| Lifecycle-clear failure rolls persisted metadata back and reactivates old runtime | PASS |
+| Same-folder refresh preserves the old token and requests cache preservation | PASS |
+| A newer preparation supersedes an older delayed scan | PASS |
+
+These tests use injected UXP/lifecycle collaborators and do not replace the
+Photoshop runtime matrix below. The final toolbar and confirmation UI are not
+implemented in ALB-043.1, so UI-labelled steps remain pending.
+
+## Runtime diagnostic events now available
+
+- `PHOTO_FOLDER_CHANGE_PREPARE_START`
+- `PHOTO_FOLDER_CHANGE_PREPARED`
+- `PHOTO_FOLDER_CHANGE_SAME_FOLDER`
+- `PHOTO_FOLDER_CHANGE_SUPERSEDED`
+- `PHOTO_FOLDER_CHANGE_FAILED`
+- `PHOTO_FOLDER_CHANGE_COMMITTED`
+- `PHOTO_FOLDER_CHANGE_METADATA_CACHE_FAILURE`
+- `PHOTO_FOLDER_CHANGE_ROLLBACK_FAILURE`
+
+Events contain transaction ids, statuses, counts, and bounded error names. They
+do not contain folder paths or persistent-token values.
 
 ## Setup
 
@@ -439,4 +479,3 @@ Photoshop/UXP versions:
 Commit tested:
 
 Blocking observations:
-

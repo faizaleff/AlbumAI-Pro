@@ -2,7 +2,75 @@
 
 Branch: `feature/alb-043-change-photo-folder`
 
-Status: Phase 1 audit and implementation plan only
+Status: ALB-043.1 transaction foundation implemented; final UI pending
+
+## ALB-043.1 implementation state
+
+The transaction foundation is implemented without exposing the final browser
+action. `AppController` orchestrates recovery policy while
+`PhotoWorkspaceService` owns the centralized folder-change transaction.
+
+The backend API is:
+
+- `App.preparePhotoFolderChange(folder?)`
+- `App.commitPhotoFolderChange(prepared, { clearRecovery })`
+- `PhotoWorkspaceService.preparePhotoFolderChange(folder?)`
+- `PhotoWorkspaceService.commitPreparedPhotoFolderChange(prepared, options)`
+
+Preparation assigns a monotonically increasing transaction id, optionally
+opens the picker, enumerates without touching the live workspace, classifies
+the candidate, and detects the active folder. It creates no persistent token
+and leaves no resource behind if confirmation is cancelled. It returns
+explicit frozen status objects for prepared, cancelled, same-folder, empty,
+unsupported-only, inaccessible, and superseded outcomes.
+
+Commit operations are serialized. A confirmed different-folder commit drains
+prior photo persistence, creates and validates the persistent token, snapshots
+project metadata, atomically saves the new folder token, photo count, template
+registry, and recovery decision, and only then advances the ALB-042 workspace
+generation. A token failure occurs before save or runtime mutation. Commit then
+clears old queue/service ownership,
+publishes the staged library once, activates the new generation, refreshes
+subscribers, and writes the non-authoritative metadata cache. Save failure
+restores the complete prior in-memory metadata before runtime cancellation. A
+lifecycle failure after persistence triggers an atomic metadata rollback and
+reactivates the old workspace.
+
+Any newer preparation supersedes an older unfinished scan, token, or commit.
+Every asynchronous boundary before publication checks the transaction id.
+Commit operations are serialized so a superseded persisted transaction can
+finish rollback before a newer commit begins.
+
+Same-folder selection deliberately creates no token and performs no project
+save. Confirmation is unnecessary; commit routes through the existing
+same-folder refresh with cache preservation and selection reconciliation.
+
+Non-running recovery is reported as a decision requirement by `AppController`.
+It is not cleared during preparation. When the caller confirms
+`clearRecovery`, outstanding recovery writes are invalidated/drained and
+`batchRecovery: null` is saved atomically with the new photo source. In-memory
+recovery is cleared only after transaction success. Active project batches
+return `BLOCKED_ACTIVE_BATCH`.
+
+`FolderService.importPhotoFolder()` now returns non-sensitive counts for total
+files, recognized images, browser-renderable JPEGs, and recognized unsupported
+images. Folder-change diagnostics contain no paths or persistent tokens.
+
+A lightweight webpack-based service test harness was added because the
+repository had no test command or runner. `npm test -- --runInBand` covers:
+
+- browser-renderable JPEG classification;
+- preparation without active state mutation;
+- cancel, empty, unsupported-only, inaccessible, and token-failure results;
+- save-failure metadata/runtime rollback;
+- successful persist-before-publish and exactly-one library replacement;
+- lifecycle-clear failure rollback;
+- same-folder refresh without token replacement;
+- supersession of a delayed preparation.
+
+ALB-043.2 remains responsible for the toolbar action, confirmation/recovery
+decision UI, user-facing error copy, focused Preview reset, and Photoshop
+runtime execution of the verification matrix.
 
 ## Objective
 
@@ -141,9 +209,8 @@ Use a two-phase transaction owned by `PhotoWorkspaceService`, orchestrated by
    - empty folder;
    - recognized but browser-unsupported-only folder;
    - inaccessible/unreadable folder.
-7. Create and validate a non-empty persistent token for a different folder.
-8. Return an immutable staged change descriptor containing only the current
-   transaction id, candidate Entry, token, folder name, candidate photos, and
+7. Return an immutable staged change descriptor containing only the current
+   transaction id, candidate Entry, folder name, candidate photos, and
    non-sensitive counts. It must not be persisted across plugin reload.
 
 ### Phase B — Confirm and commit
@@ -156,21 +223,24 @@ For a different valid folder:
    will be cleared; project identity and templates remain.
 3. On confirmation, drain the previous photo-persistence promise and any
    recovery write that must be invalidated.
-4. Snapshot:
+4. Create and validate a non-empty persistent token for the different folder.
+   Token failure returns before project or runtime mutation.
+5. Snapshot:
    - complete project metadata;
    - current recovery snapshot/classification;
    - current source folder/library/selection references for failure reporting;
    - current transaction and workspace generations.
-5. Persist the new `photoSource`, `photoCount`, and required recovery change
-   through `AppController.saveProject()` so the current template registry and
-   recovery policy are serialized together.
-6. If persistence fails:
+6. Persist the new `photoSource`, `photoCount`, and required recovery change
+   through the centralized service transaction using values assembled by
+   `AppController`, so the current template registry and recovery policy are
+   serialized together.
+7. If persistence fails:
    - restore the prior in-memory project metadata;
    - restore recovery snapshot/classification;
    - keep the old folder, photos, selection, Preview, cache, and decodes
      untouched;
    - show a recoverable error.
-7. After verified `project.json` commit:
+8. After verified `project.json` commit:
    - increment `importRequestId` and workspace generation;
    - stop accepting old-generation thumbnail requests;
    - clear `ThumbnailQueue`;
@@ -182,7 +252,7 @@ For a different valid folder:
    - activate the new queue/service generation;
    - publish through `RefreshService`;
    - clear photo-dependent placement/execution/Auto Save/export results.
-8. Write `Cache/metadata/photos.json` after the authoritative project commit.
+9. Write `Cache/metadata/photos.json` after the authoritative project commit.
    A cache-write failure should be reported and retried later, but must not
    revert a verified `project.json` change.
 
@@ -421,4 +491,3 @@ transaction or lifecycle primitive.
 
 Each commit must build independently and must exclude
 `com.albumai.pro/dist/index.js`.
-

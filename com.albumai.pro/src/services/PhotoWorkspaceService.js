@@ -13,6 +13,32 @@ const METADATA_FILE = "photos.json";
 const INITIAL_VISIBLE_PHOTOS = 30;
 const INITIAL_OVERSCAN_PHOTOS = 30;
 
+export const PhotoFolderChangeStatus = Object.freeze({
+    PREPARED: "PREPARED",
+    SUCCESS: "SUCCESS",
+    CANCELLED: "CANCELLED",
+    SAME_FOLDER: "SAME_FOLDER",
+    EMPTY_FOLDER: "EMPTY_FOLDER",
+    UNSUPPORTED_ONLY: "UNSUPPORTED_ONLY",
+    INACCESSIBLE: "INACCESSIBLE",
+    TOKEN_FAILURE: "TOKEN_FAILURE",
+    SAVE_FAILURE: "SAVE_FAILURE",
+    SUPERSEDED: "SUPERSEDED",
+    INVALID_TRANSACTION: "INVALID_TRANSACTION",
+    COMMIT_FAILURE: "COMMIT_FAILURE",
+    RECOVERY_DECISION_REQUIRED: "RECOVERY_DECISION_REQUIRED",
+    BLOCKED_ACTIVE_BATCH: "BLOCKED_ACTIVE_BATCH"
+});
+
+function folderChangeResult(status, values = {}) {
+
+    return Object.freeze({
+        status,
+        ...values
+    });
+
+}
+
 function revisionValue(value) {
 
     if (value instanceof Date) return value.getTime();
@@ -38,7 +64,12 @@ export default class PhotoWorkspaceService {
         selection,
         projectEngine,
         projectService,
-        localFileSystem = storage.localFileSystem
+        localFileSystem = storage.localFileSystem,
+        importFolder = importPhotoFolder,
+        thumbnailService = ThumbnailService,
+        thumbnailQueue = ThumbnailQueue,
+        refreshService = RefreshService,
+        performance = PhotoBrowserPerformance
     } = {}) {
 
         if (!library || !selection || !projectEngine || !projectService) {
@@ -52,37 +83,58 @@ export default class PhotoWorkspaceService {
         this.projectEngine = projectEngine;
         this.projectService = projectService;
         this.localFileSystem = localFileSystem;
+        this.importFolder = importFolder;
+        this.thumbnailService = thumbnailService;
+        this.thumbnailQueue = thumbnailQueue;
+        this.refreshService = refreshService;
+        this.performance = performance;
         this.sourceFolder = null;
         this.persistencePromise = Promise.resolve();
         this.lifecycleGeneration = 0;
         this.importRequestId = 0;
+        this.folderChangeTransactionId = 0;
+        this.folderChangeCommitPromise = Promise.resolve();
 
     }
 
-    async importPhotos(folder = null) {
+    async importPhotos(folder = null, {
+        persistFolderReference = true,
+        folderChangeTransactionId = null
+    } = {}) {
 
         this.requireProject();
+        if (folderChangeTransactionId === null) {
+            this.folderChangeTransactionId++;
+        }
         const requestId = ++this.importRequestId;
         const persistenceReason = folder
             ? "PHOTO_FOLDER_REFRESH"
             : "PHOTO_FOLDER_IMPORT";
 
-        PhotoBrowserPerformance.beginFolderLoad();
+        this.performance.beginFolderLoad();
 
         const sourceFolder = folder ||
             await this.localFileSystem.getFolder();
 
-        PhotoBrowserPerformance.markPickerComplete();
+        this.performance.markPickerComplete();
 
-        if (!sourceFolder || requestId !== this.importRequestId) {
+        if (
+            !sourceFolder ||
+            requestId !== this.importRequestId ||
+            !this.isCurrentFolderChange(folderChangeTransactionId)
+        ) {
             return null;
         }
 
-        const result = await importPhotoFolder(sourceFolder);
+        const result = await this.importFolder(sourceFolder);
 
-        if (!result || requestId !== this.importRequestId) {
+        if (
+            !result ||
+            requestId !== this.importRequestId ||
+            !this.isCurrentFolderChange(folderChangeTransactionId)
+        ) {
             if (result) {
-                PhotoBrowserPerformance.trace(
+                this.performance.trace(
                     "STALE_FOLDER_IMPORT_IGNORED",
                     { requestId }
                 );
@@ -94,106 +146,15 @@ export default class PhotoWorkspaceService {
             this.sourceFolder,
             result.folder
         );
-        const previousPhotos = this.library.getPhotos();
-        const previousById = new Map(
-            previousPhotos.map(photo => [photo?.id, photo])
-        );
-        const nextIds = new Set(
-            result.images.map(photo => photo?.id).filter(Boolean)
-        );
-        const images = sameFolder
-            ? result.images.map(photo => {
-                const previous = previousById.get(photo.id);
-                if (!previous) return photo;
-                if (sameSourceRevision(previous, photo)) return previous;
-                ThumbnailService.invalidatePhoto(previous);
-                return photo;
-            })
-            : result.images;
-        if (sameFolder) {
-            for (const previous of previousPhotos) {
-                if (!nextIds.has(previous?.id)) {
-                    ThumbnailService.invalidatePhoto(previous);
-                }
-            }
-        }
-        const reused = sameFolder
-            ? images.filter(photo => previousById.get(photo.id) === photo).length
-            : 0;
-
-        this.lifecycleGeneration++;
-        PhotoBrowserPerformance.trace(
-            "FOLDER_SWITCH",
+        const published = await this.publishImportedFolder(
+            result,
             {
-                generation: this.lifecycleGeneration,
-                previousFolder:
-                    this.sourceFolder?.name || null,
-                nextFolder: result.folder?.name || null,
-                sameFolder
+                sameFolder,
+                requestId,
+                folderChangeTransactionId
             }
         );
-        ThumbnailQueue.clear({
-            discardResults: !sameFolder,
-            workspaceGeneration: this.lifecycleGeneration
-        });
-        await ThumbnailService.clear({
-            preserveCache: sameFolder,
-            reason: sameFolder
-                ? "same-folder-refresh"
-                : "folder-switch",
-            workspaceGeneration: this.lifecycleGeneration
-        });
-        if (requestId !== this.importRequestId) return null;
-        this.sourceFolder = result.folder;
-        if (!sameFolder) this.selection.clear();
-        // Placeholder mode is the normal browser fallback. Cache hydration is
-        // only useful when this bounded session cache already has entries;
-        // never start work for uncached originals here.
-        if (ThumbnailService.hasCachedThumbnails()) {
-            for (const photo of images) {
-                ThumbnailService.restoreCachedThumbnail(photo);
-            }
-        }
-        this.library.load(images);
-        this.selection.retainAvailable(images);
-        ThumbnailService.activateWorkspace(
-            this.lifecycleGeneration
-        );
-        ThumbnailQueue.activateGeneration(
-            this.lifecycleGeneration
-        );
-        logPhotoRuntimeSchemaOnce(images[0]);
-        PhotoBrowserPerformance.trace(
-            sameFolder
-                ? "SAME_FOLDER_REFRESH_REUSED"
-                : "SAME_FOLDER_REFRESH_REMOUNTED",
-            {
-                reused,
-                remounted: images.length - reused,
-                total: images.length
-            }
-        );
-
-        // Publish stable photo models before any image decoding starts.
-        PhotoBrowserPerformance.markPublishRequested();
-        RefreshService.refresh();
-
-        const visible = images.slice(
-            0,
-            INITIAL_VISIBLE_PHOTOS
-        );
-        const overscan = images.slice(
-            INITIAL_VISIBLE_PHOTOS,
-            INITIAL_VISIBLE_PHOTOS + INITIAL_OVERSCAN_PHOTOS
-        );
-        ThumbnailQueue.addBatch(
-            visible,
-            ThumbnailPriority.VISIBLE
-        );
-        ThumbnailQueue.addBatch(
-            overscan,
-            ThumbnailPriority.OVERSCAN
-        );
+        if (!published) return null;
 
         // Project metadata writes are not part of the folder-open critical
         // path. Keep them ordered and report failures without blocking paint.
@@ -201,15 +162,18 @@ export default class PhotoWorkspaceService {
             .catch(() => {})
             .then(async () => {
                 const persistenceStarted =
-                    PhotoBrowserPerformance.timestamp();
-                const { persistentTokenMs } =
-                    await this.persistProjectState(
-                        persistenceReason
-                    );
+                    this.performance.timestamp();
+                let persistentTokenMs = 0;
+                if (persistFolderReference) {
+                    ({ persistentTokenMs } =
+                        await this.persistProjectState(
+                            persistenceReason
+                        ));
+                }
                 await this.writeMetadataCache();
                 const persistenceCompleted =
-                    PhotoBrowserPerformance.timestamp();
-                PhotoBrowserPerformance.recordPersistence({
+                    this.performance.timestamp();
+                this.performance.recordPersistence({
                     persistentTokenMs,
                     projectPersistenceMs:
                         Math.round(
@@ -228,6 +192,425 @@ export default class PhotoWorkspaceService {
             });
 
         return this.library.getPhotos();
+
+    }
+
+    async publishImportedFolder(
+        result,
+        {
+            sameFolder = false,
+            requestId = this.importRequestId,
+            folderChangeTransactionId = null
+        } = {}
+    ) {
+
+        const previousPhotos = this.library.getPhotos();
+        const previousById = new Map(
+            previousPhotos.map(photo => [photo?.id, photo])
+        );
+        const nextIds = new Set(
+            result.images.map(photo => photo?.id).filter(Boolean)
+        );
+        const images = sameFolder
+            ? result.images.map(photo => {
+                const previous = previousById.get(photo.id);
+                if (!previous) return photo;
+                if (sameSourceRevision(previous, photo)) return previous;
+                this.thumbnailService.invalidatePhoto(previous);
+                return photo;
+            })
+            : result.images;
+        if (sameFolder) {
+            for (const previous of previousPhotos) {
+                if (!nextIds.has(previous?.id)) {
+                    this.thumbnailService.invalidatePhoto(previous);
+                }
+            }
+        }
+        const reused = sameFolder
+            ? images.filter(photo => previousById.get(photo.id) === photo).length
+            : 0;
+
+        this.lifecycleGeneration++;
+        this.performance.trace(
+            "FOLDER_SWITCH",
+            {
+                generation: this.lifecycleGeneration,
+                previousFolder:
+                    this.sourceFolder?.name || null,
+                nextFolder: result.folder?.name || null,
+                sameFolder
+            }
+        );
+        this.thumbnailQueue.clear({
+            discardResults: !sameFolder,
+            workspaceGeneration: this.lifecycleGeneration
+        });
+        await this.thumbnailService.clear({
+            preserveCache: sameFolder,
+            reason: sameFolder
+                ? "same-folder-refresh"
+                : "folder-switch",
+            workspaceGeneration: this.lifecycleGeneration
+        });
+        if (
+            requestId !== this.importRequestId ||
+            !this.isCurrentFolderChange(folderChangeTransactionId)
+        ) {
+            this.reactivateCurrentPhotoWorkspace();
+            return false;
+        }
+        this.sourceFolder = result.folder;
+        if (!sameFolder) this.selection.clear();
+        // Placeholder mode is the normal browser fallback. Cache hydration is
+        // only useful when this bounded session cache already has entries;
+        // never start work for uncached originals here.
+        if (this.thumbnailService.hasCachedThumbnails()) {
+            for (const photo of images) {
+                this.thumbnailService.restoreCachedThumbnail(photo);
+            }
+        }
+        this.library.load(images);
+        this.selection.retainAvailable(images);
+        this.thumbnailService.activateWorkspace(
+            this.lifecycleGeneration
+        );
+        this.thumbnailQueue.activateGeneration(
+            this.lifecycleGeneration
+        );
+        logPhotoRuntimeSchemaOnce(images[0]);
+        this.performance.trace(
+            sameFolder
+                ? "SAME_FOLDER_REFRESH_REUSED"
+                : "SAME_FOLDER_REFRESH_REMOUNTED",
+            {
+                reused,
+                remounted: images.length - reused,
+                total: images.length
+            }
+        );
+
+        // Publish stable photo models before any image decoding starts.
+        this.performance.markPublishRequested();
+        this.refreshService.refresh();
+
+        const visible = images.slice(
+            0,
+            INITIAL_VISIBLE_PHOTOS
+        );
+        const overscan = images.slice(
+            INITIAL_VISIBLE_PHOTOS,
+            INITIAL_VISIBLE_PHOTOS + INITIAL_OVERSCAN_PHOTOS
+        );
+        this.thumbnailQueue.addBatch(
+            visible,
+            ThumbnailPriority.VISIBLE
+        );
+        this.thumbnailQueue.addBatch(
+            overscan,
+            ThumbnailPriority.OVERSCAN
+        );
+
+        return true;
+
+    }
+
+    async preparePhotoFolderChange(folder = null) {
+
+        this.requireProject();
+        const transactionId = ++this.folderChangeTransactionId;
+        this.traceFolderChange(
+            "PHOTO_FOLDER_CHANGE_PREPARE_START",
+            { transactionId, pickerRequired: !folder }
+        );
+
+        let candidate = folder;
+        if (!candidate) {
+            try {
+                candidate = await this.localFileSystem.getFolder();
+            } catch (error) {
+                return this.folderChangeFailure(
+                    transactionId,
+                    PhotoFolderChangeStatus.INACCESSIBLE,
+                    error
+                );
+            }
+        }
+
+        if (!this.isCurrentFolderChange(transactionId)) {
+            return this.supersededFolderChange(transactionId);
+        }
+        if (!candidate) {
+            return folderChangeResult(
+                PhotoFolderChangeStatus.CANCELLED,
+                { transactionId }
+            );
+        }
+
+        let staged;
+        try {
+            staged = await this.importFolder(candidate);
+        } catch (error) {
+            return this.folderChangeFailure(
+                transactionId,
+                PhotoFolderChangeStatus.INACCESSIBLE,
+                error
+            );
+        }
+
+        if (!this.isCurrentFolderChange(transactionId)) {
+            return this.supersededFolderChange(transactionId);
+        }
+
+        const statistics = staged?.statistics || {};
+        const totalFiles = Number(statistics.totalFiles) || 0;
+        const recognizedImages =
+            Number(statistics.recognizedImages) || 0;
+        const browserRenderableImages =
+            Number(statistics.browserRenderableImages) || 0;
+        const counts = Object.freeze({
+            totalFiles,
+            recognizedImages,
+            browserRenderableImages,
+            unsupportedRecognizedImages:
+                Number(statistics.unsupportedRecognizedImages) || 0
+        });
+
+        if (totalFiles === 0) {
+            return folderChangeResult(
+                PhotoFolderChangeStatus.EMPTY_FOLDER,
+                { transactionId, counts }
+            );
+        }
+        if (browserRenderableImages === 0) {
+            return folderChangeResult(
+                PhotoFolderChangeStatus.UNSUPPORTED_ONLY,
+                { transactionId, counts }
+            );
+        }
+
+        const sameFolder = this.sameFolder(
+            this.sourceFolder,
+            candidate
+        );
+        if (sameFolder) {
+            this.traceFolderChange(
+                "PHOTO_FOLDER_CHANGE_SAME_FOLDER",
+                { transactionId, counts }
+            );
+            return folderChangeResult(
+                PhotoFolderChangeStatus.SAME_FOLDER,
+                {
+                    transactionId,
+                    folder: candidate,
+                    folderName: candidate.name || null,
+                    images: staged.images,
+                    counts
+                }
+            );
+        }
+
+        this.traceFolderChange(
+            "PHOTO_FOLDER_CHANGE_PREPARED",
+            { transactionId, counts }
+        );
+        return folderChangeResult(
+            PhotoFolderChangeStatus.PREPARED,
+            {
+                transactionId,
+                folder: candidate,
+                folderName: candidate.name || null,
+                images: staged.images,
+                counts
+            }
+        );
+
+    }
+
+    commitPreparedPhotoFolderChange(prepared, {
+        projectValues = null,
+        persistenceReason = "PHOTO_FOLDER_CHANGE"
+    } = {}) {
+
+        const operation = this.folderChangeCommitPromise
+            .catch(() => {})
+            .then(() => this.performPhotoFolderChangeCommit(
+                prepared,
+                { projectValues, persistenceReason }
+            ));
+        this.folderChangeCommitPromise = operation;
+        return operation;
+
+    }
+
+    async performPhotoFolderChangeCommit(
+        prepared,
+        { projectValues, persistenceReason }
+    ) {
+
+        this.requireProject();
+        const transactionId = prepared?.transactionId;
+        if (
+            !transactionId ||
+            !this.isCurrentFolderChange(transactionId)
+        ) {
+            return this.supersededFolderChange(transactionId);
+        }
+
+        if (prepared.status === PhotoFolderChangeStatus.SAME_FOLDER) {
+            const photos = await this.importPhotos(
+                prepared.folder,
+                {
+                    persistFolderReference: false,
+                    folderChangeTransactionId: transactionId
+                }
+            );
+            if (!this.isCurrentFolderChange(transactionId)) {
+                return this.supersededFolderChange(transactionId);
+            }
+            return folderChangeResult(
+                PhotoFolderChangeStatus.SAME_FOLDER,
+                {
+                    transactionId,
+                    photos: photos || this.library.getPhotos()
+                }
+            );
+        }
+
+        if (
+            prepared.status !== PhotoFolderChangeStatus.PREPARED ||
+            !projectValues ||
+            !prepared.folder ||
+            !Array.isArray(prepared.images)
+        ) {
+            return folderChangeResult(
+                PhotoFolderChangeStatus.INVALID_TRANSACTION,
+                { transactionId: transactionId || null }
+            );
+        }
+
+        await this.persistencePromise.catch(() => {});
+        if (!this.isCurrentFolderChange(transactionId)) {
+            return this.supersededFolderChange(transactionId);
+        }
+
+        let token;
+        try {
+            token = await this.createRequiredFolderToken(
+                prepared.folder
+            );
+        } catch (error) {
+            return this.folderChangeFailure(
+                transactionId,
+                PhotoFolderChangeStatus.TOKEN_FAILURE,
+                error,
+                prepared.counts
+            );
+        }
+        if (!this.isCurrentFolderChange(transactionId)) {
+            return this.supersededFolderChange(transactionId);
+        }
+
+        const previousMetadata = {
+            ...this.projectEngine.getProject()?.metadata
+        };
+        const nextValues = {
+            ...projectValues,
+            photoCount: prepared.images.length,
+            photoSource: {
+                name: prepared.folderName,
+                token
+            }
+        };
+
+        try {
+            await this.projectService.saveProject(
+                nextValues,
+                { reason: persistenceReason }
+            );
+        } catch (error) {
+            this.projectEngine.updateMetadata(previousMetadata);
+            return this.folderChangeFailure(
+                transactionId,
+                PhotoFolderChangeStatus.SAVE_FAILURE,
+                error,
+                prepared.counts
+            );
+        }
+
+        if (!this.isCurrentFolderChange(transactionId)) {
+            await this.rollbackPersistedFolderChange(
+                previousMetadata,
+                transactionId
+            );
+            return this.supersededFolderChange(transactionId);
+        }
+
+        const requestId = ++this.importRequestId;
+        let published;
+        try {
+            published = await this.publishImportedFolder(
+                {
+                    folder: prepared.folder,
+                    images: prepared.images
+                },
+                {
+                    sameFolder: false,
+                    requestId,
+                    folderChangeTransactionId: transactionId
+                }
+            );
+        } catch (error) {
+            await this.rollbackPersistedFolderChange(
+                previousMetadata,
+                transactionId
+            );
+            return this.folderChangeFailure(
+                transactionId,
+                PhotoFolderChangeStatus.COMMIT_FAILURE,
+                error,
+                prepared.counts
+            );
+        }
+
+        if (!published) {
+            await this.rollbackPersistedFolderChange(
+                previousMetadata,
+                transactionId
+            );
+            return this.supersededFolderChange(transactionId);
+        }
+
+        let metadataCachePersisted = true;
+        try {
+            await this.writeMetadataCache(prepared.images);
+        } catch (error) {
+            metadataCachePersisted = false;
+            this.traceFolderChange(
+                "PHOTO_FOLDER_CHANGE_METADATA_CACHE_FAILURE",
+                {
+                    transactionId,
+                    errorName: error?.name || "Error"
+                }
+            );
+        }
+
+        this.traceFolderChange(
+            "PHOTO_FOLDER_CHANGE_COMMITTED",
+            {
+                transactionId,
+                photoCount: prepared.images.length,
+                metadataCachePersisted
+            }
+        );
+        return folderChangeResult(
+            PhotoFolderChangeStatus.SUCCESS,
+            {
+                transactionId,
+                photoCount: prepared.images.length,
+                metadataCachePersisted
+            }
+        );
 
     }
 
@@ -287,20 +670,21 @@ export default class PhotoWorkspaceService {
     async removePhotos() {
 
         this.requireProject();
+        this.folderChangeTransactionId++;
         this.importRequestId++;
 
         this.lifecycleGeneration++;
-        PhotoBrowserPerformance.trace(
+        this.performance.trace(
             "PHOTO_WORKSPACE_REMOVE",
             {
                 generation: this.lifecycleGeneration,
                 photos: this.library.getPhotos().length
             }
         );
-        ThumbnailQueue.clear({
+        this.thumbnailQueue.clear({
             workspaceGeneration: this.lifecycleGeneration
         });
-        await ThumbnailService.clear({
+        await this.thumbnailService.clear({
             reason: "photo-folder-remove",
             workspaceGeneration: this.lifecycleGeneration
         });
@@ -314,7 +698,7 @@ export default class PhotoWorkspaceService {
         }, { reason: "PHOTO_FOLDER_REMOVE" });
         await this.writeMetadataCache();
 
-        RefreshService.refresh();
+        this.refreshService.refresh();
 
     }
 
@@ -326,36 +710,37 @@ export default class PhotoWorkspaceService {
 
     prioritizePhoto(photo) {
 
-        ThumbnailQueue.addPriority(photo);
+        this.thumbnailQueue.addPriority(photo);
 
     }
 
     setVisiblePhotos(photos) {
 
         if (Array.isArray(photos)) {
-            ThumbnailQueue.setVisible(photos);
+            this.thumbnailQueue.setVisible(photos);
             return;
         }
 
-        ThumbnailQueue.setViewport(photos);
+        this.thumbnailQueue.setViewport(photos);
 
     }
 
     async release() {
 
+        this.folderChangeTransactionId++;
         this.importRequestId++;
         this.lifecycleGeneration++;
-        PhotoBrowserPerformance.trace(
+        this.performance.trace(
             "PHOTO_WORKSPACE_RELEASE",
             {
                 generation: this.lifecycleGeneration,
                 photos: this.library.getPhotos().length
             }
         );
-        ThumbnailQueue.clear({
+        this.thumbnailQueue.clear({
             workspaceGeneration: this.lifecycleGeneration
         });
-        await ThumbnailService.clear({
+        await this.thumbnailService.clear({
             reason: "photo-workspace-release",
             workspaceGeneration: this.lifecycleGeneration
         });
@@ -385,11 +770,11 @@ export default class PhotoWorkspaceService {
 
         const source = this.sourceFolder;
         const tokenStarted =
-            PhotoBrowserPerformance.timestamp();
+            this.performance.timestamp();
         const token = await this.createFolderToken(source);
         const persistentTokenMs = Math.round(
             (
-                PhotoBrowserPerformance.timestamp() -
+                this.performance.timestamp() -
                 tokenStarted
             ) * 10
         ) / 10;
@@ -432,6 +817,119 @@ export default class PhotoWorkspaceService {
 
     }
 
+    async createRequiredFolderToken(folder) {
+
+        if (
+            typeof this.localFileSystem.createPersistentToken !==
+            "function"
+        ) {
+            throw new Error(
+                "Persistent folder tokens are unavailable."
+            );
+        }
+
+        const token = await this.localFileSystem
+            .createPersistentToken(folder);
+        if (typeof token !== "string" || !token.trim()) {
+            throw new Error(
+                "The selected folder could not be persisted."
+            );
+        }
+        return token;
+
+    }
+
+    isCurrentFolderChange(transactionId) {
+
+        return transactionId === null ||
+            transactionId === this.folderChangeTransactionId;
+
+    }
+
+    supersededFolderChange(transactionId) {
+
+        this.traceFolderChange(
+            "PHOTO_FOLDER_CHANGE_SUPERSEDED",
+            { transactionId: transactionId || null }
+        );
+        return folderChangeResult(
+            PhotoFolderChangeStatus.SUPERSEDED,
+            { transactionId: transactionId || null }
+        );
+
+    }
+
+    folderChangeFailure(
+        transactionId,
+        status,
+        error,
+        counts = undefined
+    ) {
+
+        this.traceFolderChange(
+            "PHOTO_FOLDER_CHANGE_FAILED",
+            {
+                transactionId,
+                status,
+                counts,
+                errorName: error?.name || "Error"
+            }
+        );
+        return folderChangeResult(
+            status,
+            {
+                transactionId,
+                counts,
+                error:
+                    error?.message || "Photo folder change failed."
+            }
+        );
+
+    }
+
+    traceFolderChange(event, details) {
+
+        this.performance.trace(event, details);
+
+    }
+
+    reactivateCurrentPhotoWorkspace() {
+
+        this.thumbnailService.activateWorkspace(
+            this.lifecycleGeneration
+        );
+        this.thumbnailQueue.activateGeneration(
+            this.lifecycleGeneration
+        );
+        this.refreshService.refresh();
+
+    }
+
+    async rollbackPersistedFolderChange(
+        previousMetadata,
+        transactionId
+    ) {
+
+        try {
+            await this.projectService.saveProject(
+                previousMetadata,
+                { reason: "PHOTO_FOLDER_CHANGE_ROLLBACK" }
+            );
+        } catch (error) {
+            this.traceFolderChange(
+                "PHOTO_FOLDER_CHANGE_ROLLBACK_FAILURE",
+                {
+                    transactionId,
+                    errorName: error?.name || "Error"
+                }
+            );
+        } finally {
+            this.projectEngine.updateMetadata(previousMetadata);
+            this.reactivateCurrentPhotoWorkspace();
+        }
+
+    }
+
     async resolveSourceFolder() {
 
         const metadata = this.projectEngine.getProject()?.metadata;
@@ -460,7 +958,7 @@ export default class PhotoWorkspaceService {
 
     }
 
-    async writeMetadataCache() {
+    async writeMetadataCache(photoSnapshot = null) {
 
         const metadataFolder =
             this.projectEngine.getProject()?.workspace?.cache?.metadata;
@@ -474,7 +972,10 @@ export default class PhotoWorkspaceService {
             { overwrite: true }
         );
 
-        const photos = this.library.getPhotos().map(photo => ({
+        const sourcePhotos = Array.isArray(photoSnapshot)
+            ? photoSnapshot
+            : this.library.getPhotos();
+        const photos = sourcePhotos.map(photo => ({
             id: photo.id,
             name: photo.name,
             extension: photo.extension,
