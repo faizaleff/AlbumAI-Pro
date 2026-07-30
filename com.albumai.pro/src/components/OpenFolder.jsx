@@ -13,6 +13,13 @@ import SelectionCount from "./SelectionCount";
 import App from "../app/AppController";
 import RefreshService from "../services/RefreshService";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+import {
+    canConfirmPhotoFolderChange,
+    photoFolderChangeMessage,
+    photoFolderChangeCommitOptions,
+    shouldResetPhotoPreview,
+    upgradePhotoFolderChangeForRecovery
+} from "./photoFolderChangeMessages";
 
 export default function OpenFolder() {
 
@@ -25,7 +32,17 @@ export default function OpenFolder() {
     const [importedPhotoCount, setImportedPhotoCount] = useState(0);
     const [photoFolderAvailable, setPhotoFolderAvailable] = useState(false);
     const [photoFolderMessage, setPhotoFolderMessage] = useState(null);
+    const [photoFolderChange, setPhotoFolderChange] = useState({
+        busy: false,
+        prepared: null,
+        clearRecovery: false,
+        message: null,
+        error: null
+    });
     const unavailableDiagnosticRef = useRef(null);
+    const mountedRef = useRef(true);
+    const photoFolderChangeAttemptRef = useRef(0);
+    const photoFolderChangeBusyRef = useRef(false);
     const [, forceRefresh] = useState(0);
 
     PhotoBrowserPerformance.recordRender("OpenFolder");
@@ -135,6 +152,125 @@ export default function OpenFolder() {
         };
 
     }, []);
+
+    useEffect(() => () => {
+        mountedRef.current = false;
+        photoFolderChangeAttemptRef.current += 1;
+    }, []);
+
+    const setCurrentPhotoFolderChange = useCallback((attempt, update) => {
+        if (!mountedRef.current || attempt !== photoFolderChangeAttemptRef.current) {
+            return;
+        }
+        setPhotoFolderChange(update);
+    }, []);
+
+    const changePhotoFolder = useCallback(async () => {
+        if (!hasProject || photoFolderChangeBusyRef.current) return;
+
+        const attempt = ++photoFolderChangeAttemptRef.current;
+        photoFolderChangeBusyRef.current = true;
+        setCurrentPhotoFolderChange(attempt, {
+            busy: true, prepared: null, clearRecovery: false, message: null, error: null
+        });
+        try {
+            const prepared = await App.preparePhotoFolderChange();
+            if (!mountedRef.current || attempt !== photoFolderChangeAttemptRef.current) return;
+            if (prepared.status === "CANCELLED") {
+                setCurrentPhotoFolderChange(attempt, {
+                    busy: false, prepared: null, clearRecovery: false, message: null, error: null
+                });
+                return;
+            }
+            if (prepared.status === "SAME_FOLDER") {
+                const result = await App.commitPhotoFolderChange(prepared);
+                if (!mountedRef.current || attempt !== photoFolderChangeAttemptRef.current) return;
+                setCurrentPhotoFolderChange(attempt, {
+                    busy: false, prepared: null, clearRecovery: false,
+                    message: result.status === "SAME_FOLDER" ? photoFolderChangeMessage(result) : null,
+                    error: result.status === "SAME_FOLDER" ? null : photoFolderChangeMessage(result)
+                });
+                if (result.status === "SAME_FOLDER") forceRefresh(value => value + 1);
+                return;
+            }
+            if (prepared.status !== "PREPARED") {
+                setCurrentPhotoFolderChange(attempt, {
+                    busy: false, prepared: null, clearRecovery: false, message: null,
+                    error: photoFolderChangeMessage(prepared)
+                });
+                return;
+            }
+            setCurrentPhotoFolderChange(attempt, {
+                busy: false, prepared, clearRecovery: false, message: null, error: null
+            });
+        } catch (error) {
+            setCurrentPhotoFolderChange(attempt, {
+                busy: false, prepared: null, clearRecovery: false, message: null,
+                error: photoFolderChangeMessage()
+            });
+        } finally {
+            if (attempt === photoFolderChangeAttemptRef.current) {
+                photoFolderChangeBusyRef.current = false;
+            }
+        }
+    }, [hasProject, setCurrentPhotoFolderChange]);
+
+    const cancelPhotoFolderChange = useCallback(() => {
+        const attempt = ++photoFolderChangeAttemptRef.current;
+        photoFolderChangeBusyRef.current = false;
+        setCurrentPhotoFolderChange(attempt, {
+            busy: false, prepared: null, clearRecovery: false, message: null, error: null
+        });
+    }, [setCurrentPhotoFolderChange]);
+
+    const confirmPhotoFolderChange = useCallback(async () => {
+        const prepared = photoFolderChange.prepared;
+        if (
+            !prepared ||
+            photoFolderChangeBusyRef.current ||
+            !canConfirmPhotoFolderChange(photoFolderChange)
+        ) return;
+
+        const attempt = photoFolderChangeAttemptRef.current;
+        photoFolderChangeBusyRef.current = true;
+        setCurrentPhotoFolderChange(attempt, previous => ({ ...previous, busy: true, error: null }));
+        try {
+            const result = await App.commitPhotoFolderChange(
+                prepared,
+                photoFolderChangeCommitOptions(photoFolderChange)
+            );
+            if (!mountedRef.current || attempt !== photoFolderChangeAttemptRef.current) return;
+            if (shouldResetPhotoPreview(result)) {
+                setFocusedPhotoId(null);
+                setFolderName(App.project.getProject()?.metadata?.photoSource?.name || "");
+                setPhotoFolderAvailable(true);
+                setPhotoFolderMessage(null);
+                setCurrentPhotoFolderChange(attempt, {
+                    busy: false, prepared: null, clearRecovery: false,
+                    message: "Photo folder changed successfully.", error: null
+                });
+                forceRefresh(value => value + 1);
+                return;
+            }
+            if (result.status === "RECOVERY_DECISION_REQUIRED") {
+                setCurrentPhotoFolderChange(attempt, previous =>
+                    upgradePhotoFolderChangeForRecovery(previous, result)
+                );
+                return;
+            }
+            setCurrentPhotoFolderChange(attempt, previous => ({
+                ...previous, busy: false, error: photoFolderChangeMessage(result)
+            }));
+        } catch (error) {
+            setCurrentPhotoFolderChange(attempt, previous => ({
+                ...previous, busy: false, error: photoFolderChangeMessage()
+            }));
+        } finally {
+            if (attempt === photoFolderChangeAttemptRef.current) {
+                photoFolderChangeBusyRef.current = false;
+            }
+        }
+    }, [photoFolderChange, setCurrentPhotoFolderChange]);
 
     async function openFolder() {
 
@@ -553,8 +689,17 @@ export default function OpenFolder() {
                     folderMessage={photoFolderMessage}
                     onOpenFolder={openFolder}
                     onRefresh={refreshFolder}
+                    onChangePhotoFolder={changePhotoFolder}
                     isLoading={isImportingPhotos}
                     loadingPhotoCount={importedPhotoCount}
+                    photoFolderChange={{
+                        ...photoFolderChange,
+                        onCancel: cancelPhotoFolderChange,
+                        onConfirm: confirmPhotoFolderChange,
+                        onRecoveryAcceptance: accepted => setPhotoFolderChange(
+                            previous => ({ ...previous, clearRecovery: accepted })
+                        )
+                    }}
                 />
 
             </div>

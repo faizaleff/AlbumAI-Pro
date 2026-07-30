@@ -6,6 +6,13 @@ import PhotoWorkspaceService, {
 import {
     isBrowserRenderableImage
 } from "../src/services/FolderService";
+import {
+    canConfirmPhotoFolderChange,
+    photoFolderChangeMessage,
+    photoFolderChangeCommitOptions,
+    upgradePhotoFolderChangeForRecovery,
+    shouldResetPhotoPreview
+} from "../src/components/photoFolderChangeMessages";
 
 const silentPerformance = {
     beginFolderLoad() {},
@@ -212,6 +219,89 @@ async function run() {
         assert.strictEqual(
             isBrowserRenderableImage("portrait.png"),
             false
+        );
+    });
+
+    await test("UI status contract maps failures and resets Preview only after replacement", async () => {
+        const statuses = [
+            PhotoFolderChangeStatus.EMPTY_FOLDER,
+            PhotoFolderChangeStatus.UNSUPPORTED_ONLY,
+            PhotoFolderChangeStatus.INACCESSIBLE,
+            PhotoFolderChangeStatus.TOKEN_FAILURE,
+            PhotoFolderChangeStatus.SAVE_FAILURE,
+            PhotoFolderChangeStatus.SUPERSEDED,
+            PhotoFolderChangeStatus.BLOCKED_ACTIVE_BATCH,
+            PhotoFolderChangeStatus.RECOVERY_DECISION_REQUIRED,
+            PhotoFolderChangeStatus.INVALID_TRANSACTION,
+            PhotoFolderChangeStatus.COMMIT_FAILURE
+        ];
+        statuses.forEach(status => {
+            assert.ok(photoFolderChangeMessage({ status }).length > 0);
+        });
+        assert.ok(photoFolderChangeMessage({
+            status: PhotoFolderChangeStatus.SAME_FOLDER
+        }).includes("refreshed"));
+        assert.strictEqual(
+            shouldResetPhotoPreview({ status: PhotoFolderChangeStatus.SUCCESS }),
+            true
+        );
+        [
+            PhotoFolderChangeStatus.CANCELLED,
+            PhotoFolderChangeStatus.SAME_FOLDER,
+            PhotoFolderChangeStatus.SAVE_FAILURE,
+            PhotoFolderChangeStatus.SUPERSEDED
+        ].forEach(status => assert.strictEqual(
+            shouldResetPhotoPreview({ status }),
+            false
+        ));
+    });
+
+    await test("UI upgrades a prepared candidate when recovery becomes required before commit", async () => {
+        const prepared = {
+            status: PhotoFolderChangeStatus.PREPARED,
+            transactionId: 42,
+            folderName: "new",
+            recoveryDecisionRequired: false
+        };
+        const staged = {
+            busy: true,
+            prepared,
+            clearRecovery: true,
+            error: null
+        };
+        const upgraded = upgradePhotoFolderChangeForRecovery(staged, {
+            status: PhotoFolderChangeStatus.RECOVERY_DECISION_REQUIRED,
+            recoveryClassification: "interrupted"
+        });
+        assert.notStrictEqual(upgraded, staged);
+        assert.strictEqual(upgraded.prepared.transactionId, 42);
+        assert.strictEqual(upgraded.prepared.folderName, "new");
+        assert.strictEqual(upgraded.prepared.recoveryDecisionRequired, true);
+        assert.strictEqual(upgraded.clearRecovery, false);
+        assert.strictEqual(upgraded.busy, false);
+        assert.strictEqual(canConfirmPhotoFolderChange(upgraded), false);
+        assert.deepStrictEqual(photoFolderChangeCommitOptions(upgraded), {
+            clearRecovery: false
+        });
+        const acknowledged = { ...upgraded, clearRecovery: true };
+        assert.strictEqual(canConfirmPhotoFolderChange(acknowledged), true);
+        assert.deepStrictEqual(photoFolderChangeCommitOptions(acknowledged), {
+            clearRecovery: true
+        });
+        assert.strictEqual(
+            shouldResetPhotoPreview({
+                status: PhotoFolderChangeStatus.RECOVERY_DECISION_REQUIRED
+            }),
+            false
+        );
+        const repeated = upgradePhotoFolderChangeForRecovery(acknowledged, {
+            status: PhotoFolderChangeStatus.RECOVERY_DECISION_REQUIRED
+        });
+        assert.strictEqual(repeated.prepared.transactionId, 42);
+        assert.strictEqual(repeated.clearRecovery, false);
+        assert.strictEqual(
+            shouldResetPhotoPreview({ status: PhotoFolderChangeStatus.SUCCESS }),
+            true
         );
     });
 

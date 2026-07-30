@@ -23,8 +23,10 @@ function PhotoBrowserSection({
     folderMessage = null,
     onOpenFolder,
     onRefresh,
+    onChangePhotoFolder,
     isLoading = false,
-    loadingPhotoCount = 0
+    loadingPhotoCount = 0,
+    photoFolderChange = null
 }) {
 
     const [viewMode, setViewMode] = useState("icons");
@@ -313,6 +315,19 @@ function PhotoBrowserSection({
                 </button>
                 <button
                     type="button"
+                    onClick={onChangePhotoFolder}
+                    disabled={!projectId || isLoading || photoFolderChange?.busy || photoFolderChange?.prepared}
+                    aria-disabled={!projectId || isLoading || photoFolderChange?.busy || photoFolderChange?.prepared}
+                    className="photo-browser-control"
+                    title="Choose a different photo folder"
+                    aria-label="Change photo folder"
+                >
+                    {photoFolderChange?.busy
+                        ? "Changing Folder…"
+                        : "Change Photo Folder"}
+                </button>
+                <button
+                    type="button"
                     onClick={() => {
                         selectAllBrowserPhotos();
                     }}
@@ -337,6 +352,11 @@ function PhotoBrowserSection({
             </div>
 
             <div className="photo-browser-content">
+                {photoFolderChange?.message && !isLoading && (
+                    <div className="photo-folder-change-message" role="status" aria-live="polite">
+                        {photoFolderChange.message}
+                    </div>
+                )}
                 {isLoading ? (
                     <div className="photo-browser-state photo-browser-loading-state" role="status" aria-live="polite">
                         <div className="photo-browser-spinner" aria-hidden="true" />
@@ -374,6 +394,49 @@ function PhotoBrowserSection({
                     />
                 )}
             </div>
+
+            {photoFolderChange?.prepared && (
+                <div className="photo-folder-change-backdrop" role="presentation">
+                    <section
+                        className="photo-folder-change-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="change-photo-folder-title"
+                    >
+                        <h2 id="change-photo-folder-title">Change Photo Folder?</h2>
+                        <p><strong>{photoFolderChange.prepared.folderName || "Selected folder"}</strong> contains {photoFolderChange.prepared.counts?.browserRenderableImages || 0} supported {photoFolderChange.prepared.counts?.browserRenderableImages === 1 ? "photo" : "photos"}.</p>
+                        {(photoFolderChange.prepared.counts?.unsupportedRecognizedImages || 0) > 0 && (
+                            <p>{photoFolderChange.prepared.counts.unsupportedRecognizedImages} recognized {photoFolderChange.prepared.counts.unsupportedRecognizedImages === 1 ? "image is" : "images are"} unsupported and will not be added.</p>
+                        )}
+                        <p>Changing folders reconciles the current photo selection with the new folder.</p>
+                        {photoFolderChange.prepared.recoveryDecisionRequired && (
+                            <label className="photo-folder-change-recovery">
+                                <input
+                                    type="checkbox"
+                                    checked={photoFolderChange.clearRecovery}
+                                    onChange={event => photoFolderChange.onRecoveryAcceptance(event.target.checked)}
+                                    disabled={photoFolderChange.busy}
+                                />
+                                I understand that changing folders clears the saved batch recovery state.
+                            </label>
+                        )}
+                        {photoFolderChange.error && (
+                            <p className="photo-folder-change-error" role="alert">{photoFolderChange.error}</p>
+                        )}
+                        <div className="photo-folder-change-actions">
+                            <button type="button" onClick={photoFolderChange.onCancel} disabled={photoFolderChange.busy}>Cancel</button>
+                            <button
+                                type="button"
+                                className="photo-browser-primary-button"
+                                onClick={photoFolderChange.onConfirm}
+                                disabled={photoFolderChange.busy || (photoFolderChange.prepared.recoveryDecisionRequired && !photoFolderChange.clearRecovery)}
+                            >
+                                {photoFolderChange.busy ? "Changing…" : "Change Folder"}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            )}
 
             <div className="photo-browser-statusbar" role="status" aria-label="Photo browser status">
                 <span><strong>Photos:</strong> {sortedPhotos.length}</span>

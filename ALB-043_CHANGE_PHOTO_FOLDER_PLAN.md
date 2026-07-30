@@ -2,7 +2,24 @@
 
 Branch: `feature/alb-043-change-photo-folder`
 
-Status: ALB-043.1 transaction foundation implemented; final UI pending
+Status: ALB-043.2 UI workflow implemented; Photoshop runtime execution pending
+
+## ALB-043.2 implementation state
+
+The Photo Browser toolbar now provides **Change Photo Folder** beside Refresh.
+The workflow prepares a candidate while retaining the current browser runtime,
+silently dismisses picker cancellation, and shows an explicit confirmation with
+candidate counts, selection reconciliation, and (when applicable) a required
+batch-recovery acknowledgement.  The UI invokes commit only after confirmation;
+the recovery flag is passed only after that acknowledgement is checked.
+If recovery becomes required after preparation, the same confirmation upgrades
+in place, clears any prior acknowledgement, and retries the retained candidate
+only after the new acknowledgement.
+
+Same-folder candidates use the existing cache-preserving refresh route without
+confirmation and report a concise no-change result.  Successful replacement
+refreshes the browser and clears focused Preview state; cancellation, failed
+preparation, failed commit, and same-folder refresh do not reset Preview.
 
 ## ALB-043.1 implementation state
 

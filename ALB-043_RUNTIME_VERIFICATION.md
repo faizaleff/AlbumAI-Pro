@@ -2,7 +2,18 @@
 
 Branch: `feature/alb-043-change-photo-folder`
 
-Status: ALB-043.1 backend implemented; UI/runtime execution pending ALB-043.2
+Status: ALB-043.2 UI implemented; Photoshop runtime execution pending
+
+## ALB-043.2 automated/UI coverage
+
+The toolbar flow prevents concurrent picker/commit requests, suppresses stale
+async results and unmounted state updates, keeps the current folder on every
+failure, and requires explicit acknowledgement before a recovery snapshot can
+be cleared. The automated harness now also verifies the UI-facing status copy
+and that Preview reset is reserved for successful different-folder replacement.
+Picker cancellation, preparation supersession, same-folder refresh, persistence
+failures, token failures, and runtime rollback remain covered by the transaction
+harness. Photoshop runtime execution of the matrix below is still required.
 
 ## Automated foundation verification
 
