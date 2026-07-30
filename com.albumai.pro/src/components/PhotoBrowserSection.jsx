@@ -12,6 +12,9 @@ import {
     setCanonicalBrowserPhotos
 } from "../services/BrowserSelectionCommands";
 import App from "../app/AppController";
+import {
+    canStartPhotoFolderChange
+} from "./photoFolderChangeMessages";
 
 function PhotoBrowserSection({
     photos,
@@ -28,6 +31,13 @@ function PhotoBrowserSection({
     loadingPhotoCount = 0,
     photoFolderChange = null
 }) {
+
+    const canChangePhotoFolder = canStartPhotoFolderChange({
+        projectId,
+        folderLoaded,
+        isLoading,
+        photoFolderChange
+    });
 
     const [viewMode, setViewMode] = useState("icons");
     const [selectedCount, setSelectedCount] = useState(
@@ -316,10 +326,12 @@ function PhotoBrowserSection({
                 <button
                     type="button"
                     onClick={onChangePhotoFolder}
-                    disabled={!projectId || isLoading || photoFolderChange?.busy || photoFolderChange?.prepared}
-                    aria-disabled={!projectId || isLoading || photoFolderChange?.busy || photoFolderChange?.prepared}
+                    disabled={!canChangePhotoFolder}
+                    aria-disabled={!canChangePhotoFolder}
                     className="photo-browser-control"
-                    title="Choose a different photo folder"
+                    title={canChangePhotoFolder
+                        ? "Choose a different photo folder"
+                        : "Open a photo folder before changing it"}
                     aria-label="Change photo folder"
                 >
                     {photoFolderChange?.busy

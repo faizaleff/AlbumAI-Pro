@@ -4,7 +4,7 @@ export function photoFolderChangeMessage(result) {
 
     switch (result?.status) {
     case PhotoFolderChangeStatus.EMPTY_FOLDER:
-        return "The selected folder is empty. Choose a folder with supported photos.";
+        return "The selected folder contains no supported photos.";
     case PhotoFolderChangeStatus.UNSUPPORTED_ONLY:
         return "The selected folder has no supported JPEG photos.";
     case PhotoFolderChangeStatus.INACCESSIBLE:
@@ -34,6 +34,30 @@ export function photoFolderChangeMessage(result) {
 export function shouldResetPhotoPreview(result) {
 
     return result?.status === PhotoFolderChangeStatus.SUCCESS;
+
+}
+
+export function createIdlePhotoFolderChangeState() {
+
+    return {
+        busy: false,
+        prepared: null,
+        clearRecovery: false,
+        message: null,
+        error: null
+    };
+
+}
+
+export function photoFolderChangePreparationFailureState(result) {
+
+    return {
+        busy: false,
+        prepared: null,
+        clearRecovery: false,
+        message: photoFolderChangeMessage(result),
+        error: null
+    };
 
 }
 
@@ -76,5 +100,22 @@ export function photoFolderChangeCommitOptions(state) {
             state.clearRecovery
         )
     };
+
+}
+
+export function canStartPhotoFolderChange({
+    projectId,
+    folderLoaded,
+    isLoading,
+    photoFolderChange
+} = {}) {
+
+    return Boolean(
+        projectId &&
+        folderLoaded &&
+        !isLoading &&
+        !photoFolderChange?.busy &&
+        !photoFolderChange?.prepared
+    );
 
 }

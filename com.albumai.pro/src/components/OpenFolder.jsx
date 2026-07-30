@@ -15,8 +15,10 @@ import RefreshService from "../services/RefreshService";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import {
     canConfirmPhotoFolderChange,
+    createIdlePhotoFolderChangeState,
     photoFolderChangeMessage,
     photoFolderChangeCommitOptions,
+    photoFolderChangePreparationFailureState,
     shouldResetPhotoPreview,
     upgradePhotoFolderChangeForRecovery
 } from "./photoFolderChangeMessages";
@@ -32,22 +34,41 @@ export default function OpenFolder() {
     const [importedPhotoCount, setImportedPhotoCount] = useState(0);
     const [photoFolderAvailable, setPhotoFolderAvailable] = useState(false);
     const [photoFolderMessage, setPhotoFolderMessage] = useState(null);
-    const [photoFolderChange, setPhotoFolderChange] = useState({
-        busy: false,
-        prepared: null,
-        clearRecovery: false,
-        message: null,
-        error: null
-    });
+    const [photoFolderChange, setPhotoFolderChange] = useState(
+        createIdlePhotoFolderChangeState
+    );
     const unavailableDiagnosticRef = useRef(null);
     const mountedRef = useRef(true);
     const photoFolderChangeAttemptRef = useRef(0);
     const photoFolderChangeBusyRef = useRef(false);
+    const photoFolderChangeProjectIdRef = useRef(null);
     const [, forceRefresh] = useState(0);
 
     PhotoBrowserPerformance.recordRender("OpenFolder");
     const project = App.project.getProject();
     const hasProject = !!project;
+    const projectId = project?.metadata?.id || null;
+
+    const clearPhotoFolderChangeState = useCallback(() => {
+        photoFolderChangeAttemptRef.current += 1;
+        photoFolderChangeBusyRef.current = false;
+        if (mountedRef.current) {
+            setPhotoFolderChange(createIdlePhotoFolderChangeState());
+        }
+    }, []);
+
+    useEffect(() => {
+        const projectChanged =
+            photoFolderChangeProjectIdRef.current !== projectId;
+        photoFolderChangeProjectIdRef.current = projectId;
+        if (projectChanged || !projectId || !photoFolderAvailable) {
+            clearPhotoFolderChangeState();
+        }
+    }, [
+        clearPhotoFolderChangeState,
+        photoFolderAvailable,
+        projectId
+    ]);
 
     useEffect(() => {
         PhotoBrowserPerformance.markPublished();
@@ -194,10 +215,10 @@ export default function OpenFolder() {
                 return;
             }
             if (prepared.status !== "PREPARED") {
-                setCurrentPhotoFolderChange(attempt, {
-                    busy: false, prepared: null, clearRecovery: false, message: null,
-                    error: photoFolderChangeMessage(prepared)
-                });
+                setCurrentPhotoFolderChange(
+                    attempt,
+                    photoFolderChangePreparationFailureState(prepared)
+                );
                 return;
             }
             setCurrentPhotoFolderChange(attempt, {
@@ -462,6 +483,7 @@ export default function OpenFolder() {
         setFolderName("");
         setPhotoFolderAvailable(false);
         setPhotoFolderMessage(null);
+        clearPhotoFolderChangeState();
         setProjectError(null);
         forceRefresh(value => value + 1);
 

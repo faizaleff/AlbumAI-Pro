@@ -8,8 +8,11 @@ import {
 } from "../src/services/FolderService";
 import {
     canConfirmPhotoFolderChange,
+    canStartPhotoFolderChange,
+    createIdlePhotoFolderChangeState,
     photoFolderChangeMessage,
     photoFolderChangeCommitOptions,
+    photoFolderChangePreparationFailureState,
     upgradePhotoFolderChangeForRecovery,
     shouldResetPhotoPreview
 } from "../src/components/photoFolderChangeMessages";
@@ -254,6 +257,80 @@ async function run() {
             shouldResetPhotoPreview({ status }),
             false
         ));
+    });
+
+    await test("EMPTY_FOLDER prepare result releases the UI and shows an external status message", async () => {
+        const result = {
+            status: PhotoFolderChangeStatus.EMPTY_FOLDER,
+            transactionId: 44
+        };
+        assert.strictEqual(
+            photoFolderChangeMessage(result),
+            "The selected folder contains no supported photos."
+        );
+        assert.deepStrictEqual(
+            photoFolderChangePreparationFailureState(result),
+            {
+                busy: false,
+                prepared: null,
+                clearRecovery: false,
+                message: "The selected folder contains no supported photos.",
+                error: null
+            }
+        );
+    });
+
+    await test("Change Photo Folder is available only for an initialized photo workspace", async () => {
+        const idle = { busy: false, prepared: null };
+        assert.strictEqual(canStartPhotoFolderChange({
+            projectId: "project-a",
+            folderLoaded: false,
+            isLoading: false,
+            photoFolderChange: idle
+        }), false);
+        assert.strictEqual(canStartPhotoFolderChange({
+            projectId: "project-a",
+            folderLoaded: true,
+            isLoading: false,
+            photoFolderChange: idle
+        }), true);
+        assert.strictEqual(canStartPhotoFolderChange({
+            projectId: null,
+            folderLoaded: false,
+            isLoading: false,
+            photoFolderChange: idle
+        }), false);
+    });
+
+    await test("project workspace release clears transient folder-change feedback and confirmation", async () => {
+        const stale = {
+            busy: true,
+            prepared: { transactionId: 45, folderName: "candidate" },
+            clearRecovery: true,
+            message: "The selected folder contains no supported photos.",
+            error: "stale error"
+        };
+        const cleared = createIdlePhotoFolderChangeState();
+        assert.notDeepStrictEqual(cleared, stale);
+        assert.deepStrictEqual(cleared, {
+            busy: false,
+            prepared: null,
+            clearRecovery: false,
+            message: null,
+            error: null
+        });
+        assert.strictEqual(canStartPhotoFolderChange({
+            projectId: null,
+            folderLoaded: false,
+            isLoading: false,
+            photoFolderChange: cleared
+        }), false);
+        assert.strictEqual(canStartPhotoFolderChange({
+            projectId: "project-b",
+            folderLoaded: true,
+            isLoading: false,
+            photoFolderChange: cleared
+        }), true);
     });
 
     await test("UI upgrades a prepared candidate when recovery becomes required before commit", async () => {
