@@ -2,7 +2,62 @@
 
 Branch: `feature/alb-043-change-photo-folder`
 
-Status: ALB-043.2 UI implemented; Photoshop runtime execution pending
+Status: ALB-043.3 runtime execution blocked: no Photoshop/UXP host bridge or UXP CLI in this environment
+
+## ALB-043.3 execution record — 2026-07-31
+
+Runtime execution was attempted from the committed ALB-043.2 branch. The
+installed-plugin reload command (`npm run uxp:reload`) could not start because
+the required `uxp` CLI is not installed (`uxp: command not found`), and this
+session has no callable Photoshop/UXP panel host. No Photoshop runtime state,
+native picker, project workspace, persistent-token value, or diagnostics
+summary was available. Consequently, no production code was changed and no
+runtime result below is inferred from deterministic tests.
+
+| Required runtime scenario | Result | Evidence / blocker |
+| --- | --- | --- |
+| Baseline thumbnails and Preview | BLOCKED | No loaded Photoshop panel/project or runtime-summary access. |
+| Picker cancellation | BLOCKED | Native UXP picker unavailable. |
+| Confirmation cancellation | BLOCKED | No mounted UXP panel. |
+| Different-folder replacement | BLOCKED | No project/folders available in host. |
+| Same-folder refresh | BLOCKED | Native folder Entry identity unavailable. |
+| Recovery decision, including late requirement | BLOCKED | No host recovery snapshot lifecycle available. |
+| Empty / unsupported / inaccessible candidates | BLOCKED | Native folder access unavailable. |
+| Active decode / lifecycle release | BLOCKED | No browser decode queue or runtime summary available. |
+| Persistence and plugin reload | BLOCKED | `uxp` CLI missing; no host project workspace. |
+| Token/save/lifecycle fault safety | NOT REPRODUCIBLE | Requires host fault injection; covered deterministically only. |
+
+Diagnostics collected: branch HEAD was `0c42341`; `npm run uxp:reload` failed
+before contacting a host. No persistent tokens or full filesystem paths were
+logged. The runtime matrix remains ready for execution in a Photoshop 27.4+
+environment with the UXP Developer Tool/CLI and fixture folders.
+
+### ALB-043.3 remaining-scenario attempt — 2026-07-31
+
+A second runtime reload attempt produced the same pre-host failure:
+`uxp: command not found`. No Photoshop instance, UXP panel, native picker, or
+project fixture was available, so all runtime state fields below are **not
+observed** rather than assumed. “N/A” means the host-side metric could not be
+captured; it is not a zero value.
+
+| Scenario | Result | Old / new folder, Preview, photo count | Queue / active decodes | URL create/revoke, stale jobs, browser documents | Evidence / blocker |
+| --- | --- | --- | --- | --- | --- |
+| Picker cancellation | BLOCKED | N/A | N/A | N/A | Native UXP picker unavailable. |
+| Confirmation cancellation | BLOCKED | N/A | N/A | N/A | AlbumAI panel unavailable. |
+| Recovery required before prepare | BLOCKED | N/A | N/A | N/A | No project recovery fixture/host lifecycle. |
+| Recovery required after prepare | BLOCKED | N/A | N/A | N/A | No project recovery fixture/host lifecycle. |
+| Empty folder | BLOCKED | N/A | N/A | N/A | Native folder Entry fixture unavailable. |
+| Unsupported-only folder | BLOCKED | N/A | N/A | N/A | Native folder Entry fixture unavailable. |
+| Inaccessible folder | NOT REPRODUCIBLE | N/A | N/A | N/A | Requires host-accessible/disconnected-volume fixture. |
+| Switch during active thumbnail decode | BLOCKED | N/A | N/A | N/A | No UXP browser decoder/runtime summary. |
+| Object URL cleanup / queue settlement | BLOCKED | N/A | N/A | N/A | `__ALBUMAI_ALB042_RUNTIME_SUMMARY__` unavailable. |
+| Plugin reload and project reopen | BLOCKED | N/A | N/A | N/A | `uxp` CLI absent; no host project workspace. |
+| `project.json` verification | BLOCKED | N/A | N/A | N/A | No host transaction/project fixture was created. |
+| Final ALB-042 runtime summary | BLOCKED | N/A | N/A | N/A | No loaded plugin exposes the summary function. |
+
+No production defect was found or evaluated in this attempt because no runtime
+scenario reached Photoshop. Deterministic tests remain evidence for injected
+service behavior only, not replacements for these host checks.
 
 ## ALB-043.2 automated/UI coverage
 
