@@ -14,6 +14,8 @@ export const TemplateRegistryValidationReason = Object.freeze({
     NOT_VALIDATED: "NOT_VALIDATED"
 });
 
+export const TEMPLATE_REGISTRY_VALIDATION_SCHEMA_VERSION = 1;
+
 const states = new Set(Object.values(TemplateRegistryValidationState));
 const reasons = new Set(Object.values(TemplateRegistryValidationReason));
 

@@ -33,6 +33,8 @@ import TemplateExportService, {
 } from "../services/TemplateExportService";
 import BatchCancellationController from "../project/BatchCancellationController";
 import calculateBatchProgress from "../project/calculateBatchProgress";
+import TemplateRegistryPreflightService from "../services/TemplateRegistryPreflightService";
+import { TemplateRegistryValidationState } from "../project/TemplateRegistryValidationState";
 
 export const ExecutionLifecycleStatus = Object.freeze({
     IDLE: "IDLE",
@@ -48,7 +50,7 @@ export const RecoveryClearStatus = Object.freeze({
     FAILED: "FAILED"
 });
 
-class AppController {
+export class AppController {
 
     constructor() {
 
@@ -71,6 +73,9 @@ class AppController {
         });
         this.templateRegistry = new TemplateRegistry();
         this.projectTemplateRegistry = new ProjectTemplateRegistry();
+        this.templateRegistryPreflightService = new TemplateRegistryPreflightService();
+        this.currentTemplateRegistryPreflightState = this.emptyTemplateRegistryPreflightState();
+        this.lastTemplateRegistryPreflightResult = this.currentTemplateRegistryPreflightState;
         this.photoPlacementEngine = new PhotoPlacementEngine();
         this.placementExecutionPlanBuilder = new PlacementExecutionPlanBuilder();
         this.currentPlacementPlan = null;
@@ -145,9 +150,15 @@ class AppController {
             this.projectTemplateRegistry = new ProjectTemplateRegistry(project.metadata.templateRegistry);
             this.loadRecovery(project.metadata.batchRecovery);
             this.clearCurrentPlacementPlan();
+            this.currentTemplateRegistryPreflightState =
+                this.templateRegistryPreflightStateFromRegistry({
+                    reason: "PROJECT_OPEN_PERSISTED_OBSERVATION",
+                    persisted: true
+                });
+            await this.revalidateProjectTemplates({ reason: "PROJECT_OPEN" });
         }
 
-        return project;
+        return this.project.getProject();
 
     }
 
@@ -179,6 +190,8 @@ class AppController {
         this.projectTemplateRegistry = new ProjectTemplateRegistry();
         this.batchRecoverySnapshot = null;
         this.batchRecoveryClassification = null;
+        this.currentTemplateRegistryPreflightState = this.emptyTemplateRegistryPreflightState();
+        this.lastTemplateRegistryPreflightResult = this.currentTemplateRegistryPreflightState;
         this.clearCurrentPlacementPlan();
 
         return this.projectService.closeProject();
@@ -1468,18 +1481,36 @@ class AppController {
 
     getRegisteredProjectTemplates() { return this.projectTemplateRegistry.getAll(); }
 
+    getTemplateRegistryPreflightState() {
+        return this.currentTemplateRegistryPreflightState;
+    }
+
+    getLastTemplateRegistryPreflightResult() {
+        return this.lastTemplateRegistryPreflightResult;
+    }
+
+    async revalidateProjectTemplates({ reason = "EXPLICIT_REVALIDATE" } = {}) {
+        if (!this.project.getProject()) {
+            throw new Error("Open a project before validating templates.");
+        }
+        return this.validateAndPersistTemplateRegistry({
+            reason: this.safeTemplateRegistryPreflightReason(reason)
+        });
+    }
+
     async addCurrentPsdToProject(file) {
         if (this.projectBatchRunning || this.registryMutationInProgress) {
             throw new Error("Template registry is currently unavailable.");
         }
         this.registryMutationInProgress = true;
+        const rollback = this.captureTemplateRegistryTransaction();
         try {
             const descriptor = this.projectTemplateRegistry.add(file);
-            if (this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
-            await this.saveProject(
-                undefined,
-                { reason: "TEMPLATE_REGISTRY_ADD" }
-            );
+            const result = await this.validateAndPersistTemplateRegistry({
+                reason: "TEMPLATE_REGISTRY_ADD",
+                rollback
+            });
+            if (!result.persisted) throw this.templateRegistryPersistenceError(result);
             return descriptor;
         } finally {
             this.registryMutationInProgress = false;
@@ -1491,19 +1522,148 @@ class AppController {
             throw new Error("Template registry is currently unavailable.");
         }
         this.registryMutationInProgress = true;
+        const rollback = this.captureTemplateRegistryTransaction();
         try {
             const removed = this.projectTemplateRegistry.remove(id);
-            if (removed && this.batchRecoverySnapshot) this.loadRecovery(this.batchRecoverySnapshot);
             if (removed) {
-                await this.saveProject(
-                    undefined,
-                    { reason: "TEMPLATE_REGISTRY_REMOVE" }
-                );
+                const result = await this.validateAndPersistTemplateRegistry({
+                    reason: "TEMPLATE_REGISTRY_REMOVE",
+                    rollback
+                });
+                if (!result.persisted) throw this.templateRegistryPersistenceError(result);
             }
             return removed;
         } finally {
             this.registryMutationInProgress = false;
         }
+    }
+
+    async validateAndPersistTemplateRegistry({ reason, rollback = null }) {
+        const before = rollback || this.captureTemplateRegistryTransaction();
+        let workspaceTemplates = [];
+        let workspaceAccessError = false;
+
+        try {
+            const folder = this.project.getProject()?.workspace?.templates;
+            if (!folder || typeof folder.getEntries !== "function") {
+                workspaceAccessError = true;
+            } else {
+                workspaceTemplates = await folder.getEntries();
+            }
+        } catch (_error) {
+            workspaceAccessError = true;
+        }
+
+        const validation = this.templateRegistryPreflightService.validate({
+            descriptors: this.projectTemplateRegistry.getAll(),
+            workspaceTemplates,
+            workspaceAccessError
+        });
+        const observedAt = new Date().toISOString();
+        const identityOrOrderChanged =
+            !this.projectTemplateRegistry.hasSameIdentityAndOrder(before.registry);
+        const applied = this.projectTemplateRegistry.applyValidationResults(validation.results, {
+            observedAt
+        });
+        const proposed = this.templateRegistryPreflightResult(validation.results, {
+            persisted: false,
+            reason
+        });
+        this.currentTemplateRegistryPreflightState = proposed;
+
+        if (!identityOrOrderChanged && !applied.changedTemplateIds.length) {
+            this.lastTemplateRegistryPreflightResult = proposed;
+            return proposed;
+        }
+
+        try {
+            await this.saveProject(undefined, { reason });
+            const committed = Object.freeze({ ...proposed, persisted: true });
+            this.currentTemplateRegistryPreflightState = committed;
+            this.lastTemplateRegistryPreflightResult = committed;
+            return committed;
+        } catch (_error) {
+            this.restoreTemplateRegistryTransaction(before);
+            const failed = Object.freeze({
+                ...proposed,
+                persisted: false,
+                reason: `${reason}_PERSISTENCE_FAILED`
+            });
+            this.lastTemplateRegistryPreflightResult = failed;
+            return failed;
+        }
+    }
+
+    captureTemplateRegistryTransaction() {
+        const project = this.project.getProject();
+        return Object.freeze({
+            registry: this.projectTemplateRegistry.snapshot(),
+            preflightState: this.currentTemplateRegistryPreflightState,
+            lastResult: this.lastTemplateRegistryPreflightResult,
+            metadata: project ? Object.freeze({ ...project.metadata }) : null
+        });
+    }
+
+    restoreTemplateRegistryTransaction(snapshot) {
+        this.projectTemplateRegistry.restore(snapshot?.registry || []);
+        this.currentTemplateRegistryPreflightState = snapshot?.preflightState ||
+            this.emptyTemplateRegistryPreflightState();
+        this.lastTemplateRegistryPreflightResult = snapshot?.lastResult ||
+            this.currentTemplateRegistryPreflightState;
+        if (snapshot?.metadata && this.project.getProject()) {
+            this.project.updateMetadata(snapshot.metadata);
+        }
+    }
+
+    templateRegistryPreflightResult(results = [], { persisted, reason }) {
+        const count = state => results.filter(result => result.state === state).length;
+        const ready = count(TemplateRegistryValidationState.READY);
+        const missing = count(TemplateRegistryValidationState.MISSING);
+        const ambiguous = count(TemplateRegistryValidationState.AMBIGUOUS);
+        const accessError = count(TemplateRegistryValidationState.ACCESS_ERROR);
+        return Object.freeze({
+            total: results.length,
+            ready,
+            missing,
+            ambiguous,
+            accessError,
+            blocking: results.length - ready,
+            persisted: persisted === true,
+            reason
+        });
+    }
+
+    templateRegistryPreflightStateFromRegistry({ persisted, reason }) {
+        const entries = this.projectTemplateRegistry.getAll();
+        return this.templateRegistryPreflightResult(entries.map(entry => ({
+            state: entry.validationState
+        })), { persisted, reason });
+    }
+
+    emptyTemplateRegistryPreflightState() {
+        return Object.freeze({
+            total: 0,
+            ready: 0,
+            missing: 0,
+            ambiguous: 0,
+            accessError: 0,
+            blocking: 0,
+            persisted: false,
+            reason: "NOT_VALIDATED"
+        });
+    }
+
+    templateRegistryPersistenceError(result) {
+        const error = new Error("Template registry observations could not be saved.");
+        error.code = "TEMPLATE_REGISTRY_PERSISTENCE_FAILED";
+        error.result = result;
+        return error;
+    }
+
+    safeTemplateRegistryPreflightReason(reason) {
+        return typeof reason === "string" && /^[A-Z0-9_]{1,64}$/.test(reason)
+            ? reason
+            : "EXPLICIT_REVALIDATE";
     }
 
     async moveRegisteredProjectTemplate(id, targetIndex, method = "drag") {

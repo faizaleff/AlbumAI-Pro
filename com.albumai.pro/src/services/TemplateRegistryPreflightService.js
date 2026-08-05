@@ -15,7 +15,7 @@ const PSD_EXTENSION = /\.psd$/i;
  */
 export default class TemplateRegistryPreflightService {
 
-    validate({ descriptors, workspaceTemplates } = {}) {
+    validate({ descriptors, workspaceTemplates, workspaceAccessError = false } = {}) {
         const orderedDescriptors = Array.isArray(descriptors)
             ? descriptors.slice()
             : [];
@@ -24,7 +24,9 @@ export default class TemplateRegistryPreflightService {
             : [];
         const inspection = this.inspectEntries(entries);
         const results = orderedDescriptors.map((descriptor, index) =>
-            this.validateDescriptor(descriptor, index, inspection)
+            workspaceAccessError
+                ? this.accessErrorResult(descriptor, index)
+                : this.validateDescriptor(descriptor, index, inspection)
         );
 
         return Object.freeze({
@@ -32,6 +34,15 @@ export default class TemplateRegistryPreflightService {
             blockingTemplateIds: Object.freeze(results
                 .filter(result => result.blocking)
                 .map(result => result.templateId))
+        });
+    }
+
+    accessErrorResult(descriptor, index) {
+        return Object.freeze({
+            templateId: descriptor?.id || `template-${index + 1}`,
+            state: TemplateRegistryValidationState.ACCESS_ERROR,
+            reasonCode: TemplateRegistryValidationReason.STORAGE_INSPECTION_FAILED,
+            blocking: true
         });
     }
 
