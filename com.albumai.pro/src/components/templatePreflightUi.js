@@ -79,3 +79,25 @@ export function recoveryCompatibilityLabel(value) {
 export function shouldResetTemplatePreflightUi({ hasProject, projectId, previousProjectId }) {
     return !hasProject || projectId !== previousProjectId;
 }
+
+export function emptyTemplateRegistryUiSession() {
+    return Object.freeze({
+        registeredTemplates: Object.freeze([]),
+        selectedRegisteredId: "",
+        preflight: null,
+        message: "",
+        busy: false,
+        workspaceAvailable: false
+    });
+}
+
+export function isCurrentTemplateRegistryRequest({
+    mounted,
+    requestId,
+    currentRequestId,
+    projectId,
+    currentProjectId
+}) {
+    return mounted === true && requestId === currentRequestId &&
+        projectId === currentProjectId;
+}

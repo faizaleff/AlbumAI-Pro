@@ -9,6 +9,8 @@ import {
     canProcessProject,
     canRevalidateTemplates,
     executionGateFeedback,
+    emptyTemplateRegistryUiSession,
+    isCurrentTemplateRegistryRequest,
     recoveryCompatibilityLabel,
     revalidationFeedback,
     shouldResetTemplatePreflightUi,
@@ -1073,14 +1075,32 @@ export default function TemplateDocumentPanel({
             projectId,
             previousProjectId: revalidationProjectIdRef.current
         })) {
-            revalidationRequestRef.current += 1;
             revalidationProjectIdRef.current = projectId;
-            setRevalidateBusy(false);
-            setRevalidationMessage("");
-            setTemplatesWorkspaceAvailable(false);
+            clearTemplateRegistrySessionUi();
+            return;
         }
         refreshRegistryPreflightState();
     }, [hasProject, projectId]);
+
+    function clearTemplateRegistrySessionUi() {
+        const empty = emptyTemplateRegistryUiSession();
+        revalidationRequestRef.current += 1;
+        setTemplates([]);
+        setSelectedName("");
+        registeredTemplatesRef.current = empty.registeredTemplates;
+        setRegisteredTemplates(empty.registeredTemplates);
+        setSelectedRegisteredId(empty.selectedRegisteredId);
+        setRegistryError(null);
+        setRegistryPreflightState(empty.preflight);
+        setRevalidationMessage(empty.message);
+        setRevalidateBusy(empty.busy);
+        setTemplatesWorkspaceAvailable(empty.workspaceAvailable);
+        draggedTemplateIdRef.current = null;
+        dragStateRef.current = null;
+        templateRowRefs.current.clear();
+        setDraggedTemplateId(null);
+        setDropTarget(null);
+    }
 
     function refreshRegisteredTemplates() {
         const entries = getRegisteredProjectTemplates?.() || [];
@@ -1216,12 +1236,8 @@ export default function TemplateDocumentPanel({
                 if (!active) return;
 
                 setTemplates([]);
-                setTemplatesWorkspaceAvailable(false);
                 setSelectedName("");
-                refreshRegisteredTemplates();
-                refreshRegistryPreflightState();
-                setRevalidateBusy(false);
-                setRevalidationMessage("");
+                clearTemplateRegistrySessionUi();
 
             }
 
@@ -1258,22 +1274,37 @@ export default function TemplateDocumentPanel({
             const result = await revalidateProjectTemplates?.({
                 reason: "USER_REVALIDATE"
             });
-            if (!mountedRef.current || requestId !== revalidationRequestRef.current ||
-                requestProjectId !== revalidationProjectIdRef.current) return;
+            if (!isCurrentTemplateRegistryRequest({
+                mounted: mountedRef.current,
+                requestId,
+                currentRequestId: revalidationRequestRef.current,
+                projectId: requestProjectId,
+                currentProjectId: revalidationProjectIdRef.current
+            })) return;
             refreshRegisteredTemplates();
             refreshRegistryPreflightState();
             setRevalidationMessage(revalidationFeedback(result));
         } catch (_) {
-            if (!mountedRef.current || requestId !== revalidationRequestRef.current ||
-                requestProjectId !== revalidationProjectIdRef.current) return;
+            if (!isCurrentTemplateRegistryRequest({
+                mounted: mountedRef.current,
+                requestId,
+                currentRequestId: revalidationRequestRef.current,
+                projectId: requestProjectId,
+                currentProjectId: revalidationProjectIdRef.current
+            })) return;
             refreshRegisteredTemplates();
             refreshRegistryPreflightState();
             setRevalidationMessage(
                 "Template validation could not be completed. Check project access and try again."
             );
         } finally {
-            if (mountedRef.current && requestId === revalidationRequestRef.current &&
-                requestProjectId === revalidationProjectIdRef.current) {
+            if (isCurrentTemplateRegistryRequest({
+                mounted: mountedRef.current,
+                requestId,
+                currentRequestId: revalidationRequestRef.current,
+                projectId: requestProjectId,
+                currentProjectId: revalidationProjectIdRef.current
+            })) {
                 setRevalidateBusy(false);
             }
         }
@@ -1564,10 +1595,6 @@ export default function TemplateDocumentPanel({
         if (!hasProject) {
             setDocument(null);
             setRegistryError(null);
-            setRegistryPreflightState(null);
-            setRevalidationMessage("");
-            setRevalidateBusy(false);
-            setTemplatesWorkspaceAvailable(false);
             setPlacementError(null);
             setReplacementResult(null);
             setExecutionSummary(null);

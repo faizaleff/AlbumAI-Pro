@@ -1,7 +1,9 @@
 import {
     canProcessProject,
     canRevalidateTemplates,
+    emptyTemplateRegistryUiSession,
     executionGateFeedback,
+    isCurrentTemplateRegistryRequest,
     recoveryCompatibilityLabel,
     revalidationFeedback,
     shouldResetTemplatePreflightUi,
@@ -123,6 +125,82 @@ test("project close and identity change request transient-state cleanup", () => 
     equal(shouldResetTemplatePreflightUi({ hasProject: false, projectId: null, previousProjectId: "a" }), true, "close");
     equal(shouldResetTemplatePreflightUi({ hasProject: true, projectId: "b", previousProjectId: "a" }), true, "change");
     equal(shouldResetTemplatePreflightUi({ hasProject: true, projectId: "a", previousProjectId: "a" }), false, "same project");
+});
+
+test("project close clears registry rows, count, and summary", () => {
+    const closed = emptyTemplateRegistryUiSession();
+    equal(closed.registeredTemplates.length, 0, "rows");
+    equal(closed.selectedRegisteredId, "", "selection");
+    equal(closed.preflight, null, "preflight");
+    equal(closed.message, "", "message");
+    equal(closed.busy, false, "busy");
+    const summary = templateRegistryUiSummary(closed.registeredTemplates, closed.preflight);
+    equal(summary.ready, 0, "ready");
+    equal(summary.blocking, 0, "blocking");
+});
+
+test("project identity change cannot retain the prior registry", () => {
+    const projectA = [{ id: "a-1", validationState: "READY" }];
+    equal(projectA.length, 1, "project A setup");
+    const projectBPending = emptyTemplateRegistryUiSession();
+    equal(projectBPending.registeredTemplates.length, 0, "project A rows cleared");
+    equal(projectBPending.preflight, null, "project A preflight cleared");
+
+    const source = fs.readFileSync(
+        path.join(process.cwd(), "src/components/TemplateDocumentPanel.jsx"),
+        "utf8"
+    );
+    const resetStart = source.indexOf("function clearTemplateRegistrySessionUi()");
+    const resetEnd = source.indexOf("function refreshRegisteredTemplates()", resetStart);
+    const reset = source.slice(resetStart, resetEnd);
+    assert(reset.includes("setRegisteredTemplates(empty.registeredTemplates)"), "rows are not cleared");
+    assert(reset.includes("setRegistryPreflightState(empty.preflight)"), "summary is not cleared");
+    assert(reset.includes("revalidationRequestRef.current += 1"), "pending requests are not invalidated");
+});
+
+test("pending revalidation cannot repopulate a closed or changed project", () => {
+    equal(isCurrentTemplateRegistryRequest({
+        mounted: true,
+        requestId: 4,
+        currentRequestId: 5,
+        projectId: "project-a",
+        currentProjectId: null
+    }), false, "closed project generation");
+    equal(isCurrentTemplateRegistryRequest({
+        mounted: true,
+        requestId: 4,
+        currentRequestId: 4,
+        projectId: "project-a",
+        currentProjectId: "project-b"
+    }), false, "changed project identity");
+    equal(isCurrentTemplateRegistryRequest({
+        mounted: false,
+        requestId: 4,
+        currentRequestId: 4,
+        projectId: "project-a",
+        currentProjectId: "project-a"
+    }), false, "unmounted panel");
+});
+
+test("reopen reloads the authoritative registry after the empty close state", () => {
+    const closed = emptyTemplateRegistryUiSession();
+    const reopenedEntries = [{ id: "reopened-1", validationState: "MISSING" }];
+    equal(closed.registeredTemplates.length, 0, "closed state");
+    const reopened = templateRegistryUiSummary(reopenedEntries, preflight({ missing: 1 }));
+    equal(reopened.total, 1, "reopened total");
+    equal(reopened.ready, 0, "reopened ready");
+    equal(reopened.blocking, 1, "reopened blocking");
+
+    const source = fs.readFileSync(
+        path.join(process.cwd(), "src/components/TemplateDocumentPanel.jsx"),
+        "utf8"
+    );
+    const loadSuccess = source.slice(
+        source.indexOf("const files = await loadTemplates()"),
+        source.indexOf("catch (_)", source.indexOf("const files = await loadTemplates()"))
+    );
+    assert(loadSuccess.includes("refreshRegisteredTemplates()"), "reopen does not reload registry");
+    assert(loadSuccess.includes("refreshRegistryPreflightState()"), "reopen does not reload preflight");
 });
 
 test("revalidation handler has no recovery-clear or document-open dependency", () => {
