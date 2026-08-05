@@ -16,6 +16,10 @@ import {
     upgradePhotoFolderChangeForRecovery,
     shouldResetPhotoPreview
 } from "../src/components/photoFolderChangeMessages";
+import {
+    readCurrentRecoveryState,
+    recoveryPanelStateKey
+} from "../src/components/recoveryPanelState";
 
 const silentPerformance = {
     beginFolderLoad() {},
@@ -61,7 +65,8 @@ function harness({
     importFolder = async candidate => staged(candidate),
     token = "persistent-token",
     saveFailure = null,
-    clearFailure = null
+    clearFailure = null,
+    initialBatchRecovery = null
 } = {}) {
     const library = {
         photos: initialPhotos,
@@ -90,7 +95,7 @@ function harness({
                 token: "old-token"
             },
             templateRegistry: [{ id: "template-1" }],
-            batchRecovery: null,
+            batchRecovery: initialBatchRecovery,
             updatedAt: "before"
         },
         workspace: {
@@ -379,6 +384,108 @@ async function run() {
         assert.strictEqual(
             shouldResetPhotoPreview({ status: PhotoFolderChangeStatus.SUCCESS }),
             true
+        );
+    });
+
+    await test("successful replacement clears recovery metadata and the panel reads NONE immediately", async () => {
+        const completedRecovery = {
+            batchId: "completed-batch",
+            lifecycle: "COMPLETED",
+            templateOutcomes: [{ templateId: "one", status: "SUCCESS" }]
+        };
+        const state = harness({ initialBatchRecovery: completedRecovery });
+        const prepared = await state.service.preparePhotoFolderChange(folder("new"));
+        const result = await state.service.commitPreparedPhotoFolderChange(
+            prepared,
+            {
+                projectValues: {
+                    templateRegistry: [{ id: "template-1" }],
+                    batchRecovery: null
+                }
+            }
+        );
+        assert.strictEqual(result.status, PhotoFolderChangeStatus.SUCCESS);
+        assert.strictEqual(state.project.metadata.batchRecovery, null);
+
+        let authoritativeState = {
+            available: false,
+            classification: "COMPLETED",
+            snapshot: completedRecovery
+        };
+        let memoizedRecoveryState = null;
+        let memoizedRecoveryKey = null;
+        let visibleRecoveryTransitions = 0;
+        const renderRecoveryState = () => {
+            const current = readCurrentRecoveryState(() => authoritativeState);
+            const key = recoveryPanelStateKey(current);
+            const changed = !memoizedRecoveryKey || key.some(
+                (value, index) => !Object.is(value, memoizedRecoveryKey[index])
+            );
+            if (changed) {
+                memoizedRecoveryState = current;
+                memoizedRecoveryKey = key;
+                visibleRecoveryTransitions += 1;
+            }
+            return memoizedRecoveryState;
+        };
+        const firstRender = renderRecoveryState();
+        assert.strictEqual(firstRender.snapshot.batchId, "completed-batch");
+        assert.strictEqual(visibleRecoveryTransitions, 1);
+        assert.strictEqual(
+            renderRecoveryState(),
+            firstRender,
+            "fresh controller wrappers must retain stable panel identity"
+        );
+        assert.strictEqual(visibleRecoveryTransitions, 1);
+        authoritativeState = null;
+        const reloadedState = renderRecoveryState();
+        assert.deepStrictEqual(
+            reloadedState,
+            {
+                available: false,
+                classification: "NONE",
+                snapshot: null
+            }
+        );
+        assert.strictEqual(visibleRecoveryTransitions, 2);
+        assert.strictEqual(
+            renderRecoveryState(),
+            reloadedState,
+            "cleared recovery must settle without another visible transition"
+        );
+        assert.strictEqual(visibleRecoveryTransitions, 2);
+
+        const failing = harness({
+            initialBatchRecovery: completedRecovery,
+            saveFailure: new Error("disk full")
+        });
+        const failedPrepared =
+            await failing.service.preparePhotoFolderChange(folder("failed"));
+        const failedResult =
+            await failing.service.commitPreparedPhotoFolderChange(
+                failedPrepared,
+                {
+                    projectValues: {
+                        templateRegistry: [{ id: "template-1" }],
+                        batchRecovery: null
+                    }
+                }
+            );
+        assert.strictEqual(
+            failedResult.status,
+            PhotoFolderChangeStatus.SAVE_FAILURE
+        );
+        assert.strictEqual(
+            failing.project.metadata.batchRecovery,
+            completedRecovery
+        );
+        assert.strictEqual(
+            readCurrentRecoveryState(() => ({
+                available: false,
+                classification: "COMPLETED",
+                snapshot: failing.project.metadata.batchRecovery
+            })).snapshot.batchId,
+            "completed-batch"
         );
     });
 
