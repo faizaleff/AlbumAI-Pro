@@ -35,6 +35,8 @@ import BatchCancellationController from "../project/BatchCancellationController"
 import calculateBatchProgress from "../project/calculateBatchProgress";
 import TemplateRegistryPreflightService from "../services/TemplateRegistryPreflightService";
 import { TemplateRegistryValidationState } from "../project/TemplateRegistryValidationState";
+import TemplateRegistryRecoveryCompatibilityService from
+    "../project/TemplateRegistryRecoveryCompatibility";
 
 export const ExecutionLifecycleStatus = Object.freeze({
     IDLE: "IDLE",
@@ -76,6 +78,9 @@ export class AppController {
         this.templateRegistryPreflightService = new TemplateRegistryPreflightService();
         this.currentTemplateRegistryPreflightState = this.emptyTemplateRegistryPreflightState();
         this.lastTemplateRegistryPreflightResult = this.currentTemplateRegistryPreflightState;
+        this.templateRegistryRecoveryCompatibilityService =
+            new TemplateRegistryRecoveryCompatibilityService();
+        this.lastTemplateRegistryExecutionGateResult = null;
         this.photoPlacementEngine = new PhotoPlacementEngine();
         this.placementExecutionPlanBuilder = new PlacementExecutionPlanBuilder();
         this.currentPlacementPlan = null;
@@ -192,6 +197,7 @@ export class AppController {
         this.batchRecoveryClassification = null;
         this.currentTemplateRegistryPreflightState = this.emptyTemplateRegistryPreflightState();
         this.lastTemplateRegistryPreflightResult = this.currentTemplateRegistryPreflightState;
+        this.lastTemplateRegistryExecutionGateResult = null;
         this.clearCurrentPlacementPlan();
 
         return this.projectService.closeProject();
@@ -729,11 +735,45 @@ export class AppController {
 
     async executeProject(onUpdate, options = {}) {
 
-        const project = this.project.getProject();
         if (this.projectBatchRunning ||
             this.currentProjectExecutionSummary?.batchProgress?.lifecycle === "RUNNING") {
             throw new Error("A project batch is already running.");
         }
+        const executionPreflight = await this.revalidateProjectTemplates({
+            reason: "PROCESS_PROJECT_PREFLIGHT"
+        });
+        if (executionPreflight.reason ===
+            "PROCESS_PROJECT_PREFLIGHT_PERSISTENCE_FAILED") {
+            return this.blockTemplateRegistryExecution({
+                status: "TEMPLATE_REGISTRY_PREFLIGHT_PERSISTENCE_FAILED",
+                preflight: executionPreflight,
+                blockingReasonCodes: ["OBSERVATION_PERSISTENCE_FAILED"]
+            });
+        }
+        const compatibility =
+            this.templateRegistryRecoveryCompatibilityService.evaluate({
+                descriptors: this.projectTemplateRegistry.getAll(),
+                recoverySnapshot: this.batchRecoverySnapshot
+            });
+        if (executionPreflight.blocking > 0) {
+            return this.blockTemplateRegistryExecution({
+                status: "TEMPLATE_REGISTRY_BLOCKED",
+                preflight: executionPreflight,
+                blockingReasonCodes: compatibility.blockingReasonCodes,
+                recoveryCompatibility: compatibility.recoveryCompatibility
+            });
+        }
+        this.lastTemplateRegistryExecutionGateResult = Object.freeze({
+            status: "READY",
+            counts: this.templateRegistryExecutionCounts(executionPreflight),
+            blockingReasonCodes: Object.freeze([]),
+            checkpointCreated: false,
+            recoveryMutated: false,
+            documentsOpened: 0,
+            recoveryCompatibility: compatibility.recoveryCompatibility
+        });
+
+        const project = this.project.getProject();
         const registryTemplates = this.projectTemplateRegistry.getAll();
         const templates = options.templates || registryTemplates;
         const resumeSnapshot = ["RESUME_PENDING", "RETRY_FAILED"].includes(options.runMode)
@@ -1489,6 +1529,17 @@ export class AppController {
         return this.lastTemplateRegistryPreflightResult;
     }
 
+    getTemplateRegistryRecoveryCompatibility() {
+        return this.templateRegistryRecoveryCompatibilityService.evaluate({
+            descriptors: this.projectTemplateRegistry.getAll(),
+            recoverySnapshot: this.batchRecoverySnapshot
+        }).recoveryCompatibility;
+    }
+
+    getLastTemplateRegistryExecutionGateResult() {
+        return this.lastTemplateRegistryExecutionGateResult;
+    }
+
     async revalidateProjectTemplates({ reason = "EXPLICIT_REVALIDATE" } = {}) {
         if (!this.project.getProject()) {
             throw new Error("Open a project before validating templates.");
@@ -1664,6 +1715,42 @@ export class AppController {
         return typeof reason === "string" && /^[A-Z0-9_]{1,64}$/.test(reason)
             ? reason
             : "EXPLICIT_REVALIDATE";
+    }
+
+    templateRegistryExecutionCounts(preflight = {}) {
+        return Object.freeze({
+            total: preflight.total || 0,
+            ready: preflight.ready || 0,
+            missing: preflight.missing || 0,
+            ambiguous: preflight.ambiguous || 0,
+            accessError: preflight.accessError || 0,
+            blocking: preflight.blocking || 0
+        });
+    }
+
+    blockTemplateRegistryExecution({
+        status,
+        preflight,
+        blockingReasonCodes,
+        recoveryCompatibility = null
+    }) {
+        const compatibility = recoveryCompatibility ||
+            this.getTemplateRegistryRecoveryCompatibility();
+        const result = Object.freeze({
+            status,
+            counts: this.templateRegistryExecutionCounts(preflight),
+            blockingReasonCodes: Object.freeze(
+                Array.isArray(blockingReasonCodes)
+                    ? blockingReasonCodes.slice()
+                    : []
+            ),
+            checkpointCreated: false,
+            recoveryMutated: false,
+            documentsOpened: 0,
+            recoveryCompatibility: compatibility
+        });
+        this.lastTemplateRegistryExecutionGateResult = result;
+        return result;
     }
 
     async moveRegisteredProjectTemplate(id, targetIndex, method = "drag") {
