@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import BatchProgressPanel from "./BatchProgressPanel";
+import {
+    readCurrentRecoveryState,
+    recoveryPanelStateKey
+} from "./recoveryPanelState";
 
 function LayerTree({ layers = [], depth = 0 }) {
 
@@ -976,13 +980,27 @@ export default function TemplateDocumentPanel({
     );
     const [projectExecutionSummary, setProjectExecutionSummary] = useState(null);
     const [recoveryVersion, setRecoveryVersion] = useState(0);
+    const currentRecoveryState = readCurrentRecoveryState(
+        getBatchRecoveryState
+    );
+    const [
+        recoveryAvailable,
+        recoveryClassification,
+        recoverySnapshot
+    ] = recoveryPanelStateKey(currentRecoveryState);
+    // The controller returns a fresh wrapper object for each read. Keep the
+    // panel state identity stable for effects, but replace it immediately when
+    // a folder change clears the authoritative snapshot.
     const recoveryState = useMemo(
-        () => getBatchRecoveryState?.() || {
-            available: false,
-            classification: "NONE",
-            snapshot: null
-        },
-        [recoveryVersion, projectId, hasProject]
+        () => currentRecoveryState,
+        [
+            recoveryVersion,
+            projectId,
+            hasProject,
+            recoveryAvailable,
+            recoveryClassification,
+            recoverySnapshot
+        ]
     );
     const [autoSaveResult, setAutoSaveResult] = useState(() =>
         getCurrentAutoSaveResult?.() || null

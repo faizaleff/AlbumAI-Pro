@@ -195,6 +195,85 @@ button.photo-browser-control:active:not(:disabled) {
     border-left: 1px solid #424242;
 }
 
+.photo-folder-change-message {
+    position: absolute;
+    z-index: 5;
+    right: 10px;
+    bottom: 10px;
+    max-width: 360px;
+    padding: 7px 10px;
+    border: 1px solid #80673d;
+    border-radius: 4px;
+    color: #f0cf96;
+    background: #2d2922;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.photo-folder-change-backdrop {
+    position: absolute;
+    z-index: 20;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(0, 0, 0, 0.58);
+}
+
+.photo-folder-change-dialog {
+    width: 100%;
+    max-width: 420px;
+    box-sizing: border-box;
+    padding: 18px;
+    border: 1px solid #666;
+    border-radius: 7px;
+    color: #f4f4f4;
+    background: #303030;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.5);
+}
+
+.photo-folder-change-dialog h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+}
+
+.photo-folder-change-dialog p {
+    margin: 0 0 10px;
+    color: #d2d2d2;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.photo-folder-change-dialog strong {
+    word-break: break-all;
+}
+
+.photo-folder-change-recovery {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin: 12px 0;
+    color: #f0cf96;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.photo-folder-change-recovery input {
+    margin: 2px 0 0;
+}
+
+.photo-folder-change-error {
+    color: #ffaaa4 !important;
+}
+
+.photo-folder-change-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
 .photo-browser-viewport {
     scrollbar-color: #626262 #292929;
 }
