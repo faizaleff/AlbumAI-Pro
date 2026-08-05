@@ -2,7 +2,52 @@
 
 Branch: `feature/alb-043-change-photo-folder`
 
-Status: ALB-043.2 UI workflow implemented; Photoshop runtime execution pending
+Status: **COMPLETE — implementation and Photoshop/UXP runtime validation passed**
+
+## Final closeout
+
+ALB-043.1 transaction support, ALB-043.2 UI integration, and ALB-043.3
+Photoshop/UXP runtime verification are complete. The final runtime matrix
+RT-01 through RT-11 passed, including cancellation, different- and same-folder
+flows, invalid candidates, recovery acknowledgement and clearing, active decode
+replacement, persistence/reopen, and queue/object-URL/document safety.
+
+Verified final behavior:
+
+- different-folder replacement uses `prepare → confirm → persist → commit` and
+  retains the old runtime until token creation and atomic save succeed;
+- successful replacement clears acknowledged recovery, selection, and Preview,
+  invalidates the prior generation, and publishes only the new folder;
+- same-folder selection refreshes without replacing the persisted source;
+- invalid empty and unsupported-only candidates leave runtime and persistence
+  unchanged;
+- the recovery panel refreshes immediately after a clear and retains stable
+  recovery-state identity, with no maximum-update-depth warning in the final
+  Photoshop retest;
+- reload and project reopen restore the new folder and retain
+  `Recovery State: NONE`.
+
+Final automated verification passed: `npm test -- --runInBand` (14 groups),
+`npm run build`, and `git diff --check`. The working tree was clean before the
+documentation closeout began.
+
+Final commit stack:
+
+```text
+7f6837b fix(alb-043): stabilize recovery panel refresh
+ecb757f fix(alb-043): harden folder-change UI state lifecycle
+2457925 docs(alb-043): record blocked Photoshop runtime matrix
+0c42341 feat(alb-043): add change photo folder UI workflow
+2e19c27 feat(alb-043): add safe photo folder change transaction
+a3d4336 docs(alb-043): add change photo folder plan
+```
+
+Remaining actions:
+
+1. Review the documentation diff.
+2. Commit the documentation.
+3. Push the feature branch.
+4. Merge only after final review.
 
 ## ALB-043.2 implementation state
 
@@ -85,9 +130,9 @@ repository had no test command or runner. `npm test -- --runInBand` covers:
 - same-folder refresh without token replacement;
 - supersession of a delayed preparation.
 
-ALB-043.2 remains responsible for the toolbar action, confirmation/recovery
-decision UI, user-facing error copy, focused Preview reset, and Photoshop
-runtime execution of the verification matrix.
+ALB-043.2 implemented the toolbar action, confirmation/recovery decision UI,
+user-facing error copy, and focused Preview reset. ALB-043.3 subsequently
+completed Photoshop runtime execution of the verification matrix.
 
 ## Objective
 

@@ -2,9 +2,90 @@
 
 Branch: `feature/alb-043-change-photo-folder`
 
-Status: ALB-043.3 runtime execution blocked: no Photoshop/UXP host bridge or UXP CLI in this environment
+Status: **COMPLETE — implementation and Photoshop/UXP runtime validation passed**
 
-## ALB-043.3 execution record — 2026-07-31
+## Final runtime closeout
+
+The earlier blocked-host records below are retained as historical execution
+notes. The complete matrix was subsequently executed in Photoshop/UXP and all
+required ALB-043 scenarios passed.
+
+| ID | Runtime scenario | Final result |
+| --- | --- | --- |
+| RT-01 | Baseline project open | PASS |
+| RT-02 | Folder picker cancellation | PASS |
+| RT-03 | Confirmation cancellation | PASS |
+| RT-04 | Different-folder replacement | PASS |
+| RT-05 | Same-folder refresh | PASS |
+| RT-06 | Manual reopen and persisted folder restore | PASS |
+| RT-07 | Empty-folder handling | PASS |
+| RT-08 | Unsupported-only folder handling | PASS |
+| RT-09 | Recovery acknowledgement and stale recovery panel clearing | PASS |
+| RT-10 | Folder switch during thumbnail workload | PASS |
+| RT-11 | Queue, cache, object URL, and Photoshop document safety summary | PASS |
+
+### Verified transaction and UI behavior
+
+- Different-folder replacement followed `prepare → confirm → persist → commit`.
+- The old runtime remained active until persistent-token creation and the
+  atomic project save both succeeded.
+- A successful replacement saved the new folder source, cleared acknowledged
+  batch recovery, incremented the folder generation, cancelled and discarded
+  prior-workspace results, cleared selection and Preview, and published only
+  new-folder photos.
+- Same-folder selection used the existing refresh path without replacing the
+  persisted folder source.
+- Empty and unsupported-only candidates preserved the old folder, photo count,
+  selection, Preview, and project persistence state.
+- Recovery acknowledgement was required before recovery clearing. The stale
+  recovery-panel defect was fixed, followed by a stable-identity fix for the
+  maximum-update-depth regression introduced during that correction.
+- The final Photoshop retest produced no maximum-update-depth warning.
+- Plugin reload and project reopen preserved `Recovery State: NONE` after the
+  acknowledged clear; no stale batch id, status, or outcomes returned.
+
+### Final lifecycle diagnostics
+
+The settled runtime summary reported:
+
+```text
+activeBrowserDecodes: 0
+activePreviewDecodes: 0
+pendingJobs: 0
+photoshopDocumentsOpenedByBrowser: 0
+```
+
+At folder switch, `discardResults: true` was recorded, the thumbnail cache was
+cleared, and old object URLs were revoked. No stale old-folder UI publication
+was observed. AppleDouble files named `._*.jpg` caused decode failures in one
+large fixture folder; this was test-data noise and not an ALB-043 regression.
+
+### Final automated verification
+
+The working tree was clean before this documentation-only update.
+
+| Command | Result |
+| --- | --- |
+| `npm test -- --runInBand` | PASS — 14 groups |
+| `npm run build` | PASS |
+| `git diff --check` | PASS |
+
+### Final commit stack
+
+```text
+7f6837b fix(alb-043): stabilize recovery panel refresh
+ecb757f fix(alb-043): harden folder-change UI state lifecycle
+2457925 docs(alb-043): record blocked Photoshop runtime matrix
+0c42341 feat(alb-043): add change photo folder UI workflow
+2e19c27 feat(alb-043): add safe photo folder change transaction
+a3d4336 docs(alb-043): add change photo folder plan
+```
+
+ALB-043 implementation and runtime validation are complete. Remaining release
+actions are to review this documentation diff, commit the documentation, push
+the feature branch, and merge only after final review.
+
+## Historical blocked execution record — 2026-07-31
 
 Runtime execution was attempted from the committed ALB-043.2 branch. The
 installed-plugin reload command (`npm run uxp:reload`) could not start because
@@ -59,7 +140,7 @@ No production defect was found or evaluated in this attempt because no runtime
 scenario reached Photoshop. Deterministic tests remain evidence for injected
 service behavior only, not replacements for these host checks.
 
-## ALB-043.2 automated/UI coverage
+## Historical ALB-043.2 automated/UI coverage
 
 The toolbar flow prevents concurrent picker/commit requests, suppresses stale
 async results and unmounted state updates, keeps the current folder on every
@@ -68,7 +149,8 @@ be cleared. The automated harness now also verifies the UI-facing status copy
 and that Preview reset is reserved for successful different-folder replacement.
 Picker cancellation, preparation supersession, same-folder refresh, persistence
 failures, token failures, and runtime rollback remain covered by the transaction
-harness. Photoshop runtime execution of the matrix below is still required.
+harness. At this earlier checkpoint, Photoshop runtime execution of the matrix
+below was still required; the final closeout above records its completion.
 
 ## Automated foundation verification
 
@@ -93,8 +175,9 @@ The checked-in service harness verifies eight deterministic groups:
 | A newer preparation supersedes an older delayed scan | PASS |
 
 These tests use injected UXP/lifecycle collaborators and do not replace the
-Photoshop runtime matrix below. The final toolbar and confirmation UI are not
-implemented in ALB-043.1, so UI-labelled steps remain pending.
+Photoshop runtime matrix below. At the ALB-043.1 checkpoint, the final toolbar
+and confirmation UI had not yet been implemented; ALB-043.2 and the final
+runtime closeout above completed those items.
 
 ## Runtime diagnostic events now available
 
