@@ -5,6 +5,17 @@ import {
     readCurrentRecoveryState,
     recoveryPanelStateKey
 } from "./recoveryPanelState";
+import {
+    canProcessProject,
+    canRevalidateTemplates,
+    executionGateFeedback,
+    recoveryCompatibilityLabel,
+    revalidationFeedback,
+    shouldResetTemplatePreflightUi,
+    templateRegistryIsBlocked,
+    templateRegistryUiSummary,
+    templateValidationLabel
+} from "./templatePreflightUi";
 
 function LayerTree({ layers = [], depth = 0 }) {
 
@@ -913,6 +924,9 @@ export function ExecutionDetails({
 export default function TemplateDocumentPanel({
     loadTemplates,
     getRegisteredProjectTemplates,
+    revalidateProjectTemplates,
+    getTemplateRegistryPreflightState,
+    getTemplateRegistryRecoveryCompatibility,
     addCurrentPsdToProject,
     removeRegisteredProjectTemplate,
     moveRegisteredProjectTemplate,
@@ -967,6 +981,14 @@ export default function TemplateDocumentPanel({
     const mountedRef = useRef(true);
     const renderedDragHandlesRef = useRef(new Set());
     const [registryError, setRegistryError] = useState(null);
+    const [registryPreflightState, setRegistryPreflightState] = useState(() =>
+        getTemplateRegistryPreflightState?.() || null
+    );
+    const [revalidateBusy, setRevalidateBusy] = useState(false);
+    const [revalidationMessage, setRevalidationMessage] = useState("");
+    const [templatesWorkspaceAvailable, setTemplatesWorkspaceAvailable] = useState(false);
+    const revalidationRequestRef = useRef(0);
+    const revalidationProjectIdRef = useRef(projectId);
     const [document, setDocument] = useState(null);
     const [, setPlacementVersion] = useState(0);
     const [placementError, setPlacementError] = useState(null);
@@ -1022,7 +1044,18 @@ export default function TemplateDocumentPanel({
         projectExecutionSummary?.batchProgress?.lifecycle
     );
     const isExecuting = executionLifecycle?.status === "RUNNING" || activeBatchLifecycle;
-    const registryLocked = isExecuting || registryMutating;
+    const registryLocked = isExecuting || registryMutating || revalidateBusy;
+    const registrySummary = templateRegistryUiSummary(
+        registeredTemplates,
+        registryPreflightState
+    );
+    const registryBlocked = templateRegistryIsBlocked(
+        registeredTemplates,
+        registryPreflightState
+    );
+    const recoveryCompatibility = recoverySnapshot
+        ? getTemplateRegistryRecoveryCompatibility?.() || ""
+        : "";
 
     useEffect(() => {
         registeredTemplatesRef.current = registeredTemplates;
@@ -1034,12 +1067,32 @@ export default function TemplateDocumentPanel({
         console.info("ALB-037.4-restored-template-status-refresh-v1");
     }, []);
 
+    useEffect(() => {
+        if (shouldResetTemplatePreflightUi({
+            hasProject,
+            projectId,
+            previousProjectId: revalidationProjectIdRef.current
+        })) {
+            revalidationRequestRef.current += 1;
+            revalidationProjectIdRef.current = projectId;
+            setRevalidateBusy(false);
+            setRevalidationMessage("");
+            setTemplatesWorkspaceAvailable(false);
+        }
+        refreshRegistryPreflightState();
+    }, [hasProject, projectId]);
+
     function refreshRegisteredTemplates() {
         const entries = getRegisteredProjectTemplates?.() || [];
         setRegisteredTemplates(entries);
         setSelectedRegisteredId(current => entries.some(entry => entry.id === current)
             ? current
             : (entries[0]?.id || ""));
+    }
+
+    function refreshRegistryPreflightState() {
+        const next = getTemplateRegistryPreflightState?.() || null;
+        setRegistryPreflightState(current => current === next ? current : next);
     }
 
     function refreshRecoveryState() {
@@ -1128,6 +1181,7 @@ export default function TemplateDocumentPanel({
         async function load() {
 
             if (!hasProject) {
+                setTemplatesWorkspaceAvailable(false);
                 setTemplates(current =>
                     current.length ? [] : current
                 );
@@ -1149,8 +1203,10 @@ export default function TemplateDocumentPanel({
                     { templates: files.length }
                 );
                 setTemplates(files);
+                setTemplatesWorkspaceAvailable(true);
                 setSelectedName(files[0]?.name || "");
                 refreshRegisteredTemplates();
+                refreshRegistryPreflightState();
                 refreshRecoveryState();
 
             }
@@ -1160,8 +1216,12 @@ export default function TemplateDocumentPanel({
                 if (!active) return;
 
                 setTemplates([]);
+                setTemplatesWorkspaceAvailable(false);
                 setSelectedName("");
                 refreshRegisteredTemplates();
+                refreshRegistryPreflightState();
+                setRevalidateBusy(false);
+                setRevalidationMessage("");
 
             }
 
@@ -1180,13 +1240,54 @@ export default function TemplateDocumentPanel({
 
     }, [loadTemplates, hasProject, projectId]);
 
+    async function revalidateTemplatesRequest() {
+        if (!canRevalidateTemplates({
+            hasProject,
+            isExecuting,
+            registryMutating,
+            revalidateBusy,
+            workspaceAvailable: templatesWorkspaceAvailable
+        })) return;
+
+        const requestId = ++revalidationRequestRef.current;
+        const requestProjectId = projectId;
+        setRevalidateBusy(true);
+        setRevalidationMessage("");
+
+        try {
+            const result = await revalidateProjectTemplates?.({
+                reason: "USER_REVALIDATE"
+            });
+            if (!mountedRef.current || requestId !== revalidationRequestRef.current ||
+                requestProjectId !== revalidationProjectIdRef.current) return;
+            refreshRegisteredTemplates();
+            refreshRegistryPreflightState();
+            setRevalidationMessage(revalidationFeedback(result));
+        } catch (_) {
+            if (!mountedRef.current || requestId !== revalidationRequestRef.current ||
+                requestProjectId !== revalidationProjectIdRef.current) return;
+            refreshRegisteredTemplates();
+            refreshRegistryPreflightState();
+            setRevalidationMessage(
+                "Template validation could not be completed. Check project access and try again."
+            );
+        } finally {
+            if (mountedRef.current && requestId === revalidationRequestRef.current &&
+                requestProjectId === revalidationProjectIdRef.current) {
+                setRevalidateBusy(false);
+            }
+        }
+    }
+
     async function addCurrentPsd() {
         const file = templates.find(item => item.name === selectedName);
         if (!file) return;
         try {
             await addCurrentPsdToProject?.(file);
             refreshRegisteredTemplates();
+            refreshRegistryPreflightState();
             refreshRecoveryState();
+            setRevalidationMessage("");
             setRegistryError(null);
         } catch (error) {
             setRegistryError(error.message);
@@ -1199,7 +1300,9 @@ export default function TemplateDocumentPanel({
             setRegistryMutating(true);
             await removeRegisteredProjectTemplate?.(id);
             refreshRegisteredTemplates();
+            refreshRegistryPreflightState();
             refreshRecoveryState();
+            setRevalidationMessage("");
             setRegistryError(null);
         } catch (error) {
             setRegistryError(error.message);
@@ -1215,7 +1318,9 @@ export default function TemplateDocumentPanel({
             const moved = await moveRegisteredProjectTemplate?.(id, targetIndex, method);
             if (!moved) return;
             refreshRegisteredTemplates();
+            refreshRegistryPreflightState();
             refreshRecoveryState();
+            setRevalidationMessage("");
             setRegistryError(null);
         } catch (error) {
             setRegistryError(error.message);
@@ -1442,6 +1547,7 @@ export default function TemplateDocumentPanel({
 
     useEffect(() => () => {
         mountedRef.current = false;
+        revalidationRequestRef.current += 1;
         if (dragStateRef.current) {
             clearTemplateDrag({ cancelled: true, reason: "component-unmount", updateState: false });
         }
@@ -1458,6 +1564,10 @@ export default function TemplateDocumentPanel({
         if (!hasProject) {
             setDocument(null);
             setRegistryError(null);
+            setRegistryPreflightState(null);
+            setRevalidationMessage("");
+            setRevalidateBusy(false);
+            setTemplatesWorkspaceAvailable(false);
             setPlacementError(null);
             setReplacementResult(null);
             setExecutionSummary(null);
@@ -1631,9 +1741,21 @@ export default function TemplateDocumentPanel({
                 refreshRecoveryState();
             });
 
+            const gateFeedback = executionGateFeedback(summary);
+            if (gateFeedback) {
+                setRegistryError(gateFeedback);
+                refreshRegisteredTemplates();
+                refreshRegistryPreflightState();
+                setProjectExecutionSummary(
+                    getCurrentProjectExecutionSummary?.() || null
+                );
+                return;
+            }
+
             setProjectExecutionSummary(
                 summary || getCurrentProjectExecutionSummary?.() || null
             );
+            setRegistryError(null);
             setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
             setExportResult(getCurrentExportResult?.() || null);
             refreshRecoveryState();
@@ -1755,7 +1877,34 @@ export default function TemplateDocumentPanel({
                 <span style={{ fontSize: 12, color: "#b8b8b8" }}>
                     Registered: {registeredTemplates.length}
                 </span>
+                <button
+                    onClick={revalidateTemplatesRequest}
+                    disabled={!canRevalidateTemplates({
+                        hasProject,
+                        isExecuting,
+                        registryMutating,
+                        revalidateBusy,
+                        workspaceAvailable: templatesWorkspaceAvailable
+                    })}
+                >
+                    {revalidateBusy ? "Revalidating…" : "Revalidate Templates"}
+                </button>
                 </div>
+
+                <div style={{ fontSize: 12, color: registryBlocked ? "#ffcc88" : "#9ee6a5" }}>
+                    Ready: {registrySummary.ready} · Blocking: {registrySummary.blocking}
+                    {registryBlocked && " — Template registry needs attention before processing."}
+                </div>
+                {revalidationMessage && (
+                    <div style={{ fontSize: 12, color: revalidationMessage.includes("could not") ? "#ff9999" : "#b8dca0" }}>
+                        {revalidationMessage}
+                    </div>
+                )}
+                {recoverySnapshot && recoveryCompatibility && (
+                    <div style={{ fontSize: 12, color: recoveryCompatibility === "COMPATIBLE" ? "#9ee6a5" : "#ffcc88" }}>
+                        Recovery compatibility: {recoveryCompatibilityLabel(recoveryCompatibility)}
+                    </div>
+                )}
 
                 <div
                     ref={templateListRef}
@@ -1766,7 +1915,8 @@ export default function TemplateDocumentPanel({
                         const isSelected = entry.id === selectedRegisteredId;
                         const isDropBefore = dropTarget?.id === entry.id && dropTarget?.position === "before";
                         const isDropAfter = dropTarget?.id === entry.id && dropTarget?.position === "after";
-                        const status = entry.validationState === "VALID" ? "READY" : entry.validationState;
+                        const status = templateValidationLabel(entry.validationState);
+                        const statusBlocked = entry.validationState !== "READY";
                         return (
                             <div key={entry.id}>
                                 {isDropBefore && <div className="drop-before" style={{ height: 2, background: "#4da3ff", marginBottom: 3 }} />}
@@ -1825,7 +1975,7 @@ export default function TemplateDocumentPanel({
                                     >☰</div>
                                     <span aria-label={`Order ${index + 1}`}>{index + 1}</span>
                                     <span style={{ flex: 1 }}>{entry.name}</span>
-                                    <span title={`Validation status: ${status}`} aria-label={`Status ${status}`} style={{ fontSize: 11, color: status === "MISSING" ? "#ff9999" : "#9ee6a5" }}>{status}</span>
+                                    <span title={`Validation status: ${status}`} aria-label={`Status ${status}`} style={{ fontSize: 11, color: statusBlocked ? "#ff9999" : "#9ee6a5" }}>{status}</span>
                                     <button title={`Move ${entry.name} up`} aria-label={`Move ${entry.name} up`} disabled={registryLocked || index === 0} onClick={event => { event.stopPropagation(); moveRegisteredTemplate(entry.id, index - 1, "keyboard"); }}>↑</button>
                                     <button title={`Move ${entry.name} down`} aria-label={`Move ${entry.name} down`} disabled={registryLocked || index === registeredTemplates.length - 1} onClick={event => { event.stopPropagation(); moveRegisteredTemplate(entry.id, index + 1, "keyboard"); }}>↓</button>
                                     <button title={`Remove ${entry.name}`} aria-label={`Remove ${entry.name}`} disabled={registryLocked} onClick={event => { event.stopPropagation(); removeSelectedRegisteredTemplate(entry.id); }}>×</button>
@@ -1865,7 +2015,12 @@ export default function TemplateDocumentPanel({
 
                 <button
                     onClick={executeProjectRequest}
-                    disabled={isExecuting || !hasProject}
+                    disabled={!canProcessProject({
+                        hasProject,
+                        isExecuting,
+                        entries: registeredTemplates,
+                        preflight: registryPreflightState
+                    })}
                 >
                     {isExecuting ? "Processing…" : "Process Project"}
                 </button>
