@@ -31,7 +31,9 @@ export default function BatchProgressPanel({ summary, onRequestCancel }) {
     const title = status === "COMPLETED" ? "Project Completed" :
         status === "COMPLETED_WITH_ERRORS" ? "Completed with Errors" :
             status === "FAILED" ? "Project Failed" : status === "CANCELLED" ? "Batch Cancelled Safely" : status === "CANCEL_REQUESTED" || status === "CANCELLING" ? "Stopping safely…" : "Project Processing";
-    const templateName = terminal && status !== "FAILED" ? "All Templates Completed" : (current?.name || "—");
+    const templateName = ["COMPLETED", "COMPLETED_WITH_ERRORS"].includes(status)
+        ? "All Templates Completed"
+        : (current?.name || "—");
     const templatePosition = progress.templateIndex == null ? "—" : `${progress.templateIndex + 1} of ${total}`;
     const stage = STAGE_LABELS[progress.stage] || STAGE_LABELS[status] || "Ready";
     const fatalError = summary?.batchExecution?.fatalError || summary?.fatalError || summary?.registryValidationError;
