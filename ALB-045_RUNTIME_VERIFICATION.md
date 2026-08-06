@@ -4,6 +4,18 @@ Status: **PENDING — planning/host-capability characterization only**
 Branch: `feature/alb-045-transactional-output-finalization`
 Base: `main` at `cb52f0b`
 
+## Slice 3 implementation note
+
+Save Copy PSD is now wired to the ALB-045 staging transaction helper in source:
+Photoshop writes only to a same-folder staging entry; an existing final is
+preserved to an AlbumAI-owned backup before promotion; PSD verification uses a
+binary `8BPS` header read; and backup cleanup happens only after final
+verification. The locked capability report does not prove safe replacement, so
+the runtime path remains backup-first. Bounded binary header reads are not
+available in the characterized host and the current PSD verification may read
+the full small/normal output file. No Photoshop runtime scenario is marked
+PASS by this implementation note.
+
 ## Purpose
 
 This matrix verifies that Save Copy and Export reach a final output name only

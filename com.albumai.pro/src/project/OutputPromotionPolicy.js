@@ -3,6 +3,9 @@ import {
     OutputTransactionState
 } from "./OutputTransactionState";
 import {
+    classifyCancellationAfterCommit,
+    classifyCancellationAfterStagingBeforeHostWrite,
+    classifyCancellationBeforeStaging,
     classifyCleanupFailure,
     classifyUnknownCommitState,
     createOutputTransactionResult
@@ -45,15 +48,36 @@ export async function runOutputPromotionTransaction({
     transactionId,
     writeStaging,
     verify,
-    maxAttempts
+    maxAttempts,
+    isCancellationRequested = () => false,
+    onDiagnostic = null
 } = {}) {
     const data = { displayName, outputKind };
+    const cancelled = () => isCancellationRequested?.() === true;
+    const diagnostic = event => onDiagnostic?.(event);
+    if (cancelled()) {
+        diagnostic("CANCELLED_BEFORE_STAGING");
+        return classifyCancellationBeforeStaging(data);
+    }
+    diagnostic("TRANSACTION_BEGIN");
     const staged = await createUniqueStaging(adapter, { finalName, transactionId, maxAttempts });
     if (!staged.entry) {
         return createOutputTransactionResult({ ...data, commitState: OutputTransactionState.NOT_STARTED, reasonCode: OutputReasonCode.STAGING_CREATE_FAILED });
     }
+    diagnostic("STAGING_CREATED");
+    if (cancelled()) {
+        const cleaned = await clean(adapter, staged.entry);
+        diagnostic(cleaned ? "STAGING_CLEANED" : "STAGING_CLEANUP_FAILED");
+        return cleaned
+            ? classifyCancellationAfterStagingBeforeHostWrite(data)
+            : classifyCleanupFailure(data);
+    }
     if (typeof writeStaging === "function") {
-        try { await writeStaging(staged.entry); } catch (_) {
+        try {
+            diagnostic("HOST_WRITE_BEGIN");
+            await writeStaging(staged.entry);
+            diagnostic("HOST_WRITE_END");
+        } catch (_) {
             return failedAfterCleanup(adapter, staged.entry, data, OutputReasonCode.HOST_WRITE_FAILED);
         }
     }
@@ -61,6 +85,7 @@ export async function runOutputPromotionTransaction({
     if (!stagedVerification?.valid) {
         return failedAfterCleanup(adapter, staged.entry, data, stagedVerification?.reasonCode || OutputReasonCode.COMMIT_VERIFICATION_FAILED);
     }
+    diagnostic("STAGING_VERIFIED");
     let final;
     try { final = await adapter.findEntry(finalName); } catch (_) {
         return classifyUnknownCommitState({ ...data, reasonCode: OutputReasonCode.PROMOTION_FAILED });
@@ -76,13 +101,24 @@ export async function runOutputPromotionTransaction({
             await adapter.promoteEntry(final, backupName, { overwrite: false });
             backup = await adapter.findEntry(backupName);
             if (!backup) throw new Error("Backup could not be resolved.");
+            diagnostic("PRIOR_FINAL_PRESERVED");
         } catch (_) {
             return failedAfterCleanup(adapter, staged.entry, data, OutputReasonCode.EXISTING_OUTPUT_PRESERVE_FAILED);
         }
     }
-    try { await adapter.promoteEntry(staged.entry, finalName, { overwrite: false }); } catch (_) {
+    try {
+        diagnostic("PROMOTION_BEGIN");
+        await adapter.promoteEntry(staged.entry, finalName, { overwrite: false });
+        diagnostic("PROMOTION_END");
+    } catch (_) {
+        diagnostic("PROMOTION_FAILED");
         if (backup) {
-            try { await adapter.promoteEntry(backup, finalName, { overwrite: false }); } catch (_) {
+            try {
+                diagnostic("ROLLBACK_BEGIN");
+                await adapter.promoteEntry(backup, finalName, { overwrite: false });
+                diagnostic("ROLLBACK_DONE");
+            } catch (_) {
+                diagnostic("ROLLBACK_FAILED");
                 return classifyUnknownCommitState({ ...data, reasonCode: OutputReasonCode.PROMOTION_FAILED });
             }
         }
@@ -95,14 +131,34 @@ export async function runOutputPromotionTransaction({
     const finalVerification = await verify(adapter, committed);
     if (!finalVerification?.valid) {
         if (backup) {
-            try { await adapter.promoteEntry(backup, finalName, { overwrite: false }); } catch (_) {
+            try {
+                diagnostic("ROLLBACK_BEGIN");
+                await adapter.promoteEntry(backup, finalName, { overwrite: false });
+                const restored = await adapter.findEntry(finalName);
+                const restoredVerification = await verify(adapter, restored);
+                if (!restoredVerification?.valid) throw new Error("Rollback verification failed.");
+                diagnostic("ROLLBACK_DONE");
+                return createOutputTransactionResult({
+                    ...data,
+                    commitState: OutputTransactionState.CLEANED,
+                    reasonCode: OutputReasonCode.COMMIT_VERIFICATION_FAILED
+                });
+            } catch (_) {
+                diagnostic("ROLLBACK_FAILED");
                 return classifyUnknownCommitState({ ...data, reasonCode: OutputReasonCode.COMMIT_VERIFICATION_FAILED });
             }
         }
         return classifyUnknownCommitState({ ...data, reasonCode: OutputReasonCode.COMMIT_VERIFICATION_FAILED });
     }
+    diagnostic("FINAL_VERIFIED");
     if (backup && !await clean(adapter, backup)) {
+        diagnostic("BACKUP_CLEANUP_FAILED");
         return createOutputTransactionResult({ ...data, commitState: OutputTransactionState.COMMITTED, reasonCode: OutputReasonCode.CLEANUP_FAILED });
     }
-    return createOutputTransactionResult({ ...data, commitState: OutputTransactionState.COMMITTED });
+    if (backup) diagnostic("BACKUP_CLEANED");
+    const result = cancelled()
+        ? classifyCancellationAfterCommit(data)
+        : createOutputTransactionResult({ ...data, commitState: OutputTransactionState.COMMITTED });
+    diagnostic(`TERMINAL_${result.commitState}`);
+    return result;
 }
