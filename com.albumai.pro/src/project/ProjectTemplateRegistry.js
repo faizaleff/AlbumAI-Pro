@@ -1,3 +1,12 @@
+import {
+    TEMPLATE_REGISTRY_VALIDATION_SCHEMA_VERSION,
+    TemplateRegistryValidationReason,
+    TemplateRegistryValidationState,
+    isBlockingTemplateRegistryValidationState,
+    normalizeTemplateRegistryValidationReason,
+    normalizeTemplateRegistryValidationState
+} from "./TemplateRegistryValidationState";
+
 /**
  * Return a reordered copy without changing either the input array or its entries.
  * Invalid/no-op moves are deliberately rejected as `null` so callers cannot
@@ -34,6 +43,9 @@ export default class ProjectTemplateRegistry {
             const fileReference = String(entry.fileReference || entry.fileName || "");
             if (!fileReference || seen.has(fileReference)) return result;
             seen.add(fileReference);
+            const validationState = normalizeTemplateRegistryValidationState(
+                entry.validationState
+            );
             result.push(Object.freeze({
                 id: entry.id || `template-${index + 1}-${fileReference}`,
                 name: entry.name || entry.fileName || "PSD Template",
@@ -41,13 +53,25 @@ export default class ProjectTemplateRegistry {
                 fileName: entry.fileName || entry.name || "",
                 diagnosticId: entry.diagnosticId || entry.fileName || entry.name || "",
                 registrationOrder: Number.isInteger(entry.registrationOrder) ? entry.registrationOrder : result.length,
-                validationState: entry.validationState || "UNKNOWN"
+                validationState,
+                validationReason: normalizeTemplateRegistryValidationReason(
+                    entry.validationReason,
+                    validationState
+                ),
+                validationObservedAt:
+                    typeof entry.validationObservedAt === "string"
+                        ? entry.validationObservedAt
+                        : null,
+                validationSchemaVersion:
+                    Number.isInteger(entry.validationSchemaVersion)
+                        ? entry.validationSchemaVersion
+                        : TEMPLATE_REGISTRY_VALIDATION_SCHEMA_VERSION
             }));
             return result;
         }, []).sort((left, right) => left.registrationOrder - right.registrationOrder);
     }
 
-    add(file, validationState = "UNKNOWN") {
+    add(file, validationState = TemplateRegistryValidationState.UNKNOWN) {
         // Templates are project-owned files, so their file name is the durable,
         // project-relative reference; native paths are intentionally not persisted.
         const fileReference = String(file?.name || "");
@@ -62,7 +86,10 @@ export default class ProjectTemplateRegistry {
             fileName: file.name || "",
             diagnosticId: file.name || "PSD Template",
             registrationOrder: this.entries.length,
-            validationState
+            validationState: normalizeTemplateRegistryValidationState(validationState),
+            validationReason: TemplateRegistryValidationReason.NOT_VALIDATED,
+            validationObservedAt: null,
+            validationSchemaVersion: TEMPLATE_REGISTRY_VALIDATION_SCHEMA_VERSION
         });
         this.entries = [...this.entries, descriptor];
         return descriptor;
@@ -86,9 +113,88 @@ export default class ProjectTemplateRegistry {
     }
 
     updateValidation(id, validationState) {
+        const compatibleState = validationState === "VALID"
+            ? TemplateRegistryValidationState.READY
+            : normalizeTemplateRegistryValidationState(validationState);
         this.entries = this.entries.map(entry => entry.id === id
-            ? Object.freeze({ ...entry, validationState })
+            ? Object.freeze({
+                ...entry,
+                validationState: compatibleState,
+                validationReason: normalizeTemplateRegistryValidationReason(
+                    null,
+                    compatibleState
+                ),
+                validationObservedAt: new Date().toISOString(),
+                validationSchemaVersion: TEMPLATE_REGISTRY_VALIDATION_SCHEMA_VERSION
+            })
             : entry);
+    }
+
+    snapshot() {
+        return Object.freeze(this.entries.map(entry => Object.freeze({ ...entry })));
+    }
+
+    restore(snapshot = []) {
+        this.entries = ProjectTemplateRegistry.normalize(snapshot);
+        return this.getAll();
+    }
+
+    applyValidationResults(
+        results = [],
+        {
+            observedAt = new Date().toISOString(),
+            schemaVersion = TEMPLATE_REGISTRY_VALIDATION_SCHEMA_VERSION
+        } = {}
+    ) {
+        const byId = new Map(results.map(result => [result?.templateId, result]));
+        const changedTemplateIds = [];
+
+        this.entries = this.entries.map(entry => {
+            const result = byId.get(entry.id);
+            if (!result) return entry;
+            const validationState = normalizeTemplateRegistryValidationState(
+                result.state
+            );
+            const validationReason = normalizeTemplateRegistryValidationReason(
+                result.reasonCode,
+                validationState
+            );
+            const changed = entry.validationState !== validationState ||
+                entry.validationReason !== validationReason ||
+                entry.validationSchemaVersion !== schemaVersion;
+            if (!changed) return entry;
+            changedTemplateIds.push(entry.id);
+            return Object.freeze({
+                ...entry,
+                validationState,
+                validationReason,
+                validationObservedAt: observedAt,
+                validationSchemaVersion: schemaVersion
+            });
+        });
+
+        return Object.freeze({
+            entries: Object.freeze(this.getAll()),
+            changedTemplateIds: Object.freeze(changedTemplateIds)
+        });
+    }
+
+    hasSameIdentityAndOrder(snapshot = []) {
+        if (!Array.isArray(snapshot) || snapshot.length !== this.entries.length) {
+            return false;
+        }
+        return this.entries.every((entry, index) => {
+            const previous = snapshot[index];
+            return previous?.id === entry.id &&
+                previous?.fileReference === entry.fileReference &&
+                previous?.registrationOrder === entry.registrationOrder;
+        });
+    }
+
+    blockingEntries() {
+        return this.entries.filter(entry =>
+            isBlockingTemplateRegistryValidationState(entry.validationState)
+        );
     }
 
     getAll() { return this.entries.slice(); }

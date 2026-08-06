@@ -494,6 +494,10 @@ export default function OpenFolder() {
         []
     );
     const getRegisteredProjectTemplates = () => App.getRegisteredProjectTemplates();
+    const revalidateProjectTemplates = options => App.revalidateProjectTemplates(options);
+    const getTemplateRegistryPreflightState = () => App.getTemplateRegistryPreflightState();
+    const getTemplateRegistryRecoveryCompatibility = () =>
+        App.getTemplateRegistryRecoveryCompatibility();
 
     const addCurrentPsdToProject = file => App.addCurrentPsdToProject(file);
 
@@ -662,6 +666,9 @@ export default function OpenFolder() {
                 <TemplateDocumentPanel
                     loadTemplates={loadTemplates}
                     getRegisteredProjectTemplates={getRegisteredProjectTemplates}
+                    revalidateProjectTemplates={revalidateProjectTemplates}
+                    getTemplateRegistryPreflightState={getTemplateRegistryPreflightState}
+                    getTemplateRegistryRecoveryCompatibility={getTemplateRegistryRecoveryCompatibility}
                     addCurrentPsdToProject={addCurrentPsdToProject}
                     removeRegisteredProjectTemplate={removeRegisteredProjectTemplate}
                     moveRegisteredProjectTemplate={moveRegisteredProjectTemplate}
