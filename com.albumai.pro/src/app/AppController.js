@@ -1399,10 +1399,13 @@ export class AppController {
             item.status !== "CANCELLED" || isTemplateOutputCompleteByDefault(item)
         ).map(item => item.templateId);
         const pending = current.queueOrder.filter(id => !completed.includes(id));
-        const successfulAllocations = terminalResults.filter(item =>
-            item.status === "COMPLETED"
+        const consumedAllocations = terminalResults.filter(item =>
+            item.status === "COMPLETED" || isTemplateOutputCompleteByDefault({
+                status: item.status,
+                outputTransactions: snapshotTemplateOutputTransactions(item)
+            })
         ).map(item => item.photoAllocation).filter(Boolean);
-        const photoCursor = successfulAllocations.reduce(
+        const photoCursor = consumedAllocations.reduce(
             (cursor, allocation) => Math.max(cursor, allocation.endCursor || 0),
             current.photoCursor || 0
         );
