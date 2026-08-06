@@ -2,6 +2,12 @@ import DocumentManager from "../core/document/DocumentManager";
 import Logger from "../core/photoshop/Logger";
 import { AutoSaveStatus } from "./AutoSaveResult";
 import ExportResult, { ExportStatus } from "./ExportResult";
+import { storage } from "uxp";
+import OutputTransactionFileAdapter from "../project/OutputTransactionFileAdapter";
+import { runOutputPromotionTransaction } from "../project/OutputPromotionPolicy";
+import { OutputKind } from "../project/OutputTransactionState";
+import { OutputTransactionStatus } from "../project/OutputTransactionPolicy";
+import { OutputVerificationFormat, verifyOutputEntry } from "../project/OutputVerification";
 
 export const ExportFormat = Object.freeze({
     PSD: "PSD",
@@ -11,9 +17,19 @@ export const ExportFormat = Object.freeze({
 /** Exports verified parent PSD documents only after a successful Auto Save. */
 export default class TemplateExportService {
 
-    constructor({ documentManager = new DocumentManager() } = {}) {
+    constructor({
+        documentManager = new DocumentManager(),
+        fileAdapterFactory = options => new OutputTransactionFileAdapter(options),
+        transactionRunner = runOutputPromotionTransaction,
+        transactionId = () => typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `export-${Date.now()}-${Math.random()}`
+    } = {}) {
 
         this.documentManager = documentManager;
+        this.fileAdapterFactory = fileAdapterFactory;
+        this.transactionRunner = transactionRunner;
+        this.transactionId = transactionId;
 
     }
 
@@ -24,7 +40,8 @@ export default class TemplateExportService {
         documentContext,
         autoSaveResult,
         enabled = false,
-        format = ExportFormat.JPEG
+        format = ExportFormat.JPEG,
+        cancellationController = null
     } = {}) {
 
         const resultData = {
@@ -60,22 +77,7 @@ export default class TemplateExportService {
 
         try {
 
-            const destination = await this.destination(project, template, document, format, descriptor);
-            Logger.info(`EXPORT TARGET: ${destination.name}`);
-
-            if (format === ExportFormat.PSD) {
-                await this.documentManager.save(document, destination);
-            }
-            else {
-                await this.documentManager.exportJPEG(document, destination);
-            }
-
-            return new ExportResult({
-                ...resultData,
-                status: ExportStatus.SUCCESS,
-                outputPath: destination.nativePath || destination.name,
-                exportedAt: new Date().toISOString()
-            });
+            return this.exportTransaction({ project, template, descriptor, document, format, resultData, cancellationController });
 
         }
 
@@ -113,8 +115,10 @@ export default class TemplateExportService {
         const extension = format === ExportFormat.PSD ? "psd" : "jpg";
         const baseName = this.baseName(descriptor?.name || template?.name || document?.title || "template");
 
-        return exportFolder.createFile(`${baseName}.${extension}`, {
-            overwrite: true
+        return Object.freeze({
+            folder: exportFolder,
+            finalName: `${baseName}.${extension}`,
+            displayName: `${baseName}.${extension}`
         });
 
     }
@@ -141,6 +145,52 @@ export default class TemplateExportService {
             warnings: [warning]
         });
 
+    }
+
+    async exportTransaction({ project, template, descriptor, document, format, resultData, cancellationController }) {
+        const target = await this.destination(project, template, document, format, descriptor);
+        const outputKind = format === ExportFormat.PSD
+            ? OutputKind.EXPORT_PSD
+            : OutputKind.EXPORT_JPEG;
+        const verificationFormat = format === ExportFormat.PSD
+            ? OutputVerificationFormat.PSD
+            : OutputVerificationFormat.JPEG;
+        const adapter = this.fileAdapterFactory({
+            folder: target.folder,
+            // Locked capability characterization supports binary reads but not
+            // bounded header reads; verification can read the full export.
+            readBinary: entry => entry.read({ format: storage.formats?.binary })
+        });
+        const transaction = await this.transactionRunner({
+            adapter,
+            finalName: target.finalName,
+            displayName: target.displayName,
+            outputKind,
+            transactionId: this.transactionId(),
+            isCancellationRequested: () => this.cancelled(cancellationController),
+            onDiagnostic: event => Logger.info(`ALB045_EXPORT_${event}`),
+            writeStaging: staging => format === ExportFormat.PSD
+                ? this.documentManager.save(document, staging)
+                : this.documentManager.exportJPEG(document, staging),
+            verify: (fileAdapter, entry) => verifyOutputEntry(
+                fileAdapter, entry, { format: verificationFormat }
+            )
+        });
+        const success = transaction.commitState === "COMMITTED";
+        const cancelled = transaction.status === OutputTransactionStatus.CANCELLED;
+        return new ExportResult({
+            ...resultData,
+            status: success ? ExportStatus.SUCCESS : (cancelled ? ExportStatus.SKIPPED : ExportStatus.FAILED),
+            outputPath: success ? target.displayName : "",
+            exportedAt: success ? new Date().toISOString() : null,
+            warnings: cancelled ? ["Export was cancelled safely."] : [],
+            error: success || cancelled ? null : "Template export failed.",
+            outputTransaction: transaction
+        });
+    }
+
+    cancelled(controller) {
+        return controller?.isCancellationRequested?.() === true;
     }
 
 }

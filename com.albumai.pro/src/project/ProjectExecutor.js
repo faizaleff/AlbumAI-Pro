@@ -235,7 +235,7 @@ export default class ProjectExecutor {
         if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "REPLACING", executionSummary, placementResult, executionPlan, replacementRequest: request };
         await this.activateContext(context, "SAVE");
         onStageProgress?.("SAVING");
-        const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode });
+        const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode, cancellationController });
         Logger.info(`BATCH_AUTOSAVE_DONE: ${context.documentName} — ${autoSaveResult.status}`);
         Logger.info(`AUTOSAVE_DONE: ${context.documentName} — ${autoSaveResult.status}`);
         Logger.info(`TEMPLATE_AUTOSAVE_STATUS: ${autoSaveResult.status}`);
@@ -243,7 +243,7 @@ export default class ProjectExecutor {
         if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "SAVING", executionSummary, placementResult, executionPlan, replacementRequest: request, autoSaveResult };
         await this.activateContext(context, "EXPORT");
         onStageProgress?.("EXPORTING");
-        const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat });
+        const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat, cancellationController });
         Logger.info(`BATCH_EXPORT_DONE: ${context.documentName} — ${exportResult.status}`);
         Logger.info(`EXPORT_DONE: ${context.documentName} — ${exportResult.status}`);
         Logger.info(`TEMPLATE_EXPORT_STATUS: ${exportResult.status}`);

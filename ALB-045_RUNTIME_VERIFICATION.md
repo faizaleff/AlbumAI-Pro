@@ -16,6 +16,17 @@ available in the characterized host and the current PSD verification may read
 the full small/normal output file. No Photoshop runtime scenario is marked
 PASS by this implementation note.
 
+## Slice 4 implementation note
+
+PSD and JPEG Export now use the same same-folder staging, verification, and
+backup-first promotion path as Save Copy PSD. Photoshop receives only the
+staging entry for its export operation; the user-visible final name is promoted
+only after format-appropriate binary-signature verification. Batch execution
+passes its cancellation controller to both Auto Save and Export so a request is
+observed at the defined transaction boundaries and deferred while Photoshop
+owns the host write. No Photoshop runtime scenario is marked PASS by this
+implementation note.
+
 ## Purpose
 
 This matrix verifies that Save Copy and Export reach a final output name only
