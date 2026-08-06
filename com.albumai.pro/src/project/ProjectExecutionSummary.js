@@ -1,6 +1,7 @@
 export const ProjectExecutionStatus = Object.freeze({
     RUNNING: "RUNNING",
     COMPLETED: "COMPLETED",
+    CANCELLED: "CANCELLED",
     FAILED: "FAILED"
 });
 
