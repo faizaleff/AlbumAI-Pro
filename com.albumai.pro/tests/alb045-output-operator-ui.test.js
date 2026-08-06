@@ -106,6 +106,8 @@ test("controller recovery state exposes the same authoritative operator summary"
 test("UI hides automatic actions without safe work and includes operator diagnostics", () => {
     const panel = fs.readFileSync(path.join(process.cwd(), "src/components/TemplateDocumentPanel.jsx"), "utf8");
     const progress = fs.readFileSync(path.join(process.cwd(), "src/components/BatchProgressPanel.jsx"), "utf8");
+    const executor = fs.readFileSync(path.join(process.cwd(), "src/project/ProjectExecutor.js"), "utf8");
+    const projectSummary = fs.readFileSync(path.join(process.cwd(), "src/project/ProjectExecutionSummary.js"), "utf8");
     assert(panel.includes("outputRecovery.automaticRetryTemplates > 0"));
     assert(panel.includes("One or more output commits are unknown. Automatic retry is blocked."));
     assert(panel.includes("Cleanup is required before affected templates can be retried."));
@@ -115,6 +117,14 @@ test("UI hides automatic actions without safe work and includes operator diagnos
     assert(panel.includes("Overwrite Original (non-reversible)"));
     assert(progress.includes('aria-label="Output transaction summary"'));
     assert(progress.includes("Automatic retry is blocked for ambiguous or remediation-required outputs."));
+    assert(progress.includes('["COMPLETED", "COMPLETED_WITH_ERRORS"].includes(status)'));
+    assert(!progress.includes('terminal && status !== "FAILED"'));
+    assert(panel.includes("const allTemplatesProcessed"));
+    assert(panel.includes("terminalBatch?.currentTemplate?.name"));
+    assert(executor.includes('"Template cancelled; selected photos were not consumed."'));
+    assert(executor.includes("batch.cancelledAtStage"));
+    assert(executor.includes("ProjectExecutionStatus.CANCELLED"));
+    assert(projectSummary.includes('CANCELLED: "CANCELLED"'));
 });
 
 console.info("ALB-045 Slice 6 operator recovery UI tests complete.");
