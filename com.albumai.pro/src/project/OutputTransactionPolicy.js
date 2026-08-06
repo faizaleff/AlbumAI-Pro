@@ -132,7 +132,8 @@ export function normalizeOutputTransactionResult(data = {}, {
         outputKind,
         overwriteOriginal,
         retryDisposition,
-        remediationRequired: retryDisposition === OutputRetryDisposition.REMEDIATION_REQUIRED
+        remediationRequired: retryDisposition === OutputRetryDisposition.REMEDIATION_REQUIRED ||
+            reasonCode === OutputReasonCode.CLEANUP_FAILED
     });
 }
 
