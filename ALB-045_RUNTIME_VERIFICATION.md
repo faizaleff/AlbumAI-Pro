@@ -37,6 +37,16 @@ not requeued automatically. Existing legacy success claims without a
 transaction fact normalize fail-closed to `COMMIT_UNKNOWN`. No Photoshop
 runtime scenario is marked PASS by this implementation note.
 
+## Slice 6 implementation note
+
+Completion and recovery surfaces now show explicit `COMMITTED`, safe-retry,
+`COMMIT_UNKNOWN`, and remediation-required output counts and per-output
+operator messages. Automatic Resume/Retry actions are offered only when the
+authoritative recovery policy identifies safe work; ambiguous and cleanup-
+required outputs remain visible and blocked. Safe count-only transaction
+diagnostics were added, and Overwrite Original is labeled non-reversible. No
+Photoshop runtime scenario is marked PASS by this implementation note.
+
 ## Purpose
 
 This matrix verifies that Save Copy and Export reach a final output name only

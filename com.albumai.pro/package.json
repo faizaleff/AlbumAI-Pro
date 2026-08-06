@@ -2,7 +2,7 @@
   "name": "com.adobe.uxp.starter.react",
   "version": "1.0.0",
   "scripts": {
-    "test": "node tests/run-alb043-tests.js && node tests/run-alb044-tests.js && node tests/run-alb044-controller-tests.js && node tests/run-alb044-execution-gate-tests.js && node tests/run-alb044-ui-tests.js && node tests/run-alb045-output-transaction-tests.js && node tests/run-alb045-output-transaction-filesystem-tests.js && node tests/run-alb045-output-storage-characterization-tests.js && node tests/run-alb045-autosave-transaction-tests.js && node tests/run-alb045-export-transaction-tests.js && node tests/run-alb045-cancellation-recovery-retry-tests.js",
+    "test": "node tests/run-alb043-tests.js && node tests/run-alb044-tests.js && node tests/run-alb044-controller-tests.js && node tests/run-alb044-execution-gate-tests.js && node tests/run-alb044-ui-tests.js && node tests/run-alb045-output-transaction-tests.js && node tests/run-alb045-output-transaction-filesystem-tests.js && node tests/run-alb045-output-storage-characterization-tests.js && node tests/run-alb045-autosave-transaction-tests.js && node tests/run-alb045-export-transaction-tests.js && node tests/run-alb045-cancellation-recovery-retry-tests.js && node tests/run-alb045-output-operator-ui-tests.js",
     "watch": "nodemon -w src -e js,jsx,json,css,html -w webpack.config.js -x npm run build",
     "build": "webpack --mode development",
     "build:prod": "webpack --mode production",
