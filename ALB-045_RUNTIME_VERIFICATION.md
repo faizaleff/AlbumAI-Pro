@@ -27,6 +27,16 @@ observed at the defined transaction boundaries and deferred while Photoshop
 owns the host write. No Photoshop runtime scenario is marked PASS by this
 implementation note.
 
+## Slice 5 implementation note
+
+Recovery now persists only detached, normalized output-transaction facts for
+Auto Save and Export, rather than result paths or host-derived values. Retry
+and resume selection blocks `COMMIT_UNKNOWN` and `CLEANUP_FAILED`, while a
+verified output committed before cancellation is complete-by-default and is
+not requeued automatically. Existing legacy success claims without a
+transaction fact normalize fail-closed to `COMMIT_UNKNOWN`. No Photoshop
+runtime scenario is marked PASS by this implementation note.
+
 ## Purpose
 
 This matrix verifies that Save Copy and Export reach a final output name only

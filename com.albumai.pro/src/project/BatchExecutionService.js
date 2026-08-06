@@ -1,4 +1,8 @@
 import BatchExecutionResult, { BatchExecutionStatus } from "./BatchExecutionResult";
+import {
+    snapshotTemplateOutputTransactions,
+    templateOutputRetryDisposition
+} from "./OutputTransactionRecovery";
 
 /** Runs supplied single-template work sequentially without owning its implementation. */
 export default class BatchExecutionService {
@@ -146,6 +150,7 @@ export default class BatchExecutionService {
 
         const startedAt = data.startedAt || null;
         const completedAt = status === "RUNNING" ? null : new Date().toISOString();
+        const outputTransactions = snapshotTemplateOutputTransactions(data);
         return BatchExecutionResult.freeze({
             templateId: template?.id ?? null,
             templatePath: template?.filePath || "",
@@ -155,6 +160,8 @@ export default class BatchExecutionService {
             failedSteps: data.failedSteps || data.executionSummary?.failedSteps || 0,
             autosaveResult: data.autoSaveResult || null,
             exportResult: data.exportResult || null,
+            outputTransactions,
+            outputRetryDisposition: templateOutputRetryDisposition({ status, outputTransactions }),
             warnings: data.warnings || [],
             error: data.error || null,
             executionSummary: data.executionSummary || null,
