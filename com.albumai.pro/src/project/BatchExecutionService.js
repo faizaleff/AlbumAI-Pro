@@ -1,5 +1,6 @@
 import BatchExecutionResult, { BatchExecutionStatus } from "./BatchExecutionResult";
 import {
+    isTemplateOutputCompleteByDefault,
     snapshotTemplateOutputTransactions,
     templateOutputRetryDisposition
 } from "./OutputTransactionRecovery";
@@ -36,6 +37,7 @@ export default class BatchExecutionService {
         const totalTemplates = Math.max(queue.total, Number(resumeState?.totalTemplates) || 0);
         const resumeOffset = Number(resumeState?.completedTemplates) || 0;
         const originalIndex = template => resumeState?.templateIndexes?.[template?.id];
+        let completedTemplates = Number(resumeState?.completedTemplates) || 0;
         let successfulTemplates = Number(resumeState?.successfulTemplates) || 0;
         let failedTemplates = Number(resumeState?.failedTemplates) || 0;
         let skippedTemplates = Number(resumeState?.skippedTemplates) || 0;
@@ -43,17 +45,17 @@ export default class BatchExecutionService {
             if (outcome === "COMPLETED") successfulTemplates += 1;
             else if (outcome === "SKIPPED_NO_PHOTOS") skippedTemplates += 1;
             else if (outcome === "FAILED") failedTemplates += 1;
+            completedTemplates += 1;
             console.info("BATCH_OUTCOME_ACCOUNTING", JSON.stringify({
                 templateId: template?.id ?? null,
                 outcome,
-                completed: successfulTemplates + failedTemplates + skippedTemplates,
+                completed: completedTemplates,
                 successful: successfulTemplates,
                 failed: failedTemplates,
                 skipped: skippedTemplates
             }));
         };
         const emit = (status, currentIndex = -1, fatalError = null, cancellation = null) => {
-            const completedTemplates = successfulTemplates + failedTemplates + skippedTemplates;
             const result = new BatchExecutionResult({
                 status,
                 totalTemplates,
@@ -104,7 +106,22 @@ export default class BatchExecutionService {
                 try {
                     const result = await executeTemplate(template, index, queue.total);
                     if (result?.status === "CANCELLED") {
-                        templateResults.splice(index, 1, this.templateResult(template, "CANCELLED", { ...result, startedAt: running.startedAt }));
+                        const cancelledResult = this.templateResult(template, "CANCELLED", {
+                            ...result,
+                            startedAt: running.startedAt
+                        });
+                        templateResults.splice(index, 1, cancelledResult);
+                        if (isTemplateOutputCompleteByDefault(cancelledResult)) {
+                            completedTemplates += 1;
+                            console.info("BATCH_OUTCOME_ACCOUNTING", JSON.stringify({
+                                templateId: template?.id ?? null,
+                                outcome: "CANCELLED_AFTER_COMMIT",
+                                completed: completedTemplates,
+                                successful: successfulTemplates,
+                                failed: failedTemplates,
+                                skipped: skippedTemplates
+                            }));
+                        }
                         cancellationController?.markEffective();
                         const cancellation = { ...cancellationController?.getSnapshot(), stage: result.cancelledAtStage || "SAFE_BOUNDARY" };
                         console.info("BATCH_CANCEL_BOUNDARY_REACHED", JSON.stringify(cancellation));
