@@ -148,9 +148,13 @@ function summaryText({
     const summaryProgress = isTerminalBatch
         ? terminalBatch
         : batchProgress;
-    const currentTemplateName = isTerminalBatch
+    const allTemplatesProcessed = ["COMPLETED", "COMPLETED_WITH_ERRORS"].includes(
+        terminalBatch?.status
+    );
+    const currentTemplateName = allTemplatesProcessed
         ? "All Templates Completed"
-        : projectExecutionSummary?.batchProgress?.currentTemplate?.name ||
+        : terminalBatch?.currentTemplate?.name ||
+            projectExecutionSummary?.batchProgress?.currentTemplate?.name ||
             template?.name || "—";
     PhotoBrowserPerformance.trace("SUMMARY_STATE_SOURCE", {
         source: isTerminalBatch ? "terminal-batch" : "live-ui",
