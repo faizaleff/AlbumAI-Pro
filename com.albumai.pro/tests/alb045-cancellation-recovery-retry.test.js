@@ -74,18 +74,67 @@ async function run() {
         assert.strictEqual(Object.isFrozen(result.outputTransactions), true);
     });
 
+    await test("committed cancellation counts as completed without claiming template success", async () => {
+        const service = new BatchExecutionService();
+        const template = { id: "one", name: "One.psd" };
+        const batch = await service.execute({
+            queue: { total: 1, descriptorAt: () => template },
+            executeTemplate: async () => ({
+                status: "CANCELLED",
+                cancelledAtStage: "SAVING",
+                autoSaveResult: {
+                    outputTransaction: transaction(
+                        State.COMMITTED,
+                        Cancellation.EFFECTIVE_AFTER_COMMIT
+                    )
+                }
+            })
+        });
+        assert.strictEqual(batch.status, "CANCELLED");
+        assert.strictEqual(batch.completedTemplates, 1);
+        assert.strictEqual(batch.successfulTemplates, 0);
+        assert.strictEqual(batch.failedTemplates, 0);
+        assert.strictEqual(batch.pendingTemplates, 0);
+        assert.strictEqual(batch.cancelledAtStage, "SAVING");
+    });
+
     await test("recovery completion excludes committed cancelled output from pending work", () => {
         const controller = recoveryController(new BatchRecoverySnapshot({
-            projectId: "project", queueOrder: ["one", "two"], lifecycle: "RUNNING", pendingTemplateIds: ["one", "two"]
+            projectId: "project",
+            queueOrder: ["one", "two"],
+            lifecycle: "RUNNING",
+            pendingTemplateIds: ["one", "two"],
+            selectedPhotoOrder: ["p1", "p2"]
         }));
         controller.updateRecoveryBatch({
             status: "CANCELLED", templateResults: [
-                { templateId: "one", templateName: "One", status: "CANCELLED", autoSaveResult: { outputTransaction: transaction(State.COMMITTED, Cancellation.EFFECTIVE_AFTER_COMMIT) } },
+                {
+                    templateId: "one",
+                    templateName: "One",
+                    status: "CANCELLED",
+                    autoSaveResult: {
+                        outputTransaction: transaction(
+                            State.COMMITTED,
+                            Cancellation.EFFECTIVE_AFTER_COMMIT
+                        )
+                    },
+                    photoAllocation: {
+                        startCursor: 0,
+                        endCursor: 1,
+                        assignedCount: 1,
+                        assignedPhotoIds: ["p1"],
+                        remainingCount: 1,
+                        status: "COMMITTED_AFTER_CANCEL"
+                    }
+                },
                 { templateId: "two", templateName: "Two", status: "CANCELLED", autoSaveResult: { outputTransaction: transaction(State.CLEANED) } }
             ]
         });
         assert.deepStrictEqual(controller.batchRecoverySnapshot.completedTemplateIds, ["one"]);
         assert.deepStrictEqual(controller.batchRecoverySnapshot.pendingTemplateIds, ["two"]);
+        assert.strictEqual(controller.batchRecoverySnapshot.photoCursor, 1);
+        assert.deepStrictEqual(controller.batchRecoverySnapshot.consumedPhotoIds, ["p1"]);
+        assert.deepStrictEqual(controller.batchRecoverySnapshot.remainingPhotoIds, ["p2"]);
         assert.strictEqual(controller.batchRecoverySnapshot.templateOutcomes[0].autosaveResult, undefined);
         assert.strictEqual(controller.batchRecoverySnapshot.templateOutcomes[0].outputTransactions.autoSave.commitState, State.COMMITTED);
     });
