@@ -1,8 +1,13 @@
 # ALB-044 — Template Registry Preflight and Missing-PSD Recovery
 
-Status: **PLAN ONLY — no production implementation in this slice**
+Status: **COMPLETE — implementation and runtime validation closed at `91796e4`**
 Base: `main` at `15b1c41`
 Branch: `feature/alb-044-template-registry-preflight`
+
+Final verification is recorded in `ALB-044_RUNTIME_VERIFICATION.md`. The
+runtime matrix is resolved with manual PASS results where host reproduction was
+available and deterministic automated coverage for AMBIGUOUS, ACCESS_ERROR,
+persistence-failure rollback, and recovery compatibility.
 
 ## Objective
 
@@ -415,7 +420,9 @@ deep/batch analysis may open documents only after a READY preflight.
    recovery compatibility is separately surfaced and persisted only by explicit
    policy.
 9. Focused automated tests, ALB-043 regressions, production build, diff check,
-   and all ALB-044 runtime scenarios pass before merge.
+   and the ALB-044 runtime matrix are complete before merge; host scenarios
+   that cannot be safely reproduced are explicitly identified as deterministic
+   automated coverage.
 
 ## Commit strategy
 
@@ -427,21 +434,23 @@ Keep commits reviewable and independently testable:
 4. `feat(alb-044): add template validation remediation UI`
 5. `docs(alb-044): record runtime verification`
 
-Do not change `dist/index.js` in any slice. Do not commit this plan-only slice
-automatically.
+`dist/index.js` remained excluded from the milestone commit stack. Final
+documentation changes are reviewed and committed separately.
 
-## Unresolved design questions
+## Final implementation decisions
 
-1. Does the UXP storage API expose a stable project-relative identity that can
-   replace filename-only `fileReference` without breaking existing projects?
-2. When a descriptor is intentionally replaced with a same-name PSD, should a
-   persisted replacement generation be added to recovery compatibility, or is
-   explicit user acknowledgement sufficient?
-3. Should `ACCESS_ERROR` apply per descriptor when one file cannot be inspected,
-   or globally when `Templates.getEntries()` itself fails? The implementation
-   should preserve the most specific coherent result possible.
-4. Does explicit Revalidate persist timestamps/outcomes every time, or only when
-   state/reason changes? Prefer avoiding needless project writes if runtime UX
-   remains coherent.
-5. What explicit recovery-clear UI/policy already exists and can be reused for
-   a future `STALE_REGISTRY` resolution without expanding ALB-044?
+1. Existing descriptor identity and ordered sequence remain authoritative; no
+   migration format or replacement generation was introduced.
+2. Filename fallback follows the repository's existing case-sensitive equality
+   behavior and fails closed when matching is ambiguous.
+3. A folder-level `Templates.getEntries()` failure conservatively produces
+   `ACCESS_ERROR` observations for all registered descriptors.
+4. Validation timestamps and project persistence change only when state,
+   reason, or validation schema version changes. Registry identity/order
+   mutations still persist normally.
+5. Recovery compatibility is classified separately as `COMPATIBLE`,
+   `BLOCKED_TEMPLATE_REGISTRY`, or `STALE_REGISTRY`; validation never clears
+   recovery, and the existing explicit persisted clear flow remains intact.
+6. Project close, project change, workspace loss, and panel unmount invalidate
+   transient preflight UI work. Runtime verification confirmed that stale rows
+   are cleared without altering persisted registry data.
