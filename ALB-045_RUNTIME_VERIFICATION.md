@@ -1,6 +1,6 @@
 # ALB-045 Runtime Verification — Transactional Output Finalization and Cancellation-Safe Save/Export
 
-Status: **PENDING — planning/host-capability characterization only**
+Status: **PARTIAL — Photoshop runtime PASS where exercised; deterministic fault-injection coverage PASS; remaining runtime evidence called out below**
 Branch: `feature/alb-045-transactional-output-finalization`
 Base: `main` at `cb52f0b`
 
@@ -47,6 +47,35 @@ required outputs remain visible and blocked. Safe count-only transaction
 diagnostics were added, and Overwrite Original is labeled non-reversible. No
 Photoshop runtime scenario is marked PASS by this implementation note.
 
+## 2026-08-07 close-out evidence
+
+The following results are recorded from the ALB-045 branch close-out. Statuses
+distinguish Photoshop runtime observations from deterministic injected-failure
+coverage; a harness result is not relabeled as a Photoshop runtime PASS.
+
+- Normal 3-template Save Copy + JPEG run: 3/3 successful; 6/6 output
+  transactions `COMMITTED`.
+- Existing-output replacement run: 3/3 successful; 6/6 `COMMITTED`; no
+  `COMMIT_UNKNOWN` or cleanup-required state observed.
+- Cancellation during Save Copy: batch `CANCELLED`; the committed output was
+  preserved and remaining work was classified safely.
+- Cancellation during JPEG Export: Auto Save remained `COMMITTED`; Export was
+  safe to retry with `CANCELLED_BEFORE_WRITE`.
+- Cancelled recovery survived panel reload as `INTERRUPTED/CANCELLED`, last
+  stage `EXPORTING`, with automatic retry available for the three pending
+  templates.
+- Final-cleanup run: 3/3 completed, pending templates 0, recovery unavailable,
+  6/6 outputs `COMMITTED`, and no warning or fatal error.
+- Deterministic transaction suites PASS host-write, verification, promotion,
+  rollback, cleanup-failure, commit-unknown, cancellation-boundary, recovery,
+  retry-blocking, and operator-state cases.
+- Intentional Photoshop forced-failure scenarios were not manufactured where
+  no safe deterministic runtime trigger exists. RT-06 is explicitly classified
+  `HARNESS PASS / PHOTOSHOP FORCED-FAILURE RUNTIME NOT RUN`.
+- No retained Photoshop log proves RT-03 (cancellation before output
+  transaction) or RT-14 (`OVERWRITE_ORIGINAL` cancellation). Their harness
+  contracts pass, but Photoshop runtime evidence must not be inferred.
+
 ## Purpose
 
 This matrix verifies that Save Copy and Export reach a final output name only
@@ -74,25 +103,33 @@ each scenario.
 
 | ID | Scenario | Expected contract | Status |
 | --- | --- | --- | --- |
-| RT-01 | Save Copy PSD success | Verified staging is safely committed; no staging remains. | PENDING |
-| RT-02 | JPEG export success | Verified staging is safely committed; no staging remains. | PENDING |
-| RT-03 | Cancellation before output transaction | No staging/final output is created; retry is available. | PENDING |
-| RT-04 | Cancellation during Save Copy | Host write is awaited; final result is either committed or deterministically uncommitted/cleaned. | PENDING |
-| RT-05 | Cancellation during JPEG export | Same deferred-cancellation contract as RT-04. | PENDING |
-| RT-06 | Host write failure with no existing final | No final output; staging is cleaned or explicitly classified. | PENDING |
-| RT-07 | Host write failure with existing final preserved | Existing final remains readable and unchanged. | PENDING |
-| RT-08 | Successful replacement of existing final | Prior output is preserved until new final verification; cleanup follows policy. | PENDING |
-| RT-09 | Promotion failure and rollback/preservation | Prior final is restored/verified, or result is `COMMIT_UNKNOWN`; never claim success. | PENDING |
-| RT-10 | Cleanup failure classification | Result is `CLEANUP_FAILED`; automatic retry is unavailable. | PENDING |
-| RT-11 | Committed output followed by batch cancellation | Output remains `COMMITTED`; cancellation state is effective-after-commit; retry skips by default. | PENDING |
-| RT-12 | Close/reload recovery outcome consistency | Persisted recovery and UI agree with transaction outcome and retry disposition. | PENDING |
-| RT-13 | `COMMIT_UNKNOWN` remediation behavior | Resume/retry is blocked until explicit reconciliation; no validity guess. | PENDING |
-| RT-14 | `OVERWRITE_ORIGINAL` cancellation contract | Successful host save remains committed and non-reversible; wording is explicit. | PENDING |
-| RT-15 | Final document/queue/staging cleanup summary | No AlbumAI document/queue leak; staging/backup inventory matches terminal state. | PENDING |
+| RT-01 | Save Copy PSD success | Verified staging is safely committed; no staging remains. | **PASS — Photoshop runtime + harness** |
+| RT-02 | JPEG export success | Verified staging is safely committed; no staging remains. | **PASS — Photoshop runtime + harness** |
+| RT-03 | Cancellation before output transaction | No staging/final output is created; retry is available. | **HARNESS PASS — Photoshop runtime evidence not retained** |
+| RT-04 | Cancellation during Save Copy | Host write is awaited; final result is either committed or deterministically uncommitted/cleaned. | **PASS — Photoshop runtime + harness** |
+| RT-05 | Cancellation during JPEG export | Same deferred-cancellation contract as RT-04. | **PASS — Photoshop runtime + harness** |
+| RT-06 | Host write failure with no existing final | No final output; staging is cleaned or explicitly classified. | **HARNESS PASS — Photoshop forced-failure runtime not run (unsafe/non-deterministic trigger)** |
+| RT-07 | Host write failure with existing final preserved | Existing final remains readable and unchanged. | **HARNESS PASS — injected filesystem failure; Photoshop forced-failure runtime not run** |
+| RT-08 | Successful replacement of existing final | Prior output is preserved until new final verification; cleanup follows policy. | **PASS — Photoshop runtime + harness** |
+| RT-09 | Promotion failure and rollback/preservation | Prior final is restored/verified, or result is `COMMIT_UNKNOWN`; never claim success. | **HARNESS PASS — injected promotion/rollback failures; Photoshop forced-failure runtime not run** |
+| RT-10 | Cleanup failure classification | Result is `CLEANUP_FAILED`; automatic retry is unavailable. | **HARNESS PASS — injected cleanup failure; Photoshop forced-failure runtime not run** |
+| RT-11 | Committed output followed by batch cancellation | Output remains `COMMITTED`; cancellation state is effective-after-commit; retry skips by default. | **PASS — Photoshop runtime + harness** |
+| RT-12 | Close/reload recovery outcome consistency | Persisted recovery and UI agree with transaction outcome and retry disposition. | **PASS — Photoshop runtime** |
+| RT-13 | `COMMIT_UNKNOWN` remediation behavior | Resume/retry is blocked until explicit reconciliation; no validity guess. | **HARNESS PASS — injected ambiguity + UI/recovery policy; Photoshop forced-failure runtime not run** |
+| RT-14 | `OVERWRITE_ORIGINAL` cancellation contract | Successful host save remains committed and non-reversible; wording is explicit. | **HARNESS PASS — Photoshop runtime PENDING** |
+| RT-15 | Final document/queue/staging cleanup summary | No AlbumAI document/queue leak; staging/backup inventory matches terminal state. | **PASS — Photoshop runtime** |
 
 ## Host capability characterization
 
-Before RT-01–RT-15, record the following against a disposable folder only.
+The original field-by-field host characterization output was not retained in
+the close-out evidence, so the table below is intentionally not backfilled from
+later successful transactions. The implemented runtime path remains
+backup-first; safe replacement/atomicity is not claimed. The recorded
+implementation note establishes that bounded binary header reads are
+unavailable in the characterized host.
+
+Before claiming a capability-row PASS, record it against a disposable folder
+only.
 
 | Capability | Observation to record | Status |
 | --- | --- | --- |
@@ -129,7 +166,14 @@ Notes:
 
 ## Completion gate
 
-ALB-045 runtime verification may be marked complete only after all scenarios
-are PASS or have a documented, product-approved host limitation with safe
-fallback behavior. A destructive test must never be substituted for a missing
-capability characterization result.
+ALB-045 runtime verification may be marked complete only after every scenario
+has either a Photoshop runtime PASS or an explicitly approved documented host
+limitation with deterministic safe fallback coverage. Harness PASS is recorded
+separately and is not silently promoted to runtime PASS.
+
+As of 2026-08-07, RT-03 and RT-14 still lack retained Photoshop runtime
+evidence. RT-06 and the injected-failure scenarios have deterministic harness
+coverage but remain runtime-not-run unless their host limitation is explicitly
+accepted. The field-by-field host-capability record above is also not
+recoverable from the retained close-out evidence. A destructive test must
+never be substituted for missing capability or failure-injection evidence.
