@@ -17,7 +17,8 @@ export default class AutoSaveResult {
             outputPath: data.outputPath || "",
             savedAt: data.savedAt || null,
             warnings: data.warnings || [],
-            error: data.error || null
+            error: data.error || null,
+            outputTransaction: data.outputTransaction || null
         });
 
     }

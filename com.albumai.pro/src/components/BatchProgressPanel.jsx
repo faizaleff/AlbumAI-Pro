@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import calculateBatchProgress from "../project/calculateBatchProgress";
+import { summarizeOutputRecovery } from "../project/OutputRecoveryOperatorState";
 
 const STAGE_LABELS = Object.freeze({
     IDLE: "Ready", PREPARING: "Preparing", OPENING: "Opening Template",
@@ -30,16 +31,27 @@ export default function BatchProgressPanel({ summary, onRequestCancel }) {
     const title = status === "COMPLETED" ? "Project Completed" :
         status === "COMPLETED_WITH_ERRORS" ? "Completed with Errors" :
             status === "FAILED" ? "Project Failed" : status === "CANCELLED" ? "Batch Cancelled Safely" : status === "CANCEL_REQUESTED" || status === "CANCELLING" ? "Stopping safely…" : "Project Processing";
-    const templateName = terminal && status !== "FAILED" ? "All Templates Completed" : (current?.name || "—");
+    const templateName = ["COMPLETED", "COMPLETED_WITH_ERRORS"].includes(status)
+        ? "All Templates Completed"
+        : (current?.name || "—");
     const templatePosition = progress.templateIndex == null ? "—" : `${progress.templateIndex + 1} of ${total}`;
     const stage = STAGE_LABELS[progress.stage] || STAGE_LABELS[status] || "Ready";
     const fatalError = summary?.batchExecution?.fatalError || summary?.fatalError || summary?.registryValidationError;
     const warning = summary?.batchExecution?.warnings?.[0] || summary?.warnings?.[0] || null;
+    const outputRecovery = summarizeOutputRecovery({
+        templateResults: summary?.batchExecution?.templateResults || summary?.templateResults || []
+    });
     const diagnostic = useMemo(() => JSON.stringify({
         batchStatus: status, currentStage: progress.stage || "IDLE", currentTemplate: current?.name || null,
         templateIndex: progress.templateIndex, totalTemplates: total, completed, successful, failed,
-        skipped, remaining, progressPercent: percent
-    }), [status, progress.stage, current?.name, progress.templateIndex, total, completed, successful, failed, skipped, remaining, percent]);
+        skipped, remaining, progressPercent: percent,
+        outputCommitted: outputRecovery.counts.COMMITTED,
+        outputSafeRetry: outputRecovery.counts.SAFE_RETRY,
+        outputCommitUnknown: outputRecovery.counts.COMMIT_UNKNOWN,
+        outputRemediationRequired: outputRecovery.counts.REMEDIATION_REQUIRED
+    }), [status, progress.stage, current?.name, progress.templateIndex, total, completed, successful, failed, skipped, remaining, percent,
+        outputRecovery.counts.COMMITTED, outputRecovery.counts.SAFE_RETRY,
+        outputRecovery.counts.COMMIT_UNKNOWN, outputRecovery.counts.REMEDIATION_REQUIRED]);
 
     useEffect(() => {
         console.info("ALB-033-live-batch-progress-ui-v1");
@@ -72,6 +84,11 @@ export default function BatchProgressPanel({ summary, onRequestCancel }) {
         {status === "CANCELLED" && <div style={{ marginTop: 6, color: tone }}>Cancelled at: {stage}. You can resume the remaining templates.</div>}
         {status === "COMPLETED" && <div style={{ marginTop: 6 }}>Project Completed — {successful} of {total} templates processed successfully</div>}
         {status === "COMPLETED_WITH_ERRORS" && <div style={{ marginTop: 6, color: tone }}>Successful: {successful} · Failed: {failed}</div>}
+        {terminal && outputRecovery.rows.length > 0 && <div aria-label="Output transaction summary" style={{ marginTop: 7 }}>
+            <div>Outputs: {outputRecovery.counts.COMMITTED} committed · {outputRecovery.counts.SAFE_RETRY} safe to retry · {outputRecovery.counts.COMMIT_UNKNOWN} commit unknown · {outputRecovery.counts.REMEDIATION_REQUIRED} cleanup required</div>
+            {(outputRecovery.counts.COMMIT_UNKNOWN > 0 || outputRecovery.counts.REMEDIATION_REQUIRED > 0) &&
+                <div style={{ marginTop: 4, color: "#ffb38a" }}>Automatic retry is blocked for ambiguous or remediation-required outputs.</div>}
+        </div>}
         {fatalError && <div style={{ marginTop: 6, color: "#ff9999" }}>{fatalError}</div>}
         {warning && <div style={{ marginTop: 6, color: "#f4c76b" }}>{warning}</div>}
     </section>;

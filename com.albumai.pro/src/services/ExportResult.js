@@ -16,7 +16,8 @@ export default class ExportResult {
             outputPath: data.outputPath || "",
             exportedAt: data.exportedAt || null,
             warnings: data.warnings || [],
-            error: data.error || null
+            error: data.error || null,
+            outputTransaction: data.outputTransaction || null
         });
 
     }

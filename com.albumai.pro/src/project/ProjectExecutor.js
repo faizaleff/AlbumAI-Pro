@@ -7,6 +7,10 @@ import ExportResult, { ExportStatus } from "../services/ExportResult";
 import TemplateQueue from "./TemplateQueue";
 import BatchExecutionService from "./BatchExecutionService";
 import { BatchExecutionStatus } from "./BatchExecutionResult";
+import {
+    isTemplateOutputCompleteByDefault,
+    snapshotTemplateOutputTransactions
+} from "./OutputTransactionRecovery";
 import Logger from "../core/photoshop/Logger";
 
 /** Coordinates deterministic template execution through the batch executor. */
@@ -116,21 +120,39 @@ export default class ProjectExecutor {
                     });
                     isCancelledOutcome = result?.status === "CANCELLED";
                     completed = result.status === "COMPLETED";
+                    const outputTransactions = snapshotTemplateOutputTransactions(result);
+                    const committedCancellation = isCancelledOutcome &&
+                        isTemplateOutputCompleteByDefault({
+                            status: result.status,
+                            outputTransactions
+                        });
+                    const consumesPhotos = completed || committedCancellation;
                     const outcome = {
                         ...result,
                         photoAllocation: this.allocationSnapshot(
                             allocation,
-                            completed ? "COMPLETED" : "FAILED"
+                            completed
+                                ? "COMPLETED"
+                                : (committedCancellation
+                                    ? "COMMITTED_AFTER_CANCEL"
+                                    : (isCancelledOutcome ? "CANCELLED" : "FAILED"))
                         ),
                         warnings: [
                             ...(result.warnings || []),
                             ...(allocation.warning ? [allocation.warning] : [])
                         ]
                     };
-                    if (completed) distribution.cursor = allocation.endCursor;
-                    else outcome.warnings.push(
-                        "Template failed; selected photos were not consumed."
-                    );
+                    if (consumesPhotos) {
+                        distribution.cursor = allocation.endCursor;
+                    } else if (isCancelledOutcome) {
+                        outcome.warnings.push(
+                            "Template cancelled; selected photos were not consumed."
+                        );
+                    } else {
+                        outcome.warnings.push(
+                            "Template failed; selected photos were not consumed."
+                        );
+                    }
                     return outcome;
                 } catch (error) {
                     Logger.error(`TEMPLATE_EXECUTION_ERROR ${JSON.stringify({
@@ -187,7 +209,11 @@ export default class ProjectExecutor {
             batchExecution: batch,
             batchProgress: {
                 lifecycle: batch.status,
-                stage: batch.status === BatchExecutionStatus.FAILED ? "FAILED" : "COMPLETED",
+                stage: batch.status === BatchExecutionStatus.FAILED
+                    ? "FAILED"
+                    : (batch.status === BatchExecutionStatus.CANCELLED
+                        ? (batch.cancelledAtStage || "IDLE")
+                        : "COMPLETED"),
                 currentTemplate: batch.currentTemplate,
                 templateIndex: batch.templateIndex,
                 totalTemplates: batch.totalTemplates,
@@ -201,7 +227,9 @@ export default class ProjectExecutor {
             },
             status: batch.status === BatchExecutionStatus.FAILED || batch.failedTemplates
                 ? ProjectExecutionStatus.FAILED
-                : ProjectExecutionStatus.COMPLETED
+                : (batch.status === BatchExecutionStatus.CANCELLED
+                    ? ProjectExecutionStatus.CANCELLED
+                    : ProjectExecutionStatus.COMPLETED)
         });
 
     }
@@ -235,7 +263,7 @@ export default class ProjectExecutor {
         if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "REPLACING", executionSummary, placementResult, executionPlan, replacementRequest: request };
         await this.activateContext(context, "SAVE");
         onStageProgress?.("SAVING");
-        const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode });
+        const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode, cancellationController });
         Logger.info(`BATCH_AUTOSAVE_DONE: ${context.documentName} — ${autoSaveResult.status}`);
         Logger.info(`AUTOSAVE_DONE: ${context.documentName} — ${autoSaveResult.status}`);
         Logger.info(`TEMPLATE_AUTOSAVE_STATUS: ${autoSaveResult.status}`);
@@ -243,7 +271,7 @@ export default class ProjectExecutor {
         if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "SAVING", executionSummary, placementResult, executionPlan, replacementRequest: request, autoSaveResult };
         await this.activateContext(context, "EXPORT");
         onStageProgress?.("EXPORTING");
-        const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat });
+        const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat, cancellationController });
         Logger.info(`BATCH_EXPORT_DONE: ${context.documentName} — ${exportResult.status}`);
         Logger.info(`EXPORT_DONE: ${context.documentName} — ${exportResult.status}`);
         Logger.info(`TEMPLATE_EXPORT_STATUS: ${exportResult.status}`);

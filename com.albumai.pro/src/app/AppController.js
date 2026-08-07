@@ -37,6 +37,14 @@ import TemplateRegistryPreflightService from "../services/TemplateRegistryPrefli
 import { TemplateRegistryValidationState } from "../project/TemplateRegistryValidationState";
 import TemplateRegistryRecoveryCompatibilityService from
     "../project/TemplateRegistryRecoveryCompatibility";
+import {
+    canAutomaticallyRetryTemplateOutcome,
+    isTemplateOutputCompleteByDefault,
+    snapshotTemplateOutputTransactions,
+    templateOutputRetryDisposition
+} from "../project/OutputTransactionRecovery";
+import { summarizeOutputRecovery } from
+    "../project/OutputRecoveryOperatorState";
 
 export const ExecutionLifecycleStatus = Object.freeze({
     IDLE: "IDLE",
@@ -1069,9 +1077,18 @@ export class AppController {
 
     async retryFailedTemplates(onUpdate) {
         const snapshot = this.requireRecoverableSnapshot();
-        const failed = new Set(snapshot.failedTemplateIds);
+        const outcomes = new Map((snapshot.templateOutcomes || []).map(item => [item.templateId, item]));
+        const failed = new Set(snapshot.failedTemplateIds.filter(templateId =>
+            canAutomaticallyRetryTemplateOutcome(outcomes.get(templateId) || {})
+        ));
         const templates = this.projectTemplateRegistry.getAll().filter(item => failed.has(item.id));
-        if (!templates.length) throw new Error("There are no failed templates to retry.");
+        if (!templates.length) {
+            const outputs = summarizeOutputRecovery(snapshot);
+            if (outputs.automaticRetryBlocked) {
+                throw new Error("Automatic retry is blocked for ambiguous or cleanup-required outputs.");
+            }
+            throw new Error("There are no failed templates to retry.");
+        }
         const firstFailedAllocation = (snapshot.templateOutcomes || [])
             .find(item => failed.has(item.templateId))?.photoAllocation;
         const retryCursor = Number.isInteger(firstFailedAllocation?.startCursor)
@@ -1110,9 +1127,18 @@ export class AppController {
     async resumeProjectBatch(onUpdate) {
         const snapshot = this.requireRecoverableSnapshot();
         const successful = new Set(snapshot.successfulTemplateIds);
-        const required = new Set(snapshot.queueOrder.filter(id => !successful.has(id)));
+        const outcomes = new Map((snapshot.templateOutcomes || []).map(item => [item.templateId, item]));
+        const required = new Set(snapshot.queueOrder.filter(id =>
+            !successful.has(id) && canAutomaticallyRetryTemplateOutcome(outcomes.get(id) || {})
+        ));
         const templates = this.projectTemplateRegistry.getAll().filter(item => required.has(item.id));
-        if (!templates.length) throw new Error("There are no pending templates to resume.");
+        if (!templates.length) {
+            const outputs = summarizeOutputRecovery(snapshot);
+            if (outputs.automaticRetryBlocked) {
+                throw new Error("Automatic resume is blocked for ambiguous or cleanup-required outputs.");
+            }
+            throw new Error("There are no pending templates to resume.");
+        }
         const details = {
             totalTemplates: snapshot.queueOrder.length,
             completed: snapshot.completedTemplateIds.length,
@@ -1233,7 +1259,12 @@ export class AppController {
 
     recoveryState(snapshot, forcedStatus = null) {
         if (!snapshot) {
-            return Object.freeze({ available: false, classification: forcedStatus || "NONE", snapshot: null });
+            return Object.freeze({
+                available: false,
+                classification: forcedStatus || "NONE",
+                snapshot: null,
+                outputRecovery: summarizeOutputRecovery()
+            });
         }
         const pending = snapshot.pendingTemplateIds?.length || 0;
         const failed = snapshot.failedTemplateIds?.length || 0;
@@ -1246,7 +1277,8 @@ export class AppController {
         return Object.freeze({
             available: classification === "INTERRUPTED" && (pending > 0 || failed > 0),
             classification,
-            snapshot
+            snapshot,
+            outputRecovery: summarizeOutputRecovery(snapshot)
         });
     }
 
@@ -1306,6 +1338,7 @@ export class AppController {
             remainingPhotoIds: previous?.remainingPhotoIds ||
                 selectedPhotoOrder.slice(photoCursor)
         });
+        this.logOutputRecoverySummary(this.batchRecoverySnapshot);
         this.batchRecoveryClassification = null;
         await this.persistRecoverySnapshot();
     }
@@ -1337,6 +1370,7 @@ export class AppController {
         const current = this.batchRecoverySnapshot;
         const priorOutcomes = new Map((current.templateOutcomes || []).map(item => [item.templateId, item]));
         terminalResults.forEach(item => {
+            const outputTransactions = snapshotTemplateOutputTransactions(item);
             priorOutcomes.set(item.templateId, {
                 templateId: item.templateId,
                 templateName: item.templateName,
@@ -1344,8 +1378,13 @@ export class AppController {
                 warnings: item.warnings || [],
                 error: item.error || null,
                 photoAllocation: item.photoAllocation || null,
-                autosaveResult: item.autosaveResult || null,
-                exportResult: item.exportResult || null,
+                // Recovery contains only the detached transaction facts, never
+                // service paths, host entries, errors, or document objects.
+                outputTransactions,
+                outputRetryDisposition: templateOutputRetryDisposition({
+                    status: item.status,
+                    outputTransactions
+                }),
                 cancelledAtStage: item.cancelledAtStage || null
             });
         });
@@ -1356,12 +1395,17 @@ export class AppController {
             if (item.status === "FAILED") successful.delete(item.templateId);
         });
         const failed = outcomes.filter(item => item.status === "FAILED").map(item => item.templateId);
-        const completed = outcomes.filter(item => item.status !== "CANCELLED").map(item => item.templateId);
+        const completed = outcomes.filter(item =>
+            item.status !== "CANCELLED" || isTemplateOutputCompleteByDefault(item)
+        ).map(item => item.templateId);
         const pending = current.queueOrder.filter(id => !completed.includes(id));
-        const successfulAllocations = terminalResults.filter(item =>
-            item.status === "COMPLETED"
+        const consumedAllocations = terminalResults.filter(item =>
+            item.status === "COMPLETED" || isTemplateOutputCompleteByDefault({
+                status: item.status,
+                outputTransactions: snapshotTemplateOutputTransactions(item)
+            })
         ).map(item => item.photoAllocation).filter(Boolean);
-        const photoCursor = successfulAllocations.reduce(
+        const photoCursor = consumedAllocations.reduce(
             (cursor, allocation) => Math.max(cursor, allocation.endCursor || 0),
             current.photoCursor || 0
         );
@@ -1397,8 +1441,22 @@ export class AppController {
             consumedPhotoIds: current.selectedPhotoOrder.slice(0, photoCursor),
             remainingPhotoIds: current.selectedPhotoOrder.slice(photoCursor)
         });
+        this.logOutputRecoverySummary(this.batchRecoverySnapshot);
         this.batchRecoveryClassification = null;
         this.queueRecoveryWrite();
+    }
+
+    logOutputRecoverySummary(snapshot) {
+        const outputRecovery = summarizeOutputRecovery(snapshot);
+        console.info("ALB045_OUTPUT_RECOVERY_SUMMARY", JSON.stringify({
+            committed: outputRecovery.counts.COMMITTED,
+            safeRetry: outputRecovery.counts.SAFE_RETRY,
+            commitUnknown: outputRecovery.counts.COMMIT_UNKNOWN,
+            remediationRequired: outputRecovery.counts.REMEDIATION_REQUIRED,
+            automaticRetryTemplates: outputRecovery.automaticRetryTemplates,
+            blockedTemplates: outputRecovery.blockedTemplates,
+            remediationTemplates: outputRecovery.remediationTemplates
+        }));
     }
 
     markRecoveryFatal(error) {
