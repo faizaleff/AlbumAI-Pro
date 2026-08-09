@@ -12,3 +12,7 @@ Desktop.ini
 .idea/
 .vscode/
 *.swp
+
+# Locally generated release artifacts
+/com.albumai.pro.zip
+com.albumai.pro/release/

@@ -79,5 +79,22 @@ disposable fixtures.
 ## Release artifacts
 
 Do not package `node_modules`, source files, tests, OS metadata, staging files,
-or backup files. Reproducible package generation and checksum validation are
-tracked separately under ALB-049.
+or backup files. Create the production ZIP, SHA-256 sidecar, and JSON inventory
+with:
+
+```bash
+npm run package:release
+```
+
+The default output directory is `release/<version>/` and is ignored by Git.
+To write directly to the external release directory used for publishing:
+
+```bash
+npm run package:release -- --output-dir "$HOME/Documents/AlbumAI-Releases/1.0.0"
+```
+
+The release ZIP has no enclosing folder. Its root contains only
+`manifest.json`, `index.html`, `index.js`, the Apache and generated bundle
+license notices, and the four required icons. Run `npm run package:verify` to
+create two disposable packages and require byte-identical ZIPs, inventories,
+and checksums.

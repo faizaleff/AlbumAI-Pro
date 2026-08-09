@@ -45,5 +45,5 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Test, build, audit, and verify generated output
+      - name: Test, build, package, audit, and verify generated output
         run: npm run verify:ci
