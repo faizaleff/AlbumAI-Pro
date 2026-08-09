@@ -1,4 +1,4 @@
-export const BATCH_RECOVERY_SCHEMA_VERSION = 2;
+export const BATCH_RECOVERY_SCHEMA_VERSION = 3;
 
 /** Immutable, serializable orchestration checkpoint for a project batch. */
 export default class BatchRecoverySnapshot {

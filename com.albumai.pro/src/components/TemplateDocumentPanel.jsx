@@ -148,9 +148,13 @@ function summaryText({
     const summaryProgress = isTerminalBatch
         ? terminalBatch
         : batchProgress;
-    const currentTemplateName = isTerminalBatch
+    const allTemplatesProcessed = ["COMPLETED", "COMPLETED_WITH_ERRORS"].includes(
+        terminalBatch?.status
+    );
+    const currentTemplateName = allTemplatesProcessed
         ? "All Templates Completed"
-        : projectExecutionSummary?.batchProgress?.currentTemplate?.name ||
+        : terminalBatch?.currentTemplate?.name ||
+            projectExecutionSummary?.batchProgress?.currentTemplate?.name ||
             template?.name || "—";
     PhotoBrowserPerformance.trace("SUMMARY_STATE_SOURCE", {
         source: isTerminalBatch ? "terminal-batch" : "live-ui",
@@ -223,6 +227,7 @@ function summaryText({
     }
 
     const recovery = recoveryState?.snapshot;
+    const recoveryOutputs = recoveryState?.outputRecovery;
     const recoveryTemplateName = registeredTemplates.find(
         item => item.id === recovery?.currentTemplateId
     )?.name || recovery?.currentTemplateId;
@@ -237,6 +242,10 @@ function summaryText({
         `Successful: ${recovery?.successfulTemplateIds?.length || 0}`,
         `Failed: ${recovery?.failedTemplateIds?.length || 0}`,
         `Pending: ${recovery?.pendingTemplateIds?.length || 0}`,
+        `Committed Outputs: ${recoveryOutputs?.counts?.COMMITTED || 0}`,
+        `Safe Retry Outputs: ${recoveryOutputs?.counts?.SAFE_RETRY || 0}`,
+        `Commit Unknown: ${recoveryOutputs?.counts?.COMMIT_UNKNOWN || 0}`,
+        `Cleanup Required: ${recoveryOutputs?.counts?.REMEDIATION_REQUIRED || 0}`,
         `Last Template: ${textValue(recoveryTemplateName)}`,
         `Last Stage: ${textValue(recovery?.lastCompletedStage)}`,
         `Resume/Retry Result: ${textValue(recovery?.runMode)}`
@@ -407,6 +416,7 @@ function debugText({
     );
 
     const recovery = recoveryState?.snapshot;
+    const recoveryOutputs = recoveryState?.outputRecovery;
     const recoveryTemplateName = registeredTemplates.find(
         item => item.id === recovery?.currentTemplateId
     )?.name || recovery?.currentTemplateId;
@@ -421,11 +431,19 @@ function debugText({
         `Completed/Success/Failed/Skipped/Pending: ${recovery?.completedTemplateIds?.length || 0}/${recovery?.successfulTemplateIds?.length || 0}/${recovery?.failedTemplateIds?.length || 0}/${(recovery?.templateOutcomes || []).filter(item => item.status === "SKIPPED_NO_PHOTOS").length}/${recovery?.pendingTemplateIds?.length || 0}`,
         `Last Template: ${textValue(recoveryTemplateName)}`,
         `Last Stage: ${textValue(recovery?.lastCompletedStage)}`,
+        `Output States (Committed/Safe Retry/Commit Unknown/Cleanup Required): ${recoveryOutputs?.counts?.COMMITTED || 0}/${recoveryOutputs?.counts?.SAFE_RETRY || 0}/${recoveryOutputs?.counts?.COMMIT_UNKNOWN || 0}/${recoveryOutputs?.counts?.REMEDIATION_REQUIRED || 0}`,
+        `Automatic Retry Templates: ${recoveryOutputs?.automaticRetryTemplates || 0}`,
+        `Blocked Templates: ${recoveryOutputs?.blockedTemplates || 0}`,
+        `Remediation Templates: ${recoveryOutputs?.remediationTemplates || 0}`,
         `Warnings: ${(recovery?.warnings || []).join(" | ") || "None"}`,
         `Fatal Error: ${textValue(recovery?.fatalError, "None")}`,
         "Recovery Template Outcomes",
         ...(recovery?.templateOutcomes || []).map(item =>
             `${textValue(item.templateId)} — ${textValue(item.templateName)}: ${textValue(item.status)}${item.photoAllocation ? ` [${item.photoAllocation.assignedCount ? `photos ${item.photoAllocation.startCursor + 1}-${item.photoAllocation.endCursor}` : "photos: none"}, assigned=${item.photoAllocation.assignedCount}, remaining=${item.photoAllocation.remainingCount}]` : ""}${item.error ? ` (${item.error})` : ""}`
+        ),
+        "Output Recovery States",
+        ...(recoveryOutputs?.rows?.length ? recoveryOutputs.rows : [{ templateName: "None", output: "—", label: "—", reasonCode: null }]).map(item =>
+            `${textValue(item.templateName)} — ${textValue(item.output)}: ${textValue(item.label)}${item.reasonCode ? ` (${item.reasonCode})` : ""}`
         )
     );
 
@@ -466,6 +484,11 @@ export function ExecutionDetails({
 }) {
 
     const recoverySnapshot = recoveryState?.snapshot || null;
+    const outputRecovery = recoveryState?.outputRecovery || {
+        counts: { COMMITTED: 0, SAFE_RETRY: 0, COMMIT_UNKNOWN: 0, REMEDIATION_REQUIRED: 0 },
+        rows: [], automaticRetryTemplates: 0, skippedCommittedTemplates: 0,
+        blockedTemplates: 0, remediationTemplates: 0, automaticRetryBlocked: false
+    };
     const [clearRecoveryBusy, setClearRecoveryBusy] = useState(false);
     const clearRecoveryInFlight = useRef(false);
     const effectiveRecoveryBusy = recoveryBusy || clearRecoveryBusy;
@@ -820,11 +843,13 @@ export function ExecutionDetails({
                         !invalidRecovery &&
                         !retryRecovery &&
                         pendingCount > 0 &&
+                        outputRecovery.automaticRetryTemplates > 0 &&
                         ["RUNNING", "INTERRUPTED", "CANCELLED"].includes(lifecycle);
 
                     const showRetry = recoveryAvailable &&
                         !invalidRecovery &&
                         failedCount > 0 &&
+                        outputRecovery.automaticRetryTemplates > 0 &&
                         (
                             lifecycle === "COMPLETED_WITH_ERRORS" ||
                             (lifecycle === "CANCELLED" && retryRecovery)
@@ -844,6 +869,10 @@ export function ExecutionDetails({
                         recoveryMessage = `${failedCount} failed template${failedCount === 1 ? "" : "s"} ready to retry.`;
                     } else if (showResume) {
                         recoveryMessage = `Batch stopped with ${completedCount} completed and ${pendingCount} remaining.`;
+                    } else if (outputRecovery.remediationTemplates > 0) {
+                        recoveryMessage = "Cleanup is required before affected templates can be retried.";
+                    } else if (outputRecovery.blockedTemplates > 0) {
+                        recoveryMessage = "One or more output commits are unknown. Automatic retry is blocked.";
                     } else if (lifecycle === "COMPLETED" && failedCount === 0 && pendingCount === 0) {
                         recoveryMessage = "Batch completed successfully.";
                     } else if (lifecycle === "COMPLETED_WITH_ERRORS") {
@@ -863,6 +892,10 @@ export function ExecutionDetails({
                         <Row label="Successful" value={successfulCount} />
                         <Row label="Failed" value={failedCount} />
                         <Row label="Pending" value={pendingCount} />
+                        <Row label="Committed Outputs" value={outputRecovery.counts.COMMITTED} />
+                        <Row label="Safe Retry Outputs" value={outputRecovery.counts.SAFE_RETRY} />
+                        <Row label="Commit Unknown" value={outputRecovery.counts.COMMIT_UNKNOWN} warning={outputRecovery.counts.COMMIT_UNKNOWN > 0} />
+                        <Row label="Cleanup Required" value={outputRecovery.counts.REMEDIATION_REQUIRED} warning={outputRecovery.counts.REMEDIATION_REQUIRED > 0} />
                         <Row label="Last Template" value={lastRecoveryTemplate} />
                         <Row label="Last Stage" value={recoverySnapshot?.lastCompletedStage || "—"} />
 
@@ -872,6 +905,15 @@ export function ExecutionDetails({
                                 label={`Failed: ${item.templateName || item.templateId}`}
                                 value={item.error || "Template execution failed."}
                                 warning
+                            />
+                        ))}
+
+                        {outputRecovery.rows.map((item, index) => (
+                            <Row
+                                key={`output-recovery-${item.templateId || index}-${item.output}`}
+                                label={`${item.templateName}: ${item.output}`}
+                                value={`${item.label} — ${item.message}${item.reasonCode ? ` (${item.reasonCode})` : ""}`}
+                                warning={["COMMIT_UNKNOWN", "REMEDIATION_REQUIRED"].includes(item.state)}
                             />
                         ))}
 
@@ -890,7 +932,7 @@ export function ExecutionDetails({
                                     onClick={onResumeBatch}
                                     disabled={recoveryBusy}
                                 >
-                                    {recoveryBusy ? "Resuming…" : "Resume Batch"}
+                                    {recoveryBusy ? "Resuming…" : "Resume Safe Templates"}
                                 </button>
                             )}
 
@@ -900,7 +942,7 @@ export function ExecutionDetails({
                                     onClick={onRetryFailed}
                                     disabled={recoveryBusy}
                                 >
-                                    {recoveryBusy ? "Retrying…" : "Retry Failed Templates"}
+                                    {recoveryBusy ? "Retrying…" : "Retry Safe Failed Templates"}
                                 </button>
                             )}
 
@@ -2053,7 +2095,11 @@ export default function TemplateDocumentPanel({
                 </button>
                 </div>
 
-                <BatchProgressPanel summary={projectExecutionSummary} onRequestCancel={requestBatchCancellation} />
+                <BatchProgressPanel
+                    summary={projectExecutionSummary}
+                    onRequestCancel={requestBatchCancellation}
+                    recoveryOutput={recoveryState?.outputRecovery || null}
+                />
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                 <label style={{ fontSize: 12 }}>
@@ -2078,8 +2124,13 @@ export default function TemplateDocumentPanel({
                     }}
                 >
                     <option value="SAVE_COPY">Save Copy</option>
-                    <option value="OVERWRITE_ORIGINAL">Overwrite Original</option>
+                    <option value="OVERWRITE_ORIGINAL">Overwrite Original (non-reversible)</option>
                 </select>
+                {autoSaveEnabled && autoSaveMode === "OVERWRITE_ORIGINAL" && (
+                    <span role="alert" style={{ fontSize: 12, color: "#ffcc88" }}>
+                        Overwrite Original is non-reversible. Cancellation cannot restore the prior PSD after the host save commits.
+                    </span>
+                )}
 
                 <label style={{ fontSize: 12 }}>
                     <input

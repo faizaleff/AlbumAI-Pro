@@ -1,6 +1,12 @@
 import DocumentManager from "../core/document/DocumentManager";
 import Logger from "../core/photoshop/Logger";
 import AutoSaveResult, { AutoSaveStatus } from "./AutoSaveResult";
+import { storage } from "uxp";
+import OutputTransactionFileAdapter from "../project/OutputTransactionFileAdapter";
+import { runOutputPromotionTransaction } from "../project/OutputPromotionPolicy";
+import { OutputKind } from "../project/OutputTransactionState";
+import { OutputTransactionStatus } from "../project/OutputTransactionPolicy";
+import { OutputVerificationFormat, verifyOutputEntry } from "../project/OutputVerification";
 
 export const AutoSaveMode = Object.freeze({
     SAVE_COPY: "SAVE_COPY",
@@ -10,9 +16,21 @@ export const AutoSaveMode = Object.freeze({
 /** Saves only a verified, successfully processed parent PSD document. */
 export default class TemplateAutoSaveService {
 
-    constructor({ documentManager = new DocumentManager() } = {}) {
+    constructor({
+        documentManager = new DocumentManager(),
+        fileAdapterFactory = options => new OutputTransactionFileAdapter(options),
+        transactionRunner = runOutputPromotionTransaction,
+        afterOverwriteOriginalHostCommit = null,
+        transactionId = () => typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `save-${Date.now()}-${Math.random()}`
+    } = {}) {
 
         this.documentManager = documentManager;
+        this.fileAdapterFactory = fileAdapterFactory;
+        this.transactionRunner = transactionRunner;
+        this.afterOverwriteOriginalHostCommit = afterOverwriteOriginalHostCommit;
+        this.transactionId = transactionId;
 
     }
 
@@ -23,7 +41,8 @@ export default class TemplateAutoSaveService {
         documentContext,
         executionSummary,
         enabled = false,
-        mode = AutoSaveMode.SAVE_COPY
+        mode = AutoSaveMode.SAVE_COPY,
+        cancellationController = null
     } = {}) {
 
         const resultData = {
@@ -61,27 +80,40 @@ export default class TemplateAutoSaveService {
         try {
 
             if (mode === AutoSaveMode.OVERWRITE_ORIGINAL) {
+                if (this.cancelled(cancellationController)) {
+                    return this.transactionResult(resultData, AutoSaveStatus.SKIPPED, null, {
+                        status: "CANCELLED", commitState: "NOT_STARTED",
+                        cancellationState: "REQUESTED_BEFORE_WRITE",
+                        reasonCode: "CANCELLED_BEFORE_WRITE", displayName: "",
+                        outputKind: OutputKind.OVERWRITE_ORIGINAL, overwriteOriginal: true,
+                        retryDisposition: "RETRY", remediationRequired: false
+                    });
+                }
                 await this.documentManager.save(document);
+                try {
+                    await this.afterOverwriteOriginalHostCommit?.({
+                        isCancellationRequested: () => this.cancelled(cancellationController)
+                    });
+                } catch (_) {
+                    // A runtime diagnostic hook must never obscure a host save
+                    // that has already committed the original document.
+                    Logger.warn("RT-14 post-commit diagnostic gate failed.");
+                }
 
-                return new AutoSaveResult({
-                    ...resultData,
-                    status: AutoSaveStatus.SAVED,
-                    outputPath: resultData.sourcePath || document.title || "",
-                    savedAt: new Date().toISOString()
-                });
+                const outputTransaction = {
+                    status: "COMPLETED", commitState: "COMMITTED",
+                    cancellationState: this.cancelled(cancellationController)
+                        ? "EFFECTIVE_AFTER_COMMIT" : "NONE",
+                    reasonCode: "OVERWRITE_ORIGINAL_COMMITTED",
+                    displayName: this.baseName(document.title || template?.name || "template") + ".psd",
+                    outputKind: OutputKind.OVERWRITE_ORIGINAL, overwriteOriginal: true,
+                    retryDisposition: "SKIP_DEFAULT", remediationRequired: false
+                };
+                return this.transactionResult(resultData, AutoSaveStatus.SAVED,
+                    resultData.sourcePath || document.title || "", outputTransaction);
             }
 
-            const destination = await this.copyDestination(project, template, document, descriptor);
-            Logger.info(`SAVE TARGET: ${destination.name}`);
-
-            await this.documentManager.save(document, destination);
-
-            return new AutoSaveResult({
-                ...resultData,
-                status: AutoSaveStatus.SAVED,
-                outputPath: destination.nativePath || destination.name,
-                savedAt: new Date().toISOString()
-            });
+            return this.saveCopy({ project, template, descriptor, document, resultData, cancellationController });
 
         }
 
@@ -141,8 +173,10 @@ export default class TemplateAutoSaveService {
 
         const baseName = this.baseName(descriptor?.name || template?.name || document?.title || "template");
 
-        return processed.createFile(`${baseName}.psd`, {
-            overwrite: true
+        return Object.freeze({
+            folder: processed,
+            finalName: `${baseName}.psd`,
+            displayName: `${baseName}.psd`
         });
 
     }
@@ -161,6 +195,53 @@ export default class TemplateAutoSaveService {
             warnings: [warning]
         });
 
+    }
+
+    async saveCopy({ project, template, descriptor, document, resultData, cancellationController }) {
+        const target = await this.copyDestination(project, template, document, descriptor);
+        const adapter = this.fileAdapterFactory({
+            folder: target.folder,
+            // The locked host characterization found binary ArrayBuffer reads
+            // but no bounded header read. PSDs may therefore be read in full.
+            readBinary: entry => entry.read({ format: storage.formats?.binary })
+        });
+        const transaction = await this.transactionRunner({
+            adapter,
+            finalName: target.finalName,
+            displayName: target.displayName,
+            outputKind: OutputKind.AUTO_SAVE_PSD_COPY,
+            transactionId: this.transactionId(),
+            isCancellationRequested: () => this.cancelled(cancellationController),
+            onDiagnostic: event => Logger.info(`ALB045_SAVE_COPY_${event}`),
+            writeStaging: async staging => this.documentManager.save(document, staging),
+            verify: (fileAdapter, entry) => verifyOutputEntry(
+                fileAdapter, entry, { format: OutputVerificationFormat.PSD }
+            )
+        });
+        const saved = transaction.commitState === "COMMITTED";
+        const cancelled = transaction.status === OutputTransactionStatus.CANCELLED;
+        return this.transactionResult(
+            resultData,
+            saved ? AutoSaveStatus.SAVED : (cancelled ? AutoSaveStatus.SKIPPED : AutoSaveStatus.FAILED),
+            saved ? target.displayName : "",
+            transaction
+        );
+    }
+
+    transactionResult(data, status, outputPath, outputTransaction) {
+        return new AutoSaveResult({
+            ...data,
+            status,
+            outputPath,
+            savedAt: status === AutoSaveStatus.SAVED ? new Date().toISOString() : null,
+            warnings: status === AutoSaveStatus.SKIPPED ? ["Auto Save was cancelled safely."] : [],
+            error: status === AutoSaveStatus.FAILED ? "Auto Save failed." : null,
+            outputTransaction
+        });
+    }
+
+    cancelled(controller) {
+        return controller?.isCancellationRequested?.() === true;
     }
 
 }
