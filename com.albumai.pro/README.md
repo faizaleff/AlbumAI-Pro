@@ -37,6 +37,19 @@ dependency graph recorded in `package-lock.json`.
 | `npm run build:dev` | Create a development bundle with source mapping |
 | `npm run watch` | Rebuild the development bundle when source files change |
 | `npm run verify` | Run the full harness suite and production build |
+| `npm run audit:all` | Require a zero-advisory full dependency tree |
+| `npm run audit:prod` | Require a zero-advisory production dependency tree |
+| `npm run deps:check` | Validate the installed dependency graph |
+| `npm run verify:ci` | Run tests, strict build, audits, graph validation, and generated-output cleanliness |
+
+## Continuous integration
+
+GitHub Actions runs on every pull request and every push to `main` using the
+toolchain pinned by `.nvmrc`. CI performs a clean lockfile install, checks
+committed diff whitespace, runs all deterministic tests, rejects webpack
+warnings or a production entrypoint above 525 KiB, audits both the complete and
+production dependency trees, validates the installed graph, and confirms that
+the committed `dist/` bundle is reproducible.
 
 ## Load in Photoshop
 

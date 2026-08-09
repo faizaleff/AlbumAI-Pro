@@ -31,15 +31,14 @@ module.exports = (_env, argv = {}) => {
                 options: {
                     plugins: [
                         "@babel/transform-react-jsx",
-                        "@babel/proposal-object-rest-spread",
-                        "@babel/plugin-syntax-class-properties",
+                        "@babel/plugin-transform-object-rest-spread",
                     ]
                 }
             },
             {
                 test: /\.png$/,
                 exclude: /node_modules/,
-                loader: 'file-loader'
+                type: "asset/resource"
             },
             {
                 test: /\.css$/,
@@ -51,13 +50,20 @@ module.exports = (_env, argv = {}) => {
         new webpack.ProvidePlugin({
             Buffer: ["buffer", "Buffer"]
         }),
-        new CopyPlugin([{
-            from: 'plugin',
-            to: '.',
-            ignore: ['.DS_Store', '**/.DS_Store']
-        }], {
-            copyUnmodified: true
+        new CopyPlugin({
+            patterns: [{
+                from: "plugin",
+                to: ".",
+                globOptions: {
+                    ignore: ["**/.DS_Store"]
+                }
+            }]
         })
-    ]
+    ],
+    performance: {
+        hints: "error",
+        maxAssetSize: 525 * 1024,
+        maxEntrypointSize: 525 * 1024
+    }
     };
 };

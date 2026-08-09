@@ -12,10 +12,14 @@
   "scripts": {
     "test": "node tests/run-alb043-tests.js && node tests/run-alb044-tests.js && node tests/run-alb044-controller-tests.js && node tests/run-alb044-execution-gate-tests.js && node tests/run-alb044-ui-tests.js && node tests/run-alb045-output-transaction-tests.js && node tests/run-alb045-output-transaction-filesystem-tests.js && node tests/run-alb045-output-storage-characterization-tests.js && node tests/run-alb045-autosave-transaction-tests.js && node tests/run-alb045-export-transaction-tests.js && node tests/run-alb045-cancellation-recovery-retry-tests.js && node tests/run-alb045-output-operator-ui-tests.js",
     "verify": "npm test && npm run build:prod",
+    "verify:ci": "npm run verify && npm run audit:all && npm run audit:prod && npm run deps:check && git diff --exit-code -- dist",
+    "audit:all": "npm audit --audit-level=moderate",
+    "audit:prod": "npm audit --omit=dev",
+    "deps:check": "npm ls --all",
     "watch": "nodemon -w src -e js,jsx,json,css,html -w webpack.config.js -x npm run build:dev",
     "build": "npm run build:prod",
     "build:dev": "webpack --mode development",
-    "build:prod": "webpack --mode production",
+    "build:prod": "webpack --mode production --fail-on-warnings",
     "uxp:load": "cd dist && uxp plugin load",
     "uxp:reload": "cd dist && uxp plugin reload",
     "uxp:watch": "cd dist && nodemon --exec \"uxp plugin reload\" -e js,css,html",
@@ -23,19 +27,16 @@
   },
   "license": "Apache-2.0",
   "devDependencies": {
-    "@babel/core": "^7.8.7",
-    "@babel/plugin-proposal-object-rest-spread": "^7.8.3",
-    "@babel/plugin-syntax-class-properties": "^7.10.4",
-    "@babel/plugin-transform-react-jsx": "^7.8.3",
-    "babel-loader": "^8.0.6",
-    "clean-webpack-plugin": "^2.0.2",
-    "copy-webpack-plugin": "^5.0.3",
-    "css-loader": "^6.8.1",
-    "file-loader": "^5.1.0",
-    "nodemon": "^2.0.7",
-    "style-loader": "^1.1.3",
-    "webpack": "^5.88.1",
-    "webpack-cli": "^5.1.4"
+    "@babel/core": "^7.29.7",
+    "@babel/plugin-transform-object-rest-spread": "^7.29.7",
+    "@babel/plugin-transform-react-jsx": "^7.29.7",
+    "babel-loader": "^10.1.1",
+    "copy-webpack-plugin": "^14.0.0",
+    "css-loader": "^7.1.4",
+    "nodemon": "^3.1.14",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.109.2",
+    "webpack-cli": "^7.2.2"
   },
   "dependencies": {
     "buffer": "^6.0.3",
@@ -43,7 +44,9 @@
     "react": "^16.8.6",
     "react-dom": "^16.8.6"
   },
-  "resolutions": {
-    "acorn": "npm:acorn-with-stage3"
+  "overrides": {
+    "fast-uri": "3.1.5",
+    "nanoid": "3.3.18",
+    "postcss": "8.5.26"
   }
 }
