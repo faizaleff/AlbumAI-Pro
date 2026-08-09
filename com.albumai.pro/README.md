@@ -1,50 +1,70 @@
-# React Starter Plugin
+# AlbumAI Pro
 
-This plugin is a good place to get started when building a Photoshop plugin using React. It comes defined with all the dependencies that you'll need to get started. As this is a React project, you'll need to do some initial configuration before this will be usable in Photoshop.
+AlbumAI Pro is a Photoshop UXP plugin for project-based album production. The
+current workflow manages ordered PSD templates, photo selection and placement,
+transactional PSD/JPEG output, cancellation, recovery, resume, and safe retry.
 
-## Install dependencies
+## Requirements
 
-First, make sure that `npm` is installed on your system.
+- Adobe Photoshop 27.4.0 or newer
+- Adobe UXP Developer Tool for local plugin loading and debugging
+- Node.js 24.14.x and npm 11.9.x
 
-After you ensure that your terminal is in the root of this project, use `npm` to install the various dependencies needed:
+The repository pins the verified local toolchain in `.nvmrc` and
+`package.json`. If you use `nvm`, run `nvm use` from this directory before
+installing dependencies.
 
+## Clean setup
+
+From `com.albumai.pro/`:
+
+```bash
+npm ci
+npm test
+npm run build:prod
 ```
-npm install
-```
 
-<b>Optional</b></br> 
-If you prefer to use `yarn`, after you generate the `package-lock.json` file you can run the following line to import dependencies to a `yarn.lock` file: 
-```
-yarn import
-```
+Dependencies are intentionally not committed. `npm ci` installs the exact
+dependency graph recorded in `package-lock.json`.
 
-## Build Process
+## Development commands
 
-There are two ways to build the plugin for use in Photoshop:
+| Command | Purpose |
+| --- | --- |
+| `npm test` | Run all deterministic ALB-043 through ALB-045 harness suites |
+| `npm run build` | Create a clean production bundle in `dist/` |
+| `npm run build:prod` | Create the same production bundle explicitly |
+| `npm run build:dev` | Create a development bundle with source mapping |
+| `npm run watch` | Rebuild the development bundle when source files change |
+| `npm run verify` | Run the full harness suite and production build |
 
-* `yarn watch` (or `npm run watch`) will build a development version of the plugin, and recompile every time you make a change to the source files. The result is placed in `dist` folder. Make sure your plugin is in watch mode in UDT app.
-* `yarn build` (or `npm run build`) will build a production version of the plugin and place it in `dist` folder. It will not update every time you make a change to the source files.
+## Load in Photoshop
 
-> You **must** run either `watch` or `build` prior to trying to use within Photoshop!
+1. Run `npm ci` and `npm run build`.
+2. Open Adobe UXP Developer Tool.
+3. Add `com.albumai.pro/dist/manifest.json`.
+4. Load the plugin and open **Plugins > AlbumAI Browser** in Photoshop.
 
-## Launching in Photoshop
+The `uxp:load`, `uxp:reload`, `uxp:watch`, and `uxp:debug` scripts are
+available when the UXP command-line tool is installed and configured.
 
-You can use the UXP Developer Tools to load the plugin into Photoshop.
+## Repository layout
 
-If the plugin hasn't already been added to your workspace in the UXP Developer Tools, you can add it by clicking "Add Plugin...". You can either add the `manifest.json` file in the `dist` folder or the `plugin` folder.
-* If you add the one in the `plugin` folder, then you need to update the relative path to the plugin build folder ( `dist` ) by clicking the ••• button > "Options" > "Advanced" > "Plugin build folder".
-* During development, it is recommended to build the plugin using `yarn watch` and load the `manifest.json` in the (plugin build) `dist` folder. 
+- `src/` — plugin application and active domain/services code
+- `plugin/` — manifest, HTML, and static icons copied into the build
+- `tests/` — deterministic Node.js harness suites
+- `dist/` — generated/loadable UXP bundle
+- repository-root `ALB-*.md` files — implementation and runtime evidence
 
-Once added, you can load it into Photoshop by clicking the ••• button on the corresponding row, and clicking "Load". Switch to Photoshop and you should see the starter panels.
+## Verification boundary
 
-## What this plugin does
+The Node.js harnesses verify deterministic policies and service behavior. They
+do not replace Photoshop/UXP runtime evidence. Runtime checks are recorded in
+the corresponding `ALB-*_RUNTIME_VERIFICATION.md` document and must use copied,
+disposable fixtures.
 
-This plugin doesn't do much, but does illustrate how to create two panels in Photoshop with `entrypoints.setup`, and how to create flyout menus. It also demonstrates the use of several Spectrum UXP widgets to create a simple color picker in the primary panel.
+## Release artifacts
 
-### Common Issues 
-
-* If you're getting errors with `npm install`, we can reinstall the project dependencies. Let's first make sure to delete `node_modules/*` from the `template` folder as well as the `package-lock.json` and `yarn.lock` file. Staying in the `template` directory, run `npm install` again and this will regenerate your `package-lock.json` file.
-* After running `yarn import` if you end up with the error `Lockfile already exists, not importing.`, then it is likely due to an already existing `yarn.lock` in your project. In such a case, you can either delete the lock file to generate a new `yarn.lock` or continue with the [Build Process](#build-process) steps.
-
-PS Version : 23.2.0 or higher
-UXP Version : 5.6 or higher
+Do not package `node_modules`, source files, tests, OS metadata, staging files,
+or backup files. Reproducible package generation and checksum validation are
+tracked separately under ALB-049.

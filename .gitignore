@@ -1,3 +1,14 @@
+# Operating-system metadata
 .DS_Store
 **/.DS_Store
-com.albumai.pro/node_modules/
+Thumbs.db
+Desktop.ini
+
+# Local dependencies and npm diagnostics
+**/node_modules/
+**/npm-debug.log*
+
+# Local editor files
+.idea/
+.vscode/
+*.swp
