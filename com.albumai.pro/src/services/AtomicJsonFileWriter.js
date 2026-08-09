@@ -11,6 +11,7 @@ class AtomicJsonFileWriter {
         fileName,
         serialized,
         currentFile: _staleCurrentFile = null,
+        preferredBackupContent = null,
         reason = "UNSPECIFIED"
     }) {
 
@@ -22,6 +23,9 @@ class AtomicJsonFileWriter {
 
         // Complete serialization and validation before touching temp files.
         JSON.parse(serialized);
+        if (preferredBackupContent != null) {
+            JSON.parse(preferredBackupContent);
+        }
 
         const queueKey =
             `${folder.nativePath || folder.name}:${fileName}`;
@@ -33,6 +37,7 @@ class AtomicJsonFileWriter {
                 folder,
                 fileName,
                 serialized,
+                preferredBackupContent,
                 reason
             }));
 
@@ -50,6 +55,7 @@ class AtomicJsonFileWriter {
         folder,
         fileName,
         serialized,
+        preferredBackupContent,
         reason
     }) {
 
@@ -93,7 +99,8 @@ class AtomicJsonFileWriter {
         );
         const existingBackupState =
             await this.readValidJson(existingBackup);
-        const backupContent = liveState?.content ||
+        const backupContent = preferredBackupContent ||
+            liveState?.content ||
             existingBackupState?.content ||
             staleTempState?.content ||
             serialized;

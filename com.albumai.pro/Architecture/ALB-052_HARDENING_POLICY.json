@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "ticket": "ALB-052",
+  "baselineCommit": "b0b2262",
+  "testEntry": "tests/alb052-product-hardening.test.js",
+  "criteria": [
+    {
+      "id": "PROJECT_SCHEMA",
+      "status": "AUTOMATED_PASS",
+      "sources": ["src/services/ProjectService.js", "src/services/AtomicJsonFileWriter.js"],
+      "evidence": ["project schema rejects malformed objects and preserves newer schemas", "invalid primary project metadata restores only a valid schema backup", "newer primary project schema never rolls back to an older backup"]
+    },
+    {
+      "id": "RECOVERY_SCHEMA",
+      "status": "AUTOMATED_PASS",
+      "sources": ["src/project/BatchRecoverySnapshot.js", "src/app/AppController.js", "src/components/TemplateDocumentPanel.jsx"],
+      "evidence": ["malformed recovery data fails closed with actionable diagnostics"]
+    },
+    {
+      "id": "INVALID_PSD_CLEANUP",
+      "status": "AUTOMATED_PASS_RUNTIME_PENDING_ALB_053",
+      "sources": ["src/services/TemplateDocumentReader.js"],
+      "evidence": ["structural PSD read failure closes and releases the owned document", "failed PSD cleanup retains the owned reference and reports manual remediation"]
+    },
+    {
+      "id": "DUPLICATE_ACTION_GUARDS",
+      "status": "AUTOMATED_PASS",
+      "sources": ["src/components/OpenFolder.jsx", "src/app/AppController.js", "src/project/BatchExecutionService.js", "src/services/TemplateAutoSaveService.js", "src/services/TemplateExportService.js"],
+      "evidence": ["duplicate Auto Save calls share one in-flight host write", "duplicate export calls share one in-flight output transaction", "operator UI blocks duplicate project actions and explains invalid recovery"]
+    },
+    {
+      "id": "TERMINAL_DOCUMENT_RELEASE",
+      "status": "AUTOMATED_PASS_RUNTIME_PENDING_ALB_053",
+      "sources": ["src/services/TemplateDocumentReader.js", "src/project/ProjectExecutor.js"],
+      "evidence": ["structural PSD read failure closes and releases the owned document", "project executor releases a template after terminal failure"]
+    },
+    {
+      "id": "OPERATOR_WORDING",
+      "status": "AUTOMATED_PASS",
+      "sources": ["src/components/OpenFolder.jsx", "src/components/TemplateDocumentPanel.jsx", "src/components/BatchProgressPanel.jsx"],
+      "evidence": ["operator UI blocks duplicate project actions and explains invalid recovery"]
+    }
+  ],
+  "duplicateGuardAudit": [
+    { "action": "project create/open/save/close", "guard": "OpenFolder projectActionBusyRef", "status": "PASS" },
+    { "action": "template add/remove/reorder", "guard": "AppController registryMutationInProgress", "status": "PASS" },
+    { "action": "photo-folder prepare/commit", "guard": "OpenFolder photoFolderChangeBusyRef plus AppController batch gate", "status": "PASS" },
+    { "action": "project batch/retry/resume", "guard": "AppController projectBatchRunning plus BatchExecutionService inFlight", "status": "PASS" },
+    { "action": "Auto Save", "guard": "TemplateAutoSaveService keyed inFlight map", "status": "PASS" },
+    { "action": "PSD/JPEG export", "guard": "TemplateExportService keyed inFlight map", "status": "PASS" }
+  ],
+  "runtimeBoundary": [
+    {
+      "id": "ALB-045-RT-03",
+      "status": "HARNESS_PASS_RUNTIME_NOT_REPEATED",
+      "reason": "No safe deterministic Photoshop procedure can guarantee cancellation before the output transaction begins. Do not manufacture unsafe timing or filesystem failures."
+    },
+    {
+      "id": "ALB-051-RT-01",
+      "status": "PENDING_ALB_053"
+    },
+    {
+      "id": "ALB-051-RT-02",
+      "status": "PENDING_ALB_053"
+    }
+  ],
+  "releaseChecklist": [
+    { "id": "AUTOMATED_SUITE", "status": "PASS_ALB_052" },
+    { "id": "PRODUCTION_BUILD", "status": "PASS_ALB_052" },
+    { "id": "REPRODUCIBLE_PACKAGE", "status": "PASS_ALB_052" },
+    { "id": "PHOTOSHOP_REGRESSION", "status": "PENDING_ALB_053" },
+    { "id": "VERSION_CHANGELOG_NOTES_TAG", "status": "PENDING_ALB_053" },
+    { "id": "CLEAN_RELEASE_TREE", "status": "PENDING_ALB_053" }
+  ]
+}

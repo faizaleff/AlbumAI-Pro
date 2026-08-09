@@ -31,10 +31,32 @@ export default class TemplateAutoSaveService {
         this.transactionRunner = transactionRunner;
         this.afterOverwriteOriginalHostCommit = afterOverwriteOriginalHostCommit;
         this.transactionId = transactionId;
+        this.inFlight = new Map();
 
     }
 
-    async save({
+    save(options = {}) {
+
+        const documentId = options.documentContext?.documentId ??
+            options.template?.document?.id ?? "unknown";
+        const templateId = options.descriptor?.id ?? options.template?.id ??
+            options.descriptor?.name ?? options.template?.name ?? "unknown";
+        const key = `${documentId}:${templateId}:${options.mode || AutoSaveMode.SAVE_COPY}`;
+        if (this.inFlight.has(key)) {
+            return this.inFlight.get(key);
+        }
+
+        const pending = this.performSave(options).finally(() => {
+            if (this.inFlight.get(key) === pending) {
+                this.inFlight.delete(key);
+            }
+        });
+        this.inFlight.set(key, pending);
+        return pending;
+
+    }
+
+    async performSave({
         project,
         template,
         descriptor,

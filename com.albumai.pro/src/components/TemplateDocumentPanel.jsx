@@ -836,7 +836,7 @@ export function ExecutionDetails({
                     const completedCount = recoverySnapshot?.completedTemplateIds?.length || 0;
                     const successfulCount = recoverySnapshot?.successfulTemplateIds?.length || 0;
                     const recoveryAvailable = Boolean(recoveryState?.available);
-                    const invalidRecovery = ["STALE", "INCOMPATIBLE"].includes(classification);
+                    const invalidRecovery = ["STALE", "INCOMPATIBLE", "INVALID"].includes(classification);
                     const retryRecovery = runMode === "RETRY_FAILED";
 
                     const showResume = recoveryAvailable &&
@@ -863,8 +863,10 @@ export function ExecutionDetails({
                             : "Recovery in progress…";
                     } else if (invalidRecovery) {
                         recoveryMessage = classification === "STALE"
-                            ? "Recovery state no longer matches this project or template registry."
-                            : "Recovery state was created by a newer unsupported version.";
+                            ? "Recovery state no longer matches this project or template registry. Clear it before starting a new batch."
+                            : (classification === "INVALID"
+                                ? "Recovery data is invalid. Automatic resume and retry are blocked; clear the recovery state before starting again."
+                                : "Recovery state was created by a newer unsupported version. Update AlbumAI before using this recovery state.");
                     } else if (showRetry) {
                         recoveryMessage = `${failedCount} failed template${failedCount === 1 ? "" : "s"} ready to retry.`;
                     } else if (showResume) {

@@ -30,10 +30,32 @@ export default class TemplateExportService {
         this.fileAdapterFactory = fileAdapterFactory;
         this.transactionRunner = transactionRunner;
         this.transactionId = transactionId;
+        this.inFlight = new Map();
 
     }
 
-    async export({
+    export(options = {}) {
+
+        const documentId = options.documentContext?.documentId ??
+            options.template?.document?.id ?? "unknown";
+        const templateId = options.descriptor?.id ?? options.template?.id ??
+            options.descriptor?.name ?? options.template?.name ?? "unknown";
+        const key = `${documentId}:${templateId}:${options.format || ExportFormat.JPEG}`;
+        if (this.inFlight.has(key)) {
+            return this.inFlight.get(key);
+        }
+
+        const pending = this.performExport(options).finally(() => {
+            if (this.inFlight.get(key) === pending) {
+                this.inFlight.delete(key);
+            }
+        });
+        this.inFlight.set(key, pending);
+        return pending;
+
+    }
+
+    async performExport({
         project,
         template,
         descriptor,

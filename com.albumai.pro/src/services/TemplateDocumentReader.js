@@ -36,25 +36,46 @@ export default class TemplateDocumentReader {
         const file = await this.requireProjectTemplate(
             templateFile
         );
-        const document = await this.openDocument(file);
-        await this.documentManager.activate(document);
+        let document = null;
 
-        const layerTree = this.layerTreeReader.read(document);
+        try {
+            document = await this.openDocument(file);
+            await this.documentManager.activate(document);
 
-        return {
-            documentId: document.id,
-            name: document.title || file.name,
-            filePath: file.nativePath || document.path || file.name,
-            width: this.number(document.width),
-            height: this.number(document.height),
-            resolution: this.number(document.resolution),
-            colorMode: document.mode || null,
-            bitDepth: document.bitsPerChannel || null,
-            layerCount: document.layers?.length || 0,
-            layerTree,
-            smartObjects: this.layerTreeReader.smartObjects(),
-            textLayers: this.layerTreeReader.textLayers()
-        };
+            const layerTree = this.layerTreeReader.read(document);
+
+            return {
+                documentId: document.id,
+                name: document.title || file.name,
+                filePath: file.nativePath || document.path || file.name,
+                width: this.number(document.width),
+                height: this.number(document.height),
+                resolution: this.number(document.resolution),
+                colorMode: document.mode || null,
+                bitDepth: document.bitsPerChannel || null,
+                layerCount: document.layers?.length || 0,
+                layerTree,
+                smartObjects: this.layerTreeReader.smartObjects(),
+                textLayers: this.layerTreeReader.textLayers()
+            };
+        }
+
+        catch (error) {
+            if (document && this.ownedDocument?.id === document.id) {
+                try {
+                    await this.close();
+                } catch (cleanupError) {
+                    const failure = new Error(
+                        "The PSD could not be read and its Photoshop document could not be closed safely. Close the document manually before retrying."
+                    );
+                    failure.code = "TEMPLATE_READ_CLEANUP_FAILED";
+                    failure.cause = error;
+                    failure.cleanupError = cleanupError;
+                    throw failure;
+                }
+            }
+            throw error;
+        }
 
     }
 
@@ -99,13 +120,15 @@ export default class TemplateDocumentReader {
             return false;
         }
 
-        this.ownedDocument = null;
-
         try {
 
             await this.documentManager.close(document, {
                 save: false
             });
+
+            if (this.ownedDocument?.id === document.id) {
+                this.ownedDocument = null;
+            }
 
             return true;
 

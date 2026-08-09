@@ -28,6 +28,7 @@ export default function OpenFolder() {
     const [folderName, setFolderName] = useState("");
     const [projectName, setProjectName] = useState("");
     const [projectError, setProjectError] = useState(null);
+    const [projectAction, setProjectAction] = useState(null);
     const [executionDetails, setExecutionDetails] = useState(null);
     const [focusedPhotoId, setFocusedPhotoId] = useState(null);
     const [isImportingPhotos, setIsImportingPhotos] = useState(false);
@@ -41,6 +42,7 @@ export default function OpenFolder() {
     const mountedRef = useRef(true);
     const photoFolderChangeAttemptRef = useRef(0);
     const photoFolderChangeBusyRef = useRef(false);
+    const projectActionBusyRef = useRef(false);
     const photoFolderChangeProjectIdRef = useRef(null);
     const [, forceRefresh] = useState(0);
 
@@ -397,7 +399,21 @@ export default function OpenFolder() {
 
     }, []);
 
+    async function runProjectAction(action, callback) {
+        if (projectActionBusyRef.current) return null;
+        projectActionBusyRef.current = true;
+        setProjectAction(action);
+        try {
+            return await callback();
+        } finally {
+            projectActionBusyRef.current = false;
+            if (mountedRef.current) setProjectAction(null);
+        }
+    }
+
     async function createProject() {
+
+        if (projectActionBusyRef.current) return;
 
         const name = projectName.trim();
 
@@ -408,7 +424,10 @@ export default function OpenFolder() {
 
         try {
 
-            const created = await App.createProject({ name });
+            const created = await runProjectAction(
+                "CREATING",
+                () => App.createProject({ name })
+            );
 
             if (!created) {
                 return;
@@ -430,9 +449,14 @@ export default function OpenFolder() {
 
     async function openProject() {
 
+        if (projectActionBusyRef.current) return;
+
         try {
 
-            const opened = await App.openProject();
+            const opened = await runProjectAction(
+                "OPENING",
+                () => App.openProject()
+            );
 
             if (!opened) {
                 return;
@@ -453,11 +477,16 @@ export default function OpenFolder() {
 
     async function saveProject() {
 
+        if (projectActionBusyRef.current) return;
+
         try {
 
-            await App.saveProject(
-                undefined,
-                { reason: "MANUAL_SAVE_PROJECT" }
+            await runProjectAction(
+                "SAVING",
+                () => App.saveProject(
+                    undefined,
+                    { reason: "MANUAL_SAVE_PROJECT" }
+                )
             );
             setProjectError(null);
             forceRefresh(value => value + 1);
@@ -474,8 +503,13 @@ export default function OpenFolder() {
 
     async function closeProject() {
 
+        if (projectActionBusyRef.current) return;
+
         try {
-            await App.closeProject();
+            await runProjectAction(
+                "CLOSING",
+                () => App.closeProject()
+            );
         } catch (error) {
             setProjectError(error.message);
             return;
@@ -640,19 +674,19 @@ export default function OpenFolder() {
                             value={projectName}
                             onChange={event => setProjectName(event.target.value)}
                             placeholder="Project name"
-                            disabled={hasProject}
+                            disabled={hasProject || Boolean(projectAction)}
                         />
-                        <button onClick={createProject} disabled={hasProject}>
-                            Create Project
+                        <button onClick={createProject} disabled={hasProject || Boolean(projectAction)}>
+                            {projectAction === "CREATING" ? "Creating…" : "Create Project"}
                         </button>
-                        <button onClick={openProject} disabled={hasProject}>
-                            Open Project
+                        <button onClick={openProject} disabled={hasProject || Boolean(projectAction)}>
+                            {projectAction === "OPENING" ? "Opening…" : "Open Project"}
                         </button>
-                        <button onClick={saveProject} disabled={!hasProject}>
-                            Save Project
+                        <button onClick={saveProject} disabled={!hasProject || Boolean(projectAction)}>
+                            {projectAction === "SAVING" ? "Saving…" : "Save Project"}
                         </button>
-                        <button onClick={closeProject} disabled={!hasProject}>
-                            Close Project
+                        <button onClick={closeProject} disabled={!hasProject || Boolean(projectAction)}>
+                            {projectAction === "CLOSING" ? "Closing…" : "Close Project"}
                         </button>
                     </div>
 
