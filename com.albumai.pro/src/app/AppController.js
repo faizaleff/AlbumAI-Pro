@@ -22,9 +22,7 @@ import ProjectExecutor from "../project/ProjectExecutor";
 import ProjectExecutionSummary, {
     ProjectExecutionStatus
 } from "../project/ProjectExecutionSummary";
-import BatchRecoverySnapshot, {
-    BATCH_RECOVERY_SCHEMA_VERSION
-} from "../project/BatchRecoverySnapshot";
+import BatchRecoverySnapshot from "../project/BatchRecoverySnapshot";
 import TemplateAutoSaveService, {
     AutoSaveMode
 } from "../services/TemplateAutoSaveService";
@@ -125,6 +123,7 @@ export class AppController {
         this.currentProjectExecutionSummary = null;
         this.batchRecoverySnapshot = null;
         this.batchRecoveryClassification = null;
+        this.batchRecoveryDiagnostics = null;
         this.recoveryWritePromise = Promise.resolve();
         this.recoveryWriteGeneration = 0;
         this.lastRecoveryClearResult = null;
@@ -203,6 +202,7 @@ export class AppController {
         this.projectTemplateRegistry = new ProjectTemplateRegistry();
         this.batchRecoverySnapshot = null;
         this.batchRecoveryClassification = null;
+        this.batchRecoveryDiagnostics = null;
         this.currentTemplateRegistryPreflightState = this.emptyTemplateRegistryPreflightState();
         this.lastTemplateRegistryPreflightResult = this.currentTemplateRegistryPreflightState;
         this.lastTemplateRegistryExecutionGateResult = null;
@@ -1168,6 +1168,7 @@ export class AppController {
         if (this.projectBatchRunning) throw new Error("A project batch is already running.");
         const previousSnapshot = this.batchRecoverySnapshot;
         const previousClassification = this.batchRecoveryClassification;
+        const previousDiagnostics = this.batchRecoveryDiagnostics;
         const recoveryWasPresent = Boolean(previousSnapshot);
 
         if (!recoveryWasPresent) {
@@ -1186,6 +1187,7 @@ export class AppController {
 
         this.batchRecoverySnapshot = null;
         this.batchRecoveryClassification = null;
+        this.batchRecoveryDiagnostics = null;
 
         try {
             await this.persistRecoverySnapshot(null, this.recoveryWriteGeneration);
@@ -1196,6 +1198,7 @@ export class AppController {
         } catch (error) {
             this.batchRecoverySnapshot = previousSnapshot;
             this.batchRecoveryClassification = previousClassification;
+            this.batchRecoveryDiagnostics = previousDiagnostics;
             this.lastRecoveryClearResult = Object.freeze({
                 status: RecoveryClearStatus.FAILED,
                 error: error?.message || "Recovery state could not be cleared."
@@ -1243,11 +1246,19 @@ export class AppController {
         if (!raw) {
             this.batchRecoverySnapshot = null;
             this.batchRecoveryClassification = null;
+            this.batchRecoveryDiagnostics = null;
             return;
         }
-        if (raw.schemaVersion > BATCH_RECOVERY_SCHEMA_VERSION) {
+        const validation = BatchRecoverySnapshot.validatePersisted(raw);
+        this.batchRecoveryDiagnostics = validation;
+        if (validation.status === "INCOMPATIBLE") {
             this.batchRecoverySnapshot = BatchRecoverySnapshot.freeze(raw);
             this.batchRecoveryClassification = "INCOMPATIBLE";
+            return;
+        }
+        if (!validation.valid) {
+            this.batchRecoverySnapshot = BatchRecoverySnapshot.freeze(raw);
+            this.batchRecoveryClassification = "INVALID";
             return;
         }
         const snapshot = new BatchRecoverySnapshot(raw);
@@ -1263,6 +1274,7 @@ export class AppController {
                 available: false,
                 classification: forcedStatus || "NONE",
                 snapshot: null,
+                diagnostics: this.batchRecoveryDiagnostics,
                 outputRecovery: summarizeOutputRecovery()
             });
         }
@@ -1278,6 +1290,7 @@ export class AppController {
             available: classification === "INTERRUPTED" && (pending > 0 || failed > 0),
             classification,
             snapshot,
+            diagnostics: this.batchRecoveryDiagnostics,
             outputRecovery: summarizeOutputRecovery(snapshot)
         });
     }

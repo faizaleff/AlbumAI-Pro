@@ -58,3 +58,17 @@ A focused maintenance release for stability, usability, diagnostics, and packagi
 - No leaked live Photoshop document references after completion
 - Git working tree is clean
 - Changelog and release notes are updated
+
+## ALB-052 hardening closure
+
+The deterministic bug-fix, stability, and operator-feedback gaps above are
+closed by the ALB-043–052 automated suites and policy gates. Project schema,
+recovery validation, invalid PSD cleanup, duplicate-action guards, output
+transactions, progress, remediation wording, build quality, and reproducible
+packaging have passing automated evidence.
+
+The following release gates remain intentionally separate and are owned by
+ALB-053: the disposable-fixture Photoshop/UXP regression matrix, version and
+release-document updates, final checksum/tag creation, and clean release-tree
+sign-off. ALB-045 RT-03 remains harness-only because no safe deterministic host
+procedure can force its pre-transaction timing boundary.

@@ -5,6 +5,7 @@ const PROJECT_FILE = "project.json";
 const PROJECT_TEMP_FILE = "project.json.tmp";
 const PROJECT_BACKUP_FILE = "project.json.bak";
 const PROJECT_BACKUP_TEMP_FILE = "project.json.bak.tmp";
+export const PROJECT_SCHEMA_VERSION = 1;
 const WORKSPACE_FOLDERS = [
     "Templates",
     "Photos",
@@ -50,9 +51,9 @@ export default class ProjectService {
 
         const folder = await parent.createFolder(projectName);
         const workspace = await this.ensureWorkspace(folder);
-        const projectMetadata = this.createMetadata(
-            projectName,
-            metadata
+        const projectMetadata = this.validateMetadata(
+            this.createMetadata(projectName, metadata),
+            "new project metadata"
         );
 
         workspace.projectFile = await this.writeMetadata(
@@ -119,10 +120,13 @@ export default class ProjectService {
             throw new Error("No project is open.");
         }
 
-        const metadata = this.projectEngine.updateMetadata({
+        const metadata = this.validateMetadata({
+            ...project.metadata,
             ...values,
             updatedAt: new Date().toISOString()
-        }).metadata;
+        }, "project metadata");
+
+        this.projectEngine.updateMetadata(metadata);
 
         const projectFile = project.workspace.projectFile ||
             await this.getProjectFile(project.folder, true);
@@ -246,46 +250,57 @@ export default class ProjectService {
                 ? crypto.randomUUID()
                 : `${Date.now()}-${Math.random()}`,
             name,
-            schemaVersion: 1,
+            schemaVersion: PROJECT_SCHEMA_VERSION,
             createdAt: timestamp,
             updatedAt: timestamp,
             ...metadata,
+            schemaVersion: PROJECT_SCHEMA_VERSION,
             name
         };
 
     }
 
     async readMetadata(file, folder) {
-
-        const content = await file.read();
-
+        let primaryError;
         try {
-            return JSON.parse(content);
+            const content = await file.read();
+            return this.validateMetadata(JSON.parse(content), PROJECT_FILE);
         }
 
         catch (error) {
-            const recovered =
-                await this.readRecoveryMetadata(folder);
-
-            if (!recovered) {
-                throw new Error(
-                    `Invalid ${PROJECT_FILE}: ${error.message}`
-                );
-            }
-
-            await this.writeMetadata(
-                file,
-                recovered.metadata,
-                folder,
-                "RECOVER_INVALID_PROJECT_JSON"
-            );
-
-            console.warn(
-                `${PROJECT_FILE} was restored from the last valid backup.`
-            );
-
-            return recovered.metadata;
+            primaryError = error;
         }
+
+        // Never replace a project written by a newer application with an
+        // older backup. That could silently discard fields this version does
+        // not understand.
+        if (primaryError?.code === "PROJECT_SCHEMA_INCOMPATIBLE") {
+            throw primaryError;
+        }
+
+        const recovered = await this.readRecoveryMetadata(folder);
+
+        if (!recovered) {
+            throw this.metadataError(
+                "PROJECT_METADATA_INVALID",
+                `Project data is invalid and no valid recovery copy was found. ${primaryError?.message || "Restore project.json from a known-good backup."}`,
+                { source: PROJECT_FILE, recoveryAttempted: true }
+            );
+        }
+
+        await this.writeMetadata(
+            file,
+            recovered.metadata,
+            folder,
+            "RECOVER_INVALID_PROJECT_JSON",
+            { preferredBackupContent: recovered.content }
+        );
+
+        console.warn(
+            `${PROJECT_FILE} was restored from the last valid backup.`
+        );
+
+        return recovered.metadata;
 
     }
 
@@ -293,13 +308,15 @@ export default class ProjectService {
         file,
         metadata,
         folder,
-        reason = "PROJECT_SERVICE"
+        reason = "PROJECT_SERVICE",
+        { preferredBackupContent = null } = {}
     ) {
 
         // Serialization must finish before any file is created or opened
         // for writing. This prevents serialization failures from truncating
         // the current project.
-        const serialized = JSON.stringify(metadata, null, 2);
+        const validated = this.validateMetadata(metadata, "project metadata");
+        const serialized = JSON.stringify(validated, null, 2);
         JSON.parse(serialized);
 
         return AtomicJsonFileWriter.write({
@@ -307,6 +324,7 @@ export default class ProjectService {
             fileName: PROJECT_FILE,
             serialized,
             currentFile: file,
+            preferredBackupContent,
             reason
         }).then(committed => {
             const project = this.projectEngine.getProject();
@@ -361,7 +379,7 @@ export default class ProjectService {
         try {
             const content = await entry.read();
             return {
-                metadata: JSON.parse(content),
+                metadata: this.validateMetadata(JSON.parse(content), name),
                 content
             };
         } catch (_) {
@@ -397,6 +415,91 @@ export default class ProjectService {
         }
 
         return value;
+
+    }
+
+    validateMetadata(metadata, source = PROJECT_FILE) {
+
+        if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+            throw this.metadataError(
+                "PROJECT_METADATA_INVALID",
+                `${source} must contain one project object.`,
+                { source }
+            );
+        }
+
+        const schemaVersion = metadata.schemaVersion;
+        if (Number.isInteger(schemaVersion) && schemaVersion > PROJECT_SCHEMA_VERSION) {
+            throw this.metadataError(
+                "PROJECT_SCHEMA_INCOMPATIBLE",
+                `This project uses schema version ${schemaVersion}; this AlbumAI build supports version ${PROJECT_SCHEMA_VERSION}. Update AlbumAI to open it safely.`,
+                { source, schemaVersion, supportedSchemaVersion: PROJECT_SCHEMA_VERSION }
+            );
+        }
+
+        if (schemaVersion !== PROJECT_SCHEMA_VERSION) {
+            throw this.metadataError(
+                "PROJECT_METADATA_INVALID",
+                `${source} has a missing or unsupported project schema version.`,
+                { source, schemaVersion: schemaVersion ?? null }
+            );
+        }
+
+        if (typeof metadata.id !== "string" || !metadata.id.trim()) {
+            throw this.metadataError(
+                "PROJECT_METADATA_INVALID",
+                `${source} is missing a valid project id.`,
+                { source, field: "id" }
+            );
+        }
+
+        if (typeof metadata.name !== "string" || !metadata.name.trim()) {
+            throw this.metadataError(
+                "PROJECT_METADATA_INVALID",
+                `${source} is missing a valid project name.`,
+                { source, field: "name" }
+            );
+        }
+
+        for (const field of ["createdAt", "updatedAt"]) {
+            if (metadata[field] != null && typeof metadata[field] !== "string") {
+                throw this.metadataError(
+                    "PROJECT_METADATA_INVALID",
+                    `${source} has an invalid ${field} value.`,
+                    { source, field }
+                );
+            }
+        }
+
+        if (metadata.templateRegistry != null && !Array.isArray(metadata.templateRegistry)) {
+            throw this.metadataError(
+                "PROJECT_METADATA_INVALID",
+                `${source} has an invalid template registry.`,
+                { source, field: "templateRegistry" }
+            );
+        }
+
+        for (const field of ["batchRecovery", "photoSource"]) {
+            const value = metadata[field];
+            if (value != null && (typeof value !== "object" || Array.isArray(value))) {
+                throw this.metadataError(
+                    "PROJECT_METADATA_INVALID",
+                    `${source} has an invalid ${field} value.`,
+                    { source, field }
+                );
+            }
+        }
+
+        return metadata;
+
+    }
+
+    metadataError(code, message, diagnostic = {}) {
+
+        const error = new Error(message);
+        error.code = code;
+        error.diagnostic = Object.freeze({ code, ...diagnostic });
+        return error;
 
     }
 
