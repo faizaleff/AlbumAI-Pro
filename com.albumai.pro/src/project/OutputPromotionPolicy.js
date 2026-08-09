@@ -4,7 +4,9 @@ import {
 } from "./OutputTransactionState";
 import {
     classifyCancellationAfterCommit,
+    classifyCancellationAfterHostWriteBeforeVerification,
     classifyCancellationAfterStagingBeforeHostWrite,
+    classifyCancellationAfterVerificationBeforePromotion,
     classifyCancellationBeforeStaging,
     classifyCleanupFailure,
     classifyUnknownCommitState,
@@ -81,11 +83,27 @@ export async function runOutputPromotionTransaction({
             return failedAfterCleanup(adapter, staged.entry, data, OutputReasonCode.HOST_WRITE_FAILED);
         }
     }
+    if (cancelled()) {
+        const cleaned = await clean(adapter, staged.entry);
+        diagnostic(cleaned ? "STAGING_CLEANED" : "STAGING_CLEANUP_FAILED");
+        return classifyCancellationAfterHostWriteBeforeVerification({
+            ...data,
+            cleanupSucceeded: cleaned
+        });
+    }
     const stagedVerification = await verify(adapter, staged.entry);
     if (!stagedVerification?.valid) {
         return failedAfterCleanup(adapter, staged.entry, data, stagedVerification?.reasonCode || OutputReasonCode.COMMIT_VERIFICATION_FAILED);
     }
     diagnostic("STAGING_VERIFIED");
+    if (cancelled()) {
+        const cleaned = await clean(adapter, staged.entry);
+        diagnostic(cleaned ? "STAGING_CLEANED" : "STAGING_CLEANUP_FAILED");
+        return classifyCancellationAfterVerificationBeforePromotion({
+            ...data,
+            cleanupSucceeded: cleaned
+        });
+    }
     let final;
     try { final = await adapter.findEntry(finalName); } catch (_) {
         return classifyUnknownCommitState({ ...data, reasonCode: OutputReasonCode.PROMOTION_FAILED });

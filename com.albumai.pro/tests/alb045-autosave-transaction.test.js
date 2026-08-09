@@ -60,6 +60,7 @@ function setup(options = {}) {
     const service = new TemplateAutoSaveService({
         documentManager: manager,
         fileAdapterFactory: ({ folder }) => new OutputTransactionFileAdapter({ folder, readBinary: entry => entry.content }),
+        afterOverwriteOriginalHostCommit: options.afterOverwriteOriginalHostCommit || null,
         transactionId: () => "test"
     });
     const request = {
@@ -149,8 +150,9 @@ async function run() {
         let during = false;
         const duringSave = setup({ controller: { isCancellationRequested: () => during }, afterHostSave: () => { during = true; } });
         const duringResult = await duringSave.service.save(duringSave.request);
-        assert.strictEqual(duringResult.status, AutoSaveStatus.SAVED);
-        assert.strictEqual(duringResult.outputTransaction.cancellationState, "EFFECTIVE_AFTER_COMMIT");
+        assert.strictEqual(duringResult.status, AutoSaveStatus.SKIPPED);
+        assert.strictEqual(duringResult.outputTransaction.commitState, State.CLEANED);
+        assert.strictEqual(duringResult.outputTransaction.cancellationState, "EFFECTIVE_AFTER_CLEANUP");
     });
 
     await test("OVERWRITE_ORIGINAL remains direct, committed, and non-transactional", async () => {
@@ -159,6 +161,54 @@ async function run() {
         assert.deepStrictEqual(state.saves, ["OVERWRITE"]);
         assert.strictEqual(result.outputTransaction.overwriteOriginal, true);
         assert.strictEqual(result.outputTransaction.reasonCode, "OVERWRITE_ORIGINAL_COMMITTED");
+    });
+
+    await test("OVERWRITE_ORIGINAL post-commit gate observes cancellation without weakening commit", async () => {
+        let cancelled = false;
+        let hookCalls = 0;
+        const state = setup({
+            mode: AutoSaveMode.OVERWRITE_ORIGINAL,
+            controller: { isCancellationRequested: () => cancelled },
+            afterOverwriteOriginalHostCommit: async ({ isCancellationRequested }) => {
+                hookCalls += 1;
+                assert.strictEqual(isCancellationRequested(), false);
+                cancelled = true;
+            }
+        });
+        const result = await state.service.save(state.request);
+        assert.deepStrictEqual(state.saves, ["OVERWRITE"]);
+        assert.strictEqual(hookCalls, 1);
+        assert.strictEqual(result.status, AutoSaveStatus.SAVED);
+        assert.strictEqual(result.outputTransaction.commitState, State.COMMITTED);
+        assert.strictEqual(result.outputTransaction.cancellationState, "EFFECTIVE_AFTER_COMMIT");
+        assert.strictEqual(result.outputTransaction.reasonCode, "OVERWRITE_ORIGINAL_COMMITTED");
+        assert.strictEqual(result.outputTransaction.retryDisposition, "SKIP_DEFAULT");
+    });
+
+    await test("OVERWRITE_ORIGINAL pre-write cancellation never enters the runtime gate", async () => {
+        let hookCalls = 0;
+        const state = setup({
+            mode: AutoSaveMode.OVERWRITE_ORIGINAL,
+            controller: { isCancellationRequested: () => true },
+            afterOverwriteOriginalHostCommit: async () => { hookCalls += 1; }
+        });
+        const result = await state.service.save(state.request);
+        assert.deepStrictEqual(state.saves, []);
+        assert.strictEqual(hookCalls, 0);
+        assert.strictEqual(result.outputTransaction.commitState, State.NOT_STARTED);
+        assert.strictEqual(result.outputTransaction.reasonCode, "CANCELLED_BEFORE_WRITE");
+    });
+
+    await test("OVERWRITE_ORIGINAL diagnostic gate failure cannot hide a committed host save", async () => {
+        const state = setup({
+            mode: AutoSaveMode.OVERWRITE_ORIGINAL,
+            afterOverwriteOriginalHostCommit: async () => { throw new Error("diagnostic failure"); }
+        });
+        const result = await state.service.save(state.request);
+        assert.deepStrictEqual(state.saves, ["OVERWRITE"]);
+        assert.strictEqual(result.status, AutoSaveStatus.SAVED);
+        assert.strictEqual(result.outputTransaction.commitState, State.COMMITTED);
+        assert.strictEqual(result.outputTransaction.cancellationState, "NONE");
     });
 
     await test("legacy AutoSaveResult fields remain available with a safe transaction fragment", () => {

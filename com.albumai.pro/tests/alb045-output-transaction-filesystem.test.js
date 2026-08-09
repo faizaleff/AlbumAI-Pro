@@ -3,7 +3,7 @@ import OutputTransactionFileAdapter from "../src/project/OutputTransactionFileAd
 import { outputBackupName, outputStagingName, createUniqueStaging } from "../src/project/OutputStaging";
 import { OutputVerificationFormat, OutputVerificationLevel, verifyOutputEntry } from "../src/project/OutputVerification";
 import { OutputPromotionStrategy, planOutputPromotion, runOutputPromotionTransaction } from "../src/project/OutputPromotionPolicy";
-import { OutputKind, OutputReasonCode as Reason, OutputTransactionState as State } from "../src/project/OutputTransactionState";
+import { OutputCancellationState as Cancellation, OutputKind, OutputReasonCode as Reason, OutputTransactionState as State } from "../src/project/OutputTransactionState";
 
 function test(name, callback) {
     return Promise.resolve().then(callback).then(() => console.info(`PASS ALB-045 Slice 2: ${name}`));
@@ -168,6 +168,69 @@ async function run() {
         const noPromotion = { findEntry: async () => null, createFile: async () => ({ name: "stage", isFile: true, size: 4 }), inspectEntry: () => ({ exists: true, isFile: true, size: 4 }), capabilityReport: () => ({}) };
         const blocked = await runOutputPromotionTransaction({ adapter: noPromotion, finalName: "final.psd", transactionId: "blocked", verify: async () => ({ valid: true }) });
         assert.strictEqual(blocked.commitState, State.COMMIT_UNKNOWN);
+    });
+
+    await test("cancellation after host write cleans staging before verification", async () => {
+        const fsState = filesystem();
+        let cancel = false;
+        let verificationCalls = 0;
+
+        const result = await runOutputPromotionTransaction({
+            adapter: adapter(fsState),
+            finalName: "final.psd",
+            transactionId: "cancel-after-host-write",
+            writeStaging: entry => {
+                writePsd(entry);
+                cancel = true;
+            },
+            verify: async (...args) => {
+                verificationCalls += 1;
+                return psdVerify(...args);
+            },
+            isCancellationRequested: () => cancel
+        });
+
+        assert.strictEqual(result.commitState, State.CLEANED);
+        assert.strictEqual(result.cancellationState, Cancellation.EFFECTIVE_AFTER_CLEANUP);
+        assert.strictEqual(result.reasonCode, Reason.CANCELLED_BEFORE_WRITE);
+        assert.strictEqual(verificationCalls, 0);
+        assert.strictEqual(fsState.entries.has("final.psd"), false);
+        assert.strictEqual([...fsState.entries.keys()].some(name => name.startsWith("._albumai")), false);
+    });
+
+    await test("cancellation after verification cleans staging before promotion", async () => {
+        const fsState = filesystem();
+        let cancel = false;
+        let verificationCalls = 0;
+
+        const result = await runOutputPromotionTransaction({
+            adapter: adapter(fsState),
+            finalName: "final.psd",
+            transactionId: "cancel-after-verification",
+            writeStaging: writePsd,
+            verify: async (...args) => {
+                verificationCalls += 1;
+                const verified = await psdVerify(...args);
+                cancel = true;
+                return verified;
+            },
+            isCancellationRequested: () => cancel
+        });
+
+        assert.strictEqual(result.commitState, State.CLEANED);
+        assert.strictEqual(
+            result.cancellationState,
+            Cancellation.EFFECTIVE_AFTER_CLEANUP
+        );
+        assert.strictEqual(result.reasonCode, Reason.CANCELLED_BEFORE_WRITE);
+        assert.strictEqual(verificationCalls, 1);
+        assert.strictEqual(fsState.entries.has("final.psd"), false);
+        assert.strictEqual(
+            [...fsState.entries.keys()].some(name =>
+                name.startsWith("._albumai")
+            ),
+            false
+        );
     });
 
     console.info("ALB-045 Slice 2 filesystem tests complete.");

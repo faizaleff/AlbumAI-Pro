@@ -2095,7 +2095,11 @@ export default function TemplateDocumentPanel({
                 </button>
                 </div>
 
-                <BatchProgressPanel summary={projectExecutionSummary} onRequestCancel={requestBatchCancellation} />
+                <BatchProgressPanel
+                    summary={projectExecutionSummary}
+                    onRequestCancel={requestBatchCancellation}
+                    recoveryOutput={recoveryState?.outputRecovery || null}
+                />
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                 <label style={{ fontSize: 12 }}>

@@ -134,6 +134,11 @@ No repository evidence proves Strategy A. The capability adapter and runtime
 matrix must record exact UXP/Photoshop versions and observed behavior before
 declaring any operation atomic.
 
+Closeout note: the disposable-folder host characterization is now recorded as
+PASS/CLOSED in `ALB-045_RUNTIME_VERIFICATION.md`. Rename and move were available,
+but safe atomic replacement was not proven; `canReplaceExistingProven` remains
+false and existing-final output continues to use `PRESERVE_THEN_PROMOTE`.
+
 ## Finalization strategies
 
 ### Strategy A — atomic rename/replace
@@ -298,9 +303,10 @@ Add focused Node scripts in the current no-framework harness style.
 
 ## Runtime matrix
 
-See `ALB-045_RUNTIME_VERIFICATION.md`. All host scenarios are pending in this
-planning slice and must use isolated disposable fixtures. Destructive output
-tests are prohibited until the strategy and fixture protocol are approved.
+See `ALB-045_RUNTIME_VERIFICATION.md`. RT-14 is PASS/CLOSED from recorded
+Photoshop evidence; RT-01–RT-13 and RT-15 remain pending and must use isolated
+disposable fixtures. Destructive output tests are prohibited until the strategy
+and fixture protocol are approved.
 
 ## Implementation slices
 

@@ -125,3 +125,10 @@ export function summarizeOutputRecovery(snapshot = {}) {
         automaticRetryBlocked: dispositionCounts.blocked > 0 || dispositionCounts.remediation > 0
     });
 }
+
+export function resolveBatchPanelOutputRecovery({ recoveryOutput, templateResults = [] } = {}) {
+    if (recoveryOutput?.counts && Array.isArray(recoveryOutput?.rows)) {
+        return recoveryOutput;
+    }
+    return summarizeOutputRecovery({ templateResults });
+}

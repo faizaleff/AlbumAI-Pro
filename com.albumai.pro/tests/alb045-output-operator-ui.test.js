@@ -5,6 +5,7 @@ import { AppController } from "../src/app/AppController";
 import {
     OutputOperatorState,
     outputOperatorStateDetails,
+    resolveBatchPanelOutputRecovery,
     summarizeOutputRecovery
 } from "../src/project/OutputRecoveryOperatorState";
 import {
@@ -103,6 +104,19 @@ test("controller recovery state exposes the same authoritative operator summary"
     assert.strictEqual(state.outputRecovery.blockedTemplates, 1);
 });
 
+test("batch panel prefers authoritative recovery totals over partial template results", () => {
+    const recoveryOutput = summarizeOutputRecovery({
+        pendingTemplateIds: ["one", "two", "three"],
+        templateOutcomes: []
+    });
+    const panelOutput = resolveBatchPanelOutputRecovery({
+        recoveryOutput,
+        templateResults: [outcome("one", "CANCELLED", null, null)]
+    });
+    assert.strictEqual(panelOutput.counts.SAFE_RETRY, 3);
+    assert.strictEqual(panelOutput.rows.length, 3);
+});
+
 test("UI hides automatic actions without safe work and includes operator diagnostics", () => {
     const panel = fs.readFileSync(path.join(process.cwd(), "src/components/TemplateDocumentPanel.jsx"), "utf8");
     const progress = fs.readFileSync(path.join(process.cwd(), "src/components/BatchProgressPanel.jsx"), "utf8");
@@ -117,6 +131,8 @@ test("UI hides automatic actions without safe work and includes operator diagnos
     assert(panel.includes("Overwrite Original (non-reversible)"));
     assert(progress.includes('aria-label="Output transaction summary"'));
     assert(progress.includes("Automatic retry is blocked for ambiguous or remediation-required outputs."));
+    assert(progress.includes("recoveryOutput = null"));
+    assert(panel.includes("recoveryOutput={recoveryState?.outputRecovery || null}"));
     assert(progress.includes('["COMPLETED", "COMPLETED_WITH_ERRORS"].includes(status)'));
     assert(!progress.includes('terminal && status !== "FAILED"'));
     assert(panel.includes("const allTemplatesProcessed"));

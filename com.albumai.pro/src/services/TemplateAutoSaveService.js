@@ -20,6 +20,7 @@ export default class TemplateAutoSaveService {
         documentManager = new DocumentManager(),
         fileAdapterFactory = options => new OutputTransactionFileAdapter(options),
         transactionRunner = runOutputPromotionTransaction,
+        afterOverwriteOriginalHostCommit = null,
         transactionId = () => typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
             : `save-${Date.now()}-${Math.random()}`
@@ -28,6 +29,7 @@ export default class TemplateAutoSaveService {
         this.documentManager = documentManager;
         this.fileAdapterFactory = fileAdapterFactory;
         this.transactionRunner = transactionRunner;
+        this.afterOverwriteOriginalHostCommit = afterOverwriteOriginalHostCommit;
         this.transactionId = transactionId;
 
     }
@@ -88,6 +90,15 @@ export default class TemplateAutoSaveService {
                     });
                 }
                 await this.documentManager.save(document);
+                try {
+                    await this.afterOverwriteOriginalHostCommit?.({
+                        isCancellationRequested: () => this.cancelled(cancellationController)
+                    });
+                } catch (_) {
+                    // A runtime diagnostic hook must never obscure a host save
+                    // that has already committed the original document.
+                    Logger.warn("RT-14 post-commit diagnostic gate failed.");
+                }
 
                 const outputTransaction = {
                     status: "COMPLETED", commitState: "COMMITTED",

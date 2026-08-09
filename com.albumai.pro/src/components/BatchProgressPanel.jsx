@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import calculateBatchProgress from "../project/calculateBatchProgress";
-import { summarizeOutputRecovery } from "../project/OutputRecoveryOperatorState";
+import { resolveBatchPanelOutputRecovery } from "../project/OutputRecoveryOperatorState";
 
 const STAGE_LABELS = Object.freeze({
     IDLE: "Ready", PREPARING: "Preparing", OPENING: "Opening Template",
@@ -13,7 +13,7 @@ function statusFor(summary) {
     return summary?.batchProgress?.lifecycle || summary?.batchExecution?.status || summary?.status || "IDLE";
 }
 
-export default function BatchProgressPanel({ summary, onRequestCancel }) {
+export default function BatchProgressPanel({ summary, onRequestCancel, recoveryOutput = null }) {
     const lastDiagnostic = useRef(null);
     const status = statusFor(summary);
     const progress = summary?.batchProgress || {};
@@ -38,7 +38,8 @@ export default function BatchProgressPanel({ summary, onRequestCancel }) {
     const stage = STAGE_LABELS[progress.stage] || STAGE_LABELS[status] || "Ready";
     const fatalError = summary?.batchExecution?.fatalError || summary?.fatalError || summary?.registryValidationError;
     const warning = summary?.batchExecution?.warnings?.[0] || summary?.warnings?.[0] || null;
-    const outputRecovery = summarizeOutputRecovery({
+    const outputRecovery = resolveBatchPanelOutputRecovery({
+        recoveryOutput,
         templateResults: summary?.batchExecution?.templateResults || summary?.templateResults || []
     });
     const diagnostic = useMemo(() => JSON.stringify({

@@ -74,17 +74,18 @@ async function run() {
         assert(rollback.entries.has("Export Name.psd"));
     });
 
-    await test("cancellation is safe before staging, after staging, and after commit", async () => {
+    await test("cancellation is safe before staging, after staging, and during host write", async () => {
         const before = fixture(); before.setCancelled(true);
         const beforeResult = await before.service.export({ ...before.request, format: ExportFormat.JPEG });
         assert.strictEqual(beforeResult.status, ExportStatus.SKIPPED); assert.strictEqual(before.calls.some(call => call.host), false);
         let checks = 0; const afterStaging = fixture(); afterStaging.request.cancellationController = { isCancellationRequested: () => (++checks >= 2) };
         const afterStagingResult = await afterStaging.service.export({ ...afterStaging.request, format: ExportFormat.JPEG });
         assert.strictEqual(afterStagingResult.outputTransaction.commitState, State.CLEANED);
-        const afterCommit = fixture({ afterHost: callback => callback() });
-        const afterCommitResult = await afterCommit.service.export({ ...afterCommit.request, format: ExportFormat.JPEG });
-        assert.strictEqual(afterCommitResult.status, ExportStatus.SUCCESS);
-        assert.strictEqual(afterCommitResult.outputTransaction.cancellationState, "EFFECTIVE_AFTER_COMMIT");
+        const duringHostWrite = fixture({ afterHost: callback => callback() });
+        const duringHostWriteResult = await duringHostWrite.service.export({ ...duringHostWrite.request, format: ExportFormat.JPEG });
+        assert.strictEqual(duringHostWriteResult.status, ExportStatus.SKIPPED);
+        assert.strictEqual(duringHostWriteResult.outputTransaction.commitState, State.CLEANED);
+        assert.strictEqual(duringHostWriteResult.outputTransaction.cancellationState, "EFFECTIVE_AFTER_CLEANUP");
     });
     console.info("ALB-045 Slice 4 transactional export tests complete.");
 }
