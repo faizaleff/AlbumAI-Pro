@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "ticket": "ALB-051",
+  "baselineCommit": "14ac65b4153bebf8a74848a8f29301702cf30f34",
+  "sourcePolicy": "Architecture/ALB-050_ARCHITECTURE_POLICY.json",
+  "regressionEntry": "tests/alb051-regression-baseline.test.js",
+  "baseline": {
+    "activeFiles": 95,
+    "legacyTestReachableFiles": 80,
+    "legacyTestGapFiles": 15,
+    "postAlb051ReachableFiles": 95
+  },
+  "requiredUiModules": [
+    "src/components/BatchProgressPanel.jsx",
+    "src/components/OpenFolder.jsx",
+    "src/components/PhotoBrowserSection.jsx",
+    "src/components/PhotoImage.jsx",
+    "src/components/PreviewPanel.jsx",
+    "src/components/SelectionCount.jsx",
+    "src/components/TemplateDocumentPanel.jsx",
+    "src/components/ThumbnailCard.jsx",
+    "src/components/ThumbnailGrid.jsx",
+    "src/config/buildIdentity.js",
+    "src/controllers/PanelController.jsx",
+    "src/panels/AlbumBrowser.jsx.jsx",
+    "src/services/BrowserSelectionCommands.js",
+    "src/index.jsx",
+    "src/styles.css"
+  ],
+  "v101Acceptance": [
+    {
+      "id": "CORE_WORKFLOW_NO_REGRESSION",
+      "criterion": "No regression in the v1.0.0 core workflow",
+      "classification": "AUTOMATED_AND_RUNTIME",
+      "automated": ["npm test", "tests/alb051-regression-baseline.test.js"],
+      "runtimeScenarios": ["ALB-051-RT-01"]
+    },
+    {
+      "id": "PRODUCTION_BUILD",
+      "criterion": "Production build succeeds",
+      "classification": "AUTOMATED",
+      "automated": ["npm run build:prod"],
+      "runtimeScenarios": []
+    },
+    {
+      "id": "CLEAN_RELEASE_PACKAGE",
+      "criterion": "Release ZIP contains only required plugin files",
+      "classification": "AUTOMATED",
+      "automated": ["tests/alb049-release-packaging.test.js", "npm run package:verify"],
+      "runtimeScenarios": []
+    },
+    {
+      "id": "BATCH_RETRY_RECOVERY_OUTPUTS",
+      "criterion": "Batch processing, retry, recovery, Auto Save, and JPEG export pass manual verification",
+      "classification": "AUTOMATED_AND_RUNTIME",
+      "automated": ["npm test"],
+      "runtimeScenarios": ["ALB-051-RT-01"]
+    },
+    {
+      "id": "NO_DOCUMENT_REFERENCE_LEAK",
+      "criterion": "No leaked live Photoshop document references after completion",
+      "classification": "AUTOMATED_AND_RUNTIME",
+      "automated": ["tests/alb051-regression-baseline.test.js"],
+      "runtimeScenarios": ["ALB-051-RT-02"]
+    },
+    {
+      "id": "CLEAN_GIT_TREE",
+      "criterion": "Git working tree is clean",
+      "classification": "RELEASE_GATE",
+      "automated": ["git status --porcelain", "git diff --check"],
+      "runtimeScenarios": []
+    },
+    {
+      "id": "RELEASE_DOCUMENTATION",
+      "criterion": "Changelog and release notes are updated",
+      "classification": "RELEASE_GATE",
+      "automated": ["ALB-053 release metadata verification"],
+      "runtimeScenarios": []
+    }
+  ],
+  "runtimeScenarios": [
+    {
+      "id": "ALB-051-RT-01",
+      "status": "PENDING_ALB_053",
+      "host": "Photoshop UXP",
+      "fixtureRule": "Use only a disposable copied project and copied PSD/JPEG fixtures.",
+      "procedure": "Create or open a copied project, open its copied photo folder, register copied PSD templates, select photos, process the batch, cancel one copied run at a safe boundary, resume or retry safe work, and verify Save Copy PSD plus JPEG outputs.",
+      "pass": "Project state persists; template order, placement, progress, cancel/resume/retry, Save Copy PSD, and JPEG outputs match the operator UI with no ambiguous output state."
+    },
+    {
+      "id": "ALB-051-RT-02",
+      "status": "PENDING_ALB_053",
+      "host": "Photoshop UXP",
+      "fixtureRule": "Use only disposable copied PSD fixtures; never force unsafe host or filesystem failures.",
+      "procedure": "Run success, invalid/unreadable copied PSD, cancellation, and safe failure paths; after every terminal outcome inspect Photoshop documents and then close the project.",
+      "pass": "No AlbumAI-opened template document or queued document reference remains after the terminal outcome or project close."
+    }
+  ]
+}
