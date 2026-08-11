@@ -6,8 +6,8 @@
   "regressionEntry": "tests/alb051-regression-baseline.test.js",
   "baseline": {
     "activeFiles": 95,
-    "legacyTestReachableFiles": 80,
-    "legacyTestGapFiles": 15,
+    "legacyTestReachableFiles": 81,
+    "legacyTestGapFiles": 14,
     "postAlb051ReachableFiles": 95
   },
   "requiredUiModules": [
@@ -23,7 +23,7 @@
     "src/config/buildIdentity.js",
     "src/controllers/PanelController.jsx",
     "src/panels/AlbumBrowser.jsx.jsx",
-    "src/services/BrowserSelectionCommands.js",
+    "src/services/PhotoBrowserModel.js",
     "src/index.jsx",
     "src/styles.css"
   ],

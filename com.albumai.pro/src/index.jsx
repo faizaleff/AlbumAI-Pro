@@ -6,7 +6,7 @@ import { PanelController } from "./controllers/PanelController.jsx";
 import { AlbumBrowser } from "./panels/AlbumBrowser.jsx.jsx";
 
 import { entrypoints, storage } from "uxp";
-import { selectAllBrowserPhotos } from "./services/BrowserSelectionCommands";
+import { selectAllBrowserPhotos } from "./services/PhotoBrowserModel";
 import { ALBUMAI_BUILD_ID } from "./config/buildIdentity";
 import { characterizeOutputStorage } from "./project/OutputStorageCapabilityCharacterization";
 
