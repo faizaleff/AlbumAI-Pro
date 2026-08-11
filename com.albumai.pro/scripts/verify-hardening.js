@@ -49,14 +49,15 @@ function main() {
     const runtime = new Map(policy.runtimeBoundary.map(item => [item.id, item]));
     check(runtime.get("ALB-045-RT-03")?.status === "HARNESS_PASS_RUNTIME_NOT_REPEATED", "RT-03 boundary changed.");
     check(runtime.get("ALB-045-RT-03")?.reason.includes("Do not manufacture unsafe"), "RT-03 safety reason is missing.");
-    check(runtime.get("ALB-051-RT-01")?.status === "PENDING_ALB_053", "Core runtime scenario must remain pending ALB-053.");
-    check(runtime.get("ALB-051-RT-02")?.status === "PENDING_ALB_053", "Cleanup runtime scenario must remain pending ALB-053.");
+    check(runtime.get("ALB-051-RT-01")?.status === "PASS_ALB_053", "Core runtime scenario is not qualified by ALB-053.");
+    check(runtime.get("ALB-051-RT-02")?.status === "PASS_ALB_053", "Cleanup runtime scenario is not qualified by ALB-053.");
 
     const release = new Map(policy.releaseChecklist.map(item => [item.id, item.status]));
     ["AUTOMATED_SUITE", "PRODUCTION_BUILD", "REPRODUCIBLE_PACKAGE"].forEach(id =>
         check(release.get(id) === "PASS_ALB_052", `${id} is not closed for ALB-052.`));
-    ["PHOTOSHOP_REGRESSION", "VERSION_CHANGELOG_NOTES_TAG", "CLEAN_RELEASE_TREE"].forEach(id =>
-        check(release.get(id) === "PENDING_ALB_053", `${id} must remain pending ALB-053.`));
+    check(release.get("PHOTOSHOP_REGRESSION") === "PASS_ALB_053", "Photoshop regression is not qualified by ALB-053.");
+    check(release.get("VERSION_CHANGELOG_NOTES_TAG") === "READY_FOR_COMMIT_AND_TAG", "Release metadata is not ready for commit and tag.");
+    check(release.get("CLEAN_RELEASE_TREE") === "READY_AFTER_COMMIT", "Clean release tree boundary changed.");
 
     const projectService = source("src/services/ProjectService.js");
     const recovery = source("src/project/BatchRecoverySnapshot.js");

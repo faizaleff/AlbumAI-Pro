@@ -81,19 +81,21 @@
   "runtimeScenarios": [
     {
       "id": "ALB-051-RT-01",
-      "status": "PENDING_ALB_053",
+      "status": "PASS_ALB_053",
       "host": "Photoshop UXP",
       "fixtureRule": "Use only a disposable copied project and copied PSD/JPEG fixtures.",
       "procedure": "Create or open a copied project, open its copied photo folder, register copied PSD templates, select photos, process the batch, cancel one copied run at a safe boundary, resume or retry safe work, and verify Save Copy PSD plus JPEG outputs.",
-      "pass": "Project state persists; template order, placement, progress, cancel/resume/retry, Save Copy PSD, and JPEG outputs match the operator UI with no ambiguous output state."
+      "pass": "Project state persists; template order, placement, progress, cancel/resume/retry, Save Copy PSD, and JPEG outputs match the operator UI with no ambiguous output state.",
+      "evidence": "PASS in ALB-053 using a disposable copied project and copied PSD/JPEG fixtures."
     },
     {
       "id": "ALB-051-RT-02",
-      "status": "PENDING_ALB_053",
+      "status": "PASS_ALB_053",
       "host": "Photoshop UXP",
       "fixtureRule": "Use only disposable copied PSD fixtures; never force unsafe host or filesystem failures.",
       "procedure": "Run success, invalid/unreadable copied PSD, cancellation, and safe failure paths; after every terminal outcome inspect Photoshop documents and then close the project.",
-      "pass": "No AlbumAI-opened template document or queued document reference remains after the terminal outcome or project close."
+      "pass": "No AlbumAI-opened template document or queued document reference remains after the terminal outcome or project close.",
+      "evidence": "PASS in ALB-053: invalid PSD rejected, terminal references released, and project close cleared AlbumAI state."
     }
   ]
 }

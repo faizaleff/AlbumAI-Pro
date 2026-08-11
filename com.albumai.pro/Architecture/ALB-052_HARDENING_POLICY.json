@@ -18,7 +18,7 @@
     },
     {
       "id": "INVALID_PSD_CLEANUP",
-      "status": "AUTOMATED_PASS_RUNTIME_PENDING_ALB_053",
+      "status": "AUTOMATED_PASS_RUNTIME_PASS_ALB_053",
       "sources": ["src/services/TemplateDocumentReader.js"],
       "evidence": ["structural PSD read failure closes and releases the owned document", "failed PSD cleanup retains the owned reference and reports manual remediation"]
     },
@@ -30,7 +30,7 @@
     },
     {
       "id": "TERMINAL_DOCUMENT_RELEASE",
-      "status": "AUTOMATED_PASS_RUNTIME_PENDING_ALB_053",
+      "status": "AUTOMATED_PASS_RUNTIME_PASS_ALB_053",
       "sources": ["src/services/TemplateDocumentReader.js", "src/project/ProjectExecutor.js"],
       "evidence": ["structural PSD read failure closes and releases the owned document", "project executor releases a template after terminal failure"]
     },
@@ -57,19 +57,19 @@
     },
     {
       "id": "ALB-051-RT-01",
-      "status": "PENDING_ALB_053"
+      "status": "PASS_ALB_053"
     },
     {
       "id": "ALB-051-RT-02",
-      "status": "PENDING_ALB_053"
+      "status": "PASS_ALB_053"
     }
   ],
   "releaseChecklist": [
     { "id": "AUTOMATED_SUITE", "status": "PASS_ALB_052" },
     { "id": "PRODUCTION_BUILD", "status": "PASS_ALB_052" },
     { "id": "REPRODUCIBLE_PACKAGE", "status": "PASS_ALB_052" },
-    { "id": "PHOTOSHOP_REGRESSION", "status": "PENDING_ALB_053" },
-    { "id": "VERSION_CHANGELOG_NOTES_TAG", "status": "PENDING_ALB_053" },
-    { "id": "CLEAN_RELEASE_TREE", "status": "PENDING_ALB_053" }
+    { "id": "PHOTOSHOP_REGRESSION", "status": "PASS_ALB_053" },
+    { "id": "VERSION_CHANGELOG_NOTES_TAG", "status": "READY_FOR_COMMIT_AND_TAG" },
+    { "id": "CLEAN_RELEASE_TREE", "status": "READY_AFTER_COMMIT" }
   ]
 }

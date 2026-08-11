@@ -105,7 +105,7 @@ try {
     test("keeps package and manifest identity aligned", () => {
         assert.strictEqual(first.inventory.packageVersion, first.inventory.pluginVersion);
         assert.strictEqual(first.inventory.pluginId, "com.albumai.pro");
-        assert.strictEqual(first.inventory.archive.file, "AlbumAI-Pro-1.0.0.zip");
+        assert.strictEqual(first.inventory.archive.file, "AlbumAI-Pro-1.0.1.zip");
     });
 } finally {
     fs.rmSync(testRoot, { recursive: true, force: true });
