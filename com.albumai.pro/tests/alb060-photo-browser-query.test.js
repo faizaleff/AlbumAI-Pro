@@ -245,11 +245,38 @@ test("refresh reconciliation retains available decisions and removes stale keys"
     });
 });
 
-test("persisted decisions drive filters and sorting without photo mutation", () => {
+    test("persisted decisions drive filters and sorting without photo mutation", () => {
     const before = JSON.stringify(photos);
     let decisions = updatePhotoDecision({}, photos[1], {
         rating: 5,
         favorite: true
+    });
+
+    test("large synthetic libraries remain deterministic and detached", () => {
+        const large = Array.from({ length: 10000 }, (_, index) => ({
+            id: `photo-${String(index).padStart(5, "0")}`,
+            name: `Wedding-${String(index).padStart(5, "0")}.jpg`,
+            extension: "jpg",
+            width: index % 2 ? 1200 : 1800,
+            height: index % 2 ? 1800 : 1200,
+            modified: new Date(2026, 0, 1, 0, 0, index % 60)
+        }));
+        const preferences = {
+            search: "wedding-00",
+            orientations: ["landscape"],
+            sort: { field: "modified", direction: "desc" }
+        };
+        const first = queryPhotoBrowser(large, preferences);
+        const second = queryPhotoBrowser(large, preferences);
+        assert.strictEqual(first.counts.total, 10000);
+        assert.strictEqual(first.counts.matched, 500);
+        assert.deepStrictEqual(
+            first.photos.map(photo => photo.id),
+            second.photos.map(photo => photo.id)
+        );
+        assert.notStrictEqual(first.photos, large);
+        assert.strictEqual(large[0].width, 1800);
+        assert.strictEqual(large[9999].name, "Wedding-09999.jpg");
     });
     decisions = updatePhotoDecision(decisions, photos[0], { rating: 2 });
     const filtered = queryPhotoBrowser(photos, {

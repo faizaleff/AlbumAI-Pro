@@ -150,6 +150,78 @@ function bootstrapWindow(photos, viewMode, reducedProfiles) {
     };
 }
 
+export function calculatePhotoBrowserWindow({
+    photoCount,
+    viewMode,
+    reducedProfiles,
+    viewportWidth,
+    viewportHeight,
+    scrollTop: requestedScrollTop
+}) {
+    const count = Math.max(0, Number(photoCount) || 0);
+    let columns = 1;
+    let totalHeight = 0;
+    let visibleStart = 0;
+    let visibleEnd = 0;
+    let start = 0;
+    let end = 0;
+    let scrollTop = Math.max(0, Number(requestedScrollTop) || 0);
+    if (viewMode === "list") {
+        totalHeight = count * LIST_ROW_HEIGHT;
+        scrollTop = Math.min(
+            scrollTop,
+            Math.max(0, totalHeight - viewportHeight)
+        );
+        visibleStart = Math.floor(scrollTop / LIST_ROW_HEIGHT);
+        visibleEnd = Math.min(
+            count,
+            Math.ceil((scrollTop + viewportHeight) / LIST_ROW_HEIGHT)
+        );
+        const overscan = reducedProfiles ? LIST_OVERSCAN_ROWS : 0;
+        start = Math.max(0, visibleStart - overscan);
+        end = Math.min(count, visibleEnd + overscan);
+    } else {
+        columns = Math.max(1, Math.floor(
+            (viewportWidth - ICON_PADDING * 2 + ICON_GAP) /
+            (ICON_WIDTH + ICON_GAP)
+        ));
+        const rowCount = Math.ceil(count / columns);
+        totalHeight = rowCount
+            ? ICON_PADDING * 2 + rowCount * ICON_HEIGHT +
+                Math.max(0, rowCount - 1) * ICON_GAP
+            : 0;
+        scrollTop = Math.min(
+            scrollTop,
+            Math.max(0, totalHeight - viewportHeight)
+        );
+        const firstRow = Math.floor(
+            Math.max(0, scrollTop - ICON_PADDING) / ICON_ROW_HEIGHT
+        );
+        const visibleRows = Math.max(
+            1,
+            Math.ceil(viewportHeight / ICON_ROW_HEIGHT) +
+                (reducedProfiles ? 1 : 0)
+        );
+        visibleStart = Math.min(count, firstRow * columns);
+        visibleEnd = Math.min(count, (firstRow + visibleRows) * columns);
+        const overscan = reducedProfiles ? ICON_OVERSCAN_ROWS : 0;
+        start = Math.max(0, (firstRow - overscan) * columns);
+        end = Math.min(
+            count,
+            (firstRow + visibleRows + overscan) * columns
+        );
+    }
+    return Object.freeze({
+        start,
+        end,
+        columns,
+        totalHeight,
+        visibleStart,
+        visibleEnd,
+        scrollTop
+    });
+}
+
 function ThumbnailGrid({
     photos = [],
     onPhotoClick,
@@ -189,58 +261,23 @@ function ThumbnailGrid({
         if (!viewport) return false;
         const viewportWidth = viewport.clientWidth;
         const viewportHeight = viewport.clientHeight;
-        let columns = 1;
-        let totalHeight = 0;
-        let visibleStart = 0;
-        let visibleEnd = 0;
-        let start = 0;
-        let end = 0;
-        let scrollTop = viewport.scrollTop;
-        const iconOverscanRows = reducedProfiles
-            ? ICON_OVERSCAN_ROWS
-            : 0;
-        const listOverscanRows = reducedProfiles
-            ? LIST_OVERSCAN_ROWS
-            : 0;
-        if (viewMode === "list") {
-            totalHeight = photos.length * LIST_ROW_HEIGHT;
-            scrollTop = Math.min(
-                scrollTop,
-                Math.max(0, totalHeight - viewportHeight)
-            );
-            visibleStart = Math.floor(scrollTop / LIST_ROW_HEIGHT);
-            visibleEnd = Math.min(photos.length, Math.ceil((scrollTop + viewportHeight) / LIST_ROW_HEIGHT));
-            start = Math.max(0, visibleStart - listOverscanRows);
-            end = Math.min(photos.length, visibleEnd + listOverscanRows);
-        } else {
-            columns = Math.max(1, Math.floor((viewportWidth - ICON_PADDING * 2 + ICON_GAP) / (ICON_WIDTH + ICON_GAP)));
-            const rowCount = Math.ceil(photos.length / columns);
-            totalHeight = rowCount ? ICON_PADDING * 2 + rowCount * ICON_HEIGHT + Math.max(0, rowCount - 1) * ICON_GAP : 0;
-            scrollTop = Math.min(
-                scrollTop,
-                Math.max(0, totalHeight - viewportHeight)
-            );
-            const firstRow = Math.floor(Math.max(0, scrollTop - ICON_PADDING) / ICON_ROW_HEIGHT);
-            const visibleRows = Math.max(
-                1,
-                Math.ceil(viewportHeight / ICON_ROW_HEIGHT) +
-                    (reducedProfiles ? 1 : 0)
-            );
-            visibleStart = Math.min(photos.length, firstRow * columns);
-            visibleEnd = Math.min(photos.length, (firstRow + visibleRows) * columns);
-            start = Math.max(
-                0,
-                (firstRow - iconOverscanRows) * columns
-            );
-            end = Math.min(
-                photos.length,
-                (
-                    firstRow +
-                    visibleRows +
-                    iconOverscanRows
-                ) * columns
-            );
-        }
+        const calculated = calculatePhotoBrowserWindow({
+            photoCount: photos.length,
+            viewMode,
+            reducedProfiles,
+            viewportWidth,
+            viewportHeight,
+            scrollTop: viewport.scrollTop
+        });
+        const {
+            start,
+            end,
+            columns,
+            totalHeight,
+            visibleStart,
+            visibleEnd,
+            scrollTop
+        } = calculated;
         // A view switch can reduce the scrollable height. Apply the clamped
         // position before rendering so virtual indices always address photos.
         if (viewport.scrollTop !== scrollTop) viewport.scrollTop = scrollTop;

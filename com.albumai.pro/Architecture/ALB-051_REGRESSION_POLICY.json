@@ -6,8 +6,8 @@
   "regressionEntry": "tests/alb051-regression-baseline.test.js",
   "baseline": {
     "activeFiles": 96,
-    "legacyTestReachableFiles": 82,
-    "legacyTestGapFiles": 14,
+    "legacyTestReachableFiles": 85,
+    "legacyTestGapFiles": 11,
     "postAlb051ReachableFiles": 96
   },
   "requiredUiModules": [

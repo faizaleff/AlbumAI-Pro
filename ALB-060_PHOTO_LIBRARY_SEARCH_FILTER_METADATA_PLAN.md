@@ -73,8 +73,17 @@ thumbnail pipeline.
 - The UI exposes filename search, type/orientation/date filters, extended sort,
   matched/total counts, and a clear-filters action. Preferences migrate from
   the legacy sort field and persist as schema-versioned project metadata.
-- Slices 3–5 remain intentionally open; runtime qualification will be requested
-  only after metadata decisions and extraction are complete.
+- Slice 3 publishes JPEG dimensions, EXIF orientation, and normalized Date
+  Taken facts after the initial library paint. Reads share the existing
+  single-concurrency decode scheduler, stale folder generations cannot publish,
+  and only normalized facts enter the metadata cache.
+- Slice 4 is complete: date presets and metadata-aware sorting use the
+  published facts, while the filter summary, clear action, accessible labels,
+  compact empty state, and per-project preferences remain canonical.
+- Slice 5 automated qualification covers a deterministic 10,000-photo query,
+  bounded list/icon virtual windows, the complete CI/build/package gates, and
+  the reviewed 550 KiB production ceiling. Photoshop/UXP runtime evidence is
+  the only remaining qualification step.
 - Slice 2 adds opaque, path-free rating/favourite decision keys, serialized
   Photo-owner persistence, stale-key reconciliation, rollback on save failure,
   and controls in both browser views. The enforced production bundle ceiling

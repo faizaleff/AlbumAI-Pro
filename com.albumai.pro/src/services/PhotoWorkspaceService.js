@@ -7,6 +7,9 @@ import ThumbnailQueue, {
     ThumbnailPriority
 } from "../queue/ThumbnailQueue";
 import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
+import BrowserDecodeScheduler from "./BrowserDecodeScheduler";
+import ImageSourceCapabilityService from "./ImageSourceCapabilityService";
+import SoftwareJpegRenderer from "./SoftwareJpegRenderer";
 import { logPhotoRuntimeSchemaOnce } from "./PhotoFileEntry";
 import {
     normalizePhotoDecisions,
@@ -74,7 +77,10 @@ export default class PhotoWorkspaceService {
         thumbnailService = ThumbnailService,
         thumbnailQueue = ThumbnailQueue,
         refreshService = RefreshService,
-        performance = PhotoBrowserPerformance
+        performance = PhotoBrowserPerformance,
+        metadataScheduler = BrowserDecodeScheduler,
+        metadataSource = ImageSourceCapabilityService,
+        metadataInspector = SoftwareJpegRenderer
     } = {}) {
 
         if (!library || !selection || !projectEngine || !projectService) {
@@ -93,6 +99,10 @@ export default class PhotoWorkspaceService {
         this.thumbnailQueue = thumbnailQueue;
         this.refreshService = refreshService;
         this.performance = performance;
+        this.metadataScheduler = metadataScheduler;
+        this.metadataSource = metadataSource;
+        this.metadataInspector = metadataInspector;
+        this.metadataPromise = Promise.resolve();
         this.sourceFolder = null;
         this.persistencePromise = Promise.resolve();
         this.lifecycleGeneration = 0;
@@ -319,6 +329,7 @@ export default class PhotoWorkspaceService {
             overscan,
             ThumbnailPriority.OVERSCAN
         );
+        this.startMetadataExtraction(images, this.lifecycleGeneration);
 
         return true;
 
@@ -831,6 +842,125 @@ export default class PhotoWorkspaceService {
 
     }
 
+    startMetadataExtraction(photos, generation) {
+
+        const source = Array.isArray(photos) ? photos : [];
+        this.metadataPromise = this.extractMetadata(source, generation)
+            .catch(error => {
+                this.performance.trace?.("PHOTO_METADATA_BATCH_FAILURE", {
+                    generation,
+                    errorName: error?.name || "Error"
+                });
+            });
+        return this.metadataPromise;
+
+    }
+
+    async extractMetadata(photos, generation) {
+
+        let updated = 0;
+        for (let index = 0; index < photos.length; index++) {
+            if (generation !== this.lifecycleGeneration) break;
+            const photo = photos[index];
+            if (!this.metadataInspector.supports(photo)) continue;
+            if (photo.metadataLoaded === true) continue;
+            const facts = await this.readMetadata(photo, generation, index);
+            if (generation !== this.lifecycleGeneration) break;
+            if (!facts || !(facts.width > 0) || !(facts.height > 0)) {
+                continue;
+            }
+            photo.width = facts.width;
+            photo.height = facts.height;
+            photo.orientation = facts.orientation;
+            photo.dateTaken = facts.dateTaken;
+            photo.metadataLoaded = true;
+            updated++;
+            if (updated % 25 === 0) this.refreshService.refresh();
+        }
+        if (generation !== this.lifecycleGeneration) return;
+        if (updated) {
+            this.refreshService.refresh();
+            try {
+                const cacheWrite = this.persistencePromise
+                    .catch(() => {})
+                    .then(() => generation === this.lifecycleGeneration
+                        ? this.writeMetadataCache(photos)
+                        : null
+                    );
+                this.persistencePromise = cacheWrite.catch(() => {});
+                await cacheWrite;
+            } catch (error) {
+                this.performance.trace?.("PHOTO_METADATA_CACHE_FAILURE", {
+                    generation,
+                    errorName: error?.name || "Error"
+                });
+            }
+        }
+        this.performance.trace?.("PHOTO_METADATA_BATCH_COMPLETE", {
+            generation,
+            inspected: photos.length,
+            updated
+        });
+
+    }
+
+    readMetadata(photo, generation, index) {
+
+        return new Promise(resolve => {
+            const key = `metadata:${generation}:${index}:${photo?.id || photo?.name}`;
+            let settled = false;
+            const finish = value => {
+                if (settled) return;
+                settled = true;
+                resolve(value);
+            };
+            const accepted = this.metadataScheduler.request(
+                key,
+                release => {
+                    if (generation !== this.lifecycleGeneration) {
+                        finish(null);
+                        release();
+                        return;
+                    }
+                    this.metadataSource.readBinary(photo)
+                        .then(binary => {
+                            if (
+                                settled ||
+                                generation !== this.lifecycleGeneration
+                            ) {
+                                return null;
+                            }
+                            return this.metadataInspector.inspectMetadata(
+                                binary
+                            );
+                        })
+                        .then(finish)
+                        .catch(error => {
+                            this.performance.trace?.(
+                                "PHOTO_METADATA_READ_FAILURE",
+                                {
+                                    generation,
+                                    extension: photo?.extension || null,
+                                    errorName: error?.name || "Error"
+                                }
+                            );
+                            finish(null);
+                        })
+                        .finally(release);
+                },
+                {
+                    priority: 3,
+                    timeoutMs: 30000,
+                    generation,
+                    onTimeout: () => finish(null),
+                    onCancel: () => finish(null)
+                }
+            );
+            if (!accepted) finish(null);
+        });
+
+    }
+
     async release() {
 
         this.folderChangeTransactionId++;
@@ -1097,6 +1227,7 @@ export default class PhotoWorkspaceService {
             width: photo.width,
             height: photo.height,
             orientation: photo.orientation,
+            dateTaken: photo.dateTaken,
             fileSize: photo.fileSize,
             created: photo.created,
             modified: photo.modified

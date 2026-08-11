@@ -39,6 +39,11 @@ contain no paths or host entries, and are reconciled against the active
 workspace before publication. `PhotoBrowserModel` consumes those records as a
 read-only query input; it never writes decision fields onto Photo objects.
 
+JPEG metadata enrichment also remains under `PhotoWorkspaceService`. Reads
+share the bounded browser decode scheduler, and only normalized dimensions,
+orientation, and Date Taken facts may be published by the current folder
+generation or written to the metadata cache.
+
 The deleted inactive source contained competing project models, album engines,
 template registries, generation contexts, workflow jobs, export managers,
 bootstrap containers, and UI state stores. None is part of the product after
