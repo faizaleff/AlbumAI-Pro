@@ -192,6 +192,83 @@ button.photo-browser-control:active:not(:disabled) {
     padding-right: 22px;
 }
 
+.photo-browser-favorite-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #cfcfcf;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.photo-decision-controls {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 3px;
+}
+
+.photo-decision-controls select,
+.photo-list-rating {
+    min-width: 0;
+    height: 18px;
+    padding: 0 2px;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #ddd;
+    background: #303030;
+    font-size: 9px;
+}
+
+.photo-decision-controls select {
+    flex: 1 1 auto;
+}
+
+.photo-decision-controls button,
+.photo-list-favorite {
+    width: 20px;
+    min-width: 20px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #bbb;
+    background: #303030;
+    font-size: 13px;
+    line-height: 16px;
+}
+
+.photo-decision-controls button.is-favorite,
+.photo-list-favorite.is-favorite {
+    border-color: #b66a75;
+    color: #ff8fa3;
+    background: #4a2930;
+}
+
+.photo-list-rating {
+    flex: 0 0 52px;
+    width: 52px;
+}
+
+.photo-list-favorite {
+    flex: 0 0 20px;
+}
+
+.photo-decision-error {
+    position: absolute;
+    z-index: 6;
+    right: 10px;
+    top: 10px;
+    max-width: 320px;
+    padding: 7px 10px;
+    border: 1px solid #9b4f58;
+    border-radius: 4px;
+    color: #ffd4d9;
+    background: #3a2226;
+    font-size: 11px;
+}
+
 .photo-browser-sort-label {
     display: flex;
     flex: 1 1 auto;

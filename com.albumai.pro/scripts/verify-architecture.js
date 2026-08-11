@@ -109,7 +109,7 @@ function main() {
     check(policy.baseline.sourceFiles === 436, "ALB-050 baseline source count changed.");
     check(policy.baseline.activeFiles === 95, "ALB-050 active baseline count changed.");
     check(policy.baseline.inactiveFiles === 341, "ALB-050 inactive baseline count changed.");
-    check(policy.activeFiles.length === 95, "Architecture policy must list all 95 active files.");
+    check(policy.activeFiles.length === 96, "Architecture policy must list all 96 active files.");
     check(policy.inactiveDisposition.delete.length === 341,
         "Architecture policy must classify all 341 inactive files.");
     check(policy.inactiveDisposition.migrate.length === 0,

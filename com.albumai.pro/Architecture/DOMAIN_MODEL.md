@@ -33,6 +33,12 @@ preferences, filters and sorts without mutating Photo objects, and publishes
 the exact visible order to selection. It does not retain or persist a competing
 photo collection.
 
+Per-photo rating and favourite decisions remain under
+`PhotoWorkspaceService`. Persisted records use bounded opaque source hashes,
+contain no paths or host entries, and are reconciled against the active
+workspace before publication. `PhotoBrowserModel` consumes those records as a
+read-only query input; it never writes decision fields onto Photo objects.
+
 The deleted inactive source contained competing project models, album engines,
 template registries, generation contexts, workflow jobs, export managers,
 bootstrap containers, and UI state stores. None is part of the product after

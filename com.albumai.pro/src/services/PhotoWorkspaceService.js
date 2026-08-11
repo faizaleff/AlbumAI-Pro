@@ -8,6 +8,11 @@ import ThumbnailQueue, {
 } from "../queue/ThumbnailQueue";
 import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
 import { logPhotoRuntimeSchemaOnce } from "./PhotoFileEntry";
+import {
+    normalizePhotoDecisions,
+    reconcilePhotoDecisions,
+    updatePhotoDecision
+} from "./PhotoBrowserModel";
 
 const METADATA_FILE = "photos.json";
 const INITIAL_VISIBLE_PHOTOS = 30;
@@ -94,6 +99,9 @@ export default class PhotoWorkspaceService {
         this.importRequestId = 0;
         this.folderChangeTransactionId = 0;
         this.folderChangeCommitPromise = Promise.resolve();
+        this.photoDecisionProjectId = null;
+        this.photoDecisions = normalizePhotoDecisions();
+        this.photoDecisionsPersisted = this.photoDecisions;
 
     }
 
@@ -260,6 +268,7 @@ export default class PhotoWorkspaceService {
             this.reactivateCurrentPhotoWorkspace();
             return false;
         }
+        this.reconcilePhotoDecisionCache(images);
         this.sourceFolder = result.folder;
         if (!sameFolder) this.selection.clear();
         // Placeholder mode is the normal browser fallback. Cache hydration is
@@ -517,6 +526,10 @@ export default class PhotoWorkspaceService {
         const nextValues = {
             ...projectValues,
             photoCount: prepared.images.length,
+            photoDecisions: reconcilePhotoDecisions(
+                this.getPhotoDecisions(),
+                prepared.images
+            ),
             photoSource: {
                 name: prepared.folderName,
                 token
@@ -528,6 +541,8 @@ export default class PhotoWorkspaceService {
                 nextValues,
                 { reason: persistenceReason }
             );
+            this.photoDecisions = nextValues.photoDecisions;
+            this.photoDecisionsPersisted = nextValues.photoDecisions;
         } catch (error) {
             this.projectEngine.updateMetadata(previousMetadata);
             return this.folderChangeFailure(
@@ -691,11 +706,14 @@ export default class PhotoWorkspaceService {
         this.selection.clear();
         this.library.load([]);
         this.sourceFolder = null;
+        this.photoDecisions = normalizePhotoDecisions();
 
         await this.projectService.saveProject({
             photoCount: 0,
-            photoSource: null
+            photoSource: null,
+            photoDecisions: this.photoDecisions
         }, { reason: "PHOTO_FOLDER_REMOVE" });
+        this.photoDecisionsPersisted = this.photoDecisions;
         await this.writeMetadataCache();
 
         this.refreshService.refresh();
@@ -705,6 +723,94 @@ export default class PhotoWorkspaceService {
     getPhotos() {
 
         return this.library.getPhotos();
+
+    }
+
+    waitForPersistence() {
+
+        return this.persistencePromise;
+
+    }
+
+    getPhotoDecisions() {
+
+        const project = this.projectEngine.getProject();
+        const projectId = project?.metadata?.id || null;
+        if (projectId !== this.photoDecisionProjectId) {
+            this.photoDecisionProjectId = projectId;
+            this.photoDecisions = normalizePhotoDecisions(
+                project?.metadata?.photoDecisions
+            );
+            this.photoDecisionsPersisted = this.photoDecisions;
+        }
+        return this.photoDecisions;
+
+    }
+
+    updatePhotoDecision(photo, values = {}) {
+
+        this.requireProject();
+        const projectId =
+            this.projectEngine.getProject()?.metadata?.id || null;
+        const previous = this.getPhotoDecisions();
+        const next = reconcilePhotoDecisions(
+            updatePhotoDecision(previous, photo, values),
+            this.library.getPhotos()
+        );
+        if (JSON.stringify(previous) === JSON.stringify(next)) {
+            return Promise.resolve(next);
+        }
+        this.photoDecisions = next;
+        const operation = this.persistencePromise
+            .catch(() => {})
+            .then(async () => {
+                const activeProjectId =
+                    this.projectEngine.getProject()?.metadata?.id || null;
+                if (activeProjectId !== projectId) {
+                    const error = new Error(
+                        "Photo decision project changed before persistence."
+                    );
+                    error.code = "PHOTO_DECISION_PROJECT_CHANGED";
+                    throw error;
+                }
+                await this.projectService.saveProject(
+                    { photoDecisions: next },
+                    { reason: "PHOTO_DECISION_UPDATE" }
+                );
+                if (this.photoDecisionProjectId === projectId) {
+                    this.photoDecisionsPersisted = next;
+                }
+                return next;
+            })
+            .catch(error => {
+                if (
+                    this.photoDecisionProjectId === projectId &&
+                    this.projectEngine.getProject()?.metadata?.id === projectId &&
+                    this.photoDecisions === next
+                ) {
+                    this.photoDecisions = this.photoDecisionsPersisted;
+                    const metadata =
+                        this.projectEngine.getProject()?.metadata;
+                    if (metadata) {
+                        this.projectEngine.updateMetadata({
+                            ...metadata,
+                            photoDecisions: this.photoDecisionsPersisted
+                        });
+                    }
+                }
+                throw error;
+            });
+        this.persistencePromise = operation.catch(() => {});
+        return operation;
+
+    }
+
+    reconcilePhotoDecisionCache(photos) {
+
+        const previous = this.getPhotoDecisions();
+        const next = reconcilePhotoDecisions(previous, photos);
+        this.photoDecisions = next;
+        return JSON.stringify(previous) !== JSON.stringify(next);
 
     }
 
@@ -747,6 +853,9 @@ export default class PhotoWorkspaceService {
         this.selection.clear();
         this.library.load([]);
         this.sourceFolder = null;
+        this.photoDecisionProjectId = null;
+        this.photoDecisions = normalizePhotoDecisions();
+        this.photoDecisionsPersisted = this.photoDecisions;
 
     }
 
@@ -785,8 +894,10 @@ export default class PhotoWorkspaceService {
 
         await this.projectService.saveProject({
             photoCount: this.library.getPhotos().length,
+            photoDecisions: this.getPhotoDecisions(),
             photoSource
         }, { reason: persistenceReason });
+        this.photoDecisionsPersisted = this.photoDecisions;
 
         return { persistentTokenMs };
 
@@ -925,6 +1036,10 @@ export default class PhotoWorkspaceService {
             );
         } finally {
             this.projectEngine.updateMetadata(previousMetadata);
+            this.photoDecisions = normalizePhotoDecisions(
+                previousMetadata?.photoDecisions
+            );
+            this.photoDecisionsPersisted = this.photoDecisions;
             this.reactivateCurrentPhotoWorkspace();
         }
 

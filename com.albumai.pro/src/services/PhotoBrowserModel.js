@@ -1,7 +1,5 @@
-import App from "../app/AppController";
-import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
-
 export const PHOTO_BROWSER_PREFERENCES_SCHEMA = 1;
+export const PHOTO_DECISIONS_SCHEMA = 1;
 
 const SORT_FIELDS = new Set([
     "name",
@@ -30,10 +28,8 @@ const DATE_FIELDS = new Set([
     "created"
 ]);
 const MAX_SEARCH_LENGTH = 160;
+const MAX_PHOTO_DECISIONS = 20000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-let canonicalPhotos = [];
-let canonicalPhotosConfigured = false;
 
 function boundedString(value, maximum = MAX_SEARCH_LENGTH) {
     return typeof value === "string"
@@ -53,6 +49,118 @@ function normalizedRating(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) return 0;
     return Math.max(0, Math.min(5, Math.floor(number)));
+}
+
+function fnv1a(value, seed) {
+    let hash = seed >>> 0;
+    for (let index = 0; index < value.length; index++) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+export function photoDecisionKey(photo) {
+    const source = photo?.file?.nativePath || photo?.id || photo?.name;
+    if (typeof source !== "string" || !source) return null;
+    const normalized = source.normalize
+        ? source.normalize("NFC")
+        : source;
+    return `p1-${fnv1a(normalized, 0x811c9dc5)}${fnv1a(
+        normalized,
+        0x9e3779b9
+    )}`;
+}
+
+function normalizedDecision(item) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    const photoKey = typeof item.photoKey === "string" &&
+        /^p1-[0-9a-f]{16}$/.test(item.photoKey)
+        ? item.photoKey
+        : null;
+    if (!photoKey) return null;
+    const rating = normalizedRating(item.rating);
+    const favorite = item.favorite === true;
+    if (!rating && !favorite) return null;
+    return Object.freeze({ photoKey, rating, favorite });
+}
+
+export function normalizePhotoDecisions(value = {}) {
+    const source = value && typeof value === "object" && !Array.isArray(value)
+        ? value
+        : {};
+    const byKey = new Map();
+    if (Array.isArray(source.items)) {
+        for (const candidate of source.items.slice(0, MAX_PHOTO_DECISIONS)) {
+            const decision = normalizedDecision(candidate);
+            if (decision) byKey.set(decision.photoKey, decision);
+        }
+    }
+    const items = [...byKey.values()]
+        .sort((left, right) => left.photoKey.localeCompare(right.photoKey));
+    return Object.freeze({
+        schemaVersion: PHOTO_DECISIONS_SCHEMA,
+        items: Object.freeze(items)
+    });
+}
+
+function photoDecisionMap(value) {
+    const decisions = normalizePhotoDecisions(value);
+    return new Map(decisions.items.map(item => [item.photoKey, item]));
+}
+
+function effectivePhotoDecision(photo, decisionsByKey) {
+    const persisted = decisionsByKey.get(photoDecisionKey(photo));
+    return persisted || {
+        rating: normalizedRating(photo?.rating),
+        favorite: photo?.favorite === true
+    };
+}
+
+export function photoDecisionFor(value, photo) {
+    const decision = effectivePhotoDecision(photo, photoDecisionMap(value));
+    return Object.freeze({
+        rating: decision.rating,
+        favorite: decision.favorite
+    });
+}
+
+export function createPhotoDecisionLookup(value = {}) {
+    const decisionsByKey = photoDecisionMap(value);
+    return photo => {
+        const decision = effectivePhotoDecision(photo, decisionsByKey);
+        return Object.freeze({
+            rating: decision.rating,
+            favorite: decision.favorite
+        });
+    };
+}
+
+export function updatePhotoDecision(value, photo, changes = {}) {
+    const photoKey = photoDecisionKey(photo);
+    const current = normalizePhotoDecisions(value);
+    if (!photoKey) return current;
+    const byKey = new Map(current.items.map(item => [item.photoKey, item]));
+    const previous = byKey.get(photoKey) || { rating: 0, favorite: false };
+    const rating = Object.prototype.hasOwnProperty.call(changes, "rating")
+        ? normalizedRating(changes.rating)
+        : previous.rating;
+    const favorite = Object.prototype.hasOwnProperty.call(changes, "favorite")
+        ? changes.favorite === true
+        : previous.favorite;
+    if (!rating && !favorite) byKey.delete(photoKey);
+    else byKey.set(photoKey, { photoKey, rating, favorite });
+    return normalizePhotoDecisions({ items: [...byKey.values()] });
+}
+
+export function reconcilePhotoDecisions(value, photos = []) {
+    const current = normalizePhotoDecisions(value);
+    const available = new Set((Array.isArray(photos) ? photos : [])
+        .map(photoDecisionKey)
+        .filter(Boolean));
+    return normalizePhotoDecisions({
+        items: current.items.filter(item => available.has(item.photoKey))
+    });
 }
 
 export function normalizePhotoBrowserPreferences(value = {}) {
@@ -160,8 +268,10 @@ function nameComparison(left, right) {
     return String(left?.id || "").localeCompare(String(right?.id || ""));
 }
 
-function sortValue(photo, field) {
-    if (field === "rating") return normalizedRating(photo?.rating);
+function sortValue(photo, field, decisionsByKey) {
+    if (field === "rating") {
+        return effectivePhotoDecision(photo, decisionsByKey).rating;
+    }
     if (field === "size") {
         const size = Number(photo?.fileSize || photo?.file?.size);
         return Number.isFinite(size) && size >= 0 ? size : null;
@@ -172,14 +282,14 @@ function sortValue(photo, field) {
     return null;
 }
 
-function comparePhotos(left, right, sort) {
+function comparePhotos(left, right, sort, decisionsByKey) {
     if (sort.field === "name") {
         const result = nameComparison(left, right);
         return sort.direction === "desc" ? -result : result;
     }
 
-    const leftValue = sortValue(left, sort.field);
-    const rightValue = sortValue(right, sort.field);
+    const leftValue = sortValue(left, sort.field, decisionsByKey);
+    const rightValue = sortValue(right, sort.field, decisionsByKey);
     if (leftValue == null && rightValue == null) {
         return nameComparison(left, right);
     }
@@ -190,7 +300,7 @@ function comparePhotos(left, right, sort) {
     return sort.direction === "desc" ? -result : result;
 }
 
-function matchesPhoto(photo, preferences, range) {
+function matchesPhoto(photo, preferences, range, decisionsByKey) {
     if (!photo || typeof photo !== "object") return false;
     if (preferences.search) {
         const query = preferences.search.toLocaleLowerCase();
@@ -206,8 +316,9 @@ function matchesPhoto(photo, preferences, range) {
         preferences.orientations.length &&
         !preferences.orientations.includes(photoOrientation(photo))
     ) return false;
-    if (normalizedRating(photo.rating) < preferences.minimumRating) return false;
-    if (preferences.favoritesOnly && photo.favorite !== true) return false;
+    const decision = effectivePhotoDecision(photo, decisionsByKey);
+    if (decision.rating < preferences.minimumRating) return false;
+    if (preferences.favoritesOnly && !decision.favorite) return false;
     if (range) {
         const milliseconds = dateValue(photo, preferences.dateField);
         if (milliseconds == null || milliseconds < range.start || milliseconds > range.end) {
@@ -217,14 +328,29 @@ function matchesPhoto(photo, preferences, range) {
     return true;
 }
 
-export function queryPhotoBrowser(photos = [], value = {}, { now } = {}) {
+export function queryPhotoBrowser(
+    photos = [],
+    value = {},
+    { now, decisions = {} } = {}
+) {
     const source = Array.isArray(photos) ? photos : [];
     const preferences = normalizePhotoBrowserPreferences(value);
+    const decisionsByKey = photoDecisionMap(decisions);
     const range = dateRange(preferences.datePreset, now);
     const matched = source
-        .filter(photo => matchesPhoto(photo, preferences, range))
+        .filter(photo => matchesPhoto(
+            photo,
+            preferences,
+            range,
+            decisionsByKey
+        ))
         .slice()
-        .sort((left, right) => comparePhotos(left, right, preferences.sort));
+        .sort((left, right) => comparePhotos(
+            left,
+            right,
+            preferences.sort,
+            decisionsByKey
+        ));
     const types = [...new Set(source.map(photoExtension).filter(Boolean))].sort();
     const orientations = [...new Set(source.map(photoOrientation))].sort();
 
@@ -253,26 +379,4 @@ export function hasActivePhotoBrowserFilters(value = {}) {
         preferences.favoritesOnly ||
         preferences.datePreset !== "any"
     );
-}
-
-export function setCanonicalBrowserPhotos(photos = []) {
-    canonicalPhotosConfigured = true;
-    canonicalPhotos = Array.isArray(photos)
-        ? photos.filter(photo => photo?.id)
-        : [];
-}
-
-export function resolveCanonicalBrowserPhotos(fallbackPhotos = []) {
-    if (canonicalPhotosConfigured) return canonicalPhotos;
-    return Array.isArray(fallbackPhotos) ? fallbackPhotos : [];
-}
-
-export function selectAllBrowserPhotos() {
-    const photos = resolveCanonicalBrowserPhotos(App.getPhotos());
-
-    App.selection.setOrderedPhotos(photos);
-    App.selection.selectAll();
-    PhotoBrowserPerformance.trace("BROWSER_SELECT_ALL", {
-        selected: photos.length
-    });
 }

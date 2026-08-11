@@ -62,8 +62,11 @@ module.exports = (_env, argv = {}) => {
     ],
     performance: {
         hints: "error",
-        maxAssetSize: 525 * 1024,
-        maxEntrypointSize: 525 * 1024
+        // ALB-060 adds the production photo-query model, persisted rating /
+        // favourite controls, and their fail-closed workspace lifecycle. Keep
+        // a strict ceiling while allowing this reviewed feature increment.
+        maxAssetSize: 550 * 1024,
+        maxEntrypointSize: 550 * 1024
     }
     };
 };

@@ -73,5 +73,9 @@ thumbnail pipeline.
 - The UI exposes filename search, type/orientation/date filters, extended sort,
   matched/total counts, and a clear-filters action. Preferences migrate from
   the legacy sort field and persist as schema-versioned project metadata.
-- Slices 2–5 remain intentionally open; runtime qualification will be requested
+- Slices 3–5 remain intentionally open; runtime qualification will be requested
   only after metadata decisions and extraction are complete.
+- Slice 2 adds opaque, path-free rating/favourite decision keys, serialized
+  Photo-owner persistence, stale-key reconciliation, rollback on save failure,
+  and controls in both browser views. The enforced production bundle ceiling
+  moves from 525 KiB to 550 KiB for this reviewed feature increment.

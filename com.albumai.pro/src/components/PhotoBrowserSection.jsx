@@ -2,18 +2,24 @@ import React, {
     useCallback,
     useEffect,
     useMemo,
+    useRef,
     useState
 } from "react";
 
 import ThumbnailGrid from "./ThumbnailGrid";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import {
+    createPhotoDecisionLookup,
     hasActivePhotoBrowserFilters,
+    normalizePhotoDecisions,
     normalizePhotoBrowserPreferences,
     queryPhotoBrowser,
+    updatePhotoDecision
+} from "../services/PhotoBrowserModel";
+import {
     selectAllBrowserPhotos,
     setCanonicalBrowserPhotos
-} from "../services/PhotoBrowserModel";
+} from "../services/PhotoBrowserSelection";
 import App from "../app/AppController";
 import {
     canStartPhotoFolderChange
@@ -56,16 +62,32 @@ function PhotoBrowserSection({
         });
     };
     const [preferences, setPreferences] = useState(readSavedPreferences);
+    const [decisions, setDecisions] = useState(
+        () => normalizePhotoDecisions(App.getPhotoDecisions())
+    );
+    const [decisionError, setDecisionError] = useState(null);
+    const decisionRevision = useRef(0);
     const queryResult = useMemo(
-        () => queryPhotoBrowser(photos, preferences),
-        [photos, preferences]
+        () => queryPhotoBrowser(photos, preferences, { decisions }),
+        [decisions, photos, preferences]
+    );
+    const decisionForPhoto = useMemo(
+        () => createPhotoDecisionLookup(decisions),
+        [decisions]
     );
     const visiblePhotos = queryResult.photos;
     const filtersActive = hasActivePhotoBrowserFilters(preferences);
 
     useEffect(() => {
         setPreferences(readSavedPreferences());
+        setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
+        setDecisionError(null);
+        decisionRevision.current += 1;
     }, [projectId]);
+
+    useEffect(() => {
+        setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
+    }, [photos]);
 
     const persistPreferences = useCallback(value => {
         App.saveProject(
@@ -101,6 +123,33 @@ function PhotoBrowserSection({
     const clearFilters = useCallback(() => {
         updatePreferences(previous => ({ sort: previous.sort }));
     }, [updatePreferences]);
+
+    const changePhotoDecision = useCallback((photo, changes) => {
+        const revision = ++decisionRevision.current;
+        setDecisionError(null);
+        setDecisions(previous => updatePhotoDecision(
+            previous,
+            photo,
+            changes
+        ));
+        App.updatePhotoDecision(photo, changes)
+            .then(persisted => {
+                if (decisionRevision.current === revision) {
+                    setDecisions(normalizePhotoDecisions(persisted));
+                }
+            })
+            .catch(error => {
+                if (decisionRevision.current === revision) {
+                    setDecisions(normalizePhotoDecisions(
+                        App.getPhotoDecisions()
+                    ));
+                    setDecisionError(
+                        "Rating or favourite could not be saved."
+                    );
+                }
+                console.warn("Photo decision persistence:", error);
+            });
+    }, []);
 
     const switchView = useCallback(nextMode => {
         setViewMode(previous => {
@@ -347,6 +396,35 @@ function PhotoBrowserSection({
                         <option value="thisYear">This year</option>
                     </select>
                 </label>
+                <label className="photo-browser-filter-label" htmlFor="photo-browser-rating">
+                    Rating
+                    <select
+                        id="photo-browser-rating"
+                        value={preferences.minimumRating}
+                        onChange={event => updatePreferences({
+                            minimumRating: Number(event.target.value)
+                        })}
+                        className="photo-browser-filter-select photo-browser-control"
+                        aria-label="Filter photos by minimum rating"
+                    >
+                        <option value="0">Any</option>
+                        <option value="1">1+ stars</option>
+                        <option value="2">2+ stars</option>
+                        <option value="3">3+ stars</option>
+                        <option value="4">4+ stars</option>
+                        <option value="5">5 stars</option>
+                    </select>
+                </label>
+                <label className="photo-browser-favorite-filter">
+                    <input
+                        type="checkbox"
+                        checked={preferences.favoritesOnly}
+                        onChange={event => updatePreferences({
+                            favoritesOnly: event.target.checked
+                        })}
+                    />
+                    Favourites only
+                </label>
                 <button
                     type="button"
                     onClick={clearFilters}
@@ -373,6 +451,7 @@ function PhotoBrowserSection({
                         <option value="modified">Date Modified</option>
                         <option value="taken">Date Taken</option>
                         <option value="created">Date Created</option>
+                        <option value="rating">Rating</option>
                         <option value="size">File Size</option>
                     </select>
                 </label>
@@ -447,6 +526,11 @@ function PhotoBrowserSection({
                         {photoFolderChange.message}
                     </div>
                 )}
+                {decisionError && (
+                    <div className="photo-decision-error" role="alert">
+                        {decisionError}
+                    </div>
+                )}
                 {isLoading ? (
                     <div className="photo-browser-state photo-browser-loading-state" role="status" aria-live="polite">
                         <div className="photo-browser-spinner" aria-hidden="true" />
@@ -494,6 +578,8 @@ function PhotoBrowserSection({
                         focusedPhotoId={focusedPhotoId}
                         onFocusPhoto={focusPhoto}
                         viewMode={viewMode}
+                        decisionForPhoto={decisionForPhoto}
+                        onPhotoDecisionChange={changePhotoDecision}
                     />
                 )}
             </div>
@@ -555,6 +641,8 @@ function PhotoBrowserSection({
                                 ? "Date Taken"
                                 : preferences.sort.field === "created"
                                     ? "Date Created"
+                                    : preferences.sort.field === "rating"
+                                        ? "Rating"
                                     : "File Size"}{" "}
                     {preferences.sort.direction === "asc" ? "↑" : "↓"}
                 </span>

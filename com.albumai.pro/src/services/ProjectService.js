@@ -479,7 +479,12 @@ export default class ProjectService {
             );
         }
 
-        for (const field of ["batchRecovery", "photoSource"]) {
+        for (const field of [
+            "batchRecovery",
+            "photoSource",
+            "photoDecisions",
+            "photoBrowserPreferences"
+        ]) {
             const value = metadata[field];
             if (value != null && (typeof value !== "object" || Array.isArray(value))) {
                 throw this.metadataError(

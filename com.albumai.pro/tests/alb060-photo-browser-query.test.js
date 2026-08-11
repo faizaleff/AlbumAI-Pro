@@ -1,13 +1,20 @@
 import assert from "assert";
 
 import {
+    createPhotoDecisionLookup,
     hasActivePhotoBrowserFilters,
+    normalizePhotoDecisions,
     normalizePhotoBrowserPreferences,
+    photoDecisionKey,
     photoOrientation,
     queryPhotoBrowser,
+    reconcilePhotoDecisions,
+    updatePhotoDecision
+} from "../src/services/PhotoBrowserModel";
+import {
     resolveCanonicalBrowserPhotos,
     setCanonicalBrowserPhotos
-} from "../src/services/PhotoBrowserModel";
+} from "../src/services/PhotoBrowserSelection";
 
 let assertions = 0;
 
@@ -175,6 +182,86 @@ test("an explicitly empty filtered result never falls back to the full library",
     const fallback = [photo("fallback")];
     setCanonicalBrowserPhotos([]);
     assert.deepStrictEqual(resolveCanonicalBrowserPhotos(fallback), []);
+});
+
+test("photo decision keys are stable and do not persist source paths", () => {
+    const source = photo("secure", {
+        file: { nativePath: "/Users/example/private/Wedding 01.jpg" }
+    });
+    const key = photoDecisionKey(source);
+    assert(/^p1-[0-9a-f]{16}$/.test(key));
+    assert.strictEqual(key.includes("Users"), false);
+    assert.strictEqual(photoDecisionKey({
+        ...source,
+        file: { nativePath: "/Users/example/private/Wedding 01.jpg" }
+    }), key);
+});
+
+test("decision normalization is bounded, deterministic, and fail closed", () => {
+    const firstKey = photoDecisionKey(photos[0]);
+    const normalized = normalizePhotoDecisions({
+        schemaVersion: 99,
+        items: [
+            { photoKey: "../../unsafe", rating: 5, favorite: true },
+            { photoKey: firstKey, rating: 99, favorite: "yes" },
+            { photoKey: firstKey, rating: 3, favorite: true }
+        ]
+    });
+    assert.strictEqual(normalized.schemaVersion, 1);
+    assert.deepStrictEqual(normalized.items, [{
+        photoKey: firstKey,
+        rating: 3,
+        favorite: true
+    }]);
+    assert(Object.isFrozen(normalized.items));
+});
+
+test("rating and favourite updates are immutable and omit neutral decisions", () => {
+    const empty = normalizePhotoDecisions();
+    const rated = updatePhotoDecision(empty, photos[0], { rating: 4 });
+    const favourite = updatePhotoDecision(rated, photos[0], {
+        favorite: true
+    });
+    const cleared = updatePhotoDecision(favourite, photos[0], {
+        rating: 0,
+        favorite: false
+    });
+    assert.strictEqual(empty.items.length, 0);
+    assert.deepStrictEqual(createPhotoDecisionLookup(favourite)(photos[0]), {
+        rating: 4,
+        favorite: true
+    });
+    assert.strictEqual(cleared.items.length, 0);
+});
+
+test("refresh reconciliation retains available decisions and removes stale keys", () => {
+    let decisions = updatePhotoDecision({}, photos[0], { rating: 5 });
+    decisions = updatePhotoDecision(decisions, photos[1], { favorite: true });
+    const reconciled = reconcilePhotoDecisions(decisions, [photos[1]]);
+    assert.strictEqual(reconciled.items.length, 1);
+    assert.deepStrictEqual(createPhotoDecisionLookup(reconciled)(photos[1]), {
+        rating: 0,
+        favorite: true
+    });
+});
+
+test("persisted decisions drive filters and sorting without photo mutation", () => {
+    const before = JSON.stringify(photos);
+    let decisions = updatePhotoDecision({}, photos[1], {
+        rating: 5,
+        favorite: true
+    });
+    decisions = updatePhotoDecision(decisions, photos[0], { rating: 2 });
+    const filtered = queryPhotoBrowser(photos, {
+        minimumRating: 4,
+        favoritesOnly: true
+    }, { decisions });
+    const sorted = queryPhotoBrowser(photos.slice(0, 2), {
+        sort: { field: "rating", direction: "desc" }
+    }, { decisions });
+    assert.deepStrictEqual(filtered.photos.map(item => item.id), ["two"]);
+    assert.deepStrictEqual(sorted.photos.map(item => item.id), ["two", "ten"]);
+    assert.strictEqual(JSON.stringify(photos), before);
 });
 
 console.info(`ALB-060 photo browser query tests complete: ${assertions} assertions.`);

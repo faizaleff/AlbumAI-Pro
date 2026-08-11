@@ -191,6 +191,7 @@ export class AppController {
         }
 
         if (this.project.getProject()) {
+            await this.photoWorkspace.waitForPersistence();
             await this.saveProject(
                 undefined,
                 { reason: "CLOSE_PROJECT" }
@@ -1569,6 +1570,18 @@ export class AppController {
     getPhotos() {
 
         return this.photoWorkspace.getPhotos();
+
+    }
+
+    getPhotoDecisions() {
+
+        return this.photoWorkspace.getPhotoDecisions();
+
+    }
+
+    updatePhotoDecision(photo, values) {
+
+        return this.photoWorkspace.updatePhotoDecision(photo, values);
 
     }
 
