@@ -72,3 +72,20 @@ ALB-053: the disposable-fixture Photoshop/UXP regression matrix, version and
 release-document updates, final checksum/tag creation, and clean release-tree
 sign-off. ALB-045 RT-03 remains harness-only because no safe deterministic host
 procedure can force its pre-transaction timing boundary.
+
+## ALB-053 release qualification
+
+The v1.0.1 release candidate completed deterministic, build, package, audit,
+and disposable-fixture Photoshop/UXP qualification:
+
+- 1,147 deterministic assertions passed;
+- all 95 canonical runtime files are reachable and regression-covered;
+- ALB-051-RT-01 and ALB-051-RT-02 passed;
+- the production build completed with zero warnings;
+- full and production dependency audits reported zero vulnerabilities; and
+- the 150,643-byte reproducible package has SHA-256
+  `f41344ba5e4248dacbad99b1b388a60743bcb182458f1e014b673c84478247c4`.
+
+The final release commit, clean-tree verification, and `v1.0.1` tag remain the
+post-review release actions. ALB-045-RT-03 retains its documented safe boundary
+and was not artificially forced.
