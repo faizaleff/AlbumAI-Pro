@@ -129,13 +129,11 @@ export class ThumbnailService {
         this.reportedFailures = new Set();
         this.loadStates = new Map();
         this.diagnosticCounts = new Map();
-        if (
-            typeof process === "undefined" ||
-            process.env?.NODE_ENV !== "production"
-        ) {
-            globalThis.__ALBUMAI_ALB042_RUNTIME_SUMMARY__ =
-                () => this.emitRuntimeSummary("explicit");
-        }
+        // This is a deliberately path-free, read-only runtime diagnostic used
+        // by the Photoshop/UXP release checklist. Keep it available in the
+        // production bundle that is actually being qualified.
+        globalThis.__ALBUMAI_ALB042_RUNTIME_SUMMARY__ =
+            () => this.emitRuntimeSummary("explicit");
 
     }
 

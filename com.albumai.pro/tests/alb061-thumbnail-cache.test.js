@@ -254,6 +254,24 @@ async function run() {
         assert.strictEqual(service.isWorkspaceGenerationCurrent(1), true);
     });
 
+    await test("production runtime summary hook exposes only safe counts", () => {
+        const service = new ThumbnailService();
+        assert.strictEqual(
+            typeof globalThis.__ALBUMAI_ALB042_RUNTIME_SUMMARY__,
+            "function"
+        );
+        const summary = globalThis.__ALBUMAI_ALB042_RUNTIME_SUMMARY__();
+        assert.strictEqual(summary.thumbnailCacheEntries >= 0, true);
+        assert.strictEqual(summary.pendingJobs >= 0, true);
+        assert.strictEqual(
+            summary.photoshopDocumentsOpenedByBrowser >= 0,
+            true
+        );
+        assert.strictEqual(JSON.stringify(summary).includes("nativePath"), false);
+        assert.strictEqual(JSON.stringify(summary).includes("blob:"), false);
+        assert.deepStrictEqual(service.emitRuntimeSummary("test"), summary);
+    });
+
     console.info(
         `ALB-061 thumbnail cache tests complete: ${assertions} assertions.`
     );
