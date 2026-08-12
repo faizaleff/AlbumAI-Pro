@@ -181,6 +181,7 @@ export function normalizePhotoBrowserPreferences(value = {}) {
         )),
         minimumRating: normalizedRating(source.minimumRating),
         favoritesOnly: source.favoritesOnly === true,
+        duplicatesOnly: source.duplicatesOnly === true,
         datePreset: DATE_PRESETS.has(source.datePreset)
             ? source.datePreset
             : "any",
@@ -300,7 +301,29 @@ function comparePhotos(left, right, sort, decisionsByKey) {
     return sort.direction === "desc" ? -result : result;
 }
 
-function matchesPhoto(photo, preferences, range, decisionsByKey) {
+function duplicatePhotoKeys(value) {
+    const keys = new Set();
+    if (!value || typeof value !== "object" || !Array.isArray(value.groups)) {
+        return keys;
+    }
+    for (const group of value.groups) {
+        if (!Array.isArray(group?.members)) continue;
+        for (const member of group.members) {
+            if (/^p1-[0-9a-f]{16}$/.test(member?.photoKey || "")) {
+                keys.add(member.photoKey);
+            }
+        }
+    }
+    return keys;
+}
+
+function matchesPhoto(
+    photo,
+    preferences,
+    range,
+    decisionsByKey,
+    duplicateKeys
+) {
     if (!photo || typeof photo !== "object") return false;
     if (preferences.search) {
         const query = preferences.search.toLocaleLowerCase();
@@ -319,6 +342,10 @@ function matchesPhoto(photo, preferences, range, decisionsByKey) {
     const decision = effectivePhotoDecision(photo, decisionsByKey);
     if (decision.rating < preferences.minimumRating) return false;
     if (preferences.favoritesOnly && !decision.favorite) return false;
+    if (
+        preferences.duplicatesOnly &&
+        !duplicateKeys.has(photoDecisionKey(photo))
+    ) return false;
     if (range) {
         const milliseconds = dateValue(photo, preferences.dateField);
         if (milliseconds == null || milliseconds < range.start || milliseconds > range.end) {
@@ -331,18 +358,20 @@ function matchesPhoto(photo, preferences, range, decisionsByKey) {
 export function queryPhotoBrowser(
     photos = [],
     value = {},
-    { now, decisions = {} } = {}
+    { now, decisions = {}, duplicateEvidence = {} } = {}
 ) {
     const source = Array.isArray(photos) ? photos : [];
     const preferences = normalizePhotoBrowserPreferences(value);
     const decisionsByKey = photoDecisionMap(decisions);
+    const duplicateKeys = duplicatePhotoKeys(duplicateEvidence);
     const range = dateRange(preferences.datePreset, now);
     const matched = source
         .filter(photo => matchesPhoto(
             photo,
             preferences,
             range,
-            decisionsByKey
+            decisionsByKey,
+            duplicateKeys
         ))
         .slice()
         .sort((left, right) => comparePhotos(
@@ -377,6 +406,7 @@ export function hasActivePhotoBrowserFilters(value = {}) {
         preferences.orientations.length ||
         preferences.minimumRating ||
         preferences.favoritesOnly ||
+        preferences.duplicatesOnly ||
         preferences.datePreset !== "any"
     );
 }

@@ -93,6 +93,7 @@ test("normalizes malformed and legacy preference values safely", () => {
     assert.deepStrictEqual(normalized.orientations, ["portrait"]);
     assert.strictEqual(normalized.minimumRating, 5);
     assert.strictEqual(normalized.favoritesOnly, false);
+    assert.strictEqual(normalized.duplicatesOnly, false);
     assert.deepStrictEqual(normalized.sort, {
         field: "modified",
         direction: "desc"

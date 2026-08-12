@@ -483,7 +483,8 @@ export default class ProjectService {
             "batchRecovery",
             "photoSource",
             "photoDecisions",
-            "photoBrowserPreferences"
+            "photoBrowserPreferences",
+            "photoDuplicateEvidence"
         ]) {
             const value = metadata[field];
             if (value != null && (typeof value !== "object" || Array.isArray(value))) {

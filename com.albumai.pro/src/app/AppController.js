@@ -1585,6 +1585,18 @@ export class AppController {
 
     }
 
+    getPhotoDuplicateEvidence() {
+
+        return this.photoWorkspace.getPhotoDuplicateEvidence();
+
+    }
+
+    analyzePhotoDuplicates() {
+
+        return this.photoWorkspace.analyzePhotoDuplicates();
+
+    }
+
     prioritizePhotoThumbnail(photo) {
 
         this.photoWorkspace.prioritizePhoto(photo);

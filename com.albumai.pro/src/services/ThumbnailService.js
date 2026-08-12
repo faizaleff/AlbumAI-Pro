@@ -114,7 +114,7 @@ function generationFailureReason(error) {
 
 }
 
-class ThumbnailService {
+export class ThumbnailService {
 
     constructor() {
 
