@@ -7,6 +7,7 @@ import React, {
 } from "react";
 
 import ThumbnailGrid from "./ThumbnailGrid";
+import UxpDropdown from "./UxpDropdown";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import {
     createPhotoDecisionLookup,
@@ -24,6 +25,32 @@ import App from "../app/AppController";
 import {
     canStartPhotoFolderChange
 } from "./photoFolderChangeMessages";
+
+const PHOTO_DATE_FILTER_OPTIONS = Object.freeze([
+    Object.freeze({ value: "any", label: "Any" }),
+    Object.freeze({ value: "today", label: "Today" }),
+    Object.freeze({ value: "last7", label: "Last 7 days" }),
+    Object.freeze({ value: "last30", label: "Last 30 days" }),
+    Object.freeze({ value: "thisYear", label: "This year" })
+]);
+
+const PHOTO_RATING_FILTER_OPTIONS = Object.freeze([
+    Object.freeze({ value: 0, label: "Any" }),
+    Object.freeze({ value: 1, label: "1+ stars" }),
+    Object.freeze({ value: 2, label: "2+ stars" }),
+    Object.freeze({ value: 3, label: "3+ stars" }),
+    Object.freeze({ value: 4, label: "4+ stars" }),
+    Object.freeze({ value: 5, label: "5 stars" })
+]);
+
+const PHOTO_SORT_OPTIONS = Object.freeze([
+    Object.freeze({ value: "name", label: "Name" }),
+    Object.freeze({ value: "modified", label: "Date Modified" }),
+    Object.freeze({ value: "taken", label: "Date Taken" }),
+    Object.freeze({ value: "created", label: "Date Created" }),
+    Object.freeze({ value: "rating", label: "Rating" }),
+    Object.freeze({ value: "size", label: "File Size" })
+]);
 
 function PhotoBrowserSection({
     photos,
@@ -344,76 +371,70 @@ function PhotoBrowserSection({
                 </label>
                 <label className="photo-browser-filter-label" htmlFor="photo-browser-type">
                     Type
-                    <select
+                    <UxpDropdown
                         id="photo-browser-type"
                         value={preferences.types[0] || ""}
-                        onChange={event => updatePreferences({
-                            types: event.target.value ? [event.target.value] : []
+                        options={[
+                            { value: "", label: "All" },
+                            ...queryResult.facets.types.map(type => ({
+                                value: type,
+                                label: type.toUpperCase()
+                            }))
+                        ]}
+                        onValueChange={type => updatePreferences({
+                            types: type ? [type] : []
                         })}
                         className="photo-browser-filter-select photo-browser-control"
-                        aria-label="Filter photos by file type"
-                    >
-                        <option value="">All</option>
-                        {queryResult.facets.types.map(type => (
-                            <option key={type} value={type}>{type.toUpperCase()}</option>
-                        ))}
-                    </select>
+                        ariaLabel="Filter photos by file type"
+                    />
                 </label>
                 <label className="photo-browser-filter-label" htmlFor="photo-browser-orientation">
                     Orientation
-                    <select
+                    <UxpDropdown
                         id="photo-browser-orientation"
                         value={preferences.orientations[0] || ""}
-                        onChange={event => updatePreferences({
-                            orientations: event.target.value ? [event.target.value] : []
+                        options={[
+                            { value: "", label: "All" },
+                            ...queryResult.facets.orientations.map(
+                                orientation => ({
+                                    value: orientation,
+                                    label: orientation.charAt(0).toUpperCase()
+                                        + orientation.slice(1)
+                                })
+                            )
+                        ]}
+                        onValueChange={orientation => updatePreferences({
+                            orientations: orientation ? [orientation] : []
                         })}
                         className="photo-browser-filter-select photo-browser-control"
-                        aria-label="Filter photos by orientation"
-                    >
-                        <option value="">All</option>
-                        {queryResult.facets.orientations.map(orientation => (
-                            <option key={orientation} value={orientation}>
-                                {orientation.charAt(0).toUpperCase() + orientation.slice(1)}
-                            </option>
-                        ))}
-                    </select>
+                        ariaLabel="Filter photos by orientation"
+                    />
                 </label>
                 <label className="photo-browser-filter-label" htmlFor="photo-browser-date">
                     Date
-                    <select
+                    <UxpDropdown
                         id="photo-browser-date"
                         value={preferences.datePreset}
-                        onChange={event => updatePreferences({
-                            datePreset: event.target.value
+                        options={PHOTO_DATE_FILTER_OPTIONS}
+                        onValueChange={datePreset => updatePreferences({
+                            datePreset
                         })}
                         className="photo-browser-filter-select photo-browser-control"
-                        aria-label="Filter photos by date"
-                    >
-                        <option value="any">Any</option>
-                        <option value="today">Today</option>
-                        <option value="last7">Last 7 days</option>
-                        <option value="last30">Last 30 days</option>
-                        <option value="thisYear">This year</option>
-                    </select>
+                        ariaLabel="Filter photos by date"
+                    />
                 </label>
                 <label className="photo-browser-filter-label" htmlFor="photo-browser-rating">
                     Rating
-                    <select
+                    <UxpDropdown
                         id="photo-browser-rating"
                         value={preferences.minimumRating}
-                        onChange={event => updatePreferences({
-                            minimumRating: Number(event.target.value)
+                        options={PHOTO_RATING_FILTER_OPTIONS}
+                        onValueChange={minimumRating => updatePreferences({
+                            minimumRating: Number(minimumRating)
                         })}
                         className="photo-browser-filter-select photo-browser-control"
-                        aria-label="Filter photos by minimum rating"
-                    >
-                        <option value="0">Any</option>
-                        <option value="1">1+ stars</option>
-                        <option value="2">2+ stars</option>
-                        <option value="3">3+ stars</option>
-                        <option value="4">4+ stars</option>
-                        <option value="5">5 stars</option>
-                    </select>
+                        ariaLabel="Filter photos by minimum rating"
+                    />
                 </label>
                 <label className="photo-browser-favorite-filter">
                     <input
@@ -439,21 +460,15 @@ function PhotoBrowserSection({
                 <div className="photo-browser-toolbar-group photo-browser-sort-group">
                 <label className="photo-browser-sort-label" htmlFor="photo-browser-sort">
                     Sort by
-                    <select
+                    <UxpDropdown
                         id="photo-browser-sort"
                         value={preferences.sort.field}
-                        onChange={event => updateSort({ field: event.target.value })}
+                        options={PHOTO_SORT_OPTIONS}
+                        onValueChange={field => updateSort({ field })}
                         className="photo-browser-sort-select photo-browser-control"
-                        aria-label="Sort photos by"
+                        ariaLabel="Sort photos by"
                         title="Sort photos by"
-                    >
-                        <option value="name">Name</option>
-                        <option value="modified">Date Modified</option>
-                        <option value="taken">Date Taken</option>
-                        <option value="created">Date Created</option>
-                        <option value="rating">Rating</option>
-                        <option value="size">File Size</option>
-                    </select>
+                    />
                 </label>
                 <button
                     type="button"

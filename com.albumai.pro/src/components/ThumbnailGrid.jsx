@@ -7,12 +7,20 @@ import React, {
 } from "react";
 
 import ThumbnailCard from "./ThumbnailCard";
+import UxpDropdown from "./UxpDropdown";
 import PhotoImage from "./PhotoImage";
 import App from "../app/AppController";
 import RefreshService from "../services/RefreshService";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import ImageSourceCapabilityService
     from "../services/ImageSourceCapabilityService";
+
+const LIST_RATING_OPTIONS = Object.freeze(
+    [0, 1, 2, 3, 4, 5].map(rating => Object.freeze({
+        value: rating,
+        label: rating ? `${rating}★` : "—"
+    }))
+);
 
 const ICON_WIDTH = 104;
 const ICON_HEIGHT = 122;
@@ -83,24 +91,18 @@ const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, sty
         <div style={{ flex: "0 0 30px", width: 30, height: 30, background: "#1f1f1f", overflow: "hidden" }}><PhotoImage photo={photo} profile="thumbnail" priority={visible ? 1 : 2} role="browser" onImageLoad={() => PhotoBrowserPerformance.thumbnailVisible(photo.id)} fallback={status => <div style={{ color: "#777", fontSize: 13, textAlign: "center", lineHeight: "30px" }}>{status === "loading" ? "…" : "▧"}</div>} style={LIST_IMAGE_STYLE} /></div>
         <div style={{ flex: "1 1 auto", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12 }}>{photo.name}</div>
         <div style={{ flex: "0 0 42px", color: "#aaa", fontSize: 11, textTransform: "uppercase" }}>{photo.extension || "—"}</div>
-        <select
+        <UxpDropdown
             className="photo-list-rating"
             value={decision.rating}
-            onClick={event => event.stopPropagation()}
-            onChange={event => {
-                event.stopPropagation();
+            options={LIST_RATING_OPTIONS}
+            onValueChange={rating => {
                 onPhotoDecisionChange?.(photo, {
-                    rating: Number(event.target.value)
+                    rating: Number(rating)
                 });
             }}
-            aria-label={`Rate ${photo.name}`}
-        >
-            {[0, 1, 2, 3, 4, 5].map(rating => (
-                <option key={rating} value={rating}>
-                    {rating ? `${rating} ★` : "—"}
-                </option>
-            ))}
-        </select>
+            ariaLabel={`Rate ${photo.name}`}
+            stopPropagation
+        />
         <button
             type="button"
             className={`photo-list-favorite${decision.favorite ? " is-favorite" : ""}`}

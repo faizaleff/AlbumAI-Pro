@@ -20,6 +20,7 @@
     "src/components/TemplateDocumentPanel.jsx",
     "src/components/ThumbnailCard.jsx",
     "src/components/ThumbnailGrid.jsx",
+    "src/components/UxpDropdown.jsx",
     "src/components/photoFolderChangeMessages.js",
     "src/components/recoveryPanelState.js",
     "src/components/templatePreflightUi.js",

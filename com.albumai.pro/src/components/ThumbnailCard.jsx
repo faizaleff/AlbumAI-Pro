@@ -1,6 +1,14 @@
 import React, { useCallback } from "react";
 import PhotoImage from "./PhotoImage";
+import UxpDropdown from "./UxpDropdown";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+
+const PHOTO_RATING_OPTIONS = Object.freeze(
+    [0, 1, 2, 3, 4, 5].map(rating => Object.freeze({
+        value: rating,
+        label: rating ? String(rating) : "—"
+    }))
+);
 
 function ThumbnailCard({
     photo,
@@ -131,24 +139,19 @@ function ThumbnailCard({
                     {photo.name}
                 </div>
                 <div className="photo-decision-controls">
-                    <select
+                    <UxpDropdown
                         value={decision.rating}
-                        onClick={event => event.stopPropagation()}
-                        onChange={event => {
-                            event.stopPropagation();
+                        options={PHOTO_RATING_OPTIONS}
+                        onValueChange={rating => {
                             onDecisionChange?.(photo, {
-                                rating: Number(event.target.value)
+                                rating: Number(rating)
                             });
                         }}
-                        aria-label={`Rate ${photo.name}`}
+                        className="photo-decision-rating"
+                        ariaLabel={`Rate ${photo.name}`}
                         title="Photo rating"
-                    >
-                        {[0, 1, 2, 3, 4, 5].map(rating => (
-                            <option key={rating} value={rating}>
-                                {rating ? `${rating} ★` : "Unrated"}
-                            </option>
-                        ))}
-                    </select>
+                        stopPropagation
+                    />
                     <button
                         type="button"
                         className={decision.favorite ? "is-favorite" : ""}

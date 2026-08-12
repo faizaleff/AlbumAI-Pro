@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import BatchProgressPanel from "./BatchProgressPanel";
+import UxpDropdown from "./UxpDropdown";
 import {
     readCurrentRecoveryState,
     recoveryPanelStateKey
@@ -18,6 +19,19 @@ import {
     templateRegistryUiSummary,
     templateValidationLabel
 } from "./templatePreflightUi";
+
+const AUTO_SAVE_MODE_OPTIONS = Object.freeze([
+    Object.freeze({ value: "SAVE_COPY", label: "Save Copy" }),
+    Object.freeze({
+        value: "OVERWRITE_ORIGINAL",
+        label: "Overwrite Original (non-reversible)"
+    })
+]);
+
+const EXPORT_FORMAT_OPTIONS = Object.freeze([
+    Object.freeze({ value: "JPEG", label: "JPEG" }),
+    Object.freeze({ value: "PSD", label: "PSD" })
+]);
 
 function LayerTree({ layers = [], depth = 0 }) {
 
@@ -1910,21 +1924,18 @@ export default function TemplateDocumentPanel({
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
 
-                <select
+                <UxpDropdown
                     value={selectedName}
-                    onChange={event =>
-                        setSelectedName(event.target.value)
-                    }
+                    options={templates.map(file => ({
+                        value: file.name,
+                        label: file.name
+                    }))}
+                    onValueChange={setSelectedName}
+                    className="template-selector-dropdown"
+                    ariaLabel="Select template"
+                    title="Select template"
                     disabled={!templates.length}
-                >
-
-                    {templates.map(file => (
-                        <option key={file.name} value={file.name}>
-                            {file.name}
-                        </option>
-                    ))}
-
-                </select>
+                />
 
                 <button
                     onClick={open}
@@ -2117,17 +2128,18 @@ export default function TemplateDocumentPanel({
                     Auto Save
                 </label>
 
-                <select
+                <UxpDropdown
                     value={autoSaveMode}
-                    onChange={event => {
-                        setAutoSaveMode?.(event.target.value);
+                    options={AUTO_SAVE_MODE_OPTIONS}
+                    onValueChange={mode => {
+                        setAutoSaveMode?.(mode);
                         setAutoSaveResult(null);
                         setPlacementVersion(value => value + 1);
                     }}
-                >
-                    <option value="SAVE_COPY">Save Copy</option>
-                    <option value="OVERWRITE_ORIGINAL">Overwrite Original (non-reversible)</option>
-                </select>
+                    className="template-output-dropdown"
+                    ariaLabel="Auto Save mode"
+                    title="Auto Save mode"
+                />
                 {autoSaveEnabled && autoSaveMode === "OVERWRITE_ORIGINAL" && (
                     <span role="alert" style={{ fontSize: 12, color: "#ffcc88" }}>
                         Overwrite Original is non-reversible. Cancellation cannot restore the prior PSD after the host save commits.
@@ -2147,17 +2159,18 @@ export default function TemplateDocumentPanel({
                     Export
                 </label>
 
-                <select
+                <UxpDropdown
                     value={exportFormat}
-                    onChange={event => {
-                        setExportFormat?.(event.target.value);
+                    options={EXPORT_FORMAT_OPTIONS}
+                    onValueChange={format => {
+                        setExportFormat?.(format);
                         setExportResult(null);
                         setPlacementVersion(value => value + 1);
                     }}
-                >
-                    <option value="JPEG">JPEG</option>
-                    <option value="PSD">PSD</option>
-                </select>
+                    className="template-output-dropdown"
+                    ariaLabel="Export format"
+                    title="Export format"
+                />
                 </div>
             </div>
 

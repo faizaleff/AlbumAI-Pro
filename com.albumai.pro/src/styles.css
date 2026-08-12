@@ -186,6 +186,7 @@ button.photo-browser-control:active:not(:disabled) {
 
 .photo-browser-filter-select {
     min-width: 82px !important;
+    width: 110px;
     max-width: 128px;
     color: #fff;
     background: #343434;
@@ -209,7 +210,7 @@ button.photo-browser-control:active:not(:disabled) {
     margin-top: 3px;
 }
 
-.photo-decision-controls select,
+.photo-decision-rating,
 .photo-list-rating {
     min-width: 0;
     height: 18px;
@@ -221,8 +222,9 @@ button.photo-browser-control:active:not(:disabled) {
     font-size: 9px;
 }
 
-.photo-decision-controls select {
+.photo-decision-rating {
     flex: 1 1 auto;
+    width: 64px;
 }
 
 .photo-decision-controls button,
@@ -284,6 +286,7 @@ button.photo-browser-control:active:not(:disabled) {
 .photo-browser-sort-select {
     flex: 1 1 110px !important;
     min-width: 100px !important;
+    width: 180px;
     max-width: 180px;
     color: #fff;
     background: #343434;
@@ -543,4 +546,12 @@ button.photo-browser-control:active:not(:disabled) {
     .photo-browser-statusbar {
         gap: 4px 10px;
     }
+}
+
+.template-selector-dropdown {
+    width: 180px;
+}
+
+.template-output-dropdown {
+    width: 160px;
 }
