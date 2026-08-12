@@ -343,6 +343,27 @@ async function run() {
         assert.strictEqual(photos[0].duplicateGroup, undefined);
     });
 
+    await test("stale duplicate evidence cannot hide the photo library", async () => {
+        const photos = [
+            photo("a.jpg", "same"),
+            photo("b.jpg", "same"),
+            photo("unique.jpg", "longer")
+        ];
+        const result = queryPhotoBrowser(photos, {
+            duplicatesOnly: true
+        }, {
+            duplicateEvidence: {
+                status: PhotoDuplicateStatus.STALE,
+                groups: []
+            }
+        });
+        assert.deepStrictEqual(
+            result.photos.map(item => item.name),
+            ["a.jpg", "b.jpg", "unique.jpg"]
+        );
+        assert.strictEqual(result.counts.hidden, 0);
+    });
+
     console.info(
         `ALB-061 duplicate model tests complete: ${assertions} assertions.`
     );

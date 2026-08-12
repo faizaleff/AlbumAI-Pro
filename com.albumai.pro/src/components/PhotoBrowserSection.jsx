@@ -249,6 +249,15 @@ function PhotoBrowserSection({
             ? "Duplicate analysis is stale. Run it again."
             : "Duplicate analysis has not been run.";
 
+    useEffect(() => {
+        if (duplicateReady || !preferences.duplicatesOnly) return;
+        updatePreferences({ duplicatesOnly: false });
+    }, [
+        duplicateReady,
+        preferences.duplicatesOnly,
+        updatePreferences
+    ]);
+
     const switchView = useCallback(nextMode => {
         setViewMode(previous => {
             if (previous === nextMode) return previous;

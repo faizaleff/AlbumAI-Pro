@@ -317,12 +317,17 @@ function duplicatePhotoKeys(value) {
     return keys;
 }
 
+function duplicateEvidenceIsReady(value) {
+    return value?.status === "COMPLETE" || value?.status === "PARTIAL";
+}
+
 function matchesPhoto(
     photo,
     preferences,
     range,
     decisionsByKey,
-    duplicateKeys
+    duplicateKeys,
+    duplicateFilterAvailable
 ) {
     if (!photo || typeof photo !== "object") return false;
     if (preferences.search) {
@@ -344,6 +349,7 @@ function matchesPhoto(
     if (preferences.favoritesOnly && !decision.favorite) return false;
     if (
         preferences.duplicatesOnly &&
+        duplicateFilterAvailable &&
         !duplicateKeys.has(photoDecisionKey(photo))
     ) return false;
     if (range) {
@@ -364,6 +370,9 @@ export function queryPhotoBrowser(
     const preferences = normalizePhotoBrowserPreferences(value);
     const decisionsByKey = photoDecisionMap(decisions);
     const duplicateKeys = duplicatePhotoKeys(duplicateEvidence);
+    const duplicateFilterAvailable = duplicateEvidenceIsReady(
+        duplicateEvidence
+    );
     const range = dateRange(preferences.datePreset, now);
     const matched = source
         .filter(photo => matchesPhoto(
@@ -371,7 +380,8 @@ export function queryPhotoBrowser(
             preferences,
             range,
             decisionsByKey,
-            duplicateKeys
+            duplicateKeys,
+            duplicateFilterAvailable
         ))
         .slice()
         .sort((left, right) => comparePhotos(

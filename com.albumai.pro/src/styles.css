@@ -325,6 +325,7 @@ button.photo-browser-control:active:not(:disabled) {
     position: relative;
     flex: 1 1 auto;
     display: flex;
+    flex-direction: column;
     min-height: 0;
     overflow: hidden;
     border-right: 1px solid #424242;
@@ -415,8 +416,8 @@ button.photo-browser-control:active:not(:disabled) {
 }
 
 .photo-browser-state {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    flex: 1 1 auto;
     z-index: 4;
     display: flex;
     flex-direction: column;
