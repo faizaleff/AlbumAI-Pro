@@ -103,7 +103,8 @@ performance budgets, and safe Photoshop/UXP large-folder qualification.
   safe detached statistics, stale-alias cleanup, per-photo invalidation,
   same-folder cache preservation, destructive lifecycle clearing, pending-work
   cancellation, and stale workspace-generation rejection.
-- Slice 1 dedicated tests pass 12 scenarios. The complete automated suite,
+- Slice 1 dedicated tests pass 13 scenarios, including the production-safe
+  runtime summary contract. The complete automated suite,
   98-file architecture graph, 98/98 regression graph, and production build pass.
 - A byte ceiling is not introduced in Slice 1: cached values are blob URLs, and
   URL string length is not evidence of retained byte size. Byte-budget work
@@ -128,6 +129,9 @@ performance budgets, and safe Photoshop/UXP large-folder qualification.
   regression, hardening, production-build, and reproducible-package gates pass.
 - Production `dist/index.js` remains inside the reviewed 550 KiB webpack
   ceiling.
-- Slice 5 remains **NOT RUN** and is documented in
-  `ALB-061_PHOTOSHOP_UXP_RUNTIME_CHECKLIST.md`. Automated PASS is not treated
-  as Photoshop/UXP runtime PASS.
+- Slice 5 is complete. RT-01 through RT-04 passed in Photoshop 2026 using only
+  disposable copied fixtures. Exact grouping/filtering, persistence and source-
+  revision invalidation, active-workspace stale-result rejection, bounded cache
+  reuse, idle queues, stable object-URL counts, and zero Photoshop documents
+  opened by browser work are recorded in
+  `ALB-061_PHOTOSHOP_UXP_RUNTIME_CHECKLIST.md`.
