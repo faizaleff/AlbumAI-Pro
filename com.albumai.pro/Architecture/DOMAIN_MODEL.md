@@ -44,6 +44,13 @@ share the bounded browser decode scheduler, and only normalized dimensions,
 orientation, and Date Taken facts may be published by the current folder
 generation or written to the metadata cache.
 
+Exact-duplicate evidence also remains under `PhotoWorkspaceService`. Candidate
+pruning uses normalized byte size, while duplicate proof requires a sequential
+full-content SHA-256 fingerprint. Persisted evidence contains only bounded
+opaque photo/revision/group keys, evidence level, byte counts, and safe failure
+reasons. A library revision change invalidates the complete result; duplicate
+analysis never mutates, moves, deletes, hides, rejects, or rates a Photo.
+
 The deleted inactive source contained competing project models, album engines,
 template registries, generation contexts, workflow jobs, export managers,
 bootstrap containers, and UI state stores. None is part of the product after

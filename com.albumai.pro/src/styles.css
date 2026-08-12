@@ -203,6 +203,22 @@ button.photo-browser-control:active:not(:disabled) {
     white-space: nowrap;
 }
 
+.photo-duplicate-summary {
+    margin: 0 10px 8px;
+    padding: 6px 8px;
+    border: 1px solid #4f5964;
+    border-radius: 4px;
+    color: #cbd8e6;
+    background: #29313a;
+    font-size: 10px;
+}
+
+.photo-duplicate-summary.has-error {
+    border-color: #9b4f58;
+    color: #ffd4d9;
+    background: #40282c;
+}
+
 .photo-decision-controls {
     display: flex;
     align-items: center;
@@ -309,6 +325,7 @@ button.photo-browser-control:active:not(:disabled) {
     position: relative;
     flex: 1 1 auto;
     display: flex;
+    flex-direction: column;
     min-height: 0;
     overflow: hidden;
     border-right: 1px solid #424242;
@@ -399,8 +416,8 @@ button.photo-browser-control:active:not(:disabled) {
 }
 
 .photo-browser-state {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    flex: 1 1 auto;
     z-index: 4;
     display: flex;
     flex-direction: column;

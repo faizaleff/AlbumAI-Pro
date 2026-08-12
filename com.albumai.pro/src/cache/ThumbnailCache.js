@@ -6,11 +6,15 @@ function isBlobUrl(value) {
 
 }
 
-class ThumbnailCache {
+export class ThumbnailCache {
 
     constructor(maxItems = 250) {
 
-        this.maxItems = maxItems;
+        const normalizedLimit = Number(maxItems);
+        this.maxItems =
+            Number.isFinite(normalizedLimit) && normalizedLimit >= 1
+                ? Math.floor(normalizedLimit)
+                : 250;
         this.cache = new Map();
         this.sourceOwners = new Map();
 
@@ -174,6 +178,26 @@ class ThumbnailCache {
     size() {
 
         return this.cache.size;
+
+    }
+
+    snapshot() {
+
+        let cacheOwners = 0;
+        let consumers = 0;
+
+        for (const owners of this.sourceOwners.values()) {
+            cacheOwners += owners.cache;
+            consumers += owners.consumers;
+        }
+
+        return Object.freeze({
+            maxItems: this.maxItems,
+            entries: this.cache.size,
+            blobSources: this.sourceOwners.size,
+            cacheOwners,
+            consumers
+        });
 
     }
 

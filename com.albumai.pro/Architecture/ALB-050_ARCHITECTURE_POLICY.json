@@ -86,6 +86,7 @@
     "src/services/BrowserDecodeScheduler.js",
     "src/services/PhotoBrowserModel.js",
     "src/services/PhotoBrowserSelection.js",
+    "src/services/PhotoDuplicateModel.js",
     "src/services/ExportResult.js",
     "src/services/FolderService.js",
     "src/services/ImageSourceCapabilityService.js",

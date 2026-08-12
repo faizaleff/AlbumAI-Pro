@@ -14,9 +14,14 @@ import {
     hasActivePhotoBrowserFilters,
     normalizePhotoDecisions,
     normalizePhotoBrowserPreferences,
+    photoDecisionKey,
     queryPhotoBrowser,
     updatePhotoDecision
 } from "../services/PhotoBrowserModel";
+import {
+    normalizePhotoDuplicateEvidence,
+    PhotoDuplicateStatus
+} from "../services/PhotoDuplicateModel";
 import {
     selectAllBrowserPhotos,
     setCanonicalBrowserPhotos
@@ -93,10 +98,20 @@ function PhotoBrowserSection({
         () => normalizePhotoDecisions(App.getPhotoDecisions())
     );
     const [decisionError, setDecisionError] = useState(null);
+    const [duplicateEvidence, setDuplicateEvidence] = useState(
+        () => normalizePhotoDuplicateEvidence(
+            App.getPhotoDuplicateEvidence()
+        )
+    );
+    const [duplicateBusy, setDuplicateBusy] = useState(false);
+    const [duplicateError, setDuplicateError] = useState(null);
     const decisionRevision = useRef(0);
     const queryResult = useMemo(
-        () => queryPhotoBrowser(photos, preferences, { decisions }),
-        [decisions, photos, preferences]
+        () => queryPhotoBrowser(photos, preferences, {
+            decisions,
+            duplicateEvidence
+        }),
+        [decisions, duplicateEvidence, photos, preferences]
     );
     const decisionForPhoto = useMemo(
         () => createPhotoDecisionLookup(decisions),
@@ -109,11 +124,19 @@ function PhotoBrowserSection({
         setPreferences(readSavedPreferences());
         setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
         setDecisionError(null);
+        setDuplicateEvidence(normalizePhotoDuplicateEvidence(
+            App.getPhotoDuplicateEvidence()
+        ));
+        setDuplicateBusy(false);
+        setDuplicateError(null);
         decisionRevision.current += 1;
     }, [projectId]);
 
     useEffect(() => {
         setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
+        setDuplicateEvidence(normalizePhotoDuplicateEvidence(
+            App.getPhotoDuplicateEvidence()
+        ));
     }, [photos]);
 
     const persistPreferences = useCallback(value => {
@@ -177,6 +200,63 @@ function PhotoBrowserSection({
                 console.warn("Photo decision persistence:", error);
             });
     }, []);
+
+    const analyzeDuplicates = useCallback(() => {
+        if (duplicateBusy || !folderLoaded || !photos.length) return;
+        setDuplicateBusy(true);
+        setDuplicateError(null);
+        App.analyzePhotoDuplicates()
+            .then(evidence => {
+                const normalized = normalizePhotoDuplicateEvidence(evidence);
+                setDuplicateEvidence(normalized);
+                if (normalized.status === PhotoDuplicateStatus.STALE) {
+                    setDuplicateError(
+                        "The photo folder changed. Run duplicate analysis again."
+                    );
+                }
+            })
+            .catch(error => {
+                setDuplicateEvidence(normalizePhotoDuplicateEvidence(
+                    App.getPhotoDuplicateEvidence()
+                ));
+                setDuplicateError("Duplicate analysis could not be saved.");
+                console.warn("Photo duplicate analysis:", error);
+            })
+            .finally(() => setDuplicateBusy(false));
+    }, [duplicateBusy, folderLoaded, photos.length]);
+
+    const duplicateReady =
+        duplicateEvidence.status === PhotoDuplicateStatus.COMPLETE ||
+        duplicateEvidence.status === PhotoDuplicateStatus.PARTIAL;
+    const duplicateNameByKey = new Map(photos.map(photo => [
+        photoDecisionKey(photo),
+        photo?.name
+    ]));
+    const duplicateGroupPreview = duplicateEvidence.groups
+        .slice(0, 3)
+        .map((group, index) => {
+            const names = group.members.slice(0, 2)
+                .map(member => duplicateNameByKey.get(member.photoKey))
+                .filter(Boolean);
+            const remaining = Math.max(0, group.members.length - names.length);
+            return `Group ${index + 1}: ${names.join(", ")}${remaining ? ` +${remaining}` : ""}`;
+        })
+        .filter(label => !label.endsWith(": "))
+        .join(" · ");
+    const duplicateSummary = duplicateReady
+        ? `${duplicateEvidence.groups.length} ${duplicateEvidence.groups.length === 1 ? "group" : "groups"} · ${duplicateEvidence.duplicatePhotos} duplicate ${duplicateEvidence.duplicatePhotos === 1 ? "photo" : "photos"} · ${duplicateEvidence.potentialSavingsBytes.toLocaleString()} bytes recoverable${duplicateEvidence.failures.length ? ` · ${duplicateEvidence.failures.length} unreadable or changed` : ""}${duplicateGroupPreview ? ` · ${duplicateGroupPreview}` : ""}`
+        : duplicateEvidence.status === PhotoDuplicateStatus.STALE
+            ? "Duplicate analysis is stale. Run it again."
+            : "Duplicate analysis has not been run.";
+
+    useEffect(() => {
+        if (duplicateReady || !preferences.duplicatesOnly) return;
+        updatePreferences({ duplicatesOnly: false });
+    }, [
+        duplicateReady,
+        preferences.duplicatesOnly,
+        updatePreferences
+    ]);
 
     const switchView = useCallback(nextMode => {
         setViewMode(previous => {
@@ -446,6 +526,31 @@ function PhotoBrowserSection({
                     />
                     Favourites only
                 </label>
+                <label className="photo-browser-favorite-filter">
+                    <input
+                        type="checkbox"
+                        checked={preferences.duplicatesOnly}
+                        disabled={!duplicateReady}
+                        onChange={event => updatePreferences({
+                            duplicatesOnly: event.target.checked
+                        })}
+                    />
+                    Duplicates only
+                </label>
+                <button
+                    type="button"
+                    onClick={analyzeDuplicates}
+                    disabled={!folderLoaded || !photos.length || duplicateBusy}
+                    className="photo-browser-control"
+                    aria-label="Analyze exact duplicate photos"
+                    title="Compare same-size candidates using full-content SHA-256"
+                >
+                    {duplicateBusy
+                        ? "Analyzing Duplicates…"
+                        : duplicateReady
+                            ? "Reanalyze Duplicates"
+                            : "Find Duplicates"}
+                </button>
                 <button
                     type="button"
                     onClick={clearFilters}
@@ -546,6 +651,15 @@ function PhotoBrowserSection({
                         {decisionError}
                     </div>
                 )}
+                {(photos.length > 0 || duplicateError) && (
+                    <div
+                        className={`photo-duplicate-summary${duplicateError ? " has-error" : ""}`}
+                        role={duplicateError ? "alert" : "status"}
+                        aria-live="polite"
+                    >
+                        {duplicateError || duplicateSummary}
+                    </div>
+                )}
                 {isLoading ? (
                     <div className="photo-browser-state photo-browser-loading-state" role="status" aria-live="polite">
                         <div className="photo-browser-spinner" aria-hidden="true" />
@@ -577,7 +691,7 @@ function PhotoBrowserSection({
                     <div className="photo-browser-state" role="status">
                         <div className="photo-browser-empty-icon" aria-hidden="true">⌕</div>
                         <h2>No Matching Photos</h2>
-                        <p>Try a different filename, type, orientation, or date filter.</p>
+                        <p>Try a different filename, type, orientation, date, rating, or duplicate filter.</p>
                         <button
                             type="button"
                             onClick={clearFilters}

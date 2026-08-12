@@ -126,7 +126,7 @@ function main() {
         check(runtimeIds.has(id), `Acceptance matrix references missing runtime scenario ${id}.`);
     });
 
-    console.info(`ALB-051 regression verification: PASS (${assertions} assertions, ${currentSource.length}/97 active files reached)`);
+    console.info(`ALB-051 regression verification: PASS (${assertions} assertions, ${currentSource.length}/98 active files reached)`);
     console.info(`ALB-051 legacy gap closed: ${legacyGap.join(", ")}`);
 }
 

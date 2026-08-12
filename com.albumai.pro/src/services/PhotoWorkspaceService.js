@@ -16,6 +16,12 @@ import {
     reconcilePhotoDecisions,
     updatePhotoDecision
 } from "./PhotoBrowserModel";
+import {
+    analyzeExactPhotoDuplicates,
+    normalizePhotoDuplicateEvidence,
+    PhotoDuplicateStatus,
+    reconcilePhotoDuplicateEvidence
+} from "./PhotoDuplicateModel";
 
 const METADATA_FILE = "photos.json";
 const INITIAL_VISIBLE_PHOTOS = 30;
@@ -80,7 +86,8 @@ export default class PhotoWorkspaceService {
         performance = PhotoBrowserPerformance,
         metadataScheduler = BrowserDecodeScheduler,
         metadataSource = ImageSourceCapabilityService,
-        metadataInspector = SoftwareJpegRenderer
+        metadataInspector = SoftwareJpegRenderer,
+        duplicateSource = ImageSourceCapabilityService
     } = {}) {
 
         if (!library || !selection || !projectEngine || !projectService) {
@@ -102,6 +109,7 @@ export default class PhotoWorkspaceService {
         this.metadataScheduler = metadataScheduler;
         this.metadataSource = metadataSource;
         this.metadataInspector = metadataInspector;
+        this.duplicateSource = duplicateSource;
         this.metadataPromise = Promise.resolve();
         this.sourceFolder = null;
         this.persistencePromise = Promise.resolve();
@@ -112,6 +120,9 @@ export default class PhotoWorkspaceService {
         this.photoDecisionProjectId = null;
         this.photoDecisions = normalizePhotoDecisions();
         this.photoDecisionsPersisted = this.photoDecisions;
+        this.duplicateProjectId = null;
+        this.duplicateEvidence = normalizePhotoDuplicateEvidence();
+        this.duplicateAnalysis = null;
 
     }
 
@@ -279,6 +290,7 @@ export default class PhotoWorkspaceService {
             return false;
         }
         this.reconcilePhotoDecisionCache(images);
+        this.reconcilePhotoDuplicateEvidenceCache(images);
         this.sourceFolder = result.folder;
         if (!sameFolder) this.selection.clear();
         // Placeholder mode is the normal browser fallback. Cache hydration is
@@ -541,6 +553,10 @@ export default class PhotoWorkspaceService {
                 this.getPhotoDecisions(),
                 prepared.images
             ),
+            photoDuplicateEvidence: reconcilePhotoDuplicateEvidence(
+                this.getPhotoDuplicateEvidence(),
+                prepared.images
+            ),
             photoSource: {
                 name: prepared.folderName,
                 token
@@ -554,6 +570,7 @@ export default class PhotoWorkspaceService {
             );
             this.photoDecisions = nextValues.photoDecisions;
             this.photoDecisionsPersisted = nextValues.photoDecisions;
+            this.duplicateEvidence = nextValues.photoDuplicateEvidence;
         } catch (error) {
             this.projectEngine.updateMetadata(previousMetadata);
             return this.folderChangeFailure(
@@ -718,11 +735,13 @@ export default class PhotoWorkspaceService {
         this.library.load([]);
         this.sourceFolder = null;
         this.photoDecisions = normalizePhotoDecisions();
+        this.duplicateEvidence = normalizePhotoDuplicateEvidence();
 
         await this.projectService.saveProject({
             photoCount: 0,
             photoSource: null,
-            photoDecisions: this.photoDecisions
+            photoDecisions: this.photoDecisions,
+            photoDuplicateEvidence: this.duplicateEvidence
         }, { reason: "PHOTO_FOLDER_REMOVE" });
         this.photoDecisionsPersisted = this.photoDecisions;
         await this.writeMetadataCache();
@@ -822,6 +841,139 @@ export default class PhotoWorkspaceService {
         const next = reconcilePhotoDecisions(previous, photos);
         this.photoDecisions = next;
         return JSON.stringify(previous) !== JSON.stringify(next);
+
+    }
+
+    getPhotoDuplicateEvidence() {
+
+        const project = this.projectEngine.getProject();
+        const projectId = project?.metadata?.id || null;
+        if (projectId !== this.duplicateProjectId) {
+            this.duplicateProjectId = projectId;
+            this.duplicateEvidence = normalizePhotoDuplicateEvidence(
+                project?.metadata?.photoDuplicateEvidence
+            );
+        }
+        return this.duplicateEvidence;
+
+    }
+
+    reconcilePhotoDuplicateEvidenceCache(photos) {
+
+        const previous = this.getPhotoDuplicateEvidence();
+        const next = reconcilePhotoDuplicateEvidence(previous, photos);
+        this.duplicateEvidence = next;
+        return JSON.stringify(previous) !== JSON.stringify(next);
+
+    }
+
+    analyzePhotoDuplicates() {
+
+        this.requireProject();
+        const projectId =
+            this.projectEngine.getProject()?.metadata?.id || null;
+        const generation = this.lifecycleGeneration;
+        if (
+            this.duplicateAnalysis?.projectId === projectId &&
+            this.duplicateAnalysis?.generation === generation
+        ) {
+            return this.duplicateAnalysis.promise;
+        }
+        const photos = [...this.library.getPhotos()];
+        const previous = this.getPhotoDuplicateEvidence();
+        const startedAt = this.performance.timestamp?.() ?? Date.now();
+        this.performance.trace?.("PHOTO_DUPLICATE_ANALYSIS_BEGIN", {
+            generation,
+            photos: photos.length
+        });
+        const isCurrent = () =>
+            generation === this.lifecycleGeneration &&
+            projectId ===
+                (this.projectEngine.getProject()?.metadata?.id || null);
+        const analysis = analyzeExactPhotoDuplicates(photos, {
+            readBinary: photo => this.duplicateSource.readBinary(photo),
+            isCurrent
+        }).then(evidence => {
+            if (
+                !isCurrent() ||
+                evidence.status === PhotoDuplicateStatus.STALE
+            ) {
+                return normalizePhotoDuplicateEvidence({
+                    status: PhotoDuplicateStatus.STALE
+                });
+            }
+            const operation = this.persistencePromise
+                .catch(() => {})
+                .then(async () => {
+                    if (!isCurrent()) {
+                        return normalizePhotoDuplicateEvidence({
+                            status: PhotoDuplicateStatus.STALE
+                        });
+                    }
+                    await this.projectService.saveProject(
+                        { photoDuplicateEvidence: evidence },
+                        { reason: "PHOTO_DUPLICATE_ANALYSIS" }
+                    );
+                    if (!isCurrent()) {
+                        return normalizePhotoDuplicateEvidence({
+                            status: PhotoDuplicateStatus.STALE
+                        });
+                    }
+                    this.duplicateEvidence = evidence;
+                    const completedAt =
+                        this.performance.timestamp?.() ?? Date.now();
+                    this.performance.trace?.(
+                        "PHOTO_DUPLICATE_ANALYSIS_COMPLETE",
+                        {
+                            generation,
+                            status: evidence.status,
+                            candidatePhotos: evidence.candidatePhotos,
+                            fingerprintedPhotos: evidence.fingerprintedPhotos,
+                            groups: evidence.groups.length,
+                            duplicatePhotos: evidence.duplicatePhotos,
+                            failures: evidence.failures.length,
+                            durationMs: Math.max(
+                                0,
+                                Math.round((completedAt - startedAt) * 10) / 10
+                            )
+                        }
+                    );
+                    this.refreshService.refresh?.();
+                    return evidence;
+                })
+                .catch(error => {
+                    this.performance.trace?.(
+                        "PHOTO_DUPLICATE_ANALYSIS_FAILURE",
+                        {
+                            generation,
+                            errorName: error?.name || "Error"
+                        }
+                    );
+                    if (isCurrent()) {
+                        this.duplicateEvidence = previous;
+                        const metadata =
+                            this.projectEngine.getProject()?.metadata;
+                        if (metadata) {
+                            this.projectEngine.updateMetadata({
+                                ...metadata,
+                                photoDuplicateEvidence: previous
+                            });
+                        }
+                    }
+                    throw error;
+                });
+            this.persistencePromise = operation.catch(() => {});
+            return operation;
+        }).finally(() => {
+            if (
+                this.duplicateAnalysis?.projectId === projectId &&
+                this.duplicateAnalysis?.generation === generation
+            ) {
+                this.duplicateAnalysis = null;
+            }
+        });
+        this.duplicateAnalysis = { projectId, generation, promise: analysis };
+        return analysis;
 
     }
 
@@ -986,6 +1138,9 @@ export default class PhotoWorkspaceService {
         this.photoDecisionProjectId = null;
         this.photoDecisions = normalizePhotoDecisions();
         this.photoDecisionsPersisted = this.photoDecisions;
+        this.duplicateProjectId = null;
+        this.duplicateEvidence = normalizePhotoDuplicateEvidence();
+        this.duplicateAnalysis = null;
 
     }
 
@@ -1025,6 +1180,7 @@ export default class PhotoWorkspaceService {
         await this.projectService.saveProject({
             photoCount: this.library.getPhotos().length,
             photoDecisions: this.getPhotoDecisions(),
+            photoDuplicateEvidence: this.getPhotoDuplicateEvidence(),
             photoSource
         }, { reason: persistenceReason });
         this.photoDecisionsPersisted = this.photoDecisions;
@@ -1170,6 +1326,9 @@ export default class PhotoWorkspaceService {
                 previousMetadata?.photoDecisions
             );
             this.photoDecisionsPersisted = this.photoDecisions;
+            this.duplicateEvidence = normalizePhotoDuplicateEvidence(
+                previousMetadata?.photoDuplicateEvidence
+            );
             this.reactivateCurrentPhotoWorkspace();
         }
 
