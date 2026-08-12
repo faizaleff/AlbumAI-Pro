@@ -56,7 +56,29 @@ export async function importPhotoFolder(folder) {
     );
     PhotoBrowserPerformance.markFilteringComplete();
     PhotoBrowserPerformance.markMetadataStart();
-    const images = imageFiles.map(file => new Photo(file));
+    const images = await Promise.all(imageFiles.map(async file => {
+        const photo = new Photo(file);
+
+        if (typeof file?.getMetadata === "function") {
+            try {
+                const metadata = await file.getMetadata();
+                const size = Number(metadata?.size);
+
+                if (Number.isFinite(size) && size >= 0) {
+                    photo.fileSize = size;
+                }
+
+                photo.created =
+                    metadata?.dateCreated ?? photo.created;
+                photo.modified =
+                    metadata?.dateModified ?? photo.modified;
+            } catch (_) {
+                // Metadata failure must not hide an otherwise readable photo.
+            }
+        }
+
+        return photo;
+    }));
     PhotoBrowserPerformance.markModelsComplete(images.length);
 
     return {

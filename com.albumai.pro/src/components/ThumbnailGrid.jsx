@@ -7,12 +7,20 @@ import React, {
 } from "react";
 
 import ThumbnailCard from "./ThumbnailCard";
+import UxpDropdown from "./UxpDropdown";
 import PhotoImage from "./PhotoImage";
 import App from "../app/AppController";
 import RefreshService from "../services/RefreshService";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import ImageSourceCapabilityService
     from "../services/ImageSourceCapabilityService";
+
+const LIST_RATING_OPTIONS = Object.freeze(
+    [0, 1, 2, 3, 4, 5].map(rating => Object.freeze({
+        value: rating,
+        label: rating ? `${rating}★` : "—"
+    }))
+);
 
 const ICON_WIDTH = 104;
 const ICON_HEIGHT = 122;
@@ -69,13 +77,13 @@ function usePhotoItemState(photo) {
     return state;
 }
 
-const IconsPhotoItem = React.memo(function IconsPhotoItem({ photo, onPhotoClick, style, focused, viewMode, visible }) {
+const IconsPhotoItem = React.memo(function IconsPhotoItem({ photo, onPhotoClick, style, focused, viewMode, visible, decision, onPhotoDecisionChange }) {
     PhotoBrowserPerformance.recordRender("IconsPhotoItem");
     const state = usePhotoItemState(photo);
-    return <div className={`photo-grid-item${focused ? " is-focused" : ""}`} style={style}><ThumbnailCard photo={photo} onClick={onPhotoClick} compact thumbnailRevision={state.thumbnailRevision} loading={state.loading} selected={state.selected} viewMode={viewMode} visible={visible} /></div>;
+    return <div className={`photo-grid-item${focused ? " is-focused" : ""}`} style={style}><ThumbnailCard photo={photo} onClick={onPhotoClick} compact thumbnailRevision={state.thumbnailRevision} loading={state.loading} selected={state.selected} viewMode={viewMode} visible={visible} decision={decision} onDecisionChange={onPhotoDecisionChange} /></div>;
 });
 
-const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, style, focused, viewMode, visible }) {
+const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, style, focused, viewMode, visible, decision, onPhotoDecisionChange }) {
     PhotoBrowserPerformance.recordRender("ListPhotoRow");
     const state = usePhotoItemState(photo);
     const handleClick = useCallback(event => onPhotoClick(photo, event), [photo, onPhotoClick]);
@@ -83,6 +91,32 @@ const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, sty
         <div style={{ flex: "0 0 30px", width: 30, height: 30, background: "#1f1f1f", overflow: "hidden" }}><PhotoImage photo={photo} profile="thumbnail" priority={visible ? 1 : 2} role="browser" onImageLoad={() => PhotoBrowserPerformance.thumbnailVisible(photo.id)} fallback={status => <div style={{ color: "#777", fontSize: 13, textAlign: "center", lineHeight: "30px" }}>{status === "loading" ? "…" : "▧"}</div>} style={LIST_IMAGE_STYLE} /></div>
         <div style={{ flex: "1 1 auto", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12 }}>{photo.name}</div>
         <div style={{ flex: "0 0 42px", color: "#aaa", fontSize: 11, textTransform: "uppercase" }}>{photo.extension || "—"}</div>
+        <UxpDropdown
+            className="photo-list-rating"
+            value={decision.rating}
+            options={LIST_RATING_OPTIONS}
+            onValueChange={rating => {
+                onPhotoDecisionChange?.(photo, {
+                    rating: Number(rating)
+                });
+            }}
+            ariaLabel={`Rate ${photo.name}`}
+            stopPropagation
+        />
+        <button
+            type="button"
+            className={`photo-list-favorite${decision.favorite ? " is-favorite" : ""}`}
+            onClick={event => {
+                event.stopPropagation();
+                onPhotoDecisionChange?.(photo, {
+                    favorite: !decision.favorite
+                });
+            }}
+            aria-pressed={decision.favorite}
+            aria-label={`${decision.favorite ? "Remove" : "Add"} ${photo.name} ${decision.favorite ? "from" : "to"} favourites`}
+        >
+            {decision.favorite ? "♥" : "♡"}
+        </button>
         <div style={{ flex: "0 0 16px", width: 16, height: 16, borderRadius: 8, background: state.selected ? "#3B82F6" : "#555", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{state.selected ? "✓" : ""}</div>
     </div>;
 });
@@ -118,12 +152,86 @@ function bootstrapWindow(photos, viewMode, reducedProfiles) {
     };
 }
 
+export function calculatePhotoBrowserWindow({
+    photoCount,
+    viewMode,
+    reducedProfiles,
+    viewportWidth,
+    viewportHeight,
+    scrollTop: requestedScrollTop
+}) {
+    const count = Math.max(0, Number(photoCount) || 0);
+    let columns = 1;
+    let totalHeight = 0;
+    let visibleStart = 0;
+    let visibleEnd = 0;
+    let start = 0;
+    let end = 0;
+    let scrollTop = Math.max(0, Number(requestedScrollTop) || 0);
+    if (viewMode === "list") {
+        totalHeight = count * LIST_ROW_HEIGHT;
+        scrollTop = Math.min(
+            scrollTop,
+            Math.max(0, totalHeight - viewportHeight)
+        );
+        visibleStart = Math.floor(scrollTop / LIST_ROW_HEIGHT);
+        visibleEnd = Math.min(
+            count,
+            Math.ceil((scrollTop + viewportHeight) / LIST_ROW_HEIGHT)
+        );
+        const overscan = reducedProfiles ? LIST_OVERSCAN_ROWS : 0;
+        start = Math.max(0, visibleStart - overscan);
+        end = Math.min(count, visibleEnd + overscan);
+    } else {
+        columns = Math.max(1, Math.floor(
+            (viewportWidth - ICON_PADDING * 2 + ICON_GAP) /
+            (ICON_WIDTH + ICON_GAP)
+        ));
+        const rowCount = Math.ceil(count / columns);
+        totalHeight = rowCount
+            ? ICON_PADDING * 2 + rowCount * ICON_HEIGHT +
+                Math.max(0, rowCount - 1) * ICON_GAP
+            : 0;
+        scrollTop = Math.min(
+            scrollTop,
+            Math.max(0, totalHeight - viewportHeight)
+        );
+        const firstRow = Math.floor(
+            Math.max(0, scrollTop - ICON_PADDING) / ICON_ROW_HEIGHT
+        );
+        const visibleRows = Math.max(
+            1,
+            Math.ceil(viewportHeight / ICON_ROW_HEIGHT) +
+                (reducedProfiles ? 1 : 0)
+        );
+        visibleStart = Math.min(count, firstRow * columns);
+        visibleEnd = Math.min(count, (firstRow + visibleRows) * columns);
+        const overscan = reducedProfiles ? ICON_OVERSCAN_ROWS : 0;
+        start = Math.max(0, (firstRow - overscan) * columns);
+        end = Math.min(
+            count,
+            (firstRow + visibleRows + overscan) * columns
+        );
+    }
+    return Object.freeze({
+        start,
+        end,
+        columns,
+        totalHeight,
+        visibleStart,
+        visibleEnd,
+        scrollTop
+    });
+}
+
 function ThumbnailGrid({
     photos = [],
     onPhotoClick,
     viewMode = "icons",
     focusedPhotoId = null,
-    onFocusPhoto
+    onFocusPhoto,
+    decisionForPhoto = () => ({ rating: 0, favorite: false }),
+    onPhotoDecisionChange
 }) {
     PhotoBrowserPerformance.recordRender("ThumbnailGrid");
     const viewportRef = useRef(null);
@@ -155,58 +263,23 @@ function ThumbnailGrid({
         if (!viewport) return false;
         const viewportWidth = viewport.clientWidth;
         const viewportHeight = viewport.clientHeight;
-        let columns = 1;
-        let totalHeight = 0;
-        let visibleStart = 0;
-        let visibleEnd = 0;
-        let start = 0;
-        let end = 0;
-        let scrollTop = viewport.scrollTop;
-        const iconOverscanRows = reducedProfiles
-            ? ICON_OVERSCAN_ROWS
-            : 0;
-        const listOverscanRows = reducedProfiles
-            ? LIST_OVERSCAN_ROWS
-            : 0;
-        if (viewMode === "list") {
-            totalHeight = photos.length * LIST_ROW_HEIGHT;
-            scrollTop = Math.min(
-                scrollTop,
-                Math.max(0, totalHeight - viewportHeight)
-            );
-            visibleStart = Math.floor(scrollTop / LIST_ROW_HEIGHT);
-            visibleEnd = Math.min(photos.length, Math.ceil((scrollTop + viewportHeight) / LIST_ROW_HEIGHT));
-            start = Math.max(0, visibleStart - listOverscanRows);
-            end = Math.min(photos.length, visibleEnd + listOverscanRows);
-        } else {
-            columns = Math.max(1, Math.floor((viewportWidth - ICON_PADDING * 2 + ICON_GAP) / (ICON_WIDTH + ICON_GAP)));
-            const rowCount = Math.ceil(photos.length / columns);
-            totalHeight = rowCount ? ICON_PADDING * 2 + rowCount * ICON_HEIGHT + Math.max(0, rowCount - 1) * ICON_GAP : 0;
-            scrollTop = Math.min(
-                scrollTop,
-                Math.max(0, totalHeight - viewportHeight)
-            );
-            const firstRow = Math.floor(Math.max(0, scrollTop - ICON_PADDING) / ICON_ROW_HEIGHT);
-            const visibleRows = Math.max(
-                1,
-                Math.ceil(viewportHeight / ICON_ROW_HEIGHT) +
-                    (reducedProfiles ? 1 : 0)
-            );
-            visibleStart = Math.min(photos.length, firstRow * columns);
-            visibleEnd = Math.min(photos.length, (firstRow + visibleRows) * columns);
-            start = Math.max(
-                0,
-                (firstRow - iconOverscanRows) * columns
-            );
-            end = Math.min(
-                photos.length,
-                (
-                    firstRow +
-                    visibleRows +
-                    iconOverscanRows
-                ) * columns
-            );
-        }
+        const calculated = calculatePhotoBrowserWindow({
+            photoCount: photos.length,
+            viewMode,
+            reducedProfiles,
+            viewportWidth,
+            viewportHeight,
+            scrollTop: viewport.scrollTop
+        });
+        const {
+            start,
+            end,
+            columns,
+            totalHeight,
+            visibleStart,
+            visibleEnd,
+            scrollTop
+        } = calculated;
         // A view switch can reduce the scrollable height. Apply the clamped
         // position before rendering so virtual indices always address photos.
         if (viewport.scrollTop !== scrollTop) viewport.scrollTop = scrollTop;
@@ -319,12 +392,13 @@ function ThumbnailGrid({
         const photo = photos[index];
         if (!photo) continue;
         const key = photo.id || photo.name || index;
+        const decision = decisionForPhoto(photo);
         if (viewMode === "list") {
-            items.push(<ListPhotoRow key={key} photo={photo} onPhotoClick={handlePhotoClick} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} style={{ position: "absolute", top: index * LIST_ROW_HEIGHT, left: 0, right: 0, height: LIST_ROW_HEIGHT }} />);
+            items.push(<ListPhotoRow key={key} photo={photo} onPhotoClick={handlePhotoClick} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} style={{ position: "absolute", top: index * LIST_ROW_HEIGHT, left: 0, right: 0, height: LIST_ROW_HEIGHT }} />);
         } else {
             const row = Math.floor(index / renderWindow.columns);
             const column = index % renderWindow.columns;
-            items.push(<IconsPhotoItem key={key} photo={photo} onPhotoClick={handlePhotoClick} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} style={{ position: "absolute", left: ICON_PADDING + column * (ICON_WIDTH + ICON_GAP), top: ICON_PADDING + row * ICON_ROW_HEIGHT, width: ICON_WIDTH, height: ICON_HEIGHT }} />);
+            items.push(<IconsPhotoItem key={key} photo={photo} onPhotoClick={handlePhotoClick} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} style={{ position: "absolute", left: ICON_PADDING + column * (ICON_WIDTH + ICON_GAP), top: ICON_PADDING + row * ICON_ROW_HEIGHT, width: ICON_WIDTH, height: ICON_HEIGHT }} />);
         }
     }
 

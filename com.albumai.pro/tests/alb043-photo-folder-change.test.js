@@ -4,6 +4,7 @@ import PhotoWorkspaceService, {
     PhotoFolderChangeStatus
 } from "../src/services/PhotoWorkspaceService";
 import {
+    importPhotoFolder,
     isBrowserRenderableImage
 } from "../src/services/FolderService";
 import {
@@ -731,6 +732,39 @@ async function run() {
             PhotoFolderChangeStatus.SUPERSEDED
         );
         assert.strictEqual(state.service.sourceFolder.name, "old");
+    });
+
+    await test("folder import maps UXP metadata onto photo models", async () => {
+        const created = new Date("2026-01-02T03:04:05.000Z");
+        const modified = new Date("2026-06-07T08:09:10.000Z");
+        let metadataCalls = 0;
+        const file = {
+            isFile: true,
+            name: "metadata.jpg",
+            nativePath: "/photos/metadata.jpg",
+            async getMetadata() {
+                metadataCalls += 1;
+                return {
+                    size: 987654,
+                    dateCreated: created,
+                    dateModified: modified
+                };
+            }
+        };
+
+        const result = await importPhotoFolder({
+            name: "photos",
+            nativePath: "/photos",
+            async getEntries() {
+                return [file];
+            }
+        });
+
+        assert.strictEqual(metadataCalls, 1);
+        assert.strictEqual(result.images.length, 1);
+        assert.strictEqual(result.images[0].fileSize, 987654);
+        assert.strictEqual(result.images[0].created, created);
+        assert.strictEqual(result.images[0].modified, modified);
     });
 
     console.log(`ALB-043 service tests passed: ${count}`);

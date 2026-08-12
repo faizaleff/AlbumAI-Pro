@@ -27,6 +27,23 @@ constructs the owners and coordinates UI actions, but it is not an alternate
 domain model. `ProjectExecutor` is the batch-use-case coordinator; it does not
 own a second batch or recovery schema.
 
+`src/services/PhotoBrowserModel.js` is a pure, deterministic projection over
+the Photo owner's published collection. It normalizes persisted browser
+preferences, filters and sorts without mutating Photo objects, and publishes
+the exact visible order to selection. It does not retain or persist a competing
+photo collection.
+
+Per-photo rating and favourite decisions remain under
+`PhotoWorkspaceService`. Persisted records use bounded opaque source hashes,
+contain no paths or host entries, and are reconciled against the active
+workspace before publication. `PhotoBrowserModel` consumes those records as a
+read-only query input; it never writes decision fields onto Photo objects.
+
+JPEG metadata enrichment also remains under `PhotoWorkspaceService`. Reads
+share the bounded browser decode scheduler, and only normalized dimensions,
+orientation, and Date Taken facts may be published by the current folder
+generation or written to the metadata cache.
+
 The deleted inactive source contained competing project models, album engines,
 template registries, generation contexts, workflow jobs, export managers,
 bootstrap containers, and UI state stores. None is part of the product after

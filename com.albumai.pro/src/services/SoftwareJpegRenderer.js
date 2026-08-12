@@ -42,6 +42,23 @@ function targetDimensions(width, height, maxEdge) {
 
 }
 
+function normalizeExifDate(value) {
+
+    const match = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(
+        String(value || "").replace(/\0.*$/, "").trim()
+    );
+    if (!match) return null;
+    const [, year, month, day, hour, minute, second] = match;
+    const numbers = [month, day, hour, minute, second].map(Number);
+    if (
+        numbers[0] < 1 || numbers[0] > 12 ||
+        numbers[1] < 1 || numbers[1] > 31 ||
+        numbers[2] > 23 || numbers[3] > 59 || numbers[4] > 59
+    ) return null;
+    return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+
+}
+
 function parseExifPreview(bytes, markerOffset, segmentEnd) {
 
     const tiffOffset = markerOffset + 10;
@@ -81,23 +98,69 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
         ifd0Offset + 2 + ifd0Entries * 12;
     if (nextIfdPointer + 4 > segmentEnd) return null;
 
+    const readAscii = entryOffset => {
+        if (read16(entryOffset + 2) !== 2) return null;
+        const count = read32(entryOffset + 4);
+        if (!count || count > 64) return null;
+        const valueOffset = count <= 4
+            ? entryOffset + 8
+            : tiffOffset + read32(entryOffset + 8);
+        if (
+            valueOffset < tiffOffset ||
+            valueOffset + count > segmentEnd
+        ) return null;
+        let value = "";
+        for (let index = 0; index < count; index++) {
+            const character = bytes[valueOffset + index];
+            if (!character) break;
+            value += String.fromCharCode(character);
+        }
+        return value;
+    };
+    const scanDate = (offset, preferredTags) => {
+        if (offset + 2 > segmentEnd) return null;
+        const count = read16(offset);
+        if (count > 256 || offset + 2 + count * 12 > segmentEnd) {
+            return null;
+        }
+        for (const preferredTag of preferredTags) {
+            for (let index = 0; index < count; index++) {
+                const entryOffset = offset + 2 + index * 12;
+                if (read16(entryOffset) !== preferredTag) continue;
+                const normalized = normalizeExifDate(readAscii(entryOffset));
+                if (normalized) return normalized;
+            }
+        }
+        return null;
+    };
+
     let orientation = 1;
+    let exifIfdRelative = 0;
     for (let index = 0; index < ifd0Entries; index++) {
         const entryOffset = ifd0Offset + 2 + index * 12;
         if (entryOffset + 12 > segmentEnd) return null;
-        if (read16(entryOffset) === 0x0112) {
+        const tag = read16(entryOffset);
+        if (tag === 0x0112) {
             const value = read16(entryOffset + 8);
             if (value >= 1 && value <= 8) orientation = value;
+        } else if (tag === 0x8769) {
+            exifIfdRelative = read32(entryOffset + 8);
         }
     }
+    const exifIfdOffset = tiffOffset + exifIfdRelative;
+    const dateTaken = (
+        exifIfdRelative && exifIfdOffset >= tiffOffset
+            ? scanDate(exifIfdOffset, [0x9003, 0x9004])
+            : null
+    ) || scanDate(ifd0Offset, [0x0132]);
 
     const ifd1Relative = read32(nextIfdPointer);
     if (!ifd1Relative) {
-        return { binary: null, orientation };
+        return { binary: null, orientation, dateTaken };
     }
     const ifd1Offset = tiffOffset + ifd1Relative;
     if (ifd1Offset + 2 > segmentEnd) {
-        return { binary: null, orientation };
+        return { binary: null, orientation, dateTaken };
     }
 
     const ifd1Entries = read16(ifd1Offset);
@@ -106,7 +169,7 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
     for (let index = 0; index < ifd1Entries; index++) {
         const entryOffset = ifd1Offset + 2 + index * 12;
         if (entryOffset + 12 > segmentEnd) {
-            return { binary: null, orientation };
+            return { binary: null, orientation, dateTaken };
         }
         const tag = read16(entryOffset);
         if (tag === 0x0201) {
@@ -126,26 +189,36 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
         bytes[thumbnailOffset] !== 0xff ||
         bytes[thumbnailOffset + 1] !== 0xd8
     ) {
-        return { binary: null, orientation };
+        return { binary: null, orientation, dateTaken };
     }
     return {
         binary: bytes.slice(thumbnailOffset, thumbnailEnd),
-        orientation
+        orientation,
+        dateTaken
     };
 
 }
 
-function inspectJpeg(binary) {
+export function inspectJpegMetadata(binary) {
 
     const bytes = binaryView(binary);
     if (
         bytes.length < 4 ||
         bytes[0] !== 0xff ||
         bytes[1] !== 0xd8
-    ) return { embedded: null, orientation: 1 };
+    ) return {
+        embedded: null,
+        width: 0,
+        height: 0,
+        orientation: 1,
+        dateTaken: null
+    };
 
     let best = null;
     let orientation = 1;
+    let dateTaken = null;
+    let width = 0;
+    let height = 0;
     let markerOffset = 2;
     while (
         markerOffset + 4 <= bytes.length &&
@@ -176,6 +249,7 @@ function inspectJpeg(binary) {
             );
             if (candidate) {
                 orientation = candidate.orientation;
+                dateTaken = candidate.dateTaken || dateTaken;
                 if (
                     candidate.binary &&
                     (
@@ -186,13 +260,26 @@ function inspectJpeg(binary) {
                     best = candidate;
                 }
             }
+        } else if (
+            marker >= 0xc0 && marker <= 0xcf &&
+            ![0xc4, 0xc8, 0xcc].includes(marker) &&
+            segmentLength >= 7
+        ) {
+            height = (bytes[markerOffset + 5] << 8) |
+                bytes[markerOffset + 6];
+            width = (bytes[markerOffset + 7] << 8) |
+                bytes[markerOffset + 8];
         }
         markerOffset = segmentEnd;
     }
-    return {
+    const swapsAxes = orientation >= 5 && orientation <= 8;
+    return Object.freeze({
         embedded: best?.binary || null,
-        orientation: best?.orientation || orientation
-    };
+        width: swapsAxes ? height : width,
+        height: swapsAxes ? width : height,
+        orientation: best?.orientation || orientation,
+        dateTaken
+    });
 
 }
 
@@ -403,6 +490,18 @@ function resizeOrientedRgb(
 
 class SoftwareJpegRenderer {
 
+    inspectMetadata(binary) {
+
+        const metadata = inspectJpegMetadata(binary);
+        return Object.freeze({
+            width: metadata.width,
+            height: metadata.height,
+            orientation: metadata.orientation,
+            dateTaken: metadata.dateTaken
+        });
+
+    }
+
     contentIdentity(binary) {
 
         return contentFingerprint(binary);
@@ -432,7 +531,7 @@ class SoftwareJpegRenderer {
         );
 
         try {
-            const inspected = inspectJpeg(binary);
+            const inspected = inspectJpegMetadata(binary);
             let decoded = null;
             let input = "embedded-exif";
             if (inspected.embedded) {

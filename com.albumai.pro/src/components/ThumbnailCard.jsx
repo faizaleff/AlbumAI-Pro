@@ -1,6 +1,14 @@
 import React, { useCallback } from "react";
 import PhotoImage from "./PhotoImage";
+import UxpDropdown from "./UxpDropdown";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+
+const PHOTO_RATING_OPTIONS = Object.freeze(
+    [0, 1, 2, 3, 4, 5].map(rating => Object.freeze({
+        value: rating,
+        label: rating ? String(rating) : "—"
+    }))
+);
 
 function ThumbnailCard({
     photo,
@@ -10,7 +18,9 @@ function ThumbnailCard({
     loading,
     selected,
     viewMode = "icons",
-    visible = false
+    visible = false,
+    decision = { rating: 0, favorite: false },
+    onDecisionChange
 }) {
 
     PhotoBrowserPerformance.recordRender("ThumbnailCard");
@@ -128,6 +138,38 @@ function ThumbnailCard({
                 >
                     {photo.name}
                 </div>
+                <div className="photo-decision-controls">
+                    <UxpDropdown
+                        value={decision.rating}
+                        options={PHOTO_RATING_OPTIONS}
+                        onValueChange={rating => {
+                            onDecisionChange?.(photo, {
+                                rating: Number(rating)
+                            });
+                        }}
+                        className="photo-decision-rating"
+                        ariaLabel={`Rate ${photo.name}`}
+                        title="Photo rating"
+                        stopPropagation
+                    />
+                    <button
+                        type="button"
+                        className={decision.favorite ? "is-favorite" : ""}
+                        onClick={event => {
+                            event.stopPropagation();
+                            onDecisionChange?.(photo, {
+                                favorite: !decision.favorite
+                            });
+                        }}
+                        aria-pressed={decision.favorite}
+                        aria-label={`${decision.favorite ? "Remove" : "Add"} ${photo.name} ${decision.favorite ? "from" : "to"} favourites`}
+                        title={decision.favorite
+                            ? "Remove from favourites"
+                            : "Add to favourites"}
+                    >
+                        {decision.favorite ? "♥" : "♡"}
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -148,4 +190,7 @@ export default React.memo(
         previous.selected === next.selected &&
         previous.viewMode === next.viewMode &&
         previous.visible === next.visible
+        && previous.decision?.rating === next.decision?.rating
+        && previous.decision?.favorite === next.decision?.favorite
+        && previous.onDecisionChange === next.onDecisionChange
 );

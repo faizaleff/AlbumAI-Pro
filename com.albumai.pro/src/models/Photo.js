@@ -41,6 +41,8 @@ export default class Photo {
         this.fileSize = file.size || 0;
         this.created = file.created || null;
         this.modified = file.modified || null;
+        this.dateTaken = null;
+        this.metadataLoaded = false;
 
         // Loading
         this.loaded = false;

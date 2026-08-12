@@ -2,19 +2,55 @@ import React, {
     useCallback,
     useEffect,
     useMemo,
+    useRef,
     useState
 } from "react";
 
 import ThumbnailGrid from "./ThumbnailGrid";
+import UxpDropdown from "./UxpDropdown";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+import {
+    createPhotoDecisionLookup,
+    hasActivePhotoBrowserFilters,
+    normalizePhotoDecisions,
+    normalizePhotoBrowserPreferences,
+    queryPhotoBrowser,
+    updatePhotoDecision
+} from "../services/PhotoBrowserModel";
 import {
     selectAllBrowserPhotos,
     setCanonicalBrowserPhotos
-} from "../services/BrowserSelectionCommands";
+} from "../services/PhotoBrowserSelection";
 import App from "../app/AppController";
 import {
     canStartPhotoFolderChange
 } from "./photoFolderChangeMessages";
+
+const PHOTO_DATE_FILTER_OPTIONS = Object.freeze([
+    Object.freeze({ value: "any", label: "Any" }),
+    Object.freeze({ value: "today", label: "Today" }),
+    Object.freeze({ value: "last7", label: "Last 7 days" }),
+    Object.freeze({ value: "last30", label: "Last 30 days" }),
+    Object.freeze({ value: "thisYear", label: "This year" })
+]);
+
+const PHOTO_RATING_FILTER_OPTIONS = Object.freeze([
+    Object.freeze({ value: 0, label: "Any" }),
+    Object.freeze({ value: 1, label: "1+ stars" }),
+    Object.freeze({ value: 2, label: "2+ stars" }),
+    Object.freeze({ value: 3, label: "3+ stars" }),
+    Object.freeze({ value: 4, label: "4+ stars" }),
+    Object.freeze({ value: 5, label: "5 stars" })
+]);
+
+const PHOTO_SORT_OPTIONS = Object.freeze([
+    Object.freeze({ value: "name", label: "Name" }),
+    Object.freeze({ value: "modified", label: "Date Modified" }),
+    Object.freeze({ value: "taken", label: "Date Taken" }),
+    Object.freeze({ value: "created", label: "Date Created" }),
+    Object.freeze({ value: "rating", label: "Rating" }),
+    Object.freeze({ value: "size", label: "File Size" })
+]);
 
 function PhotoBrowserSection({
     photos,
@@ -43,73 +79,103 @@ function PhotoBrowserSection({
     const [selectedCount, setSelectedCount] = useState(
         () => App.selection.selectedIds().size
     );
-    const readSavedSort = () => {
-        const saved = App.project.getProject()?.metadata?.photoBrowserSort;
-        return {
-            field: ["modified", "taken"].includes(saved?.field)
-                ? saved.field
-                : "name",
-            direction: saved?.direction === "desc" ? "desc" : "asc"
-        };
-    };
-    const [sort, setSort] = useState(readSavedSort);
-
-    const sortedPhotos = useMemo(() => {
-
-        const dateValue = (photo, taken = false) => {
-            const value = taken
-                ? photo?.dateTaken || photo?.exif?.dateTaken
-                : photo?.modified || photo?.file?.modified;
-            const milliseconds = value instanceof Date
-                ? value.getTime()
-                : new Date(value || 0).getTime();
-            return Number.isFinite(milliseconds) && milliseconds > 0
-                ? milliseconds
-                : null;
-        };
-        const name = photo => String(photo?.name || "");
-        const ordered = [...photos];
-
-        ordered.sort((left, right) => {
-            if (sort.field === "name") {
-                const comparison = name(left).localeCompare(name(right), undefined, {
-                    numeric: true,
-                    sensitivity: "base"
-                });
-                return sort.direction === "desc" ? -comparison : comparison;
-            }
-
-            const leftDate = dateValue(left, sort.field === "taken");
-            const rightDate = dateValue(right, sort.field === "taken");
-            if (leftDate == null && rightDate == null) return name(left).localeCompare(name(right));
-            if (leftDate == null) return 1;
-            if (rightDate == null) return -1;
-            const comparison = leftDate - rightDate;
-            return sort.direction === "desc" ? -comparison : comparison;
+    const readSavedPreferences = () => {
+        const metadata = App.project.getProject()?.metadata || {};
+        const saved = metadata.photoBrowserPreferences;
+        const legacySort = metadata.photoBrowserSort;
+        return normalizePhotoBrowserPreferences({
+            ...saved,
+            sort: saved?.sort || legacySort
         });
-
-        return ordered;
-
-    }, [photos, sort]);
+    };
+    const [preferences, setPreferences] = useState(readSavedPreferences);
+    const [decisions, setDecisions] = useState(
+        () => normalizePhotoDecisions(App.getPhotoDecisions())
+    );
+    const [decisionError, setDecisionError] = useState(null);
+    const decisionRevision = useRef(0);
+    const queryResult = useMemo(
+        () => queryPhotoBrowser(photos, preferences, { decisions }),
+        [decisions, photos, preferences]
+    );
+    const decisionForPhoto = useMemo(
+        () => createPhotoDecisionLookup(decisions),
+        [decisions]
+    );
+    const visiblePhotos = queryResult.photos;
+    const filtersActive = hasActivePhotoBrowserFilters(preferences);
 
     useEffect(() => {
-        setSort(readSavedSort());
+        setPreferences(readSavedPreferences());
+        setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
+        setDecisionError(null);
+        decisionRevision.current += 1;
     }, [projectId]);
 
-    const updateSort = useCallback(next => {
-        setSort(previous => {
-            const resolved = { ...previous, ...next };
-            if (
-                resolved.field === previous.field &&
-                resolved.direction === previous.direction
-            ) return previous;
+    useEffect(() => {
+        setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
+    }, [photos]);
 
-            App.saveProject(
-                { photoBrowserSort: resolved },
-                { reason: "PHOTO_BROWSER_SORT" }
-            ).catch(error => console.warn("Photo browser sort persistence:", error));
+    const persistPreferences = useCallback(value => {
+        App.saveProject(
+            { photoBrowserPreferences: value },
+            { reason: "PHOTO_BROWSER_PREFERENCES" }
+        ).catch(error => console.warn(
+            "Photo browser preference persistence:",
+            error
+        ));
+    }, []);
+
+    const updatePreferences = useCallback((next, { persist = true } = {}) => {
+        setPreferences(previous => {
+            const values = typeof next === "function"
+                ? next(previous)
+                : { ...previous, ...next };
+            const resolved = normalizePhotoBrowserPreferences(values);
+            if (JSON.stringify(resolved) === JSON.stringify(previous)) {
+                return previous;
+            }
+            if (persist) persistPreferences(resolved);
             return resolved;
         });
+    }, [persistPreferences]);
+
+    const updateSort = useCallback(next => {
+        updatePreferences(previous => ({
+            ...previous,
+            sort: { ...previous.sort, ...next }
+        }));
+    }, [updatePreferences]);
+
+    const clearFilters = useCallback(() => {
+        updatePreferences(previous => ({ sort: previous.sort }));
+    }, [updatePreferences]);
+
+    const changePhotoDecision = useCallback((photo, changes) => {
+        const revision = ++decisionRevision.current;
+        setDecisionError(null);
+        setDecisions(previous => updatePhotoDecision(
+            previous,
+            photo,
+            changes
+        ));
+        App.updatePhotoDecision(photo, changes)
+            .then(persisted => {
+                if (decisionRevision.current === revision) {
+                    setDecisions(normalizePhotoDecisions(persisted));
+                }
+            })
+            .catch(error => {
+                if (decisionRevision.current === revision) {
+                    setDecisions(normalizePhotoDecisions(
+                        App.getPhotoDecisions()
+                    ));
+                    setDecisionError(
+                        "Rating or favourite could not be saved."
+                    );
+                }
+                console.warn("Photo decision persistence:", error);
+            });
     }, []);
 
     const switchView = useCallback(nextMode => {
@@ -130,17 +196,17 @@ function PhotoBrowserSection({
     }, [viewMode]);
 
     useEffect(() => {
-        App.selection.setOrderedPhotos(sortedPhotos);
-        setCanonicalBrowserPhotos(sortedPhotos);
-    }, [sortedPhotos]);
+        App.selection.setOrderedPhotos(visiblePhotos);
+        setCanonicalBrowserPhotos(visiblePhotos);
+    }, [visiblePhotos]);
 
     useEffect(() => {
-        if (focusedPhotoId && !sortedPhotos.some(
+        if (focusedPhotoId && !visiblePhotos.some(
             photo => photo?.id === focusedPhotoId
         )) {
             onFocusPhoto?.(null);
         }
-    }, [focusedPhotoId, onFocusPhoto, sortedPhotos]);
+    }, [focusedPhotoId, onFocusPhoto, visiblePhotos]);
 
     const focusPhoto = useCallback(photo => {
         if (!photo?.id) return;
@@ -166,26 +232,26 @@ function PhotoBrowserSection({
 
             if (isEditable) return;
 
-            if (isSelectAll && sortedPhotos.length) {
+            if (isSelectAll && visiblePhotos.length) {
                 event.preventDefault();
                 // Keep select-all aligned with the canonical browser order,
                 // including a sort change that has not yet reached its effect.
                 PhotoBrowserPerformance.trace(
                     "BROWSER_SELECT_ALL_SHORTCUT",
-                    { photos: sortedPhotos.length }
+                    { photos: visiblePhotos.length }
                 );
                 selectAllBrowserPhotos();
                 PhotoBrowserPerformance.trace(
                     "BROWSER_SELECTION_OPERATION",
                     {
                         operation: "selectAll",
-                        selected: sortedPhotos.length
+                        selected: visiblePhotos.length
                     }
                 );
             } else if (event.key === "Escape") {
                 App.selection.clear();
-            } else if (sortedPhotos.length) {
-                const currentIndex = Math.max(0, sortedPhotos.findIndex(
+            } else if (visiblePhotos.length) {
+                const currentIndex = Math.max(0, visiblePhotos.findIndex(
                     photo => photo?.id === focusedPhotoId
                 ));
                 const pageSize = 10;
@@ -199,7 +265,7 @@ function PhotoBrowserSection({
                     case "ArrowRight":
                     case "ArrowDown":
                         nextIndex = Math.min(
-                            sortedPhotos.length - 1,
+                            visiblePhotos.length - 1,
                             currentIndex + 1
                         );
                         break;
@@ -207,20 +273,20 @@ function PhotoBrowserSection({
                         nextIndex = 0;
                         break;
                     case "End":
-                        nextIndex = sortedPhotos.length - 1;
+                        nextIndex = visiblePhotos.length - 1;
                         break;
                     case "PageUp":
                         nextIndex = Math.max(0, currentIndex - pageSize);
                         break;
                     case "PageDown":
                         nextIndex = Math.min(
-                            sortedPhotos.length - 1,
+                            visiblePhotos.length - 1,
                             currentIndex + pageSize
                         );
                         break;
                     case " ":
                     case "Spacebar": {
-                        const focused = sortedPhotos[currentIndex];
+                        const focused = visiblePhotos[currentIndex];
                         if (focused) {
                             event.preventDefault();
                             App.selection.toggle(focused);
@@ -229,16 +295,16 @@ function PhotoBrowserSection({
                         return;
                     }
                     case "Enter":
-                        if (sortedPhotos[currentIndex]) {
+                        if (visiblePhotos[currentIndex]) {
                             event.preventDefault();
-                            focusPhoto(sortedPhotos[currentIndex]);
+                            focusPhoto(visiblePhotos[currentIndex]);
                         }
                         return;
                     default:
                         return;
                 }
 
-                const next = sortedPhotos[nextIndex];
+                const next = visiblePhotos[nextIndex];
                 if (next) {
                     event.preventDefault();
                     if (event.shiftKey) App.selection.range(next);
@@ -256,7 +322,7 @@ function PhotoBrowserSection({
             handleKeyDown,
             true
         );
-    }, [focusPhoto, focusedPhotoId, sortedPhotos]);
+    }, [focusPhoto, focusedPhotoId, visiblePhotos]);
 
     return (
         <section className="photo-browser-shell" aria-label="Photo browser">
@@ -280,32 +346,138 @@ function PhotoBrowserSection({
                     </button>
                 ))}
                 </div>
-                <div className="photo-browser-toolbar-group photo-browser-sort-group">
-                <label className="photo-browser-sort-label" htmlFor="photo-browser-sort">
-                    Sort by
-                    <select
-                        id="photo-browser-sort"
-                        value={sort.field}
-                        onChange={event => updateSort({ field: event.target.value })}
-                        className="photo-browser-sort-select photo-browser-control"
-                        aria-label="Sort photos by"
-                        title="Sort photos by"
-                    >
-                        <option value="name">Name</option>
-                        <option value="modified">Date Modified</option>
-                        <option value="taken">Date Taken</option>
-                    </select>
+                <div className="photo-browser-toolbar-group photo-browser-query-group">
+                <label className="photo-browser-filter-label" htmlFor="photo-browser-search">
+                    Search
+                    <input
+                        id="photo-browser-search"
+                        type="search"
+                        value={preferences.search}
+                        onChange={event => updatePreferences(
+                            { search: event.target.value },
+                            { persist: false }
+                        )}
+                        onBlur={() => persistPreferences(preferences)}
+                        onKeyDown={event => {
+                            if (event.key === "Enter") {
+                                persistPreferences(preferences);
+                                event.currentTarget.blur?.();
+                            }
+                        }}
+                        className="photo-browser-search-input photo-browser-control"
+                        placeholder="Filename"
+                        aria-label="Search photos by filename"
+                    />
+                </label>
+                <label className="photo-browser-filter-label" htmlFor="photo-browser-type">
+                    Type
+                    <UxpDropdown
+                        id="photo-browser-type"
+                        value={preferences.types[0] || ""}
+                        options={[
+                            { value: "", label: "All" },
+                            ...queryResult.facets.types.map(type => ({
+                                value: type,
+                                label: type.toUpperCase()
+                            }))
+                        ]}
+                        onValueChange={type => updatePreferences({
+                            types: type ? [type] : []
+                        })}
+                        className="photo-browser-filter-select photo-browser-control"
+                        ariaLabel="Filter photos by file type"
+                    />
+                </label>
+                <label className="photo-browser-filter-label" htmlFor="photo-browser-orientation">
+                    Orientation
+                    <UxpDropdown
+                        id="photo-browser-orientation"
+                        value={preferences.orientations[0] || ""}
+                        options={[
+                            { value: "", label: "All" },
+                            ...queryResult.facets.orientations.map(
+                                orientation => ({
+                                    value: orientation,
+                                    label: orientation.charAt(0).toUpperCase()
+                                        + orientation.slice(1)
+                                })
+                            )
+                        ]}
+                        onValueChange={orientation => updatePreferences({
+                            orientations: orientation ? [orientation] : []
+                        })}
+                        className="photo-browser-filter-select photo-browser-control"
+                        ariaLabel="Filter photos by orientation"
+                    />
+                </label>
+                <label className="photo-browser-filter-label" htmlFor="photo-browser-date">
+                    Date
+                    <UxpDropdown
+                        id="photo-browser-date"
+                        value={preferences.datePreset}
+                        options={PHOTO_DATE_FILTER_OPTIONS}
+                        onValueChange={datePreset => updatePreferences({
+                            datePreset
+                        })}
+                        className="photo-browser-filter-select photo-browser-control"
+                        ariaLabel="Filter photos by date"
+                    />
+                </label>
+                <label className="photo-browser-filter-label" htmlFor="photo-browser-rating">
+                    Rating
+                    <UxpDropdown
+                        id="photo-browser-rating"
+                        value={preferences.minimumRating}
+                        options={PHOTO_RATING_FILTER_OPTIONS}
+                        onValueChange={minimumRating => updatePreferences({
+                            minimumRating: Number(minimumRating)
+                        })}
+                        className="photo-browser-filter-select photo-browser-control"
+                        ariaLabel="Filter photos by minimum rating"
+                    />
+                </label>
+                <label className="photo-browser-favorite-filter">
+                    <input
+                        type="checkbox"
+                        checked={preferences.favoritesOnly}
+                        onChange={event => updatePreferences({
+                            favoritesOnly: event.target.checked
+                        })}
+                    />
+                    Favourites only
                 </label>
                 <button
                     type="button"
-                    onClick={() => updateSort({ direction: sort.direction === "asc" ? "desc" : "asc" })}
-                    title={sort.field === "name"
-                        ? sort.direction === "asc" ? "Name A–Z" : "Name Z–A"
-                        : `${sort.field === "taken" ? "Date Taken" : "Date Modified"}: ${sort.direction === "asc" ? "Oldest to Newest" : "Newest to Oldest"}`}
+                    onClick={clearFilters}
+                    disabled={!filtersActive}
+                    className="photo-browser-control"
+                    aria-label="Clear photo filters"
+                    title="Clear search and filters"
+                >
+                    Clear Filters
+                </button>
+                </div>
+                <div className="photo-browser-toolbar-group photo-browser-sort-group">
+                <label className="photo-browser-sort-label" htmlFor="photo-browser-sort">
+                    Sort by
+                    <UxpDropdown
+                        id="photo-browser-sort"
+                        value={preferences.sort.field}
+                        options={PHOTO_SORT_OPTIONS}
+                        onValueChange={field => updateSort({ field })}
+                        className="photo-browser-sort-select photo-browser-control"
+                        ariaLabel="Sort photos by"
+                        title="Sort photos by"
+                    />
+                </label>
+                <button
+                    type="button"
+                    onClick={() => updateSort({ direction: preferences.sort.direction === "asc" ? "desc" : "asc" })}
+                    title={`Sort ${preferences.sort.direction === "asc" ? "ascending" : "descending"}`}
                     aria-label="Toggle sort direction"
                     className="photo-browser-control photo-browser-direction-button"
                 >
-                    {sort.direction === "asc" ? "↑ Asc" : "↓ Desc"}
+                    {preferences.sort.direction === "asc" ? "↑ Asc" : "↓ Desc"}
                 </button>
                 </div>
                 <div className="photo-browser-toolbar-group photo-browser-selection-group">
@@ -343,7 +515,7 @@ function PhotoBrowserSection({
                     onClick={() => {
                         selectAllBrowserPhotos();
                     }}
-                    disabled={!sortedPhotos.length}
+                    disabled={!visiblePhotos.length}
                     className="photo-browser-control"
                     title="Select all photos"
                     aria-label="Select all photos"
@@ -369,13 +541,18 @@ function PhotoBrowserSection({
                         {photoFolderChange.message}
                     </div>
                 )}
+                {decisionError && (
+                    <div className="photo-decision-error" role="alert">
+                        {decisionError}
+                    </div>
+                )}
                 {isLoading ? (
                     <div className="photo-browser-state photo-browser-loading-state" role="status" aria-live="polite">
                         <div className="photo-browser-spinner" aria-hidden="true" />
                         <h2>Loading Photos...</h2>
                         <p>{loadingPhotoCount} {loadingPhotoCount === 1 ? "photo" : "photos"} found</p>
                     </div>
-                ) : !sortedPhotos.length ? (
+                ) : !photos.length ? (
                     <div className="photo-browser-state" role="status">
                         <div className="photo-browser-empty-icon" aria-hidden="true">📁</div>
                         <h2>Open a Photo Folder</h2>
@@ -396,13 +573,28 @@ function PhotoBrowserSection({
                             Open Folder
                         </button>
                     </div>
+                ) : !visiblePhotos.length ? (
+                    <div className="photo-browser-state" role="status">
+                        <div className="photo-browser-empty-icon" aria-hidden="true">⌕</div>
+                        <h2>No Matching Photos</h2>
+                        <p>Try a different filename, type, orientation, or date filter.</p>
+                        <button
+                            type="button"
+                            onClick={clearFilters}
+                            className="photo-browser-control photo-browser-primary-button"
+                        >
+                            Clear Filters
+                        </button>
+                    </div>
                 ) : (
                     <ThumbnailGrid
-                        photos={sortedPhotos}
+                        photos={visiblePhotos}
                         onPhotoClick={onPhotoClick}
                         focusedPhotoId={focusedPhotoId}
                         onFocusPhoto={focusPhoto}
                         viewMode={viewMode}
+                        decisionForPhoto={decisionForPhoto}
+                        onPhotoDecisionChange={changePhotoDecision}
                     />
                 )}
             </div>
@@ -451,13 +643,23 @@ function PhotoBrowserSection({
             )}
 
             <div className="photo-browser-statusbar" role="status" aria-label="Photo browser status">
-                <span><strong>Photos:</strong> {sortedPhotos.length}</span>
+                <span><strong>Results:</strong> {queryResult.counts.matched}/{queryResult.counts.total}</span>
                 <span><strong>Selected:</strong> {selectedCount}</span>
                 <span><strong>View:</strong> {viewMode === "icons" ? "Icons" : "List"}</span>
                 <span>
                     <strong>Sort:</strong>{" "}
-                    {sort.field === "name" ? "Name" : sort.field === "modified" ? "Date Modified" : "Date Taken"}{" "}
-                    {sort.direction === "asc" ? "↑" : "↓"}
+                    {preferences.sort.field === "name"
+                        ? "Name"
+                        : preferences.sort.field === "modified"
+                            ? "Date Modified"
+                            : preferences.sort.field === "taken"
+                                ? "Date Taken"
+                                : preferences.sort.field === "created"
+                                    ? "Date Created"
+                                    : preferences.sort.field === "rating"
+                                        ? "Rating"
+                                    : "File Size"}{" "}
+                    {preferences.sort.direction === "asc" ? "↑" : "↓"}
                 </span>
             </div>
         </section>
