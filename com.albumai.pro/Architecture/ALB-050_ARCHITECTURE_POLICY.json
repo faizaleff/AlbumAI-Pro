@@ -108,7 +108,8 @@
     "src/services/ThumbnailService.js",
     "src/styles.css",
     "src/templates/Template.js",
-    "src/utils/FileUtils.js"
+    "src/utils/FileUtils.js",
+    "src/utils/JpegBuffer.js"
   ],
   "inactiveDisposition": {
     "migrate": [],
