@@ -162,3 +162,45 @@ ALB-080 Slice 1 adds the migration envelope and canonical empty Album schema.
 Slice 2 adds an in-module, detached compatibility resolver that binds Sheets to
 registered template IDs without increasing the module graph. No Sheet UI,
 drag/drop, render bridge, or new persisted fields are introduced.
+
+## Slice 3 implementation contract
+
+Slice 3 will remain UI- and Photoshop-independent. It will accept a detached
+canonical Album and produce a new frozen Album; it will never mutate its input.
+The only permitted mutation intents are:
+
+| Intent | Required input | Safe result | Rejected when |
+| --- | --- | --- | --- |
+| `ADD` | stable Sheet ID and registered Template ID | Append one Sheet | ID invalid/duplicate or Album full |
+| `REMOVE` | stable Sheet ID | Remove exactly that Sheet | Sheet is absent |
+| `RENAME` | stable Sheet ID and bounded non-empty label | Change only that label | Sheet/label invalid |
+| `MOVE` | stable Sheet ID and target position | Deterministic reordered list | Sheet/position invalid or no-op |
+| `DUPLICATE` | source Sheet ID and new stable Sheet ID | Copy only serializable Sheet intent | Source absent or new ID duplicate |
+| `RESTORE` | previously captured canonical Album snapshot | Replace with that validated snapshot | Snapshot invalid or incompatible |
+
+`ADD` and `DUPLICATE` do not prove that a Template is renderable. The Slice 2
+compatibility resolver remains the sole source of `READY`/blocked state. A
+Template removal therefore leaves a Sheet reference explicit rather than
+retargeting it or deleting user intent.
+
+History stores at most **20** prior frozen Album snapshots and a matching
+forward stack. It stores no paths, file entries, Photoshop objects, pixels,
+photos, placement results, outputs, batch snapshots, or AI evidence. A new
+successful mutation clears forward history. No-op and rejected intents never
+alter history.
+
+Persistence is a serialized `ProjectService.saveProject({ album })` operation.
+The in-memory project metadata is updated only after the proposed Album passes
+validation. On persistence rejection, the caller restores the previous frozen
+Album and its prior history cursor; no partial Sheet state is published. An
+active batch will block future UI mutation commands, but that integration is
+reserved for the UI slice.
+
+### Bundle boundary
+
+The production bundle is currently **559 KiB** against the enforced **560 KiB**
+limit. Slice 3 runtime code must therefore be introduced only alongside a
+measured budget release or a reviewed, UXP-safe secondary bundle strategy.
+The threshold must not be casually raised. Until that decision is made, this
+contract is the implementation boundary and protects the existing released
+workflow from a size-gate regression.
