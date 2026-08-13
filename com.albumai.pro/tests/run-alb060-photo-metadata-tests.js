@@ -16,9 +16,15 @@ webpack({
         extensions: [".js", ".jsx"],
         alias: {
             uxp: path.join(__dirname, "mocks", "uxp.js"),
-            photoshop: path.join(__dirname, "mocks", "photoshop.js")
+            photoshop: path.join(__dirname, "mocks", "photoshop.js"),
+            buffer: path.join(__dirname, "..", "src", "utils", "JpegBuffer.js")
         }
     },
+    plugins: [
+        new webpack.ProvidePlugin({
+            Buffer: ["buffer", "Buffer"]
+        })
+    ],
     module: {
         rules: [{
             test: /\.jsx?$/,
