@@ -198,8 +198,8 @@ reserved for the UI slice.
 
 ### Bundle boundary
 
-The production bundle is now **545,345 bytes** against the enforced **573,440
-byte** limit, leaving **28,095 bytes** of headroom. This was achieved by
+The production bundle is now **545,787 bytes** against the enforced **573,440
+byte** limit, leaving **27,653 bytes** of headroom. This was achieved by
 replacing the full Node-style `buffer` polyfill with the narrowly scoped typed
 array byte-buffer surface used by `jpeg-js`; JPEG encoding and decoding are
 covered by a production-alias smoke test. Slice 3 must preserve this ceiling
