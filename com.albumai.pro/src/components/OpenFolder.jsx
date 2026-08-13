@@ -869,7 +869,12 @@ export default function OpenFolder() {
                                 </div>
                             )}
                             {!!album?.sheets?.length && (
-                                <div style={{ display: "grid", gap: 4, marginTop: 8 }}>
+                                <div style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 4,
+                                    marginTop: 8
+                                }}>
                                     {album.sheets.map((sheet, index) => (
                                         <div
                                             key={sheet.id}
