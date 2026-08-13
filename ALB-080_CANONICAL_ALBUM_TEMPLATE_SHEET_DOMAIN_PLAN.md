@@ -1,6 +1,6 @@
 # ALB-080 — Canonical Album, Template, and Sheet Domain Plan
 
-Status: **IN PROGRESS — Slices 1–2 implemented locally**
+Status: **IN PROGRESS — Slices 1–4 implemented; render bridge pending**
 
 Baseline: **`origin/main` at `20241ee`**
 
@@ -158,10 +158,12 @@ without fallback to an older backup.
 
 ## Implementation decision
 
-ALB-080 Slice 1 adds the migration envelope and canonical empty Album schema.
-Slice 2 adds an in-module, detached compatibility resolver that binds Sheets to
-registered template IDs without increasing the module graph. No Sheet UI,
-drag/drop, render bridge, or new persisted fields are introduced.
+ALB-080 Slices 1–2 add the migration envelope, canonical empty Album schema,
+and detached compatibility resolver that binds Sheets to registered template
+IDs without increasing the module graph. Slices 3–4 add bounded persisted
+Sheet history plus a keyboard-accessible UXP projection for add, remove,
+rename, duplicate, deterministic move, undo, and redo. No drag/drop, render
+bridge, or new persisted fields are introduced.
 
 ## Slice 3 implementation contract
 
@@ -203,8 +205,8 @@ reserved for the UI slice.
 
 ### Bundle boundary
 
-The production bundle is now **554,377 bytes** against the enforced **573,440
-byte** limit, leaving **19,063 bytes** of headroom. This was achieved by
+The production bundle is now **555,903 bytes** against the enforced **573,440
+byte** limit, leaving **17,537 bytes** of headroom. This was achieved by
 replacing the full Node-style `buffer` polyfill with the narrowly scoped typed
 array byte-buffer surface used by `jpeg-js`; JPEG encoding and decoding are
 covered by a production-alias smoke test. Slice 3 must preserve this ceiling
