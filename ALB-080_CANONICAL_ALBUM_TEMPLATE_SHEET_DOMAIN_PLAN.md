@@ -1,0 +1,165 @@
+# ALB-080 — Canonical Album, Template, and Sheet Domain Plan
+
+Status: **IN PROGRESS — Slice 1 implemented locally; Slice 2 pending bundle-budget design**
+
+Baseline: **`origin/main` at `20241ee`**
+
+## Goal
+
+Establish one versioned, serializable Album Designer domain before introducing
+manual sheet editing, story ordering, drag and drop, or layout suggestions.
+
+The current product already owns project metadata, ordered PSD template
+descriptors, deterministic placement, batch execution, output transactions,
+and recovery. ALB-080 must connect those facts through one canonical project
+model; it must not reactivate the removed alternate album/engine stack or
+introduce a second template registry.
+
+## Current canonical facts
+
+| Concept | Current owner | Current meaning |
+| --- | --- | --- |
+| Project | `ProjectEngine` | One open project, workspace, and serializable metadata |
+| Template | `ProjectTemplateRegistry` | Ordered project-relative PSD descriptor plus validation facts |
+| Photo | `PhotoWorkspaceService` | Active photo-library lifecycle, opaque decisions, and published facts |
+| Placement | `PhotoPlacementEngine` | Deterministic slot-to-photo assignment for one execution |
+| Batch | `BatchExecutionService` | One in-flight execution and template outcome accounting |
+| Output transaction | `OutputTransactionState` | Safe save/export commit and retry vocabulary |
+| Recovery | `BatchRecoverySnapshot` | Detached serializable batch checkpoint |
+
+`src/services/TemplateRegistry.js` is not the canonical persisted-template
+owner. ALB-080 must not make it an Album Designer dependency.
+
+## Canonical vocabulary
+
+| Term | Definition | Must not mean |
+| --- | --- | --- |
+| Album | A versioned, project-scoped ordered collection of Sheets and album-level presentation metadata | A second project, a Photoshop document, or an output job |
+| Sheet | One user-visible album position that references one registered PSD template and stores bounded layout intent | A duplicate PSD file, an opened Photoshop document, or a batch result |
+| Template | A registered project-relative PSD descriptor with validation state | A Sheet, album page, export file, or live document |
+| Slot | A stable Smart Object target discovered from one template at execution time | A Photo, a persisted host layer reference, or a global layout object |
+| Placement | A transient deterministic assignment from selected photos to slots | A user decision or a replacement batch |
+| Render / export job | A bounded execution request and its output transaction facts | The Album or Sheet source of truth |
+
+## Persistence boundary
+
+The future Album payload belongs inside canonical project metadata and must be
+public-safe and serializable. It may contain opaque IDs, ordering, bounded
+labels, template IDs, template compatibility/version facts, slot intent, and
+detached edit metadata. It must not contain:
+
+- UXP entries, persistent tokens, filesystem paths, native paths, URLs, or
+  Photoshop document/layer objects;
+- source pixels, image buffers, blob URLs, raw EXIF, face data, embeddings, or
+  AI model evidence;
+- duplicate Photo collections, user ratings/favourites, or future keep/reject
+  decisions;
+- rendered PSD/JPEG output as authoritative Sheet state.
+
+Existing `project.json` validation currently accepts only schema version 1.
+ALB-080 must add an explicit atomic migration pipeline before any new required
+persisted field is written. A newer unknown project schema must remain blocked
+without fallback to an older backup.
+
+## Required invariants
+
+1. A Sheet references a registered Template by stable descriptor ID; it never
+   stores a native path or a live Photoshop document identity.
+2. Removing or invalidating a Template makes dependent Sheets explicit and
+   non-renderable; it never silently substitutes a similarly named PSD.
+3. Reordering Sheets or Templates is deterministic, immutable, and preserves
+   stable Sheet IDs.
+4. Album changes cannot mutate source photos, ratings, favourites, duplicate
+   evidence, AI evidence, or existing output transaction history.
+5. A render request consumes a detached Album/Sheet snapshot and publishes
+   output/recovery facts through the existing Batch and Output owners.
+6. Browser selection order remains authoritative for future manual placement;
+   no Album Designer collection becomes a second Photo library.
+7. A stale project, template registry, photo revision, or active-request
+   identity cannot publish an apparently-current Sheet/render result.
+8. All migration, validation, serialization, and UI-projection failures fail
+   closed with bounded reason codes.
+
+## Delivery slices
+
+### Slice 1 — Schema and migration envelope
+
+- Define `Album`, `Sheet`, and Sheet-template reference schemas as pure,
+  frozen, serializable values.
+- Add exact validation and allowlisted reason codes for malformed, duplicate,
+  stale, missing, invalid, and unsupported references.
+- Add an atomic v1-to-v2 project migration path that preserves existing
+  `templateRegistry`, photo metadata, duplicate evidence, browser preferences,
+  batch recovery, and unknown compatible optional metadata.
+- Keep project schema upgrades and write recovery in `ProjectService`; keep
+  in-memory project ownership in `ProjectEngine`.
+- Add migration/idempotency/rollback/newer-schema tests before UI work.
+
+### Slice 2 — Template-to-Sheet compatibility policy
+
+- Add a pure policy that resolves Sheet template IDs exclusively through
+  `ProjectTemplateRegistry` snapshots.
+- Define explicit Sheet states such as `READY`, `MISSING_TEMPLATE`,
+  `TEMPLATE_BLOCKED`, `STALE_TEMPLATE`, and `UNSUPPORTED_SCHEMA`.
+- Prove Template remove/reorder/validation changes cannot retarget the wrong
+  Sheet.
+- Add detached Sheet summaries for UI and diagnostics with no host data.
+
+### Slice 3 — Album mutation and history contract
+
+- Define immutable add, remove, rename, reorder, duplicate, and restore
+  operations for Sheets.
+- Choose one bounded undo/redo representation that persists only user intent,
+  not Photoshop documents or rendered output.
+- Coordinate serialized saves through `ProjectService`; persistence failure
+  restores the prior Album snapshot and leaves the active UI coherent.
+- Keep this slice UI-independent and lock it with deterministic tests.
+
+### Slice 4 — Manual designer projection
+
+- Build an accessible Album/Sheet projection from canonical project metadata.
+- Support story order, Template selection, visible compatibility state, and
+  safe empty/blocked states.
+- Reuse Photo Browser selection and existing template validation state; do not
+  clone either collection.
+- Introduce drag/drop only after keyboard-accessible deterministic mutations
+  and undo/redo pass automated tests.
+
+### Slice 5 — Render bridge and qualification
+
+- Translate a detached Sheet snapshot into the existing placement/execution
+  request without making the Sheet a second batch owner.
+- Reuse transactional save/export and recovery facts; never create direct
+  overwrite behaviour.
+- Measure cancellation, stale rejection, output recovery, bounded memory, and
+  no-document-leak behaviour with disposable fixtures.
+- Run the full automated, build, package, and Photoshop/UXP runtime matrix.
+
+## Explicit non-goals
+
+- AI layout suggestions, automatic design, culling, image editing, or remote
+  inference;
+- a new Photoshop document manager, template reader, output exporter, batch
+  executor, Photo library, or global state store;
+- source-photo edits, deletion, movement, hiding, automatic ratings, or
+  automatic keep/reject decisions;
+- importing unvalidated PSDs directly into a Sheet or silently resolving a
+  missing template by filename.
+
+## Initial verification gates
+
+- deterministic schema normalization, serialization, and migration tests;
+- current-project compatibility, invalid/malformed input, atomic rollback, and
+  newer-schema rejection tests;
+- template removal/reorder/preflight invalidation tests;
+- active architecture and regression graph verification;
+- full test suite, production build, package validation, and `git diff --check`;
+- separate Photoshop/UXP scenarios only once a render bridge exists.
+
+## Implementation decision
+
+ALB-080 started with Slice 1. The migration envelope and canonical empty Album
+schema are now covered by automated tests. Slice 2 remains pending a bundle-
+budgeted integration design; no Sheet UI, drag/drop, render bridge, or new
+persisted fields are introduced until the migration and compatibility contracts
+are reviewed.
