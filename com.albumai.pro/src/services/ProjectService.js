@@ -199,6 +199,48 @@ export default class ProjectService {
 
     }
 
+    async saveAlbumSheetHistory(previousHistory, nextHistory) {
+
+        const project = this.projectEngine.getProject();
+        const next = createAlbumSheetHistory(nextHistory?.present);
+
+        if (!project || !next) {
+            return Object.freeze({
+                accepted: false,
+                reasonCodes: Object.freeze(["ALBUM_HISTORY_INVALID"]),
+                history: previousHistory
+            });
+        }
+
+        if (!sameAlbum(project.metadata.album, previousHistory?.present)) {
+            return Object.freeze({
+                accepted: false,
+                reasonCodes: Object.freeze(["ALBUM_HISTORY_STALE"]),
+                history: previousHistory
+            });
+        }
+
+        try {
+            await this.saveProject(
+                { album: next.present },
+                { reason: "ALB080_ALBUM_SHEET_HISTORY" }
+            );
+        } catch (_) {
+            return Object.freeze({
+                accepted: false,
+                reasonCodes: Object.freeze(["ALBUM_SAVE_FAILED"]),
+                history: previousHistory
+            });
+        }
+
+        return Object.freeze({
+            accepted: true,
+            reasonCodes: Object.freeze([]),
+            history: nextHistory
+        });
+
+    }
+
     closeProject() {
 
         this.projectEngine.close();
