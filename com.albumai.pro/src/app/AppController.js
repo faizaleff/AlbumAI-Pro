@@ -184,6 +184,39 @@ export class AppController {
 
     }
 
+    isAlbumSheetMutationLocked() {
+
+        const lifecycle = this.currentProjectExecutionSummary?.batchProgress?.lifecycle;
+        return this.projectBatchRunning || [
+            "RUNNING",
+            "CANCEL_REQUESTED",
+            "CANCELLING"
+        ].includes(lifecycle);
+
+    }
+
+    async saveAlbumSheetMutation(history, mutation) {
+
+        if (this.isAlbumSheetMutationLocked()) {
+            throw new Error("A project batch is running. Sheet changes are available after it stops safely.");
+        }
+
+        return this.projectService.saveAlbumSheetMutation(history, mutation, {
+            templateIds: this.projectTemplateRegistry.getAll().map(template => template.id)
+        });
+
+    }
+
+    async saveAlbumSheetHistory(previousHistory, nextHistory) {
+
+        if (this.isAlbumSheetMutationLocked()) {
+            throw new Error("A project batch is running. Sheet changes are available after it stops safely.");
+        }
+
+        return this.projectService.saveAlbumSheetHistory(previousHistory, nextHistory);
+
+    }
+
     async closeProject() {
 
         if (this.projectBatchRunning) {
