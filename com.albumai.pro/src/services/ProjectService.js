@@ -1,11 +1,12 @@
 import { storage } from "uxp";
 import AtomicJsonFileWriter from "./AtomicJsonFileWriter";
+import { createEmptyAlbum, inspectAlbum } from "../project/AlbumSheetSchema";
 
 const PROJECT_FILE = "project.json";
 const PROJECT_TEMP_FILE = "project.json.tmp";
 const PROJECT_BACKUP_FILE = "project.json.bak";
 const PROJECT_BACKUP_TEMP_FILE = "project.json.bak.tmp";
-export const PROJECT_SCHEMA_VERSION = 1;
+export const PROJECT_SCHEMA_VERSION = 2;
 const WORKSPACE_FOLDERS = [
     "Templates",
     "Photos",
@@ -120,11 +121,11 @@ export default class ProjectService {
             throw new Error("No project is open.");
         }
 
-        const metadata = this.validateMetadata({
+        const metadata = this.migrateMetadata({
             ...project.metadata,
             ...values,
             updatedAt: new Date().toISOString()
-        }, "project metadata");
+        }, "project metadata").metadata;
 
         this.projectEngine.updateMetadata(metadata);
 
@@ -255,20 +256,38 @@ export default class ProjectService {
             updatedAt: timestamp,
             ...metadata,
             schemaVersion: PROJECT_SCHEMA_VERSION,
-            name
+            name,
+            album: createEmptyAlbum()
         };
 
     }
 
     async readMetadata(file, folder) {
         let primaryError;
+        let primary;
         try {
             const content = await file.read();
-            return this.validateMetadata(JSON.parse(content), PROJECT_FILE);
+            primary = this.migrateMetadata(
+                JSON.parse(content),
+                PROJECT_FILE
+            );
         }
 
         catch (error) {
             primaryError = error;
+        }
+
+        if (primary) {
+            if (primary.migrated) {
+                await this.writeMetadata(
+                    file,
+                    primary.metadata,
+                    folder,
+                    "MIGRATE_PROJECT_SCHEMA_V1_TO_V2"
+                );
+            }
+
+            return primary.metadata;
         }
 
         // Never replace a project written by a newer application with an
@@ -315,7 +334,10 @@ export default class ProjectService {
         // Serialization must finish before any file is created or opened
         // for writing. This prevents serialization failures from truncating
         // the current project.
-        const validated = this.validateMetadata(metadata, "project metadata");
+        const validated = this.migrateMetadata(
+            metadata,
+            "project metadata"
+        ).metadata;
         const serialized = JSON.stringify(validated, null, 2);
         JSON.parse(serialized);
 
@@ -379,7 +401,7 @@ export default class ProjectService {
         try {
             const content = await entry.read();
             return {
-                metadata: this.validateMetadata(JSON.parse(content), name),
+                metadata: this.migrateMetadata(JSON.parse(content), name).metadata,
                 content
             };
         } catch (_) {
@@ -418,7 +440,45 @@ export default class ProjectService {
 
     }
 
-    validateMetadata(metadata, source = PROJECT_FILE) {
+    migrateMetadata(metadata, source = PROJECT_FILE) {
+
+        if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+            this.validateMetadata(metadata, source);
+        }
+
+        const schemaVersion = metadata.schemaVersion;
+
+        if (Number.isInteger(schemaVersion) && schemaVersion > PROJECT_SCHEMA_VERSION) {
+            this.validateMetadata(metadata, source);
+        }
+
+        if (schemaVersion === 1) {
+            this.validateMetadata(metadata, source, { allowLegacy: true });
+
+            const migrated = {
+                ...metadata,
+                schemaVersion: PROJECT_SCHEMA_VERSION,
+                album: createEmptyAlbum()
+            };
+
+            return Object.freeze({
+                metadata: this.validateMetadata(migrated, source),
+                migrated: true
+            });
+        }
+
+        return Object.freeze({
+            metadata: this.validateMetadata(metadata, source),
+            migrated: false
+        });
+
+    }
+
+    validateMetadata(
+        metadata,
+        source = PROJECT_FILE,
+        { allowLegacy = true } = {}
+    ) {
 
         if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
             throw this.metadataError(
@@ -437,7 +497,10 @@ export default class ProjectService {
             );
         }
 
-        if (schemaVersion !== PROJECT_SCHEMA_VERSION) {
+        const supportedSchema = schemaVersion === PROJECT_SCHEMA_VERSION ||
+            (allowLegacy && schemaVersion === 1);
+
+        if (!supportedSchema) {
             throw this.metadataError(
                 "PROJECT_METADATA_INVALID",
                 `${source} has a missing or unsupported project schema version.`,
@@ -494,6 +557,27 @@ export default class ProjectService {
                     { source, field }
                 );
             }
+        }
+
+        if (schemaVersion === PROJECT_SCHEMA_VERSION) {
+            const album = inspectAlbum(metadata.album);
+
+            if (!album.valid) {
+                throw this.metadataError(
+                    "PROJECT_METADATA_INVALID",
+                    `${source} has an invalid album definition.`,
+                    {
+                        source,
+                        field: "album",
+                        reasonCodes: album.reasonCodes
+                    }
+                );
+            }
+
+            return {
+                ...metadata,
+                album: album.album
+            };
         }
 
         return metadata;
