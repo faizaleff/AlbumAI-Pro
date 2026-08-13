@@ -165,8 +165,10 @@ drag/drop, render bridge, or new persisted fields are introduced.
 
 ## Slice 3 implementation contract
 
-Slice 3 will remain UI- and Photoshop-independent. It will accept a detached
-canonical Album and produce a new frozen Album; it will never mutate its input.
+Slice 3 remains UI- and Photoshop-independent. It accepts a detached canonical
+Album and produces a new frozen Album; it never mutates its input. A matching
+ProjectService adapter writes the accepted snapshot first and only then updates
+in-memory project metadata, preserving the prior Album/history on write failure.
 The only permitted mutation intents are:
 
 | Intent | Required input | Safe result | Rejected when |
@@ -198,8 +200,8 @@ reserved for the UI slice.
 
 ### Bundle boundary
 
-The production bundle is now **545,787 bytes** against the enforced **573,440
-byte** limit, leaving **27,653 bytes** of headroom. This was achieved by
+The production bundle is now **549,454 bytes** against the enforced **573,440
+byte** limit, leaving **23,986 bytes** of headroom. This was achieved by
 replacing the full Node-style `buffer` polyfill with the narrowly scoped typed
 array byte-buffer surface used by `jpeg-js`; JPEG encoding and decoding are
 covered by a production-alias smoke test. Slice 3 must preserve this ceiling
