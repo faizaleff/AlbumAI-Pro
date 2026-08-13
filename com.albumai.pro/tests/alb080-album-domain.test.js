@@ -1,5 +1,6 @@
 import assert from "assert";
 
+import { AppController } from "../src/app/AppController";
 import ProjectEngine from "../src/core/ProjectEngine";
 import {
     AlbumSheetMutationIntent,
@@ -336,6 +337,25 @@ async function run() {
             persisted.history.present
         );
 
+        const undone = undoAlbumSheetHistory(persisted.history);
+        const undoSaved = await projectService.saveAlbumSheetHistory(
+            persisted.history,
+            undone.history
+        );
+        assert.strictEqual(undoSaved.accepted, true);
+        assert.deepStrictEqual(projectEngine.getProject().metadata.album, createEmptyAlbum());
+
+        const redone = redoAlbumSheetHistory(undoSaved.history);
+        const redoSaved = await projectService.saveAlbumSheetHistory(
+            undoSaved.history,
+            redone.history
+        );
+        assert.strictEqual(redoSaved.accepted, true);
+        assert.deepStrictEqual(
+            projectEngine.getProject().metadata.album,
+            redoSaved.history.present
+        );
+
         const originalCreateFile = root.createFile.bind(root);
         root.createFile = async (name, options) => {
             const entry = await originalCreateFile(name, options);
@@ -346,7 +366,7 @@ async function run() {
         };
 
         const rejected = await projectService.saveAlbumSheetMutation(
-            persisted.history,
+            redoSaved.history,
             {
                 intent: AlbumSheetMutationIntent.ADD,
                 sheet: { id: "body", templateId: "template-cover" }
@@ -354,11 +374,28 @@ async function run() {
             { templateIds: ["template-cover"] }
         );
         assert.strictEqual(rejected.accepted, false);
-        assert.deepStrictEqual(rejected.history, persisted.history);
+        assert.deepStrictEqual(rejected.history, redoSaved.history);
         assert.deepStrictEqual(
             projectEngine.getProject().metadata.album,
-            persisted.history.present
+            redoSaved.history.present
         );
+    });
+
+    await test("blocks every Sheet mutation at an active batch boundary", async () => {
+        const controller = Object.create(AppController.prototype);
+        controller.projectBatchRunning = true;
+        controller.currentProjectExecutionSummary = null;
+        assert.strictEqual(controller.isAlbumSheetMutationLocked(), true);
+        await assert.rejects(
+            () => controller.saveAlbumSheetMutation({}, {}),
+            /project batch is running/
+        );
+
+        controller.projectBatchRunning = false;
+        controller.currentProjectExecutionSummary = {
+            batchProgress: { lifecycle: "CANCELLING" }
+        };
+        assert.strictEqual(controller.isAlbumSheetMutationLocked(), true);
     });
 
     console.info(`ALB-080 Slice 1: PASS (${assertions} assertions)`);
