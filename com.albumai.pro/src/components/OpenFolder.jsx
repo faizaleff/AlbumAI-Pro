@@ -47,6 +47,9 @@ export default function OpenFolder() {
     const [albumHistory, setAlbumHistory] = useState(null);
     const [albumSheetId, setAlbumSheetId] = useState("");
     const [albumTemplateId, setAlbumTemplateId] = useState("");
+    const [selectedAlbumSheetId, setSelectedAlbumSheetId] = useState("");
+    const [albumSheetLabel, setAlbumSheetLabel] = useState("");
+    const [albumDuplicateId, setAlbumDuplicateId] = useState("");
     const [albumMutationBusy, setAlbumMutationBusy] = useState(false);
     const [albumMutationError, setAlbumMutationError] = useState(null);
     const unavailableDiagnosticRef = useRef(null);
@@ -69,6 +72,9 @@ export default function OpenFolder() {
         setAlbumHistory(createAlbumSheetHistory(project?.metadata?.album));
         setAlbumSheetId("");
         setAlbumTemplateId("");
+        setSelectedAlbumSheetId("");
+        setAlbumSheetLabel("");
+        setAlbumDuplicateId("");
         setAlbumMutationError(null);
     }, [projectId]);
 
@@ -589,9 +595,68 @@ export default function OpenFolder() {
 
     async function removeAlbumSheet(sheetId) {
 
-        await mutateAlbum({
+        const removed = await mutateAlbum({
             intent: AlbumSheetMutationIntent.REMOVE,
             sheetId
+        });
+        if (removed && selectedAlbumSheetId === sheetId) {
+            setSelectedAlbumSheetId("");
+            setAlbumSheetLabel("");
+            setAlbumDuplicateId("");
+        }
+
+    }
+
+    function selectAlbumSheet(sheet) {
+
+        setSelectedAlbumSheetId(sheet.id);
+        setAlbumSheetLabel(sheet.label || sheet.id);
+        setAlbumDuplicateId(`${sheet.id}-copy`);
+        setAlbumMutationError(null);
+
+    }
+
+    async function renameSelectedAlbumSheet() {
+
+        if (!selectedAlbumSheetId) return;
+
+        await mutateAlbum({
+            intent: AlbumSheetMutationIntent.RENAME,
+            sheetId: selectedAlbumSheetId,
+            label: albumSheetLabel
+        });
+
+    }
+
+    async function duplicateSelectedAlbumSheet() {
+
+        const newSheetId = albumDuplicateId.trim();
+
+        if (!selectedAlbumSheetId || !newSheetId) {
+            setAlbumMutationError("Enter a new Sheet ID before duplicating.");
+            return;
+        }
+
+        const duplicated = await mutateAlbum({
+            intent: AlbumSheetMutationIntent.DUPLICATE,
+            sheetId: selectedAlbumSheetId,
+            newSheetId
+        });
+        if (duplicated) {
+            const source = album?.sheets?.find(sheet => sheet.id === selectedAlbumSheetId);
+            setSelectedAlbumSheetId(newSheetId);
+            setAlbumSheetLabel(source?.label || newSheetId);
+            setAlbumDuplicateId(`${newSheetId}-copy`);
+        }
+
+    }
+
+    async function moveAlbumSheet(sheetId, targetIndex) {
+
+        await mutateAlbum({
+            intent: AlbumSheetMutationIntent.MOVE,
+            sheetId,
+            targetIndex
         });
 
     }
@@ -869,20 +934,54 @@ export default function OpenFolder() {
                                 </div>
                             )}
                             {!!album?.sheets?.length && (
-                                <div style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 4,
-                                    marginTop: 8
-                                }}>
-                                    {album.sheets.map((sheet, index) => (
+                                <>
+                                    <div style={{
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: 4,
+                                        marginTop: 8
+                                    }}>
+                                        {album.sheets.map((sheet, index) => {
+                                            const template = registeredTemplates.find(
+                                                candidate => candidate.id === sheet.templateId
+                                            );
+                                            const isSelected = selectedAlbumSheetId === sheet.id;
+
+                                            return (
                                         <div
                                             key={sheet.id}
-                                            style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 8,
+                                                fontSize: 12,
+                                                padding: 4,
+                                                background: isSelected ? "#3e6586" : "transparent"
+                                            }}
                                         >
                                             <span style={{ minWidth: 22, color: "#bdbdbd" }}>{index + 1}</span>
                                             <span style={{ flex: 1 }}>{sheet.label || sheet.id}</span>
-                                            <span style={{ color: "#bdbdbd" }}>{sheet.templateId}</span>
+                                            <span style={{ color: "#bdbdbd" }}>{template?.name || sheet.templateId}</span>
+                                            <button
+                                                onClick={() => selectAlbumSheet(sheet)}
+                                                disabled={albumMutationLocked || albumMutationBusy}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => moveAlbumSheet(sheet.id, index - 1)}
+                                                disabled={albumMutationLocked || albumMutationBusy || index === 0}
+                                                aria-label={`Move ${sheet.label || sheet.id} up`}
+                                            >
+                                                ↑
+                                            </button>
+                                            <button
+                                                onClick={() => moveAlbumSheet(sheet.id, index + 1)}
+                                                disabled={albumMutationLocked || albumMutationBusy || index === album.sheets.length - 1}
+                                                aria-label={`Move ${sheet.label || sheet.id} down`}
+                                            >
+                                                ↓
+                                            </button>
                                             <button
                                                 onClick={() => removeAlbumSheet(sheet.id)}
                                                 disabled={albumMutationLocked || albumMutationBusy}
@@ -890,8 +989,39 @@ export default function OpenFolder() {
                                                 Remove
                                             </button>
                                         </div>
-                                    ))}
-                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {!!selectedAlbumSheetId && (
+                                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                                            <input
+                                                value={albumSheetLabel}
+                                                onChange={event => setAlbumSheetLabel(event.target.value)}
+                                                placeholder="Sheet label"
+                                                disabled={albumMutationLocked || albumMutationBusy}
+                                            />
+                                            <button
+                                                onClick={renameSelectedAlbumSheet}
+                                                disabled={albumMutationLocked || albumMutationBusy || !albumSheetLabel.trim()}
+                                            >
+                                                Rename
+                                            </button>
+                                            <input
+                                                value={albumDuplicateId}
+                                                onChange={event => setAlbumDuplicateId(event.target.value)}
+                                                placeholder="New Sheet ID"
+                                                disabled={albumMutationLocked || albumMutationBusy}
+                                            />
+                                            <button
+                                                onClick={duplicateSelectedAlbumSheet}
+                                                disabled={albumMutationLocked || albumMutationBusy || !albumDuplicateId.trim()}
+                                            >
+                                                Duplicate
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </>
                     )}
