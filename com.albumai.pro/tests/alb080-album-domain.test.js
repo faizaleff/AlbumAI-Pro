@@ -12,6 +12,7 @@ import {
 import ProjectService, {
     PROJECT_SCHEMA_VERSION
 } from "../src/services/ProjectService";
+import { Buffer as JpegBuffer } from "../src/utils/JpegBuffer";
 
 let assertions = 0;
 
@@ -89,6 +90,17 @@ async function run() {
         assert.deepStrictEqual(album, { schemaVersion: 1, sheets: [] });
         assert(Object.isFrozen(album));
         assert(Object.isFrozen(album.sheets));
+    });
+
+    await test("provides the bounded JPEG byte Buffer surface", () => {
+        const allocated = JpegBuffer.alloc(3);
+        allocated[0] = 4;
+        const copied = JpegBuffer.from(allocated);
+        assert(copied instanceof Uint8Array);
+        assert.deepStrictEqual([...copied], [4, 0, 0]);
+        allocated[0] = 9;
+        assert.strictEqual(copied[0], 4);
+        assert.deepStrictEqual([...JpegBuffer.from([1, 2])], [1, 2]);
     });
 
     await test("accepts only bounded public-safe Sheet descriptors", () => {
