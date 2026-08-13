@@ -198,9 +198,9 @@ reserved for the UI slice.
 
 ### Bundle boundary
 
-The production bundle is currently **559 KiB** against the enforced **560 KiB**
-limit. Slice 3 runtime code must therefore be introduced only alongside a
-measured budget release or a reviewed, UXP-safe secondary bundle strategy.
-The threshold must not be casually raised. Until that decision is made, this
-contract is the implementation boundary and protects the existing released
-workflow from a size-gate regression.
+The production bundle is now **545,345 bytes** against the enforced **573,440
+byte** limit, leaving **28,095 bytes** of headroom. This was achieved by
+replacing the full Node-style `buffer` polyfill with the narrowly scoped typed
+array byte-buffer surface used by `jpeg-js`; JPEG encoding and decoding are
+covered by a production-alias smoke test. Slice 3 must preserve this ceiling
+and may not hide capability changes inside further optimisation work.
