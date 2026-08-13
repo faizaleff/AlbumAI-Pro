@@ -1,8 +1,8 @@
 # ALB-070 — AI Capability and Privacy Architecture
 
-Status: **SLICE 1 — CONTRACT IMPLEMENTATION**
+Status: **SLICE 2 — UXP WASM FEASIBILITY SPIKE**
 
-Baseline: **`main` at `64e724c`**
+Baseline: **`main` at `20241ee`**
 
 Tracking: **GitHub issue #14**
 
@@ -51,10 +51,12 @@ Unknown schemas, malformed evidence, unsupported runtime, and invalid scores
 produce unavailable evidence. They never fabricate a zero score or mutate a
 user decision.
 
-The reachable contract moves the reviewed production bundle ceiling from 550
-KiB to 560 KiB. The measured Slice 1 bundle is 555 KiB. This allowance covers
-policy code only; Slice 2 must establish a separate model/runtime package,
-memory, and latency budget before any inference asset is admitted.
+The reachable contract moved the reviewed production bundle ceiling from 550
+KiB to 560 KiB. The exact Slice 1 bundle is 567,866 bytes. Slice 2's synthetic
+diagnostic produces a 574,284-byte bundle, an increment of 6,418 bytes
+(1.130%). A separate 562 KiB ceiling admits only this diagnostic with 1,204
+bytes of headroom. Production model/runtime assets remain blocked pending the
+Slice 3 package, memory, latency, and licensing decision.
 
 ## Runtime feasibility gate
 
@@ -62,6 +64,15 @@ Slice 2 uses a tiny synthetic, non-production model to measure UXP production
 build loading, preprocessing, cold/warm latency, memory release, cancellation,
 and package cost on supported macOS and Windows hosts. Browser support is not
 accepted as proof of Photoshop/UXP compatibility.
+
+The production-reachable diagnostic is exposed only in the developer console
+as `globalThis.__ALBUMAI_ALB070_RUN_WASM_FEASIBILITY__()`. It uses generated
+16×16 RGBA pixels and an embedded 68-byte module that returns the RGB mean.
+The report is bounded, contains no pixels or source identity, is always marked
+non-publishable, and retains no WASM instance or memory reference after the
+run. JavaScript cannot prove host garbage collection, so host memory
+reclamation is a mandatory macOS/Windows runtime observation rather than an
+automated claim.
 
 The spike is not a model-quality claim and does not ship a culling model.
 
@@ -85,10 +96,12 @@ reject the candidate.
 ## Slice 1 verification
 
 - `node tests/run-alb070-ai-policy-tests.js`
+- `node tests/run-alb070-wasm-feasibility-tests.js`
 - `npm test`
 - `npm run build:prod`
 - `npm run package:verify`
 - `git diff --check`
 
-Photoshop runtime testing is not required for Slice 1. Runtime evidence begins
-with the Slice 2 synthetic feasibility spike and uses disposable fixtures.
+Photoshop runtime evidence for Slice 2 is recorded separately in
+`ALB-070_WASM_FEASIBILITY_REPORT.md`. Automated harness evidence and real UXP
+host evidence must never be presented as equivalent.

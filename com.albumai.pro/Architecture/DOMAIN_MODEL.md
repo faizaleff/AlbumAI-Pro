@@ -59,6 +59,13 @@ source or host references, and machine evidence cannot mutate ratings,
 favourites, or future keep/reject decisions. Model execution remains gated on
 the ALB-070 UXP WebAssembly feasibility and commercial-licensing decision.
 
+`PhotoAiWasmFeasibilityProbe` is a production-reachable developer diagnostic,
+not a Photo owner or inference product. It runs only an embedded synthetic
+68-byte WASM module over generated 16×16 RGBA pixels, returns a bounded
+non-publishable report, and imports neither UXP storage nor Photoshop APIs.
+Host runtime results remain evidence for the later ALB-070 ADR; they do not
+select a model or enable AI culling.
+
 The deleted inactive source contained competing project models, album engines,
 template registries, generation contexts, workflow jobs, export managers,
 bootstrap containers, and UI state stores. None is part of the product after
