@@ -51,6 +51,14 @@ opaque photo/revision/group keys, evidence level, byte counts, and safe failure
 reasons. A library revision change invalidates the complete result; duplicate
 analysis never mutates, moves, deletes, hides, rejects, or rates a Photo.
 
+AI capability, consent, and per-photo evidence policy also remain under
+`PhotoWorkspaceService`. `PhotoAiPolicy` is a pure local-only contract and
+normalizer used by that owner; it is not an inference engine or parallel photo
+aggregate. Remote inference is fixed off, public-safe projections exclude
+source or host references, and machine evidence cannot mutate ratings,
+favourites, or future keep/reject decisions. Model execution remains gated on
+the ALB-070 UXP WebAssembly feasibility and commercial-licensing decision.
+
 The deleted inactive source contained competing project models, album engines,
 template registries, generation contexts, workflow jobs, export managers,
 bootstrap containers, and UI state stores. None is part of the product after

@@ -22,6 +22,10 @@ import {
     PhotoDuplicateStatus,
     reconcilePhotoDuplicateEvidence
 } from "./PhotoDuplicateModel";
+import {
+    normalizePhotoAiAnalysis,
+    normalizePhotoAiConsent
+} from "./PhotoAiPolicy";
 
 const METADATA_FILE = "photos.json";
 const INITIAL_VISIBLE_PHOTOS = 30;
@@ -123,6 +127,11 @@ export default class PhotoWorkspaceService {
         this.duplicateProjectId = null;
         this.duplicateEvidence = normalizePhotoDuplicateEvidence();
         this.duplicateAnalysis = null;
+        this.photoAiProjectId = null;
+        this.photoAiPolicyState = Object.freeze({
+            consent: normalizePhotoAiConsent(),
+            analysis: normalizePhotoAiAnalysis()
+        });
 
     }
 
@@ -858,6 +867,25 @@ export default class PhotoWorkspaceService {
 
     }
 
+    getPhotoAiPolicyState() {
+
+        const project = this.projectEngine.getProject();
+        const projectId = project?.metadata?.id || null;
+        if (projectId !== this.photoAiProjectId) {
+            this.photoAiProjectId = projectId;
+            this.photoAiPolicyState = Object.freeze({
+                consent: normalizePhotoAiConsent(
+                    project?.metadata?.photoAiConsent
+                ),
+                analysis: normalizePhotoAiAnalysis(
+                    project?.metadata?.photoAiAnalysis
+                )
+            });
+        }
+        return this.photoAiPolicyState;
+
+    }
+
     reconcilePhotoDuplicateEvidenceCache(photos) {
 
         const previous = this.getPhotoDuplicateEvidence();
@@ -1141,6 +1169,11 @@ export default class PhotoWorkspaceService {
         this.duplicateProjectId = null;
         this.duplicateEvidence = normalizePhotoDuplicateEvidence();
         this.duplicateAnalysis = null;
+        this.photoAiProjectId = null;
+        this.photoAiPolicyState = Object.freeze({
+            consent: normalizePhotoAiConsent(),
+            analysis: normalizePhotoAiAnalysis()
+        });
 
     }
 

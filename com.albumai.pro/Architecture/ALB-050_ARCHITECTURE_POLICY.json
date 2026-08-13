@@ -92,6 +92,7 @@
     "src/services/ImageSourceCapabilityService.js",
     "src/services/PhotoBrowserPerformance.js",
     "src/services/PhotoFileEntry.js",
+    "src/services/PhotoAiPolicy.js",
     "src/services/PhotoWorkspaceService.js",
     "src/services/ProjectService.js",
     "src/services/RecentFilesService.js",
