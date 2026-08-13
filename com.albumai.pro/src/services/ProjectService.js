@@ -1,6 +1,11 @@
 import { storage } from "uxp";
 import AtomicJsonFileWriter from "./AtomicJsonFileWriter";
-import { createEmptyAlbum, inspectAlbum } from "../project/AlbumSheetSchema";
+import {
+    applyAlbumSheetHistoryMutation,
+    createAlbumSheetHistory,
+    createEmptyAlbum,
+    inspectAlbum
+} from "../project/AlbumSheetSchema";
 
 const PROJECT_FILE = "project.json";
 const PROJECT_TEMP_FILE = "project.json.tmp";
@@ -127,8 +132,6 @@ export default class ProjectService {
             updatedAt: new Date().toISOString()
         }, "project metadata").metadata;
 
-        this.projectEngine.updateMetadata(metadata);
-
         const projectFile = project.workspace.projectFile ||
             await this.getProjectFile(project.folder, true);
 
@@ -139,7 +142,60 @@ export default class ProjectService {
             reason
         );
 
+        // Do not publish a proposed metadata change until the atomic writer
+        // has verified it. This keeps the in-memory project aligned with disk
+        // when a UXP filesystem operation rejects.
+        this.projectEngine.updateMetadata(metadata);
+
         return this.projectEngine.getProject();
+
+    }
+
+    /**
+     * Persist one detached Album Sheet mutation. The supplied cursor is
+     * returned unchanged when its command is rejected or saving fails, so a
+     * caller cannot expose partial Album state to a future UI slice.
+     */
+    async saveAlbumSheetMutation(history, mutation, options = {}) {
+
+        const project = this.projectEngine.getProject();
+
+        if (!project) {
+            throw new Error("No project is open.");
+        }
+
+        const currentHistory = createAlbumSheetHistory(project.metadata.album);
+
+        if (!currentHistory || !sameAlbum(currentHistory.present, history?.present)) {
+            return Object.freeze({
+                accepted: false,
+                changed: false,
+                reasonCodes: Object.freeze(["ALBUM_HISTORY_STALE"]),
+                history
+            });
+        }
+
+        const result = applyAlbumSheetHistoryMutation(history, mutation, options);
+
+        if (!result.accepted || !result.changed) {
+            return result;
+        }
+
+        try {
+            await this.saveProject(
+                { album: result.history.present },
+                { reason: "ALB080_ALBUM_SHEET_MUTATION" }
+            );
+        } catch (_) {
+            return Object.freeze({
+                accepted: false,
+                changed: false,
+                reasonCodes: Object.freeze(["ALBUM_SAVE_FAILED"]),
+                history
+            });
+        }
+
+        return result;
 
     }
 
@@ -592,5 +648,18 @@ export default class ProjectService {
         return error;
 
     }
+
+}
+
+function sameAlbum(left, right) {
+
+    const inspectedLeft = inspectAlbum(left);
+    const inspectedRight = inspectAlbum(right);
+
+    if (!inspectedLeft.valid || !inspectedRight.valid) {
+        return false;
+    }
+
+    return JSON.stringify(inspectedLeft.album) === JSON.stringify(inspectedRight.album);
 
 }
