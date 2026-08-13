@@ -3,8 +3,11 @@ import assert from "assert";
 import ProjectEngine from "../src/core/ProjectEngine";
 import {
     AlbumSheetReason,
+    AlbumSheetTemplateReason,
+    AlbumSheetTemplateState,
     createEmptyAlbum,
-    inspectAlbum
+    inspectAlbum,
+    resolveAlbumSheetTemplates
 } from "../src/project/AlbumSheetSchema";
 import ProjectService, {
     PROJECT_SCHEMA_VERSION
@@ -163,6 +166,43 @@ async function run() {
                     AlbumSheetReason.INVALID_SHEET_ID
                 )
         );
+    });
+
+    await test("resolves Sheet compatibility by stable Template IDs, not order", () => {
+        const compatibility = resolveAlbumSheetTemplates({
+            schemaVersion: 1,
+            sheets: [
+                { id: "front", templateId: "template-front" },
+                { id: "body", templateId: "template-body" },
+                { id: "lost", templateId: "template-removed" }
+            ]
+        }, [
+            { id: "template-body", registrationOrder: 0, validationState: "READY", validationSchemaVersion: 1 },
+            { id: "template-front", registrationOrder: 1, validationState: "MISSING", validationSchemaVersion: 1 },
+            { id: "template-stale", registrationOrder: 2, validationState: "READY", validationSchemaVersion: 0 }
+        ]);
+        assert.strictEqual(compatibility.status, AlbumSheetTemplateState.TEMPLATE_BLOCKED);
+        assert.deepStrictEqual(compatibility.sheets.map(sheet => sheet.state), [
+            AlbumSheetTemplateState.TEMPLATE_BLOCKED,
+            AlbumSheetTemplateState.READY,
+            AlbumSheetTemplateState.MISSING_TEMPLATE
+        ]);
+        assert.strictEqual(
+            compatibility.sheets[0].reasonCode,
+            AlbumSheetTemplateReason.TEMPLATE_VALIDATION_BLOCKED
+        );
+        assert.strictEqual(compatibility.sheets[1].templateRegistrationOrder, 0);
+
+        const stale = resolveAlbumSheetTemplates({
+            schemaVersion: 1,
+            sheets: [{ id: "stale", templateId: "template-stale" }]
+        }, [{
+            id: "template-stale",
+            registrationOrder: 0,
+            validationState: "READY",
+            validationSchemaVersion: 0
+        }]);
+        assert.strictEqual(stale.sheets[0].state, AlbumSheetTemplateState.STALE_TEMPLATE);
     });
 
     console.info(`ALB-080 Slice 1: PASS (${assertions} assertions)`);
