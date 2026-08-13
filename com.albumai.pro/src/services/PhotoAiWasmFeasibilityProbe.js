@@ -150,8 +150,9 @@ export async function runPhotoAiWasmFeasibilityProbe({
         webAssemblyAvailable: Boolean(webAssembly),
         sourceBytes: fixture instanceof Uint8Array ? fixture.length : 0
     };
-    if (!webAssembly || typeof webAssembly.instantiate !== "function" ||
-        typeof webAssembly.validate !== "function") {
+    if (!webAssembly || typeof webAssembly.validate !== "function" ||
+        typeof webAssembly.Module !== "function" ||
+        typeof webAssembly.Instance !== "function") {
         return frozenReport({
             ...base,
             status: PhotoAiWasmProbeStatus.FAIL,
@@ -211,13 +212,15 @@ export async function runPhotoAiWasmFeasibilityProbe({
         });
     }
 
+    let module = null;
     let instance = null;
     let failureReason = PhotoAiWasmProbeReason.INSTANTIATION_FAILED;
     try {
         const coldStart = safeNow(now);
-        const instantiated = await webAssembly.instantiate(wasmBytes);
+        module = new webAssembly.Module(wasmBytes);
+        instance = new webAssembly.Instance(module, {});
         const coldInstantiationMs = duration(coldStart, safeNow(now));
-        instance = instantiated?.instance || instantiated;
+        module = null;
         failureReason = PhotoAiWasmProbeReason.INFERENCE_FAILED;
         const infer = instance?.exports?.infer;
         const memory = instance?.exports?.memory;
@@ -299,6 +302,7 @@ export async function runPhotoAiWasmFeasibilityProbe({
         instance = null;
         return report;
     } catch (_) {
+        module = null;
         instance = null;
         return frozenReport({
             ...base,

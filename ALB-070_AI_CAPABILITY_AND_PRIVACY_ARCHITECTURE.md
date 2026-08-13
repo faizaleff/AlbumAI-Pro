@@ -53,8 +53,8 @@ user decision.
 
 The reachable contract moved the reviewed production bundle ceiling from 550
 KiB to 560 KiB. The exact Slice 1 bundle is 567,866 bytes. Slice 2's synthetic
-diagnostic produces a 574,284-byte bundle, an increment of 6,418 bytes
-(1.130%). A separate 562 KiB ceiling admits only this diagnostic with 1,204
+diagnostic produces a 574,336-byte bundle, an increment of 6,470 bytes
+(1.139%). A separate 562 KiB ceiling admits only this diagnostic with 1,152
 bytes of headroom. Production model/runtime assets remain blocked pending the
 Slice 3 package, memory, latency, and licensing decision.
 

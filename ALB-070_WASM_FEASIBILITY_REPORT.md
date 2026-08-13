@@ -51,18 +51,31 @@ Production bundle measurement:
 | Measurement | Bytes |
 | --- | ---: |
 | Slice 1 `dist/index.js` | 567,866 |
-| Slice 2 `dist/index.js` | 574,284 |
-| Synthetic diagnostic increment | 6,418 (1.130%) |
+| Slice 2 `dist/index.js` | 574,336 |
+| Synthetic diagnostic increment | 6,470 (1.139%) |
 | Slice 2 ceiling | 575,488 (562 KiB) |
-| Remaining headroom | 1,204 |
+| Remaining headroom | 1,152 |
 | Slice 1 reproducible release ZIP | 161,213 |
-| Slice 2 reproducible release ZIP | 162,844 |
-| Release ZIP increment | 1,631 (1.012%) |
+| Slice 2 reproducible release ZIP | 162,847 |
+| Release ZIP increment | 1,634 (1.014%) |
 
 This narrow increase does not admit a production runtime or model asset.
 
 Automated Node execution is harness evidence only. It is not proof of UXP
 compatibility.
+
+## macOS compatibility finding
+
+Photoshop 27.4.0 UXP on Apple Silicon exposes `WebAssembly.validate`,
+`WebAssembly.instantiate`, `WebAssembly.Module`, and `WebAssembly.Instance`.
+Runtime characterization found that `WebAssembly.instantiate(bytes)` remains
+pending even for the eight-byte empty module, while synchronous
+`new WebAssembly.Module(bytes)` plus `new WebAssembly.Instance(module, {})`
+completes. The actual 68-byte AlbumAI synthetic module executed through the
+synchronous path with score `0.5` and one 65,536-byte memory page.
+
+The probe therefore requires the synchronous constructors and never calls the
+async byte-instantiation API. Async-only runtimes fail closed as unsupported.
 
 ## Photoshop/UXP procedure
 

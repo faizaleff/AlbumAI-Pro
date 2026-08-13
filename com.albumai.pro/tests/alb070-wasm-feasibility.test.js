@@ -93,9 +93,9 @@ function steppedClock(step = 0.25) {
             fixture: new Uint8Array(3),
             webAssembly: {
                 validate: () => true,
-                instantiate: async () => {
-                    instantiated = true;
-                    return {};
+                Module: class {},
+                Instance: class {
+                    constructor() { instantiated = true; }
                 }
             }
         });
@@ -113,9 +113,11 @@ function steppedClock(step = 0.25) {
             isCancelled: () => ++checks === 2,
             webAssembly: {
                 validate: () => true,
-                instantiate: async () => {
-                    instantiated = true;
-                    return {};
+                Module: class {
+                    constructor() { instantiated = true; }
+                },
+                Instance: class {
+                    constructor() { instantiated = true; }
                 }
             }
         });
@@ -126,13 +128,30 @@ function steppedClock(step = 0.25) {
         assert.strictEqual(instantiated, false);
     });
 
+    await test("rejects an async-only runtime instead of awaiting a hanging promise", async () => {
+        let asyncInstantiateCalled = false;
+        const report = await runPhotoAiWasmFeasibilityProbe({
+            webAssembly: {
+                validate: () => true,
+                instantiate: async () => {
+                    asyncInstantiateCalled = true;
+                    return new Promise(() => {});
+                }
+            }
+        });
+        assert.strictEqual(report.status, PhotoAiWasmProbeStatus.FAIL);
+        assert.deepStrictEqual(report.reasonCodes, [
+            PhotoAiWasmProbeReason.RUNTIME_UNSUPPORTED
+        ]);
+        assert.strictEqual(asyncInstantiateCalled, false);
+    });
+
     await test("fails closed when required WASM exports are absent", async () => {
         const report = await runPhotoAiWasmFeasibilityProbe({
             webAssembly: {
                 validate: () => true,
-                instantiate: async () => ({
-                    instance: { exports: {} }
-                })
+                Module: class {},
+                Instance: class { constructor() { this.exports = {}; } }
             }
         });
         assert.strictEqual(report.status, PhotoAiWasmProbeStatus.FAIL);
@@ -145,14 +164,15 @@ function steppedClock(step = 0.25) {
         const report = await runPhotoAiWasmFeasibilityProbe({
             webAssembly: {
                 validate: () => true,
-                instantiate: async () => ({
-                    instance: {
-                        exports: {
+                Module: class {},
+                Instance: class {
+                    constructor() {
+                        this.exports = {
                             infer: () => { throw new Error("unsafe host detail"); },
                             memory: { buffer: new ArrayBuffer(65536) }
-                        }
+                        };
                     }
-                })
+                }
             }
         });
         assert.strictEqual(report.status, PhotoAiWasmProbeStatus.FAIL);
