@@ -9,6 +9,12 @@ import PhotoBrowserSection from "./PhotoBrowserSection";
 import PreviewPanel from "./PreviewPanel";
 import TemplateDocumentPanel from "./TemplateDocumentPanel";
 import SelectionCount from "./SelectionCount";
+import {
+    AlbumSheetMutationIntent,
+    createAlbumSheetHistory,
+    redoAlbumSheetHistory,
+    undoAlbumSheetHistory
+} from "../project/AlbumSheetSchema";
 
 import App from "../app/AppController";
 import RefreshService from "../services/RefreshService";
@@ -38,6 +44,11 @@ export default function OpenFolder() {
     const [photoFolderChange, setPhotoFolderChange] = useState(
         createIdlePhotoFolderChangeState
     );
+    const [albumHistory, setAlbumHistory] = useState(null);
+    const [albumSheetId, setAlbumSheetId] = useState("");
+    const [albumTemplateId, setAlbumTemplateId] = useState("");
+    const [albumMutationBusy, setAlbumMutationBusy] = useState(false);
+    const [albumMutationError, setAlbumMutationError] = useState(null);
     const unavailableDiagnosticRef = useRef(null);
     const mountedRef = useRef(true);
     const photoFolderChangeAttemptRef = useRef(0);
@@ -50,6 +61,16 @@ export default function OpenFolder() {
     const project = App.project.getProject();
     const hasProject = !!project;
     const projectId = project?.metadata?.id || null;
+    const registeredTemplates = App.getRegisteredProjectTemplates();
+    const album = albumHistory?.present || project?.metadata?.album || null;
+    const albumMutationLocked = App.isAlbumSheetMutationLocked();
+
+    useEffect(() => {
+        setAlbumHistory(createAlbumSheetHistory(project?.metadata?.album));
+        setAlbumSheetId("");
+        setAlbumTemplateId("");
+        setAlbumMutationError(null);
+    }, [projectId]);
 
     const clearPhotoFolderChangeState = useCallback(() => {
         photoFolderChangeAttemptRef.current += 1;
@@ -523,6 +544,85 @@ export default function OpenFolder() {
 
     }
 
+    async function mutateAlbum(mutation) {
+
+        if (!albumHistory || albumMutationBusy) return false;
+
+        setAlbumMutationBusy(true);
+        setAlbumMutationError(null);
+
+        try {
+            const result = await App.saveAlbumSheetMutation(albumHistory, mutation);
+
+            if (!result.accepted) {
+                setAlbumMutationError(result.reasonCodes?.join(", ") || "Sheet change was not saved.");
+                return false;
+            }
+
+            if (result.changed) setAlbumHistory(result.history);
+            return result.changed;
+        } catch (error) {
+            setAlbumMutationError(error?.message || "Sheet change was not saved.");
+            return false;
+        } finally {
+            setAlbumMutationBusy(false);
+        }
+
+    }
+
+    async function addAlbumSheet() {
+
+        const id = albumSheetId.trim();
+
+        if (!id || !albumTemplateId) {
+            setAlbumMutationError("Enter a Sheet ID and select a registered template.");
+            return;
+        }
+
+        const added = await mutateAlbum({
+            intent: AlbumSheetMutationIntent.ADD,
+            sheet: { id, templateId: albumTemplateId }
+        });
+        if (added) setAlbumSheetId("");
+
+    }
+
+    async function removeAlbumSheet(sheetId) {
+
+        await mutateAlbum({
+            intent: AlbumSheetMutationIntent.REMOVE,
+            sheetId
+        });
+
+    }
+
+    async function restoreAlbumHistory(operation) {
+
+        if (!albumHistory || albumMutationBusy) return;
+
+        const transition = operation(albumHistory);
+        if (!transition.changed) return;
+
+        setAlbumMutationBusy(true);
+        setAlbumMutationError(null);
+        try {
+            const result = await App.saveAlbumSheetHistory(
+                albumHistory,
+                transition.history
+            );
+            if (!result.accepted) {
+                setAlbumMutationError(result.reasonCodes?.join(", ") || "Sheet history was not saved.");
+                return;
+            }
+            setAlbumHistory(result.history);
+        } catch (error) {
+            setAlbumMutationError(error?.message || "Sheet history was not saved.");
+        } finally {
+            setAlbumMutationBusy(false);
+        }
+
+    }
+
     const loadTemplates = useCallback(
         () => App.getProjectTemplates(),
         []
@@ -694,6 +794,101 @@ export default function OpenFolder() {
                         <div style={{ marginTop: 8, fontSize: 12, color: "#ff9999" }}>
                             Project: {projectError}
                         </div>
+                    )}
+                </section>
+
+                <section
+                    style={{
+                        marginBottom: 15,
+                        padding: 12,
+                        background: "#292929",
+                        borderRadius: 6
+                    }}
+                >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                        <strong>Album Sheets</strong>
+                        <span style={{ fontSize: 12, color: "#bdbdbd" }}>
+                            {album?.sheets?.length || 0} sheets
+                        </span>
+                    </div>
+
+                    {hasProject && (
+                        <>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                                <input
+                                    value={albumSheetId}
+                                    onChange={event => setAlbumSheetId(event.target.value)}
+                                    placeholder="Sheet ID"
+                                    disabled={albumMutationLocked || albumMutationBusy}
+                                />
+                                <select
+                                    value={albumTemplateId}
+                                    onChange={event => setAlbumTemplateId(event.target.value)}
+                                    disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
+                                >
+                                    <option value="">Select template</option>
+                                    {registeredTemplates.map(template => (
+                                        <option key={template.id} value={template.id}>
+                                            {template.name || template.id}
+                                        </option>
+                                    ))}
+                                </select>
+                                <button
+                                    onClick={addAlbumSheet}
+                                    disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
+                                >
+                                    Add Sheet
+                                </button>
+                                <button
+                                    onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
+                                    disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
+                                >
+                                    Undo
+                                </button>
+                                <button
+                                    onClick={() => restoreAlbumHistory(redoAlbumSheetHistory)}
+                                    disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
+                                >
+                                    Redo
+                                </button>
+                            </div>
+
+                            {!registeredTemplates.length && (
+                                <div style={{ fontSize: 12, color: "#bdbdbd" }}>
+                                    Register a template before adding a Sheet.
+                                </div>
+                            )}
+                            {albumMutationLocked && (
+                                <div style={{ fontSize: 12, color: "#ffca7a" }}>
+                                    Sheet changes are locked while the batch is running or stopping.
+                                </div>
+                            )}
+                            {albumMutationError && (
+                                <div style={{ fontSize: 12, color: "#ff9999", marginTop: 6 }}>
+                                    Album: {albumMutationError}
+                                </div>
+                            )}
+                            {!!album?.sheets?.length && (
+                                <div style={{ display: "grid", gap: 4, marginTop: 8 }}>
+                                    {album.sheets.map((sheet, index) => (
+                                        <div
+                                            key={sheet.id}
+                                            style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}
+                                        >
+                                            <span style={{ minWidth: 22, color: "#bdbdbd" }}>{index + 1}</span>
+                                            <span style={{ flex: 1 }}>{sheet.label || sheet.id}</span>
+                                            <span style={{ color: "#bdbdbd" }}>{sheet.templateId}</span>
+                                            <button
+                                                onClick={() => removeAlbumSheet(sheet.id)}
+                                                disabled={albumMutationLocked || albumMutationBusy}
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
                     )}
                 </section>
 
