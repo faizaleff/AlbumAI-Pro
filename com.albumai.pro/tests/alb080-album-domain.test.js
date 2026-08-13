@@ -308,6 +308,59 @@ async function run() {
         assert(Object.isFrozen(redone.history));
     });
 
+    await test("persists an accepted Sheet mutation before publishing project metadata", async () => {
+        const root = new MemoryEntry("Project", null, { folder: true });
+        const projectFile = new MemoryEntry("project.json", root, {
+            content: JSON.stringify(projectMetadata({
+                schemaVersion: 2,
+                album: createEmptyAlbum()
+            }))
+        });
+        root.entries.set(projectFile.name, projectFile);
+
+        const projectEngine = new ProjectEngine();
+        const projectService = new ProjectService({
+            projectEngine,
+            recentProjects: { add() {}, getAll: () => [] }
+        });
+        projectEngine.open(root, JSON.parse(projectFile.content), { projectFile });
+        const history = createAlbumSheetHistory(createEmptyAlbum());
+
+        const persisted = await projectService.saveAlbumSheetMutation(history, {
+            intent: AlbumSheetMutationIntent.ADD,
+            sheet: { id: "cover", templateId: "template-cover" }
+        }, { templateIds: ["template-cover"] });
+        assert.strictEqual(persisted.accepted, true);
+        assert.deepStrictEqual(
+            projectEngine.getProject().metadata.album,
+            persisted.history.present
+        );
+
+        const originalCreateFile = root.createFile.bind(root);
+        root.createFile = async (name, options) => {
+            const entry = await originalCreateFile(name, options);
+            if (name === "project.json.tmp") {
+                entry.write = async () => { throw new Error("write rejected"); };
+            }
+            return entry;
+        };
+
+        const rejected = await projectService.saveAlbumSheetMutation(
+            persisted.history,
+            {
+                intent: AlbumSheetMutationIntent.ADD,
+                sheet: { id: "body", templateId: "template-cover" }
+            },
+            { templateIds: ["template-cover"] }
+        );
+        assert.strictEqual(rejected.accepted, false);
+        assert.deepStrictEqual(rejected.history, persisted.history);
+        assert.deepStrictEqual(
+            projectEngine.getProject().metadata.album,
+            persisted.history.present
+        );
+    });
+
     console.info(`ALB-080 Slice 1: PASS (${assertions} assertions)`);
 }
 
