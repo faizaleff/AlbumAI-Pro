@@ -1,6 +1,6 @@
 # ALB-080 — Canonical Album, Template, and Sheet Domain Plan
 
-Status: **IN PROGRESS — Slice 1 implemented locally; Slice 2 pending bundle-budget design**
+Status: **IN PROGRESS — Slices 1–2 implemented locally**
 
 Baseline: **`origin/main` at `20241ee`**
 
@@ -158,8 +158,7 @@ without fallback to an older backup.
 
 ## Implementation decision
 
-ALB-080 started with Slice 1. The migration envelope and canonical empty Album
-schema are now covered by automated tests. Slice 2 remains pending a bundle-
-budgeted integration design; no Sheet UI, drag/drop, render bridge, or new
-persisted fields are introduced until the migration and compatibility contracts
-are reviewed.
+ALB-080 Slice 1 adds the migration envelope and canonical empty Album schema.
+Slice 2 adds an in-module, detached compatibility resolver that binds Sheets to
+registered template IDs without increasing the module graph. No Sheet UI,
+drag/drop, render bridge, or new persisted fields are introduced.
