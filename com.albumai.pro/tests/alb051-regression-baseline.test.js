@@ -164,7 +164,7 @@ async function run() {
         assert.strictEqual(engine.getProject(), null);
         const reopened = await service.openProject(projectFolder);
         assert.strictEqual(reopened.metadata.photoCount, 4);
-        assert.strictEqual(reopened.metadata.schemaVersion, 1);
+        assert.strictEqual(reopened.metadata.schemaVersion, 2);
     });
 
     await test("photo selection preserves browser order across select, range, toggle, and retain", async () => {
