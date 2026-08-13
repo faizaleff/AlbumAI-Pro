@@ -1,6 +1,6 @@
 # ALB-070 — UXP WebAssembly Feasibility Report
 
-Status: **AUTOMATED HARNESS IMPLEMENTED — PHOTOSHOP RUNTIME PENDING**
+Status: **macOS RUNTIME PASS WITH MEMORY LIMITATION — WINDOWS PENDING**
 
 Baseline: **`main` at `20241ee`**
 
@@ -77,6 +77,34 @@ synchronous path with score `0.5` and one 65,536-byte memory page.
 The probe therefore requires the synchronous constructors and never calls the
 async byte-instantiation API. Async-only runtimes fail closed as unsupported.
 
+## macOS runtime evidence
+
+Host: Photoshop 27.4.0 UXP on Apple Silicon, loaded from the production `dist`
+build through UXP Developer Tool. No user project or photo folder was opened.
+
+| Check | Observed result |
+| --- | --- |
+| Capability / module validation | PASS |
+| Synchronous module instantiation | PASS |
+| Synthetic score | `0.5` |
+| Preprocessing | 3 ms |
+| Cold instantiation | 1 ms |
+| First inference / 10 warm runs | 0 ms / 0 ms |
+| WASM memory per run | 65,536 bytes (one fixed page) |
+| Publication | `publishable: false` |
+| Retained WASM references | `false` |
+| Photoshop documents opened by probe | 0 |
+| Explicit cancellation | `LIMITATION`, reason `CANCELLED`, before module validation / instantiation |
+| Repeated execution | 20 / 20 PASS; maximum reported WASM memory 65,536 bytes |
+
+The observed Photoshop process memory was 2.21 GB before the repeated run,
+2.30 GB after 20 runs and idle, 2.28 GB after the debug console closed, and
+2.30 GB after the plugin unloaded. This process-level measurement is not
+sufficient to attribute the change to WASM: debugger logging, UXP, JIT, and
+Photoshop caches are confounding factors. The probe releases its own
+references, but host memory reclamation remains **INCONCLUSIVE** rather than a
+confirmed leak or a confirmed reclamation result.
+
 ## Photoshop/UXP procedure
 
 Use a disposable AlbumAI Pro development install. Do not open a user project
@@ -109,12 +137,12 @@ or user photo folder for this procedure.
 
 | Host | Status | Required evidence |
 | --- | --- | --- |
-| macOS Photoshop/UXP | PENDING | Production load, bounded report, cold/warm latency, unchanged document count, repeated-run memory observation, cancellation |
+| macOS Photoshop/UXP | PASS_WITH_MEMORY_LIMITATION | Production load, bounded report, cold/warm latency, unchanged document count, repeated-run memory observation, and cancellation completed. Host memory reclamation remains inconclusive. |
 | Windows Photoshop/UXP | PENDING | Production load, bounded report, cold/warm latency, unchanged document count, repeated-run memory observation, cancellation |
 
 ## Decision rule
 
-Slice 2 remains `PENDING` until both host rows have evidence. Slice 3 records
-`PASS`, `LIMITATION`, or `FAIL` and freezes supported hosts, concurrency,
-package, latency, and memory budgets. No production model or AI UI may proceed
-from Node harness results alone.
+Slice 2 remains `PENDING` until the Windows host row has evidence and Slice 3
+records `PASS`, `LIMITATION`, or `FAIL` for host support, concurrency, package,
+latency, and memory budgets. No production model or AI UI may proceed from
+Node harness results alone.
