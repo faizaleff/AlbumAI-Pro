@@ -2,12 +2,19 @@ import assert from "assert";
 
 import ProjectEngine from "../src/core/ProjectEngine";
 import {
+    AlbumSheetMutationIntent,
+    AlbumSheetMutationReason,
     AlbumSheetReason,
     AlbumSheetTemplateReason,
     AlbumSheetTemplateState,
+    applyAlbumSheetHistoryMutation,
+    applyAlbumSheetMutation,
+    createAlbumSheetHistory,
     createEmptyAlbum,
     inspectAlbum,
-    resolveAlbumSheetTemplates
+    redoAlbumSheetHistory,
+    resolveAlbumSheetTemplates,
+    undoAlbumSheetHistory
 } from "../src/project/AlbumSheetSchema";
 import ProjectService, {
     PROJECT_SCHEMA_VERSION
@@ -215,6 +222,90 @@ async function run() {
             validationSchemaVersion: 0
         }]);
         assert.strictEqual(stale.sheets[0].state, AlbumSheetTemplateState.STALE_TEMPLATE);
+    });
+
+    await test("applies only detached canonical Sheet mutations", () => {
+        const initial = inspectAlbum({
+            schemaVersion: 1,
+            sheets: [{ id: "cover", templateId: "template-cover" }]
+        }).album;
+        const options = { templateIds: ["template-cover", "template-body"] };
+
+        const added = applyAlbumSheetMutation(initial, {
+            intent: AlbumSheetMutationIntent.ADD,
+            sheet: { id: "body", templateId: "template-body", label: "Body" }
+        }, options);
+        assert.strictEqual(added.accepted, true);
+        assert.deepStrictEqual(added.album.sheets.map(sheet => sheet.id), ["cover", "body"]);
+        assert.deepStrictEqual(initial.sheets.map(sheet => sheet.id), ["cover"]);
+
+        const duplicated = applyAlbumSheetMutation(added.album, {
+            intent: AlbumSheetMutationIntent.DUPLICATE,
+            sheetId: "body",
+            newSheetId: "body-copy"
+        }, options);
+        const renamed = applyAlbumSheetMutation(duplicated.album, {
+            intent: AlbumSheetMutationIntent.RENAME,
+            sheetId: "body-copy",
+            label: "Body copy"
+        }, options);
+        const moved = applyAlbumSheetMutation(renamed.album, {
+            intent: AlbumSheetMutationIntent.MOVE,
+            sheetId: "body-copy",
+            targetIndex: 0
+        }, options);
+        const removed = applyAlbumSheetMutation(moved.album, {
+            intent: AlbumSheetMutationIntent.REMOVE,
+            sheetId: "body"
+        }, options);
+        assert.deepStrictEqual(removed.album.sheets.map(sheet => sheet.id), ["body-copy", "cover"]);
+        assert.strictEqual(removed.album.sheets[0].label, "Body copy");
+
+        const restored = applyAlbumSheetMutation(removed.album, {
+            intent: AlbumSheetMutationIntent.RESTORE,
+            album: initial
+        }, options);
+        assert.deepStrictEqual(restored.album, initial);
+        assert.strictEqual(applyAlbumSheetMutation(initial, {
+            intent: AlbumSheetMutationIntent.ADD,
+            sheet: { id: "unregistered", templateId: "template-missing" }
+        }, options).reasonCodes[0], AlbumSheetMutationReason.TEMPLATE_NOT_REGISTERED);
+    });
+
+    await test("keeps bounded detached Sheet history without recording rejected or no-op commands", () => {
+        const options = { templateIds: ["template-a"] };
+        let history = createAlbumSheetHistory(createEmptyAlbum());
+
+        const rejected = applyAlbumSheetHistoryMutation(history, {
+            intent: AlbumSheetMutationIntent.REMOVE,
+            sheetId: "missing"
+        }, options);
+        assert.strictEqual(rejected.history, history);
+
+        const added = applyAlbumSheetHistoryMutation(history, {
+            intent: AlbumSheetMutationIntent.ADD,
+            sheet: { id: "sheet-0", templateId: "template-a" }
+        }, options);
+        history = added.history;
+        const unchanged = applyAlbumSheetHistoryMutation(history, {
+            intent: AlbumSheetMutationIntent.MOVE,
+            sheetId: "sheet-0",
+            targetIndex: 0
+        }, options);
+        assert.strictEqual(unchanged.history, history);
+
+        for (let index = 1; index <= 21; index += 1) {
+            history = applyAlbumSheetHistoryMutation(history, {
+                intent: AlbumSheetMutationIntent.ADD,
+                sheet: { id: `sheet-${index}`, templateId: "template-a" }
+            }, options).history;
+        }
+        assert.strictEqual(history.past.length, 20);
+        const undone = undoAlbumSheetHistory(history);
+        const redone = redoAlbumSheetHistory(undone.history);
+        assert.strictEqual(undone.changed, true);
+        assert.strictEqual(redone.history.present.sheets.length, 22);
+        assert(Object.isFrozen(redone.history));
     });
 
     console.info(`ALB-080 Slice 1: PASS (${assertions} assertions)`);
