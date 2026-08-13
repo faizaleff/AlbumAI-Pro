@@ -14,6 +14,22 @@ export const AlbumSheetReason = Object.freeze({
     UNSUPPORTED_SHEET_FIELD: "UNSUPPORTED_SHEET_FIELD"
 });
 
+export const AlbumSheetTemplateState = Object.freeze({
+    READY: "READY",
+    MISSING_TEMPLATE: "MISSING_TEMPLATE",
+    TEMPLATE_BLOCKED: "TEMPLATE_BLOCKED",
+    STALE_TEMPLATE: "STALE_TEMPLATE",
+    UNSUPPORTED_SCHEMA: "UNSUPPORTED_SCHEMA"
+});
+
+export const AlbumSheetTemplateReason = Object.freeze({
+    READY: "READY",
+    TEMPLATE_NOT_REGISTERED: "TEMPLATE_NOT_REGISTERED",
+    TEMPLATE_VALIDATION_BLOCKED: "TEMPLATE_VALIDATION_BLOCKED",
+    TEMPLATE_VALIDATION_STALE: "TEMPLATE_VALIDATION_STALE",
+    TEMPLATE_REGISTRY_UNAVAILABLE: "TEMPLATE_REGISTRY_UNAVAILABLE"
+});
+
 const MAX_SHEETS = 500;
 const MAX_IDENTIFIER_LENGTH = 120;
 const MAX_LABEL_LENGTH = 160;
@@ -73,6 +89,93 @@ export function inspectAlbum(album) {
             sheets
         })
     });
+
+}
+
+/**
+ * Resolve Sheet-to-Template compatibility from a detached canonical registry
+ * snapshot. No path, file entry, or Photoshop object crosses this boundary.
+ */
+export function resolveAlbumSheetTemplates(album, registry = null) {
+
+    const inspected = inspectAlbum(album);
+
+    if (!inspected.valid) {
+        return compatibility(
+            AlbumSheetTemplateState.UNSUPPORTED_SCHEMA,
+            inspected.reasonCodes,
+            []
+        );
+    }
+
+    if (!Array.isArray(registry)) {
+        const sheets = inspected.album.sheets.map(sheet => sheetCompatibility(
+            sheet,
+            AlbumSheetTemplateState.TEMPLATE_BLOCKED,
+            AlbumSheetTemplateReason.TEMPLATE_REGISTRY_UNAVAILABLE
+        ));
+        return compatibility(
+            AlbumSheetTemplateState.TEMPLATE_BLOCKED,
+            [AlbumSheetTemplateReason.TEMPLATE_REGISTRY_UNAVAILABLE],
+            sheets
+        );
+    }
+
+    const templates = new Map();
+    registry.forEach(entry => {
+        if (isObject(entry) && isIdentifier(entry.id) && !templates.has(entry.id)) {
+            templates.set(entry.id, entry);
+        }
+    });
+
+    const sheets = inspected.album.sheets.map(sheet => {
+        const template = templates.get(sheet.templateId);
+
+        if (!template) {
+            return sheetCompatibility(
+                sheet,
+                AlbumSheetTemplateState.MISSING_TEMPLATE,
+                AlbumSheetTemplateReason.TEMPLATE_NOT_REGISTERED
+            );
+        }
+
+        if (template.validationSchemaVersion !== 1) {
+            return sheetCompatibility(
+                sheet,
+                AlbumSheetTemplateState.STALE_TEMPLATE,
+                AlbumSheetTemplateReason.TEMPLATE_VALIDATION_STALE,
+                template
+            );
+        }
+
+        if (template.validationState !== "READY") {
+            return sheetCompatibility(
+                sheet,
+                AlbumSheetTemplateState.TEMPLATE_BLOCKED,
+                AlbumSheetTemplateReason.TEMPLATE_VALIDATION_BLOCKED,
+                template
+            );
+        }
+
+        return sheetCompatibility(
+            sheet,
+            AlbumSheetTemplateState.READY,
+            AlbumSheetTemplateReason.READY,
+            template
+        );
+    });
+
+    const reasonCodes = [...new Set(sheets
+        .filter(sheet => sheet.state !== AlbumSheetTemplateState.READY)
+        .map(sheet => sheet.reasonCode))];
+
+    return compatibility(
+        reasonCodes.length
+            ? AlbumSheetTemplateState.TEMPLATE_BLOCKED
+            : AlbumSheetTemplateState.READY,
+        reasonCodes,
+        sheets
+    );
 
 }
 
@@ -146,6 +249,32 @@ function invalid(reason) {
         valid: false,
         reasonCodes: Object.freeze([reason]),
         album: null
+    });
+
+}
+
+function compatibility(status, reasonCodes, sheets) {
+
+    return Object.freeze({
+        status,
+        reasonCodes: Object.freeze([...reasonCodes]),
+        sheets: Object.freeze(sheets)
+    });
+
+}
+
+function sheetCompatibility(sheet, state, reasonCode, template = null) {
+
+    return Object.freeze({
+        sheetId: sheet.id,
+        templateId: sheet.templateId,
+        state,
+        reasonCode,
+        templateRegistrationOrder:
+            Number.isInteger(template?.registrationOrder) &&
+            template.registrationOrder >= 0
+                ? template.registrationOrder
+                : null
     });
 
 }
