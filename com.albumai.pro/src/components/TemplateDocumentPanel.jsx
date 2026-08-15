@@ -1003,6 +1003,9 @@ export default function TemplateDocumentPanel({
     getCurrentBatchProgress,
     getCurrentExecutionLifecycle,
     executeProject,
+    albumSheetForRender = null,
+    createAlbumSheetRenderRequest,
+    executeAlbumSheetRenderRequest,
     resumeProjectBatch,
     retryFailedTemplates,
     clearRecoveryState,
@@ -1863,6 +1866,70 @@ export default function TemplateDocumentPanel({
 
     }
 
+    async function executeAlbumSheetRender() {
+
+        if (!albumSheetForRender?.id ||
+            typeof createAlbumSheetRenderRequest !== "function" ||
+            typeof executeAlbumSheetRenderRequest !== "function") return;
+
+        try {
+
+            setRegistryError(null);
+            const created = createAlbumSheetRenderRequest(albumSheetForRender.id);
+
+            if (!created?.accepted) {
+                setRegistryError(
+                    created?.reasonCodes?.join(", ") ||
+                    "The selected Album Sheet is not ready to render."
+                );
+                return;
+            }
+
+            const summary = await executeAlbumSheetRenderRequest(
+                created.request,
+                nextSummary => {
+                    setProjectExecutionSummary(nextSummary);
+                    refreshRecoveryState();
+                }
+            );
+
+            const gateFeedback = executionGateFeedback(summary);
+            if (gateFeedback) {
+                setRegistryError(gateFeedback);
+                refreshRegisteredTemplates();
+                refreshRegistryPreflightState();
+                setProjectExecutionSummary(
+                    getCurrentProjectExecutionSummary?.() || null
+                );
+                return;
+            }
+
+            setProjectExecutionSummary(
+                summary || getCurrentProjectExecutionSummary?.() || null
+            );
+            setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
+            setExportResult(getCurrentExportResult?.() || null);
+            refreshRecoveryState();
+
+        } catch (error) {
+
+            const reasonCodes = Array.isArray(error?.reasonCodes)
+                ? error.reasonCodes.join(", ")
+                : null;
+            setRegistryError(
+                reasonCodes || error?.message || "The selected Album Sheet could not be rendered."
+            );
+            setProjectExecutionSummary(
+                getCurrentProjectExecutionSummary?.() || null
+            );
+            setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
+            setExportResult(getCurrentExportResult?.() || null);
+            refreshRecoveryState();
+
+        }
+
+    }
+
     async function executeRecoveryAction(action) {
         if (typeof action !== "function" || isExecuting) return;
         try {
@@ -2106,6 +2173,17 @@ export default function TemplateDocumentPanel({
                 >
                     {isExecuting ? "Processing…" : "Process Project"}
                 </button>
+                {albumSheetForRender?.id && (
+                    <button
+                        onClick={executeAlbumSheetRender}
+                        disabled={isExecuting || !hasProject}
+                        title="Render only this Album Sheet using the current selected photos."
+                    >
+                        {isExecuting
+                            ? "Rendering…"
+                            : `Render Sheet: ${albumSheetForRender.label || albumSheetForRender.id}`}
+                    </button>
+                )}
                 </div>
 
                 <BatchProgressPanel
