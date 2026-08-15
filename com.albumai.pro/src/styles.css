@@ -317,6 +317,16 @@ button.photo-browser-control:active:not(:disabled) {
     margin-left: auto;
 }
 
+.photo-browser-open-folder-control {
+    color: #ffffff;
+    background: #1769aa;
+    border-color: #4d9fe0;
+}
+
+.photo-browser-open-folder-control:hover:not(:disabled) {
+    background: #2079bd;
+}
+
 .photo-browser-direction-button {
     min-width: 62px;
 }
