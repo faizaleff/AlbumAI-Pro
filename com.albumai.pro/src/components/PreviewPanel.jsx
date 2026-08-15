@@ -64,8 +64,8 @@ function PreviewPanel({
 
     return (
         <div
+            className="album-preview-panel"
             style={{
-                flex: 1,
                 display: "flex",
                 flexDirection: "column",
                 background: "#2b2b2b",
