@@ -64,6 +64,7 @@
     "src/project/BatchExecutionResult.js",
     "src/project/BatchExecutionService.js",
     "src/project/BatchRecoverySnapshot.js",
+    "src/project/AlbumSheetRenderBridge.js",
     "src/project/AlbumSheetSchema.js",
     "src/project/OutputPromotionPolicy.js",
     "src/project/OutputRecoveryOperatorState.js",
