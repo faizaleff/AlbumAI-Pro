@@ -433,6 +433,31 @@ async function run() {
         assert(Object.isFrozen(result.request.selectedPhotoIds));
     });
 
+    await test("accepts opaque file-backed Photo IDs while rejecting malformed values", () => {
+        const context = {
+            projectId: "project-080",
+            album: { schemaVersion: 1, sheets: [{ id: "cover", templateId: "template-cover" }] },
+            registry: [{ id: "template-cover", registrationOrder: 0, validationState: "READY", validationSchemaVersion: 1 }],
+            sheetId: "cover"
+        };
+        const accepted = createAlbumSheetRenderRequest({
+            ...context,
+            selectedPhotoIds: ["IMG_5895.jpg", "photo:album/IMG_5918.jpg"]
+        });
+        assert.strictEqual(accepted.accepted, true);
+        assert.deepStrictEqual(accepted.request.selectedPhotoIds, [
+            "IMG_5895.jpg", "photo:album/IMG_5918.jpg"
+        ]);
+
+        const rejected = createAlbumSheetRenderRequest({
+            ...context,
+            selectedPhotoIds: ["IMG_5895.jpg", "invalid\nphoto"]
+        });
+        assert.deepStrictEqual(rejected.reasonCodes, [
+            AlbumSheetRenderReason.INVALID_SELECTED_PHOTOS
+        ]);
+    });
+
     await test("fails closed for non-renderable Sheets and invalid browser selections", () => {
         const album = { schemaVersion: 1, sheets: [{ id: "cover", templateId: "missing" }] };
         const missing = createAlbumSheetRenderRequest({
