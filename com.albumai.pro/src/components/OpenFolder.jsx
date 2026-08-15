@@ -798,6 +798,7 @@ export default function OpenFolder() {
     return (
 
         <div
+            className="albumai-workspace-layout"
             style={{
                 display: "flex",
                 height: "100%",
@@ -813,7 +814,7 @@ export default function OpenFolder() {
             <div
                 className="left-pane album-workspace-scroll-pane"
                 style={{
-                    flex: 2,
+                    flex: "1 1 0",
                     display: "flex",
                     flexDirection: "column",
                     padding: 15,
