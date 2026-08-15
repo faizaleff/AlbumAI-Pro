@@ -21,12 +21,15 @@ export const AlbumSheetRenderReason = Object.freeze({
 });
 
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+const PHOTO_ID_MAX_LENGTH = 2048;
+const CONTROL_CHARACTER = /[\u0000-\u001F\u007F]/;
 
 /**
  * Build a detached, serializable request for exactly one Album Sheet.  This
  * boundary intentionally contains only stable IDs and validation facts; host
- * entries, paths, Photoshop documents, and photos stay with the existing
- * execution owners.
+ * entries, Photoshop documents, and photos stay with the existing execution
+ * owners. Photo IDs are opaque because the current photo owner may use a
+ * filename or a host-backed path as its stable identifier.
  */
 export function createAlbumSheetRenderRequest({
     projectId,
@@ -124,7 +127,7 @@ function inspectSelectedPhotoIds(photoIds) {
         return { valid: false, reasonCode: AlbumSheetRenderReason.NO_SELECTED_PHOTOS };
     }
     const ids = photoIds.map(id => typeof id === "string" ? id : "");
-    if (ids.some(id => !isIdentifier(id)) || new Set(ids).size !== ids.length) {
+    if (ids.some(id => !isOpaquePhotoId(id)) || new Set(ids).size !== ids.length) {
         return { valid: false, reasonCode: AlbumSheetRenderReason.INVALID_SELECTED_PHOTOS };
     }
     return { valid: true, photoIds: Object.freeze(ids.slice()) };
@@ -163,6 +166,13 @@ function isRequestShape(request) {
 
 function isIdentifier(value) {
     return typeof value === "string" && IDENTIFIER.test(value);
+}
+
+function isOpaquePhotoId(value) {
+    return typeof value === "string" &&
+        value.length > 0 &&
+        value.length <= PHOTO_ID_MAX_LENGTH &&
+        !CONTROL_CHARACTER.test(value);
 }
 
 function sameSheet(left, right) {
