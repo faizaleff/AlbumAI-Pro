@@ -741,6 +741,10 @@ export default function OpenFolder() {
 
     const executeProject = onUpdate =>
         App.executeProject(onUpdate);
+    const createAlbumSheetRenderRequest = sheetId =>
+        App.createAlbumSheetRenderRequest(sheetId);
+    const executeAlbumSheetRenderRequest = (request, onUpdate) =>
+        App.executeAlbumSheetRenderRequest(request, onUpdate);
     const resumeProjectBatch = onUpdate =>
         App.resumeProjectBatch(onUpdate);
     const retryFailedTemplates = onUpdate =>
@@ -1049,6 +1053,11 @@ export default function OpenFolder() {
                     getCurrentBatchProgress={getCurrentBatchProgress}
                     getCurrentExecutionLifecycle={getCurrentExecutionLifecycle}
                     executeProject={executeProject}
+                    albumSheetForRender={album?.sheets?.find(
+                        sheet => sheet.id === selectedAlbumSheetId
+                    ) || null}
+                    createAlbumSheetRenderRequest={createAlbumSheetRenderRequest}
+                    executeAlbumSheetRenderRequest={executeAlbumSheetRenderRequest}
                     resumeProjectBatch={resumeProjectBatch}
                     retryFailedTemplates={retryFailedTemplates}
                     clearRecoveryState={clearRecoveryState}
