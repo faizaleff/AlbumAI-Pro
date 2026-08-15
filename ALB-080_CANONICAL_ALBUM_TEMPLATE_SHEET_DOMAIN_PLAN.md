@@ -1,6 +1,6 @@
 # ALB-080 — Canonical Album, Template, and Sheet Domain Plan
 
-Status: **IN PROGRESS — Slices 1–4 implemented; render bridge pending**
+Status: **IN PROGRESS — Slices 1–5 implementation in progress; runtime qualification pending**
 
 Baseline: **`origin/main` at `20241ee`**
 
@@ -134,6 +134,16 @@ without fallback to an older backup.
 - Measure cancellation, stale rejection, output recovery, bounded memory, and
   no-document-leak behaviour with disposable fixtures.
 - Run the full automated, build, package, and Photoshop/UXP runtime matrix.
+
+Slice 5 first introduces a detached `AlbumSheetRenderRequest`. It snapshots a
+single canonical Sheet, the compatible registered Template validation facts,
+and the authoritative browser selection order. It deliberately contains no
+file reference, native path, photo object, or Photoshop document identity.
+Immediately before execution the request is rebuilt from current project,
+Album, registry, and selection facts. Any mismatch fails closed as a bounded
+project, Sheet, registry, or photo-selection stale reason. A valid request is
+then passed as a one-template call to the existing `executeProject` / batch,
+output, and recovery owners; it does not introduce an Album-owned renderer.
 
 ## Explicit non-goals
 
