@@ -2,6 +2,12 @@
 
 Status: **IN PROGRESS — Slices 1–5 implementation in progress; runtime qualification pending**
 
+Slice 5 exposes an explicit `Render Sheet: <label>` action only after a Sheet
+is selected. It creates a detached render request from the current Sheet and
+photo selection, revalidates that request immediately before execution, and
+then delegates to the existing project-batch, output, and recovery path. It
+does not render automatically.
+
 Baseline: **`origin/main` at `20241ee`**
 
 ## Goal
