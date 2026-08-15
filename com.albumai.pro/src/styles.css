@@ -597,6 +597,16 @@ button.photo-browser-control:active:not(:disabled) {
     scrollbar-width: auto;
 }
 
+.albumai-workspace-layout > .album-workspace-scroll-pane {
+    flex: 1 1 0;
+}
+
+.album-preview-panel {
+    flex: 0 1 360px;
+    min-width: 300px;
+    max-width: 400px;
+}
+
 .album-workspace-scroll-pane > .fixed-controls {
     flex: 0 0 auto;
 }
@@ -640,18 +650,18 @@ button.photo-browser-control:active:not(:disabled) {
 
 .album-workspace-action-group,
 .template-action-group {
-    gap: 8px;
-    padding: 6px;
+    gap: 6px;
+    padding: 2px;
     box-sizing: border-box;
-    border: 1px solid #434343;
-    border-radius: 5px;
-    background: #252525;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
 }
 
 .album-workspace-action-group--primary,
 .template-action-group--primary {
-    border-color: #47799e;
-    background: #243341;
+    border-color: transparent;
+    background: transparent;
 }
 
 .album-workspace-action-group input,
@@ -723,16 +733,20 @@ button.photo-browser-control:active:not(:disabled) {
 .template-setup-row,
 .template-execution-row,
 .template-output-row {
-    align-items: stretch;
+    align-items: center;
 }
 
 .template-action-group {
     flex: 0 1 auto;
 }
 
+.template-output-row .template-action-group {
+    flex: 1 1 235px;
+}
+
 .template-action-group--primary {
-    border-color: #397eaf;
-    background: #223849;
+    border-color: transparent;
+    background: transparent;
 }
 
 .template-render-sheet-button:not(:disabled) {
@@ -741,7 +755,30 @@ button.photo-browser-control:active:not(:disabled) {
     border-color: #63adeb;
 }
 
+@media (max-width: 980px) {
+    .album-preview-panel {
+        flex-basis: 300px;
+        min-width: 260px;
+    }
+}
+
 @media (max-width: 760px) {
+    .albumai-workspace-layout {
+        flex-wrap: wrap;
+        overflow-y: auto !important;
+    }
+
+    .album-workspace-scroll-pane,
+    .album-preview-panel {
+        flex-basis: 100% !important;
+        min-width: 0;
+        max-width: none;
+    }
+
+    .album-workspace-scroll-pane {
+        overflow-y: visible !important;
+    }
+
     .album-workspace-action-group,
     .template-action-group,
     .album-sheet-identity,
