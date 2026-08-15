@@ -592,6 +592,15 @@ button.photo-browser-control:active:not(:disabled) {
     box-sizing: border-box;
 }
 
+.album-workspace-scroll-pane {
+    scrollbar-color: #686868 #252525;
+    scrollbar-width: auto;
+}
+
+.album-workspace-scroll-pane > .fixed-controls {
+    flex: 0 0 auto;
+}
+
 .album-workspace-summary,
 .album-workspace-action-row,
 .album-workspace-action-group,
