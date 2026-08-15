@@ -4,7 +4,7 @@ Status: **IN PROGRESS — Slices 1–5 implementation in progress; runtime quali
 
 Slice 5 exposes an explicit `Render Sheet: <label>` action only after a Sheet
 is selected. It creates a detached render request from the current Sheet and
-photo selection, revalidates that request immediately before execution, and
+opaque photo IDs, revalidates that request immediately before execution, and
 then delegates to the existing project-batch, output, and recovery path. It
 does not render automatically.
 
@@ -144,7 +144,9 @@ without fallback to an older backup.
 Slice 5 first introduces a detached `AlbumSheetRenderRequest`. It snapshots a
 single canonical Sheet, the compatible registered Template validation facts,
 and the authoritative browser selection order. It deliberately contains no
-file reference, native path, photo object, or Photoshop document identity.
+file reference, photo object, or Photoshop document identity. Photo IDs remain
+opaque so the existing photo owner can keep using its current host-backed ID
+format without adding photo metadata to the request.
 Immediately before execution the request is rebuilt from current project,
 Album, registry, and selection facts. Any mismatch fails closed as a bounded
 project, Sheet, registry, or photo-selection stale reason. A valid request is
