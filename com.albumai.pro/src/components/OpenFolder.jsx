@@ -811,7 +811,7 @@ export default function OpenFolder() {
         >
 
             <div
-                className="left-pane"
+                className="left-pane album-workspace-scroll-pane"
                 style={{
                     flex: 2,
                     display: "flex",
@@ -819,7 +819,8 @@ export default function OpenFolder() {
                     padding: 15,
                     minHeight: 0,
                     minWidth: 0,
-                    overflow: "hidden"
+                    overflowX: "hidden",
+                    overflowY: "auto"
                 }}
             >
 
