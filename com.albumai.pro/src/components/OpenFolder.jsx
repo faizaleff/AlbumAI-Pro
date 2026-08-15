@@ -825,6 +825,7 @@ export default function OpenFolder() {
 
                 <div className="fixed-controls" style={{ flex: "0 0 auto" }}>
                 <section
+                    className="album-workspace-section album-workspace-project-section"
                     style={{
                         marginBottom: 15,
                         padding: 12,
@@ -832,31 +833,35 @@ export default function OpenFolder() {
                         borderRadius: 6
                     }}
                 >
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, marginBottom: 10 }}>
+                    <div className="album-workspace-summary" style={{ fontSize: 13, marginBottom: 10 }}>
                         <span>Project: {hasProject ? project.metadata.name : "MISSING"}</span>
                         <span>Photos: {App.getPhotos().length}</span>
                         <span>Selected: <SelectionCount selection={App.selection} /></span>
                     </div>
 
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <input
-                            value={projectName}
-                            onChange={event => setProjectName(event.target.value)}
-                            placeholder="Project name"
-                            disabled={hasProject || Boolean(projectAction)}
-                        />
-                        <button onClick={createProject} disabled={hasProject || Boolean(projectAction)}>
-                            {projectAction === "CREATING" ? "Creating…" : "Create Project"}
-                        </button>
-                        <button onClick={openProject} disabled={hasProject || Boolean(projectAction)}>
-                            {projectAction === "OPENING" ? "Opening…" : "Open Project"}
-                        </button>
-                        <button onClick={saveProject} disabled={!hasProject || Boolean(projectAction)}>
-                            {projectAction === "SAVING" ? "Saving…" : "Save Project"}
-                        </button>
-                        <button onClick={closeProject} disabled={!hasProject || Boolean(projectAction)}>
-                            {projectAction === "CLOSING" ? "Closing…" : "Close Project"}
-                        </button>
+                    <div className="album-workspace-action-row">
+                        <div className="album-workspace-action-group">
+                            <input
+                                value={projectName}
+                                onChange={event => setProjectName(event.target.value)}
+                                placeholder="Project name"
+                                disabled={hasProject || Boolean(projectAction)}
+                            />
+                            <button onClick={createProject} disabled={hasProject || Boolean(projectAction)}>
+                                {projectAction === "CREATING" ? "Creating…" : "Create Project"}
+                            </button>
+                            <button onClick={openProject} disabled={hasProject || Boolean(projectAction)}>
+                                {projectAction === "OPENING" ? "Opening…" : "Open Project"}
+                            </button>
+                        </div>
+                        <div className="album-workspace-action-group album-workspace-action-group--primary">
+                            <button onClick={saveProject} disabled={!hasProject || Boolean(projectAction)}>
+                                {projectAction === "SAVING" ? "Saving…" : "Save Project"}
+                            </button>
+                            <button onClick={closeProject} disabled={!hasProject || Boolean(projectAction)}>
+                                {projectAction === "CLOSING" ? "Closing…" : "Close Project"}
+                            </button>
+                        </div>
                     </div>
 
                     {projectError && (
@@ -867,6 +872,7 @@ export default function OpenFolder() {
                 </section>
 
                 <section
+                    className="album-workspace-section album-sheets-section"
                     style={{
                         marginBottom: 15,
                         padding: 12,
@@ -874,7 +880,7 @@ export default function OpenFolder() {
                         borderRadius: 6
                     }}
                 >
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                    <div className="album-workspace-section-header" style={{ marginBottom: 8 }}>
                         <strong>Album Sheets</strong>
                         <span style={{ fontSize: 12, color: "#bdbdbd" }}>
                             {album?.sheets?.length || 0} sheets
@@ -883,43 +889,47 @@ export default function OpenFolder() {
 
                     {hasProject && (
                         <>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                                <input
-                                    value={albumSheetId}
-                                    onChange={event => setAlbumSheetId(event.target.value)}
-                                    placeholder="Sheet ID"
-                                    disabled={albumMutationLocked || albumMutationBusy}
-                                />
-                                <select
-                                    value={albumTemplateId}
-                                    onChange={event => setAlbumTemplateId(event.target.value)}
-                                    disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                >
-                                    <option value="">Select template</option>
-                                    {registeredTemplates.map(template => (
-                                        <option key={template.id} value={template.id}>
-                                            {template.name || template.id}
-                                        </option>
-                                    ))}
-                                </select>
-                                <button
-                                    onClick={addAlbumSheet}
-                                    disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                >
-                                    Add Sheet
-                                </button>
-                                <button
-                                    onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
-                                    disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
-                                >
-                                    Undo
-                                </button>
-                                <button
-                                    onClick={() => restoreAlbumHistory(redoAlbumSheetHistory)}
-                                    disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
-                                >
-                                    Redo
-                                </button>
+                            <div className="album-workspace-action-row" style={{ marginBottom: 8 }}>
+                                <div className="album-workspace-action-group">
+                                    <input
+                                        value={albumSheetId}
+                                        onChange={event => setAlbumSheetId(event.target.value)}
+                                        placeholder="Sheet ID"
+                                        disabled={albumMutationLocked || albumMutationBusy}
+                                    />
+                                    <select
+                                        value={albumTemplateId}
+                                        onChange={event => setAlbumTemplateId(event.target.value)}
+                                        disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
+                                    >
+                                        <option value="">Select template</option>
+                                        {registeredTemplates.map(template => (
+                                            <option key={template.id} value={template.id}>
+                                                {template.name || template.id}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={addAlbumSheet}
+                                        disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
+                                    >
+                                        Add Sheet
+                                    </button>
+                                </div>
+                                <div className="album-workspace-action-group">
+                                    <button
+                                        onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
+                                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
+                                    >
+                                        Undo
+                                    </button>
+                                    <button
+                                        onClick={() => restoreAlbumHistory(redoAlbumSheetHistory)}
+                                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
+                                    >
+                                        Redo
+                                    </button>
+                                </div>
                             </div>
 
                             {!registeredTemplates.length && (
@@ -939,12 +949,7 @@ export default function OpenFolder() {
                             )}
                             {!!album?.sheets?.length && (
                                 <>
-                                    <div style={{
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        gap: 4,
-                                        marginTop: 8
-                                    }}>
+                                    <div className="album-sheet-list" style={{ marginTop: 8 }}>
                                         {album.sheets.map((sheet, index) => {
                                             const template = registeredTemplates.find(
                                                 candidate => candidate.id === sheet.templateId
@@ -952,20 +957,13 @@ export default function OpenFolder() {
                                             const isSelected = selectedAlbumSheetId === sheet.id;
 
                                             return (
-                                        <div
-                                            key={sheet.id}
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: 8,
-                                                fontSize: 12,
-                                                padding: 4,
-                                                background: isSelected ? "#3e6586" : "transparent"
-                                            }}
-                                        >
-                                            <span style={{ minWidth: 22, color: "#bdbdbd" }}>{index + 1}</span>
-                                            <span style={{ flex: 1 }}>{sheet.label || sheet.id}</span>
-                                            <span style={{ color: "#bdbdbd" }}>{template?.name || sheet.templateId}</span>
+                                        <div key={sheet.id} className={`album-sheet-row${isSelected ? " is-selected" : ""}`}>
+                                            <div className="album-sheet-identity">
+                                                <span className="album-sheet-order">{index + 1}</span>
+                                                <span className="album-sheet-label">{sheet.label || sheet.id}</span>
+                                                <span className="album-sheet-template">{template?.name || sheet.templateId}</span>
+                                            </div>
+                                            <div className="album-sheet-actions">
                                             <button
                                                 onClick={() => selectAlbumSheet(sheet)}
                                                 disabled={albumMutationLocked || albumMutationBusy}
@@ -992,37 +990,42 @@ export default function OpenFolder() {
                                             >
                                                 Remove
                                             </button>
+                                            </div>
                                         </div>
                                             );
                                         })}
                                     </div>
 
                                     {!!selectedAlbumSheetId && (
-                                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                                            <input
-                                                value={albumSheetLabel}
-                                                onChange={event => setAlbumSheetLabel(event.target.value)}
-                                                placeholder="Sheet label"
-                                                disabled={albumMutationLocked || albumMutationBusy}
-                                            />
-                                            <button
-                                                onClick={renameSelectedAlbumSheet}
-                                                disabled={albumMutationLocked || albumMutationBusy || !albumSheetLabel.trim()}
-                                            >
-                                                Rename
-                                            </button>
-                                            <input
-                                                value={albumDuplicateId}
-                                                onChange={event => setAlbumDuplicateId(event.target.value)}
-                                                placeholder="New Sheet ID"
-                                                disabled={albumMutationLocked || albumMutationBusy}
-                                            />
-                                            <button
-                                                onClick={duplicateSelectedAlbumSheet}
-                                                disabled={albumMutationLocked || albumMutationBusy || !albumDuplicateId.trim()}
-                                            >
-                                                Duplicate
-                                            </button>
+                                        <div className="album-sheet-editor">
+                                            <div className="album-workspace-action-group">
+                                                <input
+                                                    value={albumSheetLabel}
+                                                    onChange={event => setAlbumSheetLabel(event.target.value)}
+                                                    placeholder="Sheet label"
+                                                    disabled={albumMutationLocked || albumMutationBusy}
+                                                />
+                                                <button
+                                                    onClick={renameSelectedAlbumSheet}
+                                                    disabled={albumMutationLocked || albumMutationBusy || !albumSheetLabel.trim()}
+                                                >
+                                                    Rename
+                                                </button>
+                                            </div>
+                                            <div className="album-workspace-action-group">
+                                                <input
+                                                    value={albumDuplicateId}
+                                                    onChange={event => setAlbumDuplicateId(event.target.value)}
+                                                    placeholder="New Sheet ID"
+                                                    disabled={albumMutationLocked || albumMutationBusy}
+                                                />
+                                                <button
+                                                    onClick={duplicateSelectedAlbumSheet}
+                                                    disabled={albumMutationLocked || albumMutationBusy || !albumDuplicateId.trim()}
+                                                >
+                                                    Duplicate
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </>
