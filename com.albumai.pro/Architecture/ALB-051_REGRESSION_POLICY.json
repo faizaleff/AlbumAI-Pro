@@ -5,10 +5,10 @@
   "sourcePolicy": "Architecture/ALB-050_ARCHITECTURE_POLICY.json",
   "regressionEntry": "tests/alb051-regression-baseline.test.js",
   "baseline": {
-    "activeFiles": 101,
-    "legacyTestReachableFiles": 90,
+    "activeFiles": 102,
+    "legacyTestReachableFiles": 91,
     "legacyTestGapFiles": 11,
-    "postAlb051ReachableFiles": 101
+    "postAlb051ReachableFiles": 102
   },
   "requiredUiModules": [
     "src/components/BatchProgressPanel.jsx",
