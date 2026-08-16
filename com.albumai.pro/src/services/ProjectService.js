@@ -4,7 +4,8 @@ import {
     applyAlbumSheetHistoryMutation,
     createAlbumSheetHistory,
     createEmptyAlbum,
-    inspectAlbum
+    inspectAlbum,
+    migrateAlbum
 } from "../project/AlbumSheetSchema";
 
 const PROJECT_FILE = "project.json";
@@ -381,7 +382,7 @@ export default class ProjectService {
                     file,
                     primary.metadata,
                     folder,
-                    "MIGRATE_PROJECT_SCHEMA_V1_TO_V2"
+                    primary.migrationReason || "MIGRATE_PROJECT_SCHEMA_V1_TO_V2"
                 );
             }
 
@@ -561,13 +562,41 @@ export default class ProjectService {
 
             return Object.freeze({
                 metadata: this.validateMetadata(migrated, source),
-                migrated: true
+                migrated: true,
+                migrationReason: "MIGRATE_PROJECT_SCHEMA_V1_TO_V2"
             });
+        }
+
+        if (schemaVersion === PROJECT_SCHEMA_VERSION) {
+            const album = migrateAlbum(metadata.album);
+            if (!album.valid) {
+                throw this.metadataError(
+                    "PROJECT_METADATA_INVALID",
+                    `${source} has an invalid album definition.`,
+                    {
+                        source,
+                        field: "album",
+                        reasonCodes: album.reasonCodes
+                    }
+                );
+            }
+            if (album.valid && album.migrated) {
+                const migrated = {
+                    ...metadata,
+                    album: album.album
+                };
+                return Object.freeze({
+                    metadata: this.validateMetadata(migrated, source),
+                    migrated: true,
+                    migrationReason: "MIGRATE_ALBUM_SCHEMA_V1_TO_V2"
+                });
+            }
         }
 
         return Object.freeze({
             metadata: this.validateMetadata(metadata, source),
-            migrated: false
+            migrated: false,
+            migrationReason: null
         });
 
     }

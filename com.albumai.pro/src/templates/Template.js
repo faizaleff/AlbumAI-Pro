@@ -18,6 +18,7 @@ export default class Template {
 
         return Template.freeze({
             id: analysis.documentId ?? null,
+            projectTemplateId: analysis.projectTemplateId ?? null,
             name: analysis.name || "",
             filePath: analysis.filePath || "",
             document,

@@ -6,6 +6,7 @@ import React, {
 } from "react";
 
 import PhotoBrowserSection from "./PhotoBrowserSection";
+import ManualDesignerPanel from "./ManualDesignerPanel";
 import PreviewPanel from "./PreviewPanel";
 import TemplateDocumentPanel from "./TemplateDocumentPanel";
 import SelectionCount from "./SelectionCount";
@@ -628,6 +629,38 @@ export default function OpenFolder() {
 
     }
 
+    async function changeSelectedAlbumTemplate(templateId) {
+
+        if (!selectedAlbumSheetId || !templateId) return;
+
+        await mutateAlbum({
+            intent: AlbumSheetMutationIntent.SET_TEMPLATE,
+            sheetId: selectedAlbumSheetId,
+            templateId
+        });
+
+    }
+
+    async function loadSelectedAlbumTemplate(templateId) {
+
+        const template = await App.openRegisteredProjectTemplate(templateId);
+        forceRefresh(value => value + 1);
+        return template;
+
+    }
+
+    async function editSelectedAlbumDesign(designMutation) {
+
+        if (!selectedAlbumSheetId || !designMutation) return false;
+
+        return mutateAlbum({
+            intent: AlbumSheetMutationIntent.EDIT_DESIGN,
+            sheetId: selectedAlbumSheetId,
+            designMutation
+        });
+
+    }
+
     async function duplicateSelectedAlbumSheet() {
 
         const newSheetId = albumDuplicateId.trim();
@@ -999,36 +1032,51 @@ export default function OpenFolder() {
                                     </div>
 
                                     {!!selectedAlbumSheetId && (
-                                        <div className="album-sheet-editor">
-                                            <div className="album-workspace-action-group">
-                                                <input
-                                                    value={albumSheetLabel}
-                                                    onChange={event => setAlbumSheetLabel(event.target.value)}
-                                                    placeholder="Sheet label"
-                                                    disabled={albumMutationLocked || albumMutationBusy}
-                                                />
-                                                <button
-                                                    onClick={renameSelectedAlbumSheet}
-                                                    disabled={albumMutationLocked || albumMutationBusy || !albumSheetLabel.trim()}
-                                                >
-                                                    Rename
-                                                </button>
+                                        <>
+                                            <div className="album-sheet-editor">
+                                                <div className="album-workspace-action-group">
+                                                    <input
+                                                        value={albumSheetLabel}
+                                                        onChange={event => setAlbumSheetLabel(event.target.value)}
+                                                        placeholder="Sheet label"
+                                                        disabled={albumMutationLocked || albumMutationBusy}
+                                                    />
+                                                    <button
+                                                        onClick={renameSelectedAlbumSheet}
+                                                        disabled={albumMutationLocked || albumMutationBusy || !albumSheetLabel.trim()}
+                                                    >
+                                                        Rename
+                                                    </button>
+                                                </div>
+                                                <div className="album-workspace-action-group">
+                                                    <input
+                                                        value={albumDuplicateId}
+                                                        onChange={event => setAlbumDuplicateId(event.target.value)}
+                                                        placeholder="New Sheet ID"
+                                                        disabled={albumMutationLocked || albumMutationBusy}
+                                                    />
+                                                    <button
+                                                        onClick={duplicateSelectedAlbumSheet}
+                                                        disabled={albumMutationLocked || albumMutationBusy || !albumDuplicateId.trim()}
+                                                    >
+                                                        Duplicate
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div className="album-workspace-action-group">
-                                                <input
-                                                    value={albumDuplicateId}
-                                                    onChange={event => setAlbumDuplicateId(event.target.value)}
-                                                    placeholder="New Sheet ID"
-                                                    disabled={albumMutationLocked || albumMutationBusy}
-                                                />
-                                                <button
-                                                    onClick={duplicateSelectedAlbumSheet}
-                                                    disabled={albumMutationLocked || albumMutationBusy || !albumDuplicateId.trim()}
-                                                >
-                                                    Duplicate
-                                                </button>
-                                            </div>
-                                        </div>
+                                            <ManualDesignerPanel
+                                                sheet={album?.sheets?.find(
+                                                    sheet => sheet.id === selectedAlbumSheetId
+                                                ) || null}
+                                                templates={registeredTemplates}
+                                                activeTemplate={App.getCurrentTemplate()}
+                                                photos={App.getPhotos()}
+                                                disabled={albumMutationLocked}
+                                                busy={albumMutationBusy}
+                                                onTemplateChange={changeSelectedAlbumTemplate}
+                                                onLoadTemplate={loadSelectedAlbumTemplate}
+                                                onDesignMutation={editSelectedAlbumDesign}
+                                            />
+                                        </>
                                     )}
                                 </>
                             )}

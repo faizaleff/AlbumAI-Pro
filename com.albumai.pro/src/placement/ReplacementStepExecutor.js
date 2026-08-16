@@ -48,7 +48,8 @@ export default class ReplacementStepExecutor {
                     document,
                     slotLayerId: step.slotLayerId,
                     originalBounds,
-                    fitMode: step.fitMode
+                    fitMode: step.fitMode,
+                    cropFocus: step.cropFocus
                 });
 
             }, {
@@ -176,7 +177,9 @@ export default class ReplacementStepExecutor {
 
         originalBounds,
 
-        fitMode
+        fitMode,
+
+        cropFocus
 
     }) {
 
@@ -226,8 +229,11 @@ export default class ReplacementStepExecutor {
             transformedBounds = this.positiveBounds(transformedLayer);
         }
 
-        const offsetX = originalBounds.centerX - transformedBounds.centerX;
-        const offsetY = originalBounds.centerY - transformedBounds.centerY;
+        const { offsetX, offsetY } = this.cropFocusOffset(
+            originalBounds,
+            transformedBounds,
+            cropFocus
+        );
 
         if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) {
             throw new Error("Replacement failed.");
@@ -255,6 +261,28 @@ export default class ReplacementStepExecutor {
         }
 
         this.positiveBounds(this.refreshSlotLayer(document, slotLayerId));
+
+    }
+
+    cropFocusOffset(originalBounds, transformedBounds, cropFocus = null) {
+
+        const x = Number.isFinite(cropFocus?.x) ? cropFocus.x : 0.5;
+        const y = Number.isFinite(cropFocus?.y) ? cropFocus.y : 0.5;
+        const desiredLeft = originalBounds.centerX - transformedBounds.width * x;
+        const desiredTop = originalBounds.centerY - transformedBounds.height * y;
+        const left = Math.min(
+            originalBounds.left,
+            Math.max(originalBounds.right - transformedBounds.width, desiredLeft)
+        );
+        const top = Math.min(
+            originalBounds.top,
+            Math.max(originalBounds.bottom - transformedBounds.height, desiredTop)
+        );
+
+        return Object.freeze({
+            offsetX: left - transformedBounds.left,
+            offsetY: top - transformedBounds.top
+        });
 
     }
 

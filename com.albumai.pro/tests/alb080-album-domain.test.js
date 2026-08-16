@@ -3,6 +3,7 @@ import assert from "assert";
 import { AppController } from "../src/app/AppController";
 import ProjectEngine from "../src/core/ProjectEngine";
 import {
+    ALBUM_SCHEMA_VERSION,
     AlbumSheetMutationIntent,
     AlbumSheetMutationReason,
     AlbumSheetReason,
@@ -100,7 +101,7 @@ function service() {
 async function run() {
     await test("defines a frozen empty Album with ordered sheets", () => {
         const album = createEmptyAlbum();
-        assert.deepStrictEqual(album, { schemaVersion: 1, sheets: [] });
+        assert.deepStrictEqual(album, { schemaVersion: ALBUM_SCHEMA_VERSION, sheets: [] });
         assert(Object.isFrozen(album));
         assert(Object.isFrozen(album.sheets));
     });
@@ -118,7 +119,7 @@ async function run() {
 
     await test("accepts only bounded public-safe Sheet descriptors", () => {
         const inspected = inspectAlbum({
-            schemaVersion: 1,
+            schemaVersion: ALBUM_SCHEMA_VERSION,
             sheets: [
                 { id: "cover_1", templateId: "template-cover", label: "Cover" },
                 { id: "spread_2", templateId: "template-spread" }
@@ -133,7 +134,7 @@ async function run() {
 
     await test("fails closed for duplicate identifiers and unsupported Sheet data", () => {
         const duplicate = inspectAlbum({
-            schemaVersion: 1,
+            schemaVersion: ALBUM_SCHEMA_VERSION,
             sheets: [
                 { id: "same", templateId: "template-a" },
                 { id: "same", templateId: "template-b" }
@@ -144,7 +145,7 @@ async function run() {
         ]);
 
         const hostReference = inspectAlbum({
-            schemaVersion: 1,
+            schemaVersion: ALBUM_SCHEMA_VERSION,
             sheets: [{
                 id: "cover",
                 templateId: "template-a",
@@ -195,7 +196,7 @@ async function run() {
 
     await test("resolves Sheet compatibility by stable Template IDs, not order", () => {
         const compatibility = resolveAlbumSheetTemplates({
-            schemaVersion: 1,
+            schemaVersion: ALBUM_SCHEMA_VERSION,
             sheets: [
                 { id: "front", templateId: "template-front" },
                 { id: "body", templateId: "template-body" },
@@ -219,7 +220,7 @@ async function run() {
         assert.strictEqual(compatibility.sheets[1].templateRegistrationOrder, 0);
 
         const stale = resolveAlbumSheetTemplates({
-            schemaVersion: 1,
+            schemaVersion: ALBUM_SCHEMA_VERSION,
             sheets: [{ id: "stale", templateId: "template-stale" }]
         }, [{
             id: "template-stale",
@@ -232,7 +233,7 @@ async function run() {
 
     await test("applies only detached canonical Sheet mutations", () => {
         const initial = inspectAlbum({
-            schemaVersion: 1,
+            schemaVersion: ALBUM_SCHEMA_VERSION,
             sheets: [{ id: "cover", templateId: "template-cover" }]
         }).album;
         const options = { templateIds: ["template-cover", "template-body"] };
@@ -405,7 +406,7 @@ async function run() {
 
     await test("builds a frozen detached Sheet render request in browser selection order", () => {
         const album = {
-            schemaVersion: 1,
+            schemaVersion: ALBUM_SCHEMA_VERSION,
             sheets: [{ id: "cover", templateId: "template-cover", label: "Cover" }]
         };
         const registry = [{
@@ -436,7 +437,7 @@ async function run() {
     await test("accepts opaque file-backed Photo IDs while rejecting malformed values", () => {
         const context = {
             projectId: "project-080",
-            album: { schemaVersion: 1, sheets: [{ id: "cover", templateId: "template-cover" }] },
+            album: { schemaVersion: ALBUM_SCHEMA_VERSION, sheets: [{ id: "cover", templateId: "template-cover" }] },
             registry: [{ id: "template-cover", registrationOrder: 0, validationState: "READY", validationSchemaVersion: 1 }],
             sheetId: "cover"
         };
@@ -459,7 +460,7 @@ async function run() {
     });
 
     await test("fails closed for non-renderable Sheets and invalid browser selections", () => {
-        const album = { schemaVersion: 1, sheets: [{ id: "cover", templateId: "missing" }] };
+        const album = { schemaVersion: ALBUM_SCHEMA_VERSION, sheets: [{ id: "cover", templateId: "missing" }] };
         const missing = createAlbumSheetRenderRequest({
             projectId: "project-080",
             album,
@@ -472,7 +473,7 @@ async function run() {
 
         const selection = createAlbumSheetRenderRequest({
             projectId: "project-080",
-            album: { schemaVersion: 1, sheets: [{ id: "cover", templateId: "template-cover" }] },
+            album: { schemaVersion: ALBUM_SCHEMA_VERSION, sheets: [{ id: "cover", templateId: "template-cover" }] },
             registry: [{ id: "template-cover", registrationOrder: 0, validationState: "READY", validationSchemaVersion: 1 }],
             sheetId: "cover",
             selectedPhotoIds: []
@@ -483,7 +484,7 @@ async function run() {
     await test("rejects a stale Sheet render request before execution", () => {
         const context = {
             projectId: "project-080",
-            album: { schemaVersion: 1, sheets: [{ id: "cover", templateId: "template-cover", label: "Cover" }] },
+            album: { schemaVersion: ALBUM_SCHEMA_VERSION, sheets: [{ id: "cover", templateId: "template-cover", label: "Cover" }] },
             registry: [{
                 id: "template-cover",
                 registrationOrder: 0,
@@ -513,7 +514,7 @@ async function run() {
 
         const sheetStale = validateAlbumSheetRenderRequest(request, {
             ...context,
-            album: { schemaVersion: 1, sheets: [{ id: "cover", templateId: "template-cover", label: "Updated" }] }
+            album: { schemaVersion: ALBUM_SCHEMA_VERSION, sheets: [{ id: "cover", templateId: "template-cover", label: "Updated" }] }
         });
         assert.deepStrictEqual(sheetStale.reasonCodes, [
             AlbumSheetRenderReason.SHEET_STALE
@@ -531,7 +532,7 @@ async function run() {
         const project = {
             metadata: {
                 id: "project-080",
-                album: { schemaVersion: 1, sheets: [{ id: "cover", templateId: "template-cover" }] }
+                album: { schemaVersion: ALBUM_SCHEMA_VERSION, sheets: [{ id: "cover", templateId: "template-cover" }] }
             }
         };
         const controller = Object.create(AppController.prototype);

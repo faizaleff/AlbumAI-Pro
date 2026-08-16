@@ -3,6 +3,7 @@ import {
     inspectAlbum,
     resolveAlbumSheetTemplates
 } from "./AlbumSheetSchema";
+import { inspectManualSheetDesign } from "./ManualSheetDesign";
 
 export const ALBUM_SHEET_RENDER_REQUEST_SCHEMA_VERSION = 1;
 
@@ -47,19 +48,19 @@ export function createAlbumSheetRenderRequest({
         reasonCodes.push(AlbumSheetRenderReason.INVALID_SHEET_ID);
     }
 
-    const selected = inspectSelectedPhotoIds(selectedPhotoIds);
-    if (!selected.valid) {
-        reasonCodes.push(selected.reasonCode);
-    }
-
     const inspected = inspectAlbum(album);
     if (!inspected.valid) {
         return rejected([...reasonCodes, ...inspected.reasonCodes]);
     }
-    if (reasonCodes.length) return rejected(reasonCodes);
 
     const sheet = inspected.album.sheets.find(candidate => candidate.id === sheetId);
     if (!sheet) return rejected([AlbumSheetRenderReason.SHEET_NOT_FOUND]);
+
+    const selected = inspectSelectedPhotoIds(selectedPhotoIds, {
+        allowEmpty: sheet.design.assignments.length > 0
+    });
+    if (!selected.valid) reasonCodes.push(selected.reasonCode);
+    if (reasonCodes.length) return rejected(reasonCodes);
 
     const compatibility = resolveAlbumSheetTemplates(inspected.album, registry);
     const resolved = compatibility.sheets.find(candidate => candidate.sheetId === sheetId);
@@ -76,7 +77,8 @@ export function createAlbumSheetRenderRequest({
         sheet: Object.freeze({
             id: sheet.id,
             templateId: sheet.templateId,
-            label: sheet.label || ""
+            label: sheet.label || "",
+            design: sheet.design
         }),
         template: templateSnapshot(resolved, registry),
         selectedPhotoIds: selected.photoIds
@@ -119,11 +121,11 @@ export function validateAlbumSheetRenderRequest(request, context = {}) {
     return reasonCodes.length ? rejected(reasonCodes) : accepted(current.request);
 }
 
-function inspectSelectedPhotoIds(photoIds) {
+function inspectSelectedPhotoIds(photoIds, { allowEmpty = false } = {}) {
     if (!Array.isArray(photoIds)) {
         return { valid: false, reasonCode: AlbumSheetRenderReason.INVALID_SELECTED_PHOTOS };
     }
-    if (!photoIds.length) {
+    if (!photoIds.length && !allowEmpty) {
         return { valid: false, reasonCode: AlbumSheetRenderReason.NO_SELECTED_PHOTOS };
     }
     const ids = photoIds.map(id => typeof id === "string" ? id : "");
@@ -160,6 +162,7 @@ function isRequestShape(request) {
         isIdentifier(request.projectId) &&
         request.sheet && isIdentifier(request.sheet.id) &&
         isIdentifier(request.sheet.templateId) &&
+        inspectManualSheetDesign(request.sheet.design).valid &&
         request.template && request.template.id === request.sheet.templateId &&
         Array.isArray(request.selectedPhotoIds);
 }
@@ -176,9 +179,7 @@ function isOpaquePhotoId(value) {
 }
 
 function sameSheet(left, right) {
-    return left?.id === right?.id &&
-        left?.templateId === right?.templateId &&
-        left?.label === right?.label;
+    return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function sameTemplate(left, right) {
@@ -211,9 +212,10 @@ function rejected(reasonCodes) {
 }
 
 function freezeRequest(request) {
+    const design = inspectManualSheetDesign(request.sheet.design).design;
     const value = {
         ...request,
-        sheet: Object.freeze({ ...request.sheet }),
+        sheet: Object.freeze({ ...request.sheet, design }),
         template: Object.freeze({ ...request.template }),
         selectedPhotoIds: Object.freeze(request.selectedPhotoIds.slice())
     };

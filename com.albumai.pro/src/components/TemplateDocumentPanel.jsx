@@ -95,6 +95,16 @@ function textValue(value, fallback = "—") {
 
 }
 
+function photoAllocationText(allocation) {
+    if (!allocation) return "";
+    if (allocation.mode === "MANUAL_SHEET_DESIGN") {
+        return ` [manual assignments=${allocation.assignedCount}, available=${allocation.remainingCount}]`;
+    }
+    return ` [${allocation.assignedCount
+        ? `photos ${allocation.startCursor + 1}-${allocation.endCursor}`
+        : "photos: none"}, assigned=${allocation.assignedCount}, remaining=${allocation.remainingCount}]`;
+}
+
 function addList(lines, heading, items) {
 
     lines.push(heading);
@@ -419,7 +429,7 @@ function debugText({
         ),
         "Per-template Batch Outcomes",
         ...(projectExecutionSummary?.batchExecution?.templateResults || []).map(result =>
-            `${textValue(result.templateId)} — ${textValue(result.templateName)} [document=${textValue(result.documentContext?.documentId)}]: ${textValue(result.status)}${result.photoAllocation ? ` [${result.photoAllocation.assignedCount ? `photos ${result.photoAllocation.startCursor + 1}-${result.photoAllocation.endCursor}` : "photos: none"}, assigned=${result.photoAllocation.assignedCount}, remaining=${result.photoAllocation.remainingCount}]` : ""}${result.error ? ` (${result.error})` : ""}`
+            `${textValue(result.templateId)} — ${textValue(result.templateName)} [document=${textValue(result.documentContext?.documentId)}]: ${textValue(result.status)}${photoAllocationText(result.photoAllocation)}${result.error ? ` (${result.error})` : ""}`
         ),
         "",
         "Stored Warnings and Errors",
@@ -453,7 +463,7 @@ function debugText({
         `Fatal Error: ${textValue(recovery?.fatalError, "None")}`,
         "Recovery Template Outcomes",
         ...(recovery?.templateOutcomes || []).map(item =>
-            `${textValue(item.templateId)} — ${textValue(item.templateName)}: ${textValue(item.status)}${item.photoAllocation ? ` [${item.photoAllocation.assignedCount ? `photos ${item.photoAllocation.startCursor + 1}-${item.photoAllocation.endCursor}` : "photos: none"}, assigned=${item.photoAllocation.assignedCount}, remaining=${item.photoAllocation.remainingCount}]` : ""}${item.error ? ` (${item.error})` : ""}`
+            `${textValue(item.templateId)} — ${textValue(item.templateName)}: ${textValue(item.status)}${photoAllocationText(item.photoAllocation)}${item.error ? ` (${item.error})` : ""}`
         ),
         "Output Recovery States",
         ...(recoveryOutputs?.rows?.length ? recoveryOutputs.rows : [{ templateName: "None", output: "—", label: "—", reasonCode: null }]).map(item =>
@@ -2187,7 +2197,7 @@ export default function TemplateDocumentPanel({
                         className="template-render-sheet-button"
                         onClick={executeAlbumSheetRender}
                         disabled={isExecuting || !hasProject}
-                        title="Render only this Album Sheet using the current selected photos."
+                        title="Render this Album Sheet from saved manual assignments, or current selected photos when it has no assignments."
                     >
                         {isExecuting
                             ? "Rendering…"

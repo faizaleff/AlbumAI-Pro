@@ -47,6 +47,8 @@ import {
     createAlbumSheetRenderRequest,
     validateAlbumSheetRenderRequest
 } from "../project/AlbumSheetRenderBridge";
+import { AlbumSheetMutationIntent } from "../project/AlbumSheetSchema";
+import { photoDecisionKey } from "../services/PhotoBrowserModel";
 
 export const ExecutionLifecycleStatus = Object.freeze({
     IDLE: "IDLE",
@@ -206,9 +208,32 @@ export class AppController {
             throw new Error("A project batch is running. Sheet changes are available after it stops safely.");
         }
 
-        return this.projectService.saveAlbumSheetMutation(history, mutation, {
-            templateIds: this.projectTemplateRegistry.getAll().map(template => template.id)
-        });
+        const options = {
+            templateIds: this.projectTemplateRegistry.getAll().map(
+                template => template.id
+            )
+        };
+        if (mutation?.intent === AlbumSheetMutationIntent.EDIT_DESIGN) {
+            const sheet = history?.present?.sheets?.find(
+                item => item.id === mutation.sheetId
+            );
+            const activeTemplate = this.templateRegistry.current();
+            options.slotLayerIds =
+                activeTemplate?.projectTemplateId === sheet?.templateId
+                    ? (activeTemplate.smartObjects || []).map(
+                        slot => slot?.layerId
+                    )
+                    : [];
+            options.photoKeys = this.photoWorkspace.getPhotos()
+                .map(photoDecisionKey)
+                .filter(Boolean);
+        }
+
+        return this.projectService.saveAlbumSheetMutation(
+            history,
+            mutation,
+            options
+        );
 
     }
 
@@ -566,7 +591,8 @@ export class AppController {
         return this.executeProject(onUpdate, {
             templates: [descriptor],
             selectedPhotoIds: validation.request.selectedPhotoIds,
-            runMode: "ALBUM_SHEET_RENDER"
+            runMode: "ALBUM_SHEET_RENDER",
+            manualSheetRequest: validation.request
         });
 
     }
@@ -964,7 +990,8 @@ export class AppController {
                 previous: options.previous || null,
                 runMode: options.runMode || "PROCESS_PROJECT",
                 startedAt,
-                selectedPhotoIds
+                selectedPhotoIds,
+                manualSheetRequest: options.manualSheetRequest || null
             });
         } catch (error) {
             this.projectBatchRunning = false;
@@ -1001,7 +1028,10 @@ export class AppController {
                 try {
                     const analysis = await this.templateDocumentReader.resolveRegisteredTemplate(descriptor);
                     this.projectTemplateRegistry.updateValidation(descriptor.id, "VALID");
-                    return new Template(analysis);
+                    return new Template({
+                        ...analysis,
+                        projectTemplateId: descriptor.id
+                    });
                 } catch (error) {
                     this.projectTemplateRegistry.updateValidation(descriptor.id, "MISSING");
                     throw error;
@@ -1017,6 +1047,7 @@ export class AppController {
             exportFormat: this.exportFormat,
             selectedPhotoIds: this.batchRecoverySnapshot?.selectedPhotoOrder ||
                 selectedPhotoIds || photos.filter(photo => photo?.selected).map(photo => photo.id),
+            manualSheetRequest: options.manualSheetRequest || null,
             photoCursor: this.batchRecoverySnapshot?.photoCursor || 0,
             cancellationController: this.batchCancellationController,
             resumeState: resumeSnapshot ? {
@@ -1242,7 +1273,8 @@ export class AppController {
                 consumedPhotoIds: snapshot.selectedPhotoOrder.slice(0, retryCursor),
                 remainingPhotoIds: snapshot.selectedPhotoOrder.slice(retryCursor)
             },
-            runMode: "RETRY_FAILED"
+            runMode: "RETRY_FAILED",
+            manualSheetRequest: this.manualSheetRequestForRecovery(snapshot)
         });
     }
 
@@ -1282,7 +1314,8 @@ export class AppController {
         return this.executeProject(onUpdate, {
             templates,
             previous: snapshot,
-            runMode: "RESUME_PENDING"
+            runMode: "RESUME_PENDING",
+            manualSheetRequest: this.manualSheetRequestForRecovery(snapshot)
         });
     }
 
@@ -1364,7 +1397,8 @@ export class AppController {
     }
 
     loadRecovery(raw) {
-        const projectId = this.project.getProject()?.metadata?.id ?? null;
+        const projectId = this.project.getProject()?.metadata?.id ??
+            this.project.getProject()?.metadata?.name ?? null;
         if (!raw) {
             this.batchRecoverySnapshot = null;
             this.batchRecoveryClassification = null;
@@ -1431,7 +1465,33 @@ export class AppController {
         return state.snapshot;
     }
 
-    async beginRecoverySnapshot({ projectId, templates, registryTemplates, previous, runMode, startedAt, selectedPhotoIds = null }) {
+    manualSheetRequestForRecovery(snapshot) {
+
+        if (!snapshot?.manualSheetId) {
+            if (snapshot?.runMode === "ALBUM_SHEET_RENDER") {
+                throw new Error("This older manual Sheet recovery cannot be retried automatically. Render the Sheet again after restoring its photos.");
+            }
+            return null;
+        }
+
+        const project = this.project.getProject();
+        const result = createAlbumSheetRenderRequest({
+            projectId: project?.metadata?.id ?? project?.metadata?.name ?? null,
+            album: project?.metadata?.album,
+            registry: this.projectTemplateRegistry.getAll(),
+            sheetId: snapshot.manualSheetId,
+            selectedPhotoIds: this.selectedPhotoIds()
+        });
+
+        if (!result.accepted) {
+            throw new Error("The saved manual Sheet is no longer renderable for retry.");
+        }
+
+        return result.request;
+
+    }
+
+    async beginRecoverySnapshot({ projectId, templates, registryTemplates, previous, runMode, startedAt, selectedPhotoIds = null, manualSheetRequest = null }) {
         const queueOrder = previous?.queueOrder?.length
             ? previous.queueOrder
             : templates.map(item => item.id);
@@ -1468,6 +1528,7 @@ export class AppController {
             templateOutcomes: previous?.templateOutcomes || [],
             warnings: previous?.warnings || [],
             runMode,
+            manualSheetId: manualSheetRequest?.sheet?.id || previous?.manualSheetId || null,
             selectedPhotoOrder,
             photoCursor,
             consumedPhotoIds: previous?.consumedPhotoIds ||
@@ -2026,10 +2087,54 @@ export class AppController {
     async openTemplateDocument(file) {
 
         const analysis = await this.templateDocumentReader.read(file);
-        const template = new Template(analysis);
+        const descriptor = this.projectTemplateRegistry.getAll().find(entry =>
+            entry.fileReference === file?.nativePath ||
+            entry.fileName === file?.name
+        );
+        const template = new Template({
+            ...analysis,
+            projectTemplateId: descriptor?.id ?? null
+        });
 
         this.clearCurrentPlacementPlan();
 
+        return this.templateRegistry.register(template);
+
+    }
+
+    async openRegisteredProjectTemplate(id) {
+
+        const projectId = this.project.getProject()?.metadata?.id ?? null;
+        const descriptor = this.projectTemplateRegistry.getAll().find(
+            template => template.id === id
+        );
+        if (!descriptor) {
+            throw new Error("The selected Sheet template is no longer registered.");
+        }
+        if (descriptor.validationState !== "READY") {
+            throw new Error("Validate the selected Sheet template before loading its slots.");
+        }
+
+        const analysis = await this.templateDocumentReader.resolveRegisteredTemplate(
+            descriptor
+        );
+        const currentDescriptor = this.projectTemplateRegistry.getAll().find(
+            template => template.id === id
+        );
+        if (!projectId ||
+            (this.project.getProject()?.metadata?.id ??
+                this.project.getProject()?.metadata?.name ?? null) !== projectId ||
+            currentDescriptor?.fileReference !== descriptor.fileReference ||
+            currentDescriptor?.validationState !== "READY") {
+            await this.templateDocumentReader.close();
+            throw new Error("The project or selected Sheet template changed while its slots were loading.");
+        }
+        const template = new Template({
+            ...analysis,
+            projectTemplateId: descriptor.id
+        });
+
+        this.clearCurrentPlacementPlan();
         return this.templateRegistry.register(template);
 
     }
