@@ -64,6 +64,8 @@
     "src/project/BatchExecutionResult.js",
     "src/project/BatchExecutionService.js",
     "src/project/BatchRecoverySnapshot.js",
+    "src/project/AlbumSheetRenderBridge.js",
+    "src/project/AlbumSheetSchema.js",
     "src/project/OutputPromotionPolicy.js",
     "src/project/OutputRecoveryOperatorState.js",
     "src/project/OutputStaging.js",
@@ -107,7 +109,8 @@
     "src/services/ThumbnailService.js",
     "src/styles.css",
     "src/templates/Template.js",
-    "src/utils/FileUtils.js"
+    "src/utils/FileUtils.js",
+    "src/utils/JpegBuffer.js"
   ],
   "inactiveDisposition": {
     "migrate": [],

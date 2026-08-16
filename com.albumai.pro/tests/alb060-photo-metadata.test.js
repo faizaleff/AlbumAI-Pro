@@ -1,7 +1,10 @@
 import assert from "assert";
+import jpeg from "jpeg-js";
 
 import PhotoWorkspaceService from "../src/services/PhotoWorkspaceService";
-import { inspectJpegMetadata } from "../src/services/SoftwareJpegRenderer";
+import SoftwareJpegRenderer, {
+    inspectJpegMetadata
+} from "../src/services/SoftwareJpegRenderer";
 import { calculatePhotoBrowserWindow } from
     "../src/components/ThumbnailGrid";
 
@@ -133,6 +136,28 @@ async function run() {
                 dateTaken: null
             }
         );
+    });
+
+    await test("encodes and decodes JPEG bytes through the production Buffer shim", () => {
+        const encoded = jpeg.encode({
+            data: new Uint8Array([
+                255, 0, 0, 255,
+                0, 255, 0, 255,
+                0, 0, 255, 255,
+                255, 255, 255, 255
+            ]),
+            width: 2,
+            height: 2
+        }, 80);
+        assert(encoded.data instanceof Uint8Array);
+        const rendered = SoftwareJpegRenderer.render(encoded.data, {
+            maxEdge: 1,
+            quality: 0.8
+        });
+        assert.strictEqual(rendered.width, 1);
+        assert.strictEqual(rendered.height, 1);
+        assert.strictEqual(rendered.format, "image/jpeg");
+        URL.revokeObjectURL(rendered.source);
     });
 
     await test("enriches photos sequentially and persists normalized facts", async () => {

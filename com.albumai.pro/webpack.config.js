@@ -20,7 +20,10 @@ module.exports = (_env, argv = {}) => {
         os: 'commonjs2 os'
     },
     resolve: {
-        extensions: [".js", ".jsx"]
+        extensions: [".js", ".jsx"],
+        alias: {
+            buffer: path.resolve(__dirname, "src/utils/JpegBuffer.js")
+        }
     },
     module: {
         rules: [

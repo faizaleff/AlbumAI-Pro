@@ -586,6 +586,18 @@ function PhotoBrowserSection({
                 </button>
                 </div>
                 <div className="photo-browser-toolbar-group photo-browser-selection-group">
+                {!photos.length && (
+                    <button
+                        type="button"
+                        onClick={onOpenFolder}
+                        disabled={isLoading}
+                        className="photo-browser-control photo-browser-open-folder-control"
+                        title="Choose a photo folder"
+                        aria-label="Open photo folder"
+                    >
+                        {isLoading ? "Opening Folder…" : "Open Photo Folder"}
+                    </button>
+                )}
                 <button
                     type="button"
                     onClick={onRefresh}
