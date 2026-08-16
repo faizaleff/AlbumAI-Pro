@@ -1,4 +1,11 @@
-export const ALBUM_SCHEMA_VERSION = 1;
+import {
+    applyManualSheetDesignMutation,
+    createEmptyManualSheetDesign,
+    inspectManualSheetDesign
+} from "./ManualSheetDesign";
+
+export const ALBUM_SCHEMA_VERSION = 2;
+const LEGACY_ALBUM_SCHEMA_VERSION = 1;
 
 export const AlbumSheetReason = Object.freeze({
     MISSING_ALBUM: "MISSING_ALBUM",
@@ -36,7 +43,9 @@ export const AlbumSheetMutationIntent = Object.freeze({
     RENAME: "RENAME",
     MOVE: "MOVE",
     DUPLICATE: "DUPLICATE",
-    RESTORE: "RESTORE"
+    RESTORE: "RESTORE",
+    SET_TEMPLATE: "SET_TEMPLATE",
+    EDIT_DESIGN: "EDIT_DESIGN"
 });
 
 export const AlbumSheetMutationReason = Object.freeze({
@@ -47,6 +56,7 @@ export const AlbumSheetMutationReason = Object.freeze({
     SHEET_ALREADY_EXISTS: "SHEET_ALREADY_EXISTS",
     TEMPLATE_NOT_REGISTERED: "TEMPLATE_NOT_REGISTERED",
     INVALID_TARGET_POSITION: "INVALID_TARGET_POSITION",
+    DESIGN_MUTATION_REJECTED: "DESIGN_MUTATION_REJECTED",
     NO_CHANGE: "NO_CHANGE"
 });
 
@@ -55,7 +65,8 @@ const MAX_IDENTIFIER_LENGTH = 120;
 const MAX_LABEL_LENGTH = 160;
 const MAX_HISTORY_SNAPSHOTS = 20;
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
-const SHEET_FIELDS = new Set(["id", "templateId", "label"]);
+const SHEET_FIELDS = new Set(["id", "templateId", "label", "design"]);
+const LEGACY_SHEET_FIELDS = new Set(["id", "templateId", "label"]);
 
 export function createEmptyAlbum() {
 
@@ -66,7 +77,59 @@ export function createEmptyAlbum() {
 
 }
 
+export function migrateAlbum(album) {
+
+    if (album == null) {
+        return Object.freeze({
+            ...invalid(AlbumSheetReason.MISSING_ALBUM),
+            migrated: false
+        });
+    }
+
+    if (!isObject(album)) {
+        return Object.freeze({
+            ...invalid(AlbumSheetReason.INVALID_ALBUM),
+            migrated: false
+        });
+    }
+
+    if (album.schemaVersion === ALBUM_SCHEMA_VERSION) {
+        const inspected = inspectAlbum(album);
+        return Object.freeze({ ...inspected, migrated: false });
+    }
+
+    if (album.schemaVersion !== LEGACY_ALBUM_SCHEMA_VERSION) {
+        return Object.freeze({
+            ...invalid(AlbumSheetReason.UNSUPPORTED_ALBUM_SCHEMA),
+            migrated: false
+        });
+    }
+
+    const legacy = inspectAlbumVersion(album, LEGACY_ALBUM_SCHEMA_VERSION, false);
+    if (!legacy.valid) return Object.freeze({ ...legacy, migrated: false });
+
+    return Object.freeze({
+        valid: true,
+        reasonCodes: Object.freeze([]),
+        album: freezeAlbum({
+            schemaVersion: ALBUM_SCHEMA_VERSION,
+            sheets: legacy.album.sheets.map(sheet => ({
+                ...sheet,
+                design: createEmptyManualSheetDesign()
+            }))
+        }),
+        migrated: true
+    });
+
+}
+
 export function inspectAlbum(album) {
+
+    return inspectAlbumVersion(album, ALBUM_SCHEMA_VERSION, true);
+
+}
+
+function inspectAlbumVersion(album, schemaVersion, allowDesign) {
 
     if (album == null) {
         return invalid(AlbumSheetReason.MISSING_ALBUM);
@@ -76,7 +139,7 @@ export function inspectAlbum(album) {
         return invalid(AlbumSheetReason.INVALID_ALBUM);
     }
 
-    if (album.schemaVersion !== ALBUM_SCHEMA_VERSION) {
+    if (album.schemaVersion !== schemaVersion) {
         return invalid(AlbumSheetReason.UNSUPPORTED_ALBUM_SCHEMA);
     }
 
@@ -92,7 +155,7 @@ export function inspectAlbum(album) {
     const sheets = [];
 
     for (const sheet of album.sheets) {
-        const inspected = inspectSheet(sheet, ids);
+        const inspected = inspectSheet(sheet, ids, { allowDesign });
 
         if (!inspected.valid) {
             return inspected;
@@ -106,7 +169,7 @@ export function inspectAlbum(album) {
         valid: true,
         reasonCodes: Object.freeze([]),
         album: freezeAlbum({
-            schemaVersion: ALBUM_SCHEMA_VERSION,
+            schemaVersion,
             sheets
         })
     });
@@ -305,6 +368,54 @@ export function applyAlbumSheetMutation(album, mutation, options = {}) {
             break;
         }
 
+        case AlbumSheetMutationIntent.SET_TEMPLATE: {
+            if (sheetIndex < 0) {
+                return mutationRejected([AlbumSheetMutationReason.SHEET_NOT_FOUND], inspected.album);
+            }
+            if (!isIdentifier(mutation.templateId) ||
+                !isRegisteredTemplate(mutation.templateId, options?.templateIds)) {
+                return mutationRejected([
+                    AlbumSheetMutationReason.TEMPLATE_NOT_REGISTERED
+                ], inspected.album);
+            }
+            if (sheets[sheetIndex].templateId === mutation.templateId) {
+                return mutationUnchanged(inspected.album);
+            }
+            nextSheets = sheets.map((sheet, index) => index === sheetIndex
+                ? {
+                    ...sheet,
+                    templateId: mutation.templateId,
+                    design: createEmptyManualSheetDesign()
+                }
+                : sheet);
+            break;
+        }
+
+        case AlbumSheetMutationIntent.EDIT_DESIGN: {
+            if (sheetIndex < 0) {
+                return mutationRejected([AlbumSheetMutationReason.SHEET_NOT_FOUND], inspected.album);
+            }
+            const design = applyManualSheetDesignMutation(
+                sheets[sheetIndex].design,
+                mutation.designMutation,
+                {
+                    slotLayerIds: options?.slotLayerIds,
+                    photoKeys: options?.photoKeys
+                }
+            );
+            if (!design.accepted) {
+                return mutationRejected([
+                    AlbumSheetMutationReason.DESIGN_MUTATION_REJECTED,
+                    ...design.reasonCodes
+                ], inspected.album);
+            }
+            if (!design.changed) return mutationUnchanged(inspected.album);
+            nextSheets = sheets.map((sheet, index) => index === sheetIndex
+                ? { ...sheet, design: design.design }
+                : sheet);
+            break;
+        }
+
         case AlbumSheetMutationIntent.RESTORE: {
             const restored = inspectAlbum(mutation.album);
             if (restored.valid && albumsEqual(restored.album, inspected.album)) {
@@ -426,14 +537,15 @@ export function redoAlbumSheetHistory(history) {
 
 }
 
-function inspectSheet(sheet, ids) {
+function inspectSheet(sheet, ids, { allowDesign = true } = {}) {
 
     if (!isObject(sheet)) {
         return invalid(AlbumSheetReason.INVALID_SHEET);
     }
 
+    const allowedFields = allowDesign ? SHEET_FIELDS : LEGACY_SHEET_FIELDS;
     for (const field of Object.keys(sheet)) {
-        if (!SHEET_FIELDS.has(field)) {
+        if (!allowedFields.has(field)) {
             return invalid(AlbumSheetReason.UNSUPPORTED_SHEET_FIELD);
         }
     }
@@ -468,6 +580,14 @@ function inspectSheet(sheet, ids) {
         normalized.label = sheet.label.trim();
     }
 
+    if (allowDesign) {
+        const design = sheet.design == null
+            ? { valid: true, design: createEmptyManualSheetDesign() }
+            : inspectManualSheetDesign(sheet.design);
+        if (!design.valid) return invalid(design.reasonCodes[0]);
+        normalized.design = design.design;
+    }
+
     return Object.freeze({
         valid: true,
         reasonCodes: Object.freeze([]),
@@ -492,13 +612,7 @@ function isRegisteredTemplate(templateId, templateIds) {
 
 function albumsEqual(left, right) {
 
-    return left.schemaVersion === right.schemaVersion &&
-        left.sheets.length === right.sheets.length &&
-        left.sheets.every((sheet, index) =>
-            sheet.id === right.sheets[index].id &&
-            sheet.templateId === right.sheets[index].templateId &&
-            sheet.label === right.sheets[index].label
-        );
+    return JSON.stringify(left) === JSON.stringify(right);
 
 }
 
@@ -615,7 +729,10 @@ function freezeAlbum(album) {
 
     return Object.freeze({
         schemaVersion: album.schemaVersion,
-        sheets: Object.freeze(album.sheets.map(sheet => Object.freeze({ ...sheet })))
+        sheets: Object.freeze(album.sheets.map(sheet => Object.freeze({
+            ...sheet,
+            ...(sheet.design ? { design: inspectManualSheetDesign(sheet.design).design } : {})
+        })))
     });
 
 }

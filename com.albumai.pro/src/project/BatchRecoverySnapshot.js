@@ -1,4 +1,4 @@
-export const BATCH_RECOVERY_SCHEMA_VERSION = 3;
+export const BATCH_RECOVERY_SCHEMA_VERSION = 4;
 
 /** Immutable, serializable orchestration checkpoint for a project batch. */
 export default class BatchRecoverySnapshot {
@@ -28,6 +28,9 @@ export default class BatchRecoverySnapshot {
             warnings: data.warnings || [],
             fatalError: data.fatalError || null,
             runMode: data.runMode || "PROCESS_PROJECT"
+            ,manualSheetId: typeof data.manualSheetId === "string"
+                ? data.manualSheetId
+                : null
             ,cancellationRequestedAt: data.cancellationRequestedAt || null
             ,cancellationEffectiveAt: data.cancellationEffectiveAt || null
             ,cancellationReason: data.cancellationReason || null
@@ -90,6 +93,10 @@ export default class BatchRecoverySnapshot {
         });
         if (data.projectId != null && typeof data.projectId !== "string") {
             reasons.push("projectId must be a string or null.");
+        }
+        if (data.manualSheetId != null &&
+            (typeof data.manualSheetId !== "string" || !data.manualSheetId)) {
+            reasons.push("manualSheetId must be a non-empty string or null.");
         }
         if (data.registryVersion != null && typeof data.registryVersion !== "string") {
             reasons.push("registryVersion must be a string.");

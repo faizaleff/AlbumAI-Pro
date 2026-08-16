@@ -5,13 +5,14 @@
   "sourcePolicy": "Architecture/ALB-050_ARCHITECTURE_POLICY.json",
   "regressionEntry": "tests/alb051-regression-baseline.test.js",
   "baseline": {
-    "activeFiles": 102,
-    "legacyTestReachableFiles": 91,
+    "activeFiles": 106,
+    "legacyTestReachableFiles": 95,
     "legacyTestGapFiles": 11,
-    "postAlb051ReachableFiles": 102
+    "postAlb051ReachableFiles": 106
   },
   "requiredUiModules": [
     "src/components/BatchProgressPanel.jsx",
+    "src/components/ManualDesignerPanel.jsx",
     "src/components/OpenFolder.jsx",
     "src/components/PhotoBrowserSection.jsx",
     "src/components/PhotoImage.jsx",
@@ -21,6 +22,7 @@
     "src/components/ThumbnailCard.jsx",
     "src/components/ThumbnailGrid.jsx",
     "src/components/UxpDropdown.jsx",
+    "src/components/manualDesignerModel.js",
     "src/config/buildIdentity.js",
     "src/controllers/PanelController.jsx",
     "src/panels/AlbumBrowser.jsx.jsx",

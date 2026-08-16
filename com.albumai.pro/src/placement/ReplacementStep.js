@@ -12,6 +12,7 @@ export default class ReplacementStep {
             photoName: data.photoName || "",
             photoFileReference: data.photoFileReference,
             fitMode: data.fitMode || "fill",
+            cropFocus: ReplacementStep.cropFocus(data.cropFocus),
             expectedLayerType: data.expectedLayerType,
             expectedDocumentId: data.expectedDocumentId
         });
@@ -44,6 +45,19 @@ export default class ReplacementStep {
             throw new Error("Replacement step requires an expected document id.");
         }
 
+    }
+
+    static cropFocus(value) {
+        const x = Number(value?.x);
+        const y = Number(value?.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y) ||
+            x < 0 || x > 1 || y < 0 || y > 1) {
+            return Object.freeze({ x: 0.5, y: 0.5 });
+        }
+        return Object.freeze({
+            x: Math.round(x * 1000000) / 1000000,
+            y: Math.round(y * 1000000) / 1000000
+        });
     }
 
     static freeze(value) {

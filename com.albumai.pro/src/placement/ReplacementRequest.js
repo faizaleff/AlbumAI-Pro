@@ -41,6 +41,7 @@ export default class ReplacementRequest {
                 photoName: step.photoName,
                 photoFileReference: step.photoFileReference,
                 fitMode: step.fitMode,
+                cropFocus: step.cropFocus,
                 expectedLayerType: "smartObject",
                 expectedDocumentId: step.documentId
             });

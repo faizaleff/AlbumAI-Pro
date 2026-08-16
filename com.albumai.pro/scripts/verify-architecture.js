@@ -109,7 +109,7 @@ function main() {
     check(policy.baseline.sourceFiles === 436, "ALB-050 baseline source count changed.");
     check(policy.baseline.activeFiles === 95, "ALB-050 active baseline count changed.");
     check(policy.baseline.inactiveFiles === 341, "ALB-050 inactive baseline count changed.");
-    check(policy.activeFiles.length === 102, "Architecture policy must list all 102 active files.");
+    check(policy.activeFiles.length === 106, "Architecture policy must list all 106 active files.");
     check(policy.inactiveDisposition.delete.length === 341,
         "Architecture policy must classify all 341 inactive files.");
     check(policy.inactiveDisposition.migrate.length === 0,
@@ -122,7 +122,7 @@ function main() {
         "src contains a file outside the canonical active architecture or is missing an active file.");
     const reachable = reachableFiles(policy.entry);
     check(sameFiles(reachable, policy.activeFiles),
-        "The canonical entry graph no longer reaches exactly the 102 active files.");
+        "The canonical entry graph no longer reaches exactly the 106 active files.");
     check(policy.inactiveDisposition.delete.every(file => !fs.existsSync(path.join(projectRoot, file))),
         "A retired inactive source file has reappeared.");
 

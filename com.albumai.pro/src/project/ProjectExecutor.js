@@ -12,6 +12,7 @@ import {
     snapshotTemplateOutputTransactions
 } from "./OutputTransactionRecovery";
 import Logger from "../core/photoshop/Logger";
+import ManualSheetExecutionPlan from "./ManualSheetExecutionPlan";
 
 /** Coordinates deterministic template execution through the batch executor. */
 export default class ProjectExecutor {
@@ -23,6 +24,7 @@ export default class ProjectExecutor {
         replacementBatchExecutor,
         templateAutoSaveService,
         templateExportService,
+        manualSheetExecutionPlan = new ManualSheetExecutionPlan(),
         batchExecutionService = new BatchExecutionService()
     } = {}) {
 
@@ -37,6 +39,7 @@ export default class ProjectExecutor {
         this.replacementBatchExecutor = replacementBatchExecutor;
         this.templateAutoSaveService = templateAutoSaveService;
         this.templateExportService = templateExportService;
+        this.manualSheetExecutionPlan = manualSheetExecutionPlan;
         this.batchExecutionService = batchExecutionService;
 
     }
@@ -58,6 +61,7 @@ export default class ProjectExecutor {
         onStageProgress = null,
         photoCursor = 0,
         selectedPhotoIds = null
+        ,manualSheetRequest = null
         ,cancellationController = null
         ,resumeState = null
     } = {}) {
@@ -65,14 +69,14 @@ export default class ProjectExecutor {
         const queue = new TemplateQueue(templates || this.templates());
         const selected = this.selectedPhotos(photos, selectedPhotoIds);
 
-        if (selected.length === 0) {
+        if (selected.length === 0 && !manualSheetRequest) {
             const error = new Error("Select at least one photo before processing.");
             error.code = "NO_SELECTED_PHOTOS";
             throw error;
         }
 
         const distribution = {
-            selected,
+            selected: manualSheetRequest ? photos : selected,
             cursor: Math.max(0, Math.min(photoCursor, selected.length))
         };
         this.requireUniqueOutputBaseNames(
@@ -102,7 +106,8 @@ export default class ProjectExecutor {
                     });
                 };
                 try {
-                    if (distribution.cursor >= distribution.selected.length) {
+                    if (!manualSheetRequest &&
+                        distribution.cursor >= distribution.selected.length) {
                         return this.skippedNoPhotos(descriptor, distribution);
                     }
                     Logger.info(`BATCH_TEMPLATE_BEGIN: ${descriptor?.name || "PSD Template"} (${index + 1}/${total})`);
@@ -114,9 +119,12 @@ export default class ProjectExecutor {
                     emitStage("VALIDATING");
                     const afterOpen = cancelled("OPENING");
                     if (afterOpen) return afterOpen;
-                    const allocation = this.allocatePhotos(template, distribution);
+                    const allocation = manualSheetRequest
+                        ? this.manualPhotoAllocation(photos)
+                        : this.allocatePhotos(template, distribution);
                     const result = await this.executeTemplate({ project, photos: allocation.photos, template, descriptor, autoSaveEnabled, autoSaveMode,
-                        onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress: emitStage, cancellationController
+                        onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress: emitStage, cancellationController,
+                        manualSheetRequest
                     });
                     isCancelledOutcome = result?.status === "CANCELLED";
                     completed = result.status === "COMPLETED";
@@ -135,14 +143,20 @@ export default class ProjectExecutor {
                                 ? "COMPLETED"
                                 : (committedCancellation
                                     ? "COMMITTED_AFTER_CANCEL"
-                                    : (isCancelledOutcome ? "CANCELLED" : "FAILED"))
+                                    : (isCancelledOutcome ? "CANCELLED" : "FAILED")),
+                            manualSheetRequest
+                                ? result.executionPlan?.steps
+                                : null
                         ),
                         warnings: [
                             ...(result.warnings || []),
                             ...(allocation.warning ? [allocation.warning] : [])
                         ]
                     };
-                    if (consumesPhotos) {
+                    if (manualSheetRequest) {
+                        // Manual assignments are explicit and must never
+                        // consume or reorder the browser selection cursor.
+                    } else if (consumesPhotos) {
                         distribution.cursor = allocation.endCursor;
                     } else if (isCancelledOutcome) {
                         outcome.warnings.push(
@@ -234,7 +248,7 @@ export default class ProjectExecutor {
 
     }
 
-    async executeTemplate({ project, photos, template, descriptor = null, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress, cancellationController = null }) {
+    async executeTemplate({ project, photos, template, descriptor = null, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress, cancellationController = null, manualSheetRequest = null }) {
 
         const context = this.documentContext(template, descriptor);
         Logger.info(`START TEMPLATE: ${context.documentName}`);
@@ -242,11 +256,32 @@ export default class ProjectExecutor {
         this.templateRegistry.register(template);
         await this.activateContext(context, "EXECUTION");
         onStageProgress?.("PLANNING");
-        const placementResult = this.photoPlacementEngine.plan({ project, photos, template });
+        const manualPlan = manualSheetRequest
+            ? this.manualSheetExecutionPlan.build({
+                project,
+                request: manualSheetRequest,
+                template,
+                photos
+            })
+            : null;
+        const placementResult = manualPlan
+            ? Object.freeze({
+                assignments: Object.freeze(manualPlan.steps.map(step =>
+                    Object.freeze({
+                        slotLayerId: step.slotLayerId,
+                        photoId: step.photoId,
+                        cropFocus: step.cropFocus,
+                        fitMode: step.fitMode
+                    })
+                )),
+                warnings: Object.freeze([]),
+                mode: "MANUAL_SHEET_DESIGN"
+            })
+            : this.photoPlacementEngine.plan({ project, photos, template });
         Logger.info(`TEMPLATE_ASSIGNMENT_COUNT: ${placementResult.assignments?.length || 0}`);
         this.requireReplacementPlan(placementResult, null, null, context);
         await this.activateContext(context, "EXECUTION PLAN");
-        const executionPlan = this.placementExecutionPlanBuilder.build({ placementResult, project, template, photos });
+        const executionPlan = manualPlan || this.placementExecutionPlanBuilder.build({ placementResult, project, template, photos });
         Logger.info(`TEMPLATE_PLAN_STEP_COUNT: ${executionPlan.steps?.length || 0}`);
         this.requireReplacementPlan(placementResult, executionPlan, null, context);
         const request = new ReplacementRequest({ executionPlan });
@@ -491,15 +526,32 @@ export default class ProjectExecutor {
 
     }
 
-    allocationSnapshot(allocation, status) {
+    allocationSnapshot(allocation, status, manualSteps = null) {
+
+        const manual = Array.isArray(manualSteps);
+        const assigned = manual ? manualSteps : allocation.photos;
 
         return {
             startCursor: allocation.startCursor,
             endCursor: allocation.endCursor,
-            assignedCount: allocation.photos.length,
-            assignedPhotoIds: allocation.photos.map(photo => photo?.id),
+            assignedCount: assigned.length,
+            assignedPhotoIds: assigned.map(item => manual ? item?.photoId : item?.id),
             remainingCount: allocation.remainingPhotos,
-            status
+            status,
+            mode: manual ? "MANUAL_SHEET_DESIGN" : "SELECTION"
+        };
+
+    }
+
+    manualPhotoAllocation(photos) {
+
+        const source = Array.isArray(photos) ? photos : [];
+        return {
+            startCursor: 0,
+            endCursor: 0,
+            remainingPhotos: source.length,
+            photos: source,
+            warning: null
         };
 
     }

@@ -26,6 +26,35 @@ identifier; it is not a template document, a placement result, a render job,
 or a Photoshop document. `AlbumSheetSchema` is the pure serialization boundary
 used by `ProjectService`; `ProjectEngine` remains the sole aggregate owner.
 
+ALB-081 extends each canonical Sheet with one versioned `design` value. Its
+assignments contain only a positive Smart Object `slotLayerId`, an opaque
+`p1-…` Photo key, and a normalized crop-focus point. `ManualSheetDesign` is the
+pure validation and command boundary for assign, clear, swap, and crop-focus
+changes; it is not a second Album owner. Template changes clear assignments
+that belong to the prior PSD, and the existing bounded Album history provides
+undo/redo for every accepted manual edit. Drag/drop UI and Photoshop mutation
+remain orchestration and adapter concerns in later slices. The Slice 2
+`manualDesignerModel` is a bounded, detached UI projection over the canonical
+Sheet, registered Template descriptors, inspected runtime Template, and
+published Photos. It retains no host objects or source paths, caps the rendered
+Photo tray, and requires the inspected Template's in-memory project descriptor
+identity to match the selected Sheet before exposing slots. Slice 3 interaction
+helpers translate only allowlisted Photo/slot selections into the existing
+assign, clear, and swap commands. `AppController` supplies current runtime
+slot ids and opaque Photo keys to `ProjectService`; the UI never bypasses the
+persist-before-publish or bounded Album history boundary. Slice 4 keeps crop
+focus as a transient UI draft until explicit Apply, then emits the same bounded
+`SET_CROP_FOCUS` command. Thumbnail and preview positioning consume the draft
+or persisted point as a visual projection; they do not mutate Photoshop.
+Slice 5 derives a short-lived `ManualSheetExecutionPlan` from that canonical
+design only after the current Sheet request, registered template identity,
+opened PSD Smart Object slots, and opaque Photo keys agree. The plan carries
+only current runtime replacement facts and reuses the existing replacement
+request, batch, Smart Object, transform, and clipping boundaries. Manual crop
+focus is translated into a bounded fill offset that cannot expose an uncovered
+slot edge; neither the execution plan nor the Sheet persists a host document
+or file-entry reference.
+
 ## Orchestration boundary
 
 `src/app/AppController.js` is the only active application orchestrator. It

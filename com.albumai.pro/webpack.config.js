@@ -65,12 +65,11 @@ module.exports = (_env, argv = {}) => {
     ],
     performance: {
         hints: "error",
-        // ALB-070 Slice 1 adds the reachable local-only AI consent, evidence,
-        // cache-compatibility, and publication safety contract. Keep a strict
-        // ceiling while allowing the measured policy increment; model/runtime
-        // assets remain excluded until the separate feasibility budget gate.
-        maxAssetSize: 560 * 1024,
-        maxEntrypointSize: 560 * 1024
+        // ALB-081 Slice 5 adds the measured manual-design execution-plan
+        // boundary. Keep the ceiling narrow; Photoshop mutation, model/runtime
+        // assets, and layout suggestions remain outside this allowance.
+        maxAssetSize: 592 * 1024,
+        maxEntrypointSize: 592 * 1024
     }
     };
 };
