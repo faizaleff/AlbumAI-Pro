@@ -2063,6 +2063,7 @@ export default function TemplateDocumentPanel({
 
                 <div
                     ref={templateListRef}
+                    className="template-registry-scroll"
                     aria-label="Registered project templates in batch execution order"
                     style={{ display: "flex", flexDirection: "column", gap: 4 }}
                 >
