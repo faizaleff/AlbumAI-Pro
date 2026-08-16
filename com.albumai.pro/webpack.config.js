@@ -65,12 +65,13 @@ module.exports = (_env, argv = {}) => {
     ],
     performance: {
         hints: "error",
-        // ALB-070 Slice 1 adds the reachable local-only AI consent, evidence,
-        // cache-compatibility, and publication safety contract. Keep a strict
-        // ceiling while allowing the measured policy increment; model/runtime
-        // assets remain excluded until the separate feasibility budget gate.
-        maxAssetSize: 560 * 1024,
-        maxEntrypointSize: 560 * 1024
+        // ALB-070 Slice 2 admits only the measured synthetic feasibility
+        // diagnostic: 68 WASM bytes plus its bounded loader/report code. The
+        // 566 KiB ceiling admits the measured diagnostic on the current main
+        // bundle and still excludes production
+        // model/runtime assets pending the Slice 3 ADR and licensing gate.
+        maxAssetSize: 566 * 1024,
+        maxEntrypointSize: 566 * 1024
     }
     };
 };

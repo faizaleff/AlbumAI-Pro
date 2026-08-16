@@ -9,6 +9,7 @@ import { entrypoints, storage } from "uxp";
 import { selectAllBrowserPhotos } from "./services/PhotoBrowserSelection";
 import { ALBUMAI_BUILD_ID } from "./config/buildIdentity";
 import { characterizeOutputStorage } from "./project/OutputStorageCapabilityCharacterization";
+import { runPhotoAiWasmFeasibilityProbe } from "./services/PhotoAiWasmFeasibilityProbe";
 
 // Developer-console diagnostic only. It prompts for a parent folder and uses
 // a newly-created AlbumAI-owned disposable child folder; it never opens PSDs.
@@ -21,6 +22,20 @@ globalThis.__ALBUMAI_ALB045_CHARACTERIZE_OUTPUT_STORAGE__ = async () => {
         binaryReader: entry => entry.read({ format: formats?.binary })
     });
     console.info("ALB_045_OUTPUT_STORAGE_CAPABILITIES", report);
+    return report;
+};
+
+// Developer-console feasibility diagnostic only. It executes a tiny synthetic
+// module over generated pixels, never reads a user photo, and never publishes
+// a Photo score or opens a Photoshop document.
+globalThis.__ALBUMAI_ALB070_RUN_WASM_FEASIBILITY__ = async (options = {}) => {
+    const report = await runPhotoAiWasmFeasibilityProbe({
+        warmRuns: options.warmRuns,
+        isCancelled: typeof options.isCancelled === "function"
+            ? options.isCancelled
+            : undefined
+    });
+    console.info("ALB_070_WASM_FEASIBILITY", JSON.stringify(report));
     return report;
 };
 
