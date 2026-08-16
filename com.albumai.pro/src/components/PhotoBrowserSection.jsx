@@ -586,7 +586,7 @@ function PhotoBrowserSection({
                 </button>
                 </div>
                 <div className="photo-browser-toolbar-group photo-browser-selection-group">
-                {!folderLoaded && (
+                {!photos.length && (
                     <button
                         type="button"
                         onClick={onOpenFolder}
