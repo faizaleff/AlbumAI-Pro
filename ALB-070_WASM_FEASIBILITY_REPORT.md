@@ -2,9 +2,9 @@
 
 Status: **HOST EXECUTION PASS — QUANTITATIVE MEMORY EVIDENCE INCOMPLETE**
 
-Baseline: **`main` at `609079d`**
+Baseline: **`main` at `6f9dce0`**
 
-Tracking: **GitHub issue #14, Slice 2**
+Tracking: **GitHub issue #14, Slices 2–3**
 
 ## Scope
 
@@ -29,6 +29,8 @@ has one fixed 64 KiB memory page and returns the tensor's RGB mean.
 - no network or telemetry permission is added;
 - warm work is bounded to 25 runs and cancellation is checked between phases
   and warm iterations;
+- quantitative collection is bounded to 20 probes and stops at the first
+  cancellation, limitation, or failure;
 - the WASM instance and memory references do not escape the diagnostic.
 
 ## Automated evidence
@@ -44,22 +46,28 @@ npm run package:verify
 The automated suite verifies deterministic fixture generation, bounded tensor
 preprocessing, real WASM validation/instantiation, cold and warm measurements,
 cancellation, malformed runtime/fixture failure, safe serialization, one-page
-memory size, reference release, and absence of UXP/Photoshop imports.
+memory size, reference release, 20-run timing aggregation, fail-fast series
+behavior, and absence of UXP/Photoshop imports.
 
 Production bundle measurement:
 
 | Measurement | Bytes |
 | --- | ---: |
-| Current `main` `dist/index.js` | 571,588 |
-| Slice 2 `dist/index.js` | 578,058 |
+| Pre-Slice 2 `main` `dist/index.js` | 571,588 |
+| Merged Slice 2 `dist/index.js` | 578,058 |
 | Synthetic diagnostic increment | 6,470 (1.132%) |
-| Slice 2 ceiling | 579,584 (566 KiB) |
-| Remaining headroom | 1,526 |
-| Current `main` reproducible release ZIP | 160,095 |
-| Slice 2 reproducible release ZIP | 161,760 |
+| Slice 3 bounded series `dist/index.js` | 580,521 |
+| Bounded series increment over Slice 2 | 2,463 (0.426%) |
+| Slice 3 ceiling | 581,632 (568 KiB) |
+| Remaining headroom | 1,111 |
+| Pre-Slice 2 `main` reproducible release ZIP | 160,095 |
+| Merged Slice 2 reproducible release ZIP | 161,760 |
 | Release ZIP increment | 1,665 (1.040%) |
+| Slice 3 reproducible release ZIP | 162,362 |
+| Bounded series ZIP increment over Slice 2 | 602 (0.372%) |
 
-This narrow increase does not admit a production runtime or model asset.
+The Slice 3 package measurement is recorded after package verification below.
+These narrow increases do not admit a production runtime or model asset.
 
 Automated Node execution is harness evidence only. It is not proof of UXP
 compatibility.
@@ -148,8 +156,17 @@ or user photo folder for this procedure.
 
 5. Save only the returned bounded report.
 6. Confirm the open-document count is unchanged and no document tab appeared.
-7. Run the hook 20 times, allow the host to idle, and record memory before,
-   peak, and after. Do not claim reclamation solely from
+7. Record Photoshop host-process memory immediately before the series, then
+   run the bounded quantitative hook once:
+
+   ```text
+   await globalThis.__ALBUMAI_ALB070_RUN_WASM_SERIES__({ runs: 20, warmRuns: 10 })
+   ```
+
+   Save its `firstRunMeasurements`, aggregate `timing`, completed/success
+   counts, and `maximumWasmMemoryBytes`. Record host-process memory at peak,
+   after idle, and after plugin unload. The hook does not measure host-process
+   memory; do not claim reclamation solely from
    `retainedWasmReferences: false`.
 8. Repeat once with cancellation requested and confirm the report is a
    non-publishable `LIMITATION` with reason `CANCELLED`:

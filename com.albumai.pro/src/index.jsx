@@ -9,7 +9,10 @@ import { entrypoints, storage } from "uxp";
 import { selectAllBrowserPhotos } from "./services/PhotoBrowserSelection";
 import { ALBUMAI_BUILD_ID } from "./config/buildIdentity";
 import { characterizeOutputStorage } from "./project/OutputStorageCapabilityCharacterization";
-import { runPhotoAiWasmFeasibilityProbe } from "./services/PhotoAiWasmFeasibilityProbe";
+import {
+    runPhotoAiWasmFeasibilityProbe,
+    runPhotoAiWasmFeasibilitySeries
+} from "./services/PhotoAiWasmFeasibilityProbe";
 
 // Developer-console diagnostic only. It prompts for a parent folder and uses
 // a newly-created AlbumAI-owned disposable child folder; it never opens PSDs.
@@ -36,6 +39,20 @@ globalThis.__ALBUMAI_ALB070_RUN_WASM_FEASIBILITY__ = async (options = {}) => {
             : undefined
     });
     console.info("ALB_070_WASM_FEASIBILITY", JSON.stringify(report));
+    return report;
+};
+
+// Bounded quantitative companion to the single-run diagnostic. It aggregates
+// at most twenty synthetic runs and returns only timing/count measurements.
+globalThis.__ALBUMAI_ALB070_RUN_WASM_SERIES__ = async (options = {}) => {
+    const report = await runPhotoAiWasmFeasibilitySeries({
+        runs: options.runs,
+        warmRuns: options.warmRuns,
+        isCancelled: typeof options.isCancelled === "function"
+            ? options.isCancelled
+            : undefined
+    });
+    console.info("ALB_070_WASM_SERIES", JSON.stringify(report));
     return report;
 };
 

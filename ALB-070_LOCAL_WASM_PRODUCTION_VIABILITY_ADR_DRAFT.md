@@ -127,6 +127,8 @@ or bounded-concurrency requirement.
       recorded.
 - [x] The Windows run confirms the document count is unchanged and exercises
       cancellation plus 20 repeated probe executions.
+- [x] A bounded developer-only series hook aggregates up to 20 synthetic host
+      timing reports and fails closed on cancellation, limitation, or failure.
 - [ ] Exact Windows preprocessing, cold-instantiation, first-inference, and
       warm-inference timing values are recorded.
 - [ ] Windows host-process memory before, peak, idle, and post-unload
@@ -158,4 +160,5 @@ or bounded-concurrency requirement.
 The Slice 2 diagnostic is merged after bounded execution passed on both hosts.
 That merge records feasibility only; it does not approve production viability
 or waive the missing Windows timing and host-process memory observations. This
-Slice 3 preparation does not change production runtime behavior.
+Slice 3 evidence harness changes no user workflow and does not measure or infer
+Photoshop host-process memory.

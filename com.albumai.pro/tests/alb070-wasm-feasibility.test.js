@@ -6,7 +6,8 @@ import {
     PhotoAiWasmProbeReason,
     PhotoAiWasmProbeStatus,
     preprocessAlb070SyntheticRgba,
-    runPhotoAiWasmFeasibilityProbe
+    runPhotoAiWasmFeasibilityProbe,
+    runPhotoAiWasmFeasibilitySeries
 } from "../src/services/PhotoAiWasmFeasibilityProbe";
 
 let assertions = 0;
@@ -14,7 +15,7 @@ let assertions = 0;
 async function test(name, callback) {
     await callback();
     assertions += 1;
-    console.info(`PASS ALB-070 Slice 2: ${name}`);
+    console.info(`PASS ALB-070 WASM: ${name}`);
 }
 
 function steppedClock(step = 0.25) {
@@ -186,6 +187,77 @@ function steppedClock(step = 0.25) {
         const report = await runPhotoAiWasmFeasibilityProbe({ warmRuns: 1000 });
         assert.strictEqual(report.status, PhotoAiWasmProbeStatus.PASS);
         assert.strictEqual(report.measurements.warmRuns, 25);
+    });
+
+    await test("aggregates bounded quantitative timing evidence", async () => {
+        const report = await runPhotoAiWasmFeasibilitySeries({
+            runs: 3,
+            warmRuns: 2,
+            now: steppedClock()
+        });
+        assert.strictEqual(report.status, PhotoAiWasmProbeStatus.PASS);
+        assert.strictEqual(report.requestedRuns, 3);
+        assert.strictEqual(report.completedRuns, 3);
+        assert.strictEqual(report.successfulRuns, 3);
+        assert.strictEqual(report.warmRunsPerProbe, 2);
+        assert.strictEqual(report.firstRunMeasurements.preprocessingMs, 0.25);
+        assert.deepStrictEqual(report.timing.coldInstantiationMs, {
+            samples: 3,
+            min: 0.25,
+            max: 0.25,
+            average: 0.25
+        });
+        assert.strictEqual(report.maximumWasmMemoryBytes, 65536);
+        assert(Object.isFrozen(report));
+        assert(Object.isFrozen(report.timing));
+    });
+
+    await test("bounds a quantitative series to twenty probes", async () => {
+        const report = await runPhotoAiWasmFeasibilitySeries({
+            runs: 1000,
+            warmRuns: 1
+        });
+        assert.strictEqual(report.requestedRuns, 20);
+        assert.strictEqual(report.completedRuns, 20);
+        assert.strictEqual(report.successfulRuns, 20);
+    });
+
+    await test("stops a quantitative series safely on cancellation", async () => {
+        const report = await runPhotoAiWasmFeasibilitySeries({
+            isCancelled: () => true
+        });
+        assert.strictEqual(report.status, PhotoAiWasmProbeStatus.LIMITATION);
+        assert.strictEqual(report.completedRuns, 0);
+        assert.strictEqual(report.cancellationObserved, true);
+        assert.deepStrictEqual(report.reasonCodes, [PhotoAiWasmProbeReason.CANCELLED]);
+        assert.strictEqual(report.result.publishable, false);
+    });
+
+    await test("fails a quantitative series closed after one invalid host run", async () => {
+        const report = await runPhotoAiWasmFeasibilitySeries({
+            webAssembly: null
+        });
+        assert.strictEqual(report.status, PhotoAiWasmProbeStatus.FAIL);
+        assert.strictEqual(report.completedRuns, 1);
+        assert.strictEqual(report.failedRuns, 1);
+        assert.deepStrictEqual(report.reasonCodes, [
+            PhotoAiWasmProbeReason.RUNTIME_UNSUPPORTED
+        ]);
+    });
+
+    await test("keeps quantitative evidence public-safe and developer-only", async () => {
+        const report = await runPhotoAiWasmFeasibilitySeries({ runs: 2 });
+        const serialized = JSON.stringify(report);
+        assert(!serialized.includes("pixels"));
+        assert(!serialized.includes("path"));
+        assert(!serialized.includes("Uint8Array"));
+        assert.strictEqual(report.retainedWasmReferences, false);
+        assert.strictEqual(report.photoshopDocumentsOpenedByProbe, 0);
+        const indexSource = require("fs").readFileSync(
+            require("path").join(process.cwd(), "src/index.jsx"),
+            "utf8"
+        );
+        assert(indexSource.includes("__ALBUMAI_ALB070_RUN_WASM_SERIES__"));
     });
 
     await test("does not import UXP or Photoshop document APIs", () => {
