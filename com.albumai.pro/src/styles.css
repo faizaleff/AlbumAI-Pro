@@ -72,12 +72,16 @@
 
 .photo-browser-shell {
     position: relative;
-    flex: 1 1 auto;
+    flex: 0 0 480px;
     display: flex;
     flex-direction: column;
     min-width: 0;
-    min-height: 180px;
-    overflow: hidden;
+    min-height: 320px;
+    max-height: 60vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-color: #686868 #252525;
+    scrollbar-width: auto;
 }
 
 .photo-browser-control {
@@ -336,8 +340,9 @@ button.photo-browser-control:active:not(:disabled) {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
+    min-height: 220px;
+    overflow-x: hidden;
+    overflow-y: auto;
     border-right: 1px solid #424242;
     border-left: 1px solid #424242;
 }
@@ -595,6 +600,38 @@ button.photo-browser-control:active:not(:disabled) {
 .album-workspace-scroll-pane {
     scrollbar-color: #686868 #252525;
     scrollbar-width: auto;
+}
+
+/* Keep every major workspace group reachable inside Photoshop panels. The
+ * outer pane remains scrollable, while long group contents get their own
+ * scroll track instead of pushing the photo-folder action below the viewport. */
+.album-workspace-project-section,
+.album-sheets-section,
+.template-workspace-section,
+.album-sheet-list,
+.template-registry-scroll {
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-color: #686868 #252525;
+    scrollbar-width: auto;
+}
+
+.album-workspace-project-section {
+    max-height: 220px;
+}
+
+.album-sheets-section {
+    max-height: 360px;
+}
+
+.template-workspace-section {
+    max-height: 520px;
+}
+
+.album-sheet-list,
+.template-registry-scroll {
+    max-height: 210px;
+    padding-right: 4px;
 }
 
 .albumai-workspace-layout > .album-workspace-scroll-pane {
