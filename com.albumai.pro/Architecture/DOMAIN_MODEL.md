@@ -69,6 +69,9 @@ the ALB-070 UXP WebAssembly feasibility and commercial-licensing decision.
 not a Photo owner or inference product. It runs only an embedded synthetic
 68-byte WASM module over generated 16×16 RGBA pixels, returns a bounded
 non-publishable report, and imports neither UXP storage nor Photoshop APIs.
+Its optional 20-run series aggregates only bounded timings, counts, and the
+maximum reported WASM page size; it returns no inputs and makes no
+host-process memory or reclamation claim.
 Host runtime results remain evidence for the later ALB-070 ADR; they do not
 select a model or enable AI culling.
 

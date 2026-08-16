@@ -1,4 +1,5 @@
 export const ALB070_WASM_PROBE_SCHEMA = 1;
+export const ALB070_WASM_SERIES_SCHEMA = 1;
 
 export const PhotoAiWasmProbeStatus = Object.freeze({
     PASS: "PASS",
@@ -30,6 +31,7 @@ export const ALB070_SYNTHETIC_MODEL = Object.freeze({
 
 const MAX_PIXELS = 4096;
 const MAX_WARM_RUNS = 25;
+const MAX_SERIES_RUNS = 20;
 
 // Synthetic module: one fixed 64 KiB page and infer(r, g, b) => RGB mean.
 // It contains no learned weights and makes no photo-quality claim.
@@ -56,6 +58,95 @@ function duration(start, end) {
 function warmRunCount(value) {
     if (!Number.isSafeInteger(value) || value < 1) return 5;
     return Math.min(value, MAX_WARM_RUNS);
+}
+
+function seriesRunCount(value) {
+    if (!Number.isSafeInteger(value) || value < 1) return MAX_SERIES_RUNS;
+    return Math.min(value, MAX_SERIES_RUNS);
+}
+
+function rounded(value) {
+    return Math.round(value * 1000) / 1000;
+}
+
+function timingAggregate(values) {
+    const samples = values.filter(Number.isFinite);
+    if (!samples.length) {
+        return Object.freeze({ samples: 0, min: null, max: null, average: null });
+    }
+    return Object.freeze({
+        samples: samples.length,
+        min: Math.min(...samples),
+        max: Math.max(...samples),
+        average: rounded(samples.reduce((total, value) => total + value, 0) / samples.length)
+    });
+}
+
+function firstMeasurements(report) {
+    const measurements = report?.measurements || {};
+    return Object.freeze({
+        validationMs: measurements.validationMs ?? null,
+        preprocessingMs: measurements.preprocessingMs ?? null,
+        coldInstantiationMs: measurements.coldInstantiationMs ?? null,
+        firstInferenceMs: measurements.firstInferenceMs ?? null,
+        warmInferenceMs: measurements.warmInferenceMs ?? null,
+        warmRuns: measurements.warmRuns || 0,
+        wasmMemoryBytes: measurements.wasmMemoryBytes ?? null
+    });
+}
+
+function seriesReport({ requestedRuns, warmRuns, reports, cancelled }) {
+    const successfulRuns = reports.filter(
+        report => report.status === PhotoAiWasmProbeStatus.PASS
+    ).length;
+    const limitedRuns = reports.filter(
+        report => report.status === PhotoAiWasmProbeStatus.LIMITATION
+    ).length;
+    const failedRuns = reports.filter(
+        report => report.status === PhotoAiWasmProbeStatus.FAIL
+    ).length;
+    const reasonCodes = [...new Set([
+        ...reports.flatMap(report => report.reasonCodes || []),
+        ...(cancelled ? [PhotoAiWasmProbeReason.CANCELLED] : [])
+    ])];
+    const measurementValues = field => reports
+        .map(report => report.measurements?.[field])
+        .filter(Number.isFinite);
+    const memoryValues = measurementValues("wasmMemoryBytes");
+    return Object.freeze({
+        schemaVersion: ALB070_WASM_SERIES_SCHEMA,
+        probeSchemaVersion: ALB070_WASM_PROBE_SCHEMA,
+        status: failedRuns
+            ? PhotoAiWasmProbeStatus.FAIL
+            : (limitedRuns || cancelled
+                ? PhotoAiWasmProbeStatus.LIMITATION
+                : PhotoAiWasmProbeStatus.PASS),
+        reasonCodes: Object.freeze(reasonCodes),
+        requestedRuns,
+        completedRuns: reports.length,
+        successfulRuns,
+        limitedRuns,
+        failedRuns,
+        warmRunsPerProbe: warmRuns,
+        firstRunMeasurements: firstMeasurements(reports[0]),
+        timing: Object.freeze({
+            validationMs: timingAggregate(measurementValues("validationMs")),
+            preprocessingMs: timingAggregate(measurementValues("preprocessingMs")),
+            coldInstantiationMs: timingAggregate(measurementValues("coldInstantiationMs")),
+            firstInferenceMs: timingAggregate(measurementValues("firstInferenceMs")),
+            warmInferenceMs: timingAggregate(measurementValues("warmInferenceMs"))
+        }),
+        maximumWasmMemoryBytes: memoryValues.length
+            ? Math.max(...memoryValues)
+            : null,
+        result: Object.freeze({ publishable: false }),
+        cancellationObserved: cancelled || reports.some(
+            report => report.cancellationObserved === true
+        ),
+        retainedWasmReferences: false,
+        photoshopDocumentsOpenedByProbe: 0,
+        hostMemoryReclamation: "RUNTIME_VERIFICATION_REQUIRED"
+    });
 }
 
 function frozenReport(data = {}) {
@@ -314,4 +405,35 @@ export async function runPhotoAiWasmFeasibilityProbe({
             reasonCodes: [failureReason]
         });
     }
+}
+
+export async function runPhotoAiWasmFeasibilitySeries({
+    runs: requestedSeriesRuns = MAX_SERIES_RUNS,
+    warmRuns: requestedWarmRuns = 10,
+    webAssembly = globalThis.WebAssembly,
+    now = () => globalThis.performance?.now?.() ?? Date.now(),
+    isCancelled = () => false
+} = {}) {
+    const runs = seriesRunCount(requestedSeriesRuns);
+    const warmRuns = warmRunCount(requestedWarmRuns);
+    const reports = [];
+    let cancelled = false;
+    for (let index = 0; index < runs; index += 1) {
+        if (isCancelled()) {
+            cancelled = true;
+            break;
+        }
+        const report = await runPhotoAiWasmFeasibilityProbe({
+            webAssembly,
+            now,
+            isCancelled,
+            warmRuns
+        });
+        reports.push(report);
+        if (report.status !== PhotoAiWasmProbeStatus.PASS) {
+            cancelled = report.cancellationObserved === true;
+            break;
+        }
+    }
+    return seriesReport({ requestedRuns: runs, warmRuns, reports, cancelled });
 }
