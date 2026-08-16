@@ -4,27 +4,22 @@ const path = require("path");
 const webpack = require("webpack");
 
 const outputPath = fs.mkdtempSync(
-    path.join(os.tmpdir(), "albumai-alb060-metadata-")
+    path.join(os.tmpdir(), "albumai-alb080-domain-")
 );
+
 webpack({
     mode: "development",
     target: "node",
-    entry: path.join(__dirname, "alb060-photo-metadata.test.js"),
+    entry: path.join(__dirname, "alb080-album-domain.test.js"),
     output: { path: outputPath, filename: "test-bundle.js" },
     devtool: false,
     resolve: {
         extensions: [".js", ".jsx"],
         alias: {
             uxp: path.join(__dirname, "mocks", "uxp.js"),
-            photoshop: path.join(__dirname, "mocks", "photoshop.js"),
-            buffer: path.join(__dirname, "..", "src", "utils", "JpegBuffer.js")
+            photoshop: path.join(__dirname, "mocks", "photoshop.js")
         }
     },
-    plugins: [
-        new webpack.ProvidePlugin({
-            Buffer: ["buffer", "Buffer"]
-        })
-    ],
     module: {
         rules: [{
             test: /\.jsx?$/,
@@ -41,9 +36,7 @@ webpack({
 }, (error, stats) => {
     if (error || stats?.hasErrors()) {
         console.error(error || stats.toString({
-            colors: false,
-            errors: true,
-            warnings: false
+            colors: false, errors: true, warnings: false
         }));
         process.exitCode = 1;
         return;

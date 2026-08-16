@@ -20,6 +20,12 @@ The exact owner mapping is machine-enforced by
 | Output Transaction | `src/project/OutputTransactionState.js` | Canonical commit, cancellation, reason, kind, and retry state vocabulary. Promotion/recovery policies transition or interpret this schema. |
 | Recovery | `src/project/BatchRecoverySnapshot.js` | Immutable, serializable recovery checkpoint schema. UI and retry logic consume normalized snapshots. |
 
+An Album is a bounded, ordered `metadata.album.sheets` collection within the
+Project domain. Each Sheet references one registered Template by its durable
+identifier; it is not a template document, a placement result, a render job,
+or a Photoshop document. `AlbumSheetSchema` is the pure serialization boundary
+used by `ProjectService`; `ProjectEngine` remains the sole aggregate owner.
+
 ## Orchestration boundary
 
 `src/app/AppController.js` is the only active application orchestrator. It

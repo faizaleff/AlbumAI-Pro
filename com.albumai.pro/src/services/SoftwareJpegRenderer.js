@@ -1,3 +1,4 @@
+import { Buffer as JpegBuffer } from "../utils/JpegBuffer";
 import jpeg from "jpeg-js";
 import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
 
@@ -11,6 +12,9 @@ const FULL_DECODE_RESOLUTION_MP = 40;
 const FULL_DECODE_MEMORY_MB = 820;
 const CONTENT_FINGERPRINT_CHUNKS = 64;
 const CONTENT_FINGERPRINT_CHUNK_BYTES = 512;
+const JPEG_BUFFER_READY =
+    typeof JpegBuffer.alloc === "function" &&
+    typeof JpegBuffer.from === "function";
 
 function binaryView(binary) {
 
@@ -284,6 +288,10 @@ export function inspectJpegMetadata(binary) {
 }
 
 function decodeJpeg(binary, embedded) {
+
+    if (!JPEG_BUFFER_READY) {
+        throw new Error("JPEG byte buffer support is unavailable.");
+    }
 
     return jpeg.decode(binaryView(binary), {
         useTArray: true,

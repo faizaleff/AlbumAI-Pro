@@ -2,7 +2,7 @@
 
 Status: **SLICE 2 — UXP WASM FEASIBILITY SPIKE**
 
-Baseline: **`main` at `20241ee`**
+Baseline: **`main` at `609079d`**
 
 Tracking: **GitHub issue #14**
 
@@ -52,9 +52,9 @@ produce unavailable evidence. They never fabricate a zero score or mutate a
 user decision.
 
 The reachable contract moved the reviewed production bundle ceiling from 550
-KiB to 560 KiB. The exact Slice 1 bundle is 567,866 bytes. Slice 2's synthetic
-diagnostic produces a 574,336-byte bundle, an increment of 6,470 bytes
-(1.139%). A separate 562 KiB ceiling admits only this diagnostic with 1,152
+KiB to 560 KiB. The current main bundle is 571,588 bytes. Slice 2's synthetic
+diagnostic produces a 578,058-byte bundle, an increment of 6,470 bytes
+(1.132%). A separate 566 KiB ceiling admits only this diagnostic with 1,526
 bytes of headroom. Production model/runtime assets remain blocked pending the
 Slice 3 package, memory, latency, and licensing decision.
 

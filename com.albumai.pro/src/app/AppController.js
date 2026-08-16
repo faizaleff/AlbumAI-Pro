@@ -43,6 +43,10 @@ import {
 } from "../project/OutputTransactionRecovery";
 import { summarizeOutputRecovery } from
     "../project/OutputRecoveryOperatorState";
+import {
+    createAlbumSheetRenderRequest,
+    validateAlbumSheetRenderRequest
+} from "../project/AlbumSheetRenderBridge";
 
 export const ExecutionLifecycleStatus = Object.freeze({
     IDLE: "IDLE",
@@ -92,6 +96,7 @@ export class AppController {
         this.currentPlacementPlan = null;
         this.currentPlacementExecutionPlan = null;
         this.currentReplacementRequest = null;
+        this.currentAlbumSheetRenderRequest = null;
         this.replacementStepExecutor = new ReplacementStepExecutor();
         this.replacementBatchExecutor = new ReplacementBatchExecutor({
             replacementStepExecutor: this.replacementStepExecutor
@@ -181,6 +186,39 @@ export class AppController {
             templateRegistry: this.projectTemplateRegistry.toJSON(),
             batchRecovery: this.serializeRecoverySnapshot(this.batchRecoverySnapshot)
         }, options);
+
+    }
+
+    isAlbumSheetMutationLocked() {
+
+        const lifecycle = this.currentProjectExecutionSummary?.batchProgress?.lifecycle;
+        return this.projectBatchRunning || [
+            "RUNNING",
+            "CANCEL_REQUESTED",
+            "CANCELLING"
+        ].includes(lifecycle);
+
+    }
+
+    async saveAlbumSheetMutation(history, mutation) {
+
+        if (this.isAlbumSheetMutationLocked()) {
+            throw new Error("A project batch is running. Sheet changes are available after it stops safely.");
+        }
+
+        return this.projectService.saveAlbumSheetMutation(history, mutation, {
+            templateIds: this.projectTemplateRegistry.getAll().map(template => template.id)
+        });
+
+    }
+
+    async saveAlbumSheetHistory(previousHistory, nextHistory) {
+
+        if (this.isAlbumSheetMutationLocked()) {
+            throw new Error("A project batch is running. Sheet changes are available after it stops safely.");
+        }
+
+        return this.projectService.saveAlbumSheetHistory(previousHistory, nextHistory);
 
     }
 
@@ -407,6 +445,7 @@ export class AppController {
     clearCurrentPlacementPlan() {
 
         this.currentPlacementPlan = null;
+        this.clearCurrentAlbumSheetRenderRequest();
         this.clearCurrentPlacementExecutionPlan();
         this.clearProjectExecutionSummary();
         this.clearCurrentAutoSaveResult();
@@ -454,6 +493,81 @@ export class AppController {
 
         this.currentPlacementExecutionPlan = null;
         this.clearCurrentReplacementRequest();
+
+    }
+
+    createAlbumSheetRenderRequest(sheetId) {
+
+        const project = this.project.getProject();
+        const result = createAlbumSheetRenderRequest({
+            projectId: project?.metadata?.id ?? project?.metadata?.name ?? null,
+            album: project?.metadata?.album,
+            registry: this.projectTemplateRegistry.getAll(),
+            sheetId,
+            selectedPhotoIds: this.selectedPhotoIds()
+        });
+        this.currentAlbumSheetRenderRequest = result.accepted ? result.request : null;
+        return result;
+
+    }
+
+    getCurrentAlbumSheetRenderRequest() {
+
+        return this.currentAlbumSheetRenderRequest;
+
+    }
+
+    clearCurrentAlbumSheetRenderRequest() {
+
+        this.currentAlbumSheetRenderRequest = null;
+
+    }
+
+    async executeAlbumSheetRenderRequest(request, onUpdate) {
+
+        if (this.isAlbumSheetMutationLocked()) {
+            throw new Error("A project batch is running. Sheet rendering is available after it stops safely.");
+        }
+
+        // Revalidate before the stale-request gate. This uses the existing
+        // registry observation/persistence policy and does not open a PSD.
+        const preflight = await this.revalidateProjectTemplates({
+            reason: "ALBUM_SHEET_RENDER_PREFLIGHT"
+        });
+        if (!preflight.persisted && String(preflight.reason).endsWith("PERSISTENCE_FAILED")) {
+            throw new Error("Template registry observations could not be saved.");
+        }
+
+        const project = this.project.getProject();
+        const candidate = request || this.currentAlbumSheetRenderRequest;
+        const validation = validateAlbumSheetRenderRequest(candidate, {
+            projectId: project?.metadata?.id ?? project?.metadata?.name ?? null,
+            album: project?.metadata?.album,
+            registry: this.projectTemplateRegistry.getAll(),
+            selectedPhotoIds: this.selectedPhotoIds()
+        });
+        if (!validation.accepted) {
+            const error = new Error("Album Sheet render request is stale or no longer renderable.");
+            error.code = "ALBUM_SHEET_RENDER_REJECTED";
+            error.reasonCodes = validation.reasonCodes;
+            throw error;
+        }
+
+        const descriptor = this.projectTemplateRegistry.getAll().find(template =>
+            template.id === validation.request.template.id
+        );
+        if (!descriptor) {
+            const error = new Error("Album Sheet template is no longer registered.");
+            error.code = "ALBUM_SHEET_RENDER_REJECTED";
+            error.reasonCodes = ["TEMPLATE_REGISTRY_STALE"];
+            throw error;
+        }
+
+        return this.executeProject(onUpdate, {
+            templates: [descriptor],
+            selectedPhotoIds: validation.request.selectedPhotoIds,
+            runMode: "ALBUM_SHEET_RENDER"
+        });
 
     }
 
@@ -796,12 +910,18 @@ export class AppController {
         const initialSuccessfulTemplates = resumeSnapshot?.successfulTemplateIds?.length || 0;
         const initialFailedTemplates = retryingFailed ? 0 : (resumeSnapshot?.failedTemplateIds?.length || 0);
         const photos = this.photoWorkspace.getPhotos();
+        const selectedPhotoIds = Array.isArray(options.selectedPhotoIds)
+            ? options.selectedPhotoIds.slice()
+            : null;
+        const selectedPhotos = selectedPhotoIds
+            ? selectedPhotoIds.map(id => photos.find(photo => photo?.id === id)).filter(Boolean)
+            : photos.filter(photo => photo?.selected);
         const startedAt = new Date().toISOString();
         const projectId = project?.metadata?.id ?? project?.metadata?.name ?? null;
 
         // Fresh project processing requires an explicit selection. Recovery
         // runs retain their persisted selection and are validated downstream.
-        if (!options.runMode && !photos.some(photo => photo?.selected)) {
+        if (!options.runMode && !selectedPhotos.length) {
             const error = new Error("Select at least one photo before processing.");
             error.code = "NO_SELECTED_PHOTOS";
             throw error;
@@ -843,7 +963,8 @@ export class AppController {
                 registryTemplates,
                 previous: options.previous || null,
                 runMode: options.runMode || "PROCESS_PROJECT",
-                startedAt
+                startedAt,
+                selectedPhotoIds
             });
         } catch (error) {
             this.projectBatchRunning = false;
@@ -895,7 +1016,7 @@ export class AppController {
             exportEnabled: this.exportEnabled,
             exportFormat: this.exportFormat,
             selectedPhotoIds: this.batchRecoverySnapshot?.selectedPhotoOrder ||
-                photos.filter(photo => photo?.selected).map(photo => photo.id),
+                selectedPhotoIds || photos.filter(photo => photo?.selected).map(photo => photo.id),
             photoCursor: this.batchRecoverySnapshot?.photoCursor || 0,
             cancellationController: this.batchCancellationController,
             resumeState: resumeSnapshot ? {
@@ -1310,16 +1431,18 @@ export class AppController {
         return state.snapshot;
     }
 
-    async beginRecoverySnapshot({ projectId, templates, registryTemplates, previous, runMode, startedAt }) {
+    async beginRecoverySnapshot({ projectId, templates, registryTemplates, previous, runMode, startedAt, selectedPhotoIds = null }) {
         const queueOrder = previous?.queueOrder?.length
             ? previous.queueOrder
-            : registryTemplates.map(item => item.id);
+            : templates.map(item => item.id);
         const successfulTemplateIds = previous?.successfulTemplateIds || [];
         const selectedPhotoOrder = previous?.selectedPhotoOrder?.length
             ? previous.selectedPhotoOrder
-            : this.photoWorkspace.getPhotos()
+            : (Array.isArray(selectedPhotoIds) && selectedPhotoIds.length
+                ? selectedPhotoIds.slice()
+                : this.photoWorkspace.getPhotos()
                 .filter(photo => photo?.selected)
-                .map(photo => photo.id);
+                .map(photo => photo.id));
         const photoCursor = previous?.photoCursor || 0;
         this.batchRecoverySnapshot = new BatchRecoverySnapshot({
             recoveryVersion: (previous?.recoveryVersion || 0) + 1,
@@ -1570,6 +1693,14 @@ export class AppController {
     getPhotos() {
 
         return this.photoWorkspace.getPhotos();
+
+    }
+
+    selectedPhotoIds() {
+
+        return this.photoWorkspace.getPhotos()
+            .filter(photo => photo?.selected)
+            .map(photo => photo.id);
 
     }
 

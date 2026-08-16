@@ -20,7 +20,10 @@ module.exports = (_env, argv = {}) => {
         os: 'commonjs2 os'
     },
     resolve: {
-        extensions: [".js", ".jsx"]
+        extensions: [".js", ".jsx"],
+        alias: {
+            buffer: path.resolve(__dirname, "src/utils/JpegBuffer.js")
+        }
     },
     module: {
         rules: [
@@ -64,10 +67,11 @@ module.exports = (_env, argv = {}) => {
         hints: "error",
         // ALB-070 Slice 2 admits only the measured synthetic feasibility
         // diagnostic: 68 WASM bytes plus its bounded loader/report code. The
-        // 562 KiB ceiling is 2 KiB above Slice 1 and still excludes production
+        // 566 KiB ceiling admits the measured diagnostic on the current main
+        // bundle and still excludes production
         // model/runtime assets pending the Slice 3 ADR and licensing gate.
-        maxAssetSize: 562 * 1024,
-        maxEntrypointSize: 562 * 1024
+        maxAssetSize: 566 * 1024,
+        maxEntrypointSize: 566 * 1024
     }
     };
 };

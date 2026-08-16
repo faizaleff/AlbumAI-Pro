@@ -1,8 +1,8 @@
 # ALB-070 — UXP WebAssembly Feasibility Report
 
-Status: **macOS RUNTIME PASS WITH MEMORY LIMITATION — WINDOWS PENDING**
+Status: **HOST EXECUTION PASS — QUANTITATIVE MEMORY EVIDENCE INCOMPLETE**
 
-Baseline: **`main` at `20241ee`**
+Baseline: **`main` at `609079d`**
 
 Tracking: **GitHub issue #14, Slice 2**
 
@@ -50,14 +50,14 @@ Production bundle measurement:
 
 | Measurement | Bytes |
 | --- | ---: |
-| Slice 1 `dist/index.js` | 567,866 |
-| Slice 2 `dist/index.js` | 574,336 |
-| Synthetic diagnostic increment | 6,470 (1.139%) |
-| Slice 2 ceiling | 575,488 (562 KiB) |
-| Remaining headroom | 1,152 |
-| Slice 1 reproducible release ZIP | 161,213 |
-| Slice 2 reproducible release ZIP | 162,847 |
-| Release ZIP increment | 1,634 (1.014%) |
+| Current `main` `dist/index.js` | 571,588 |
+| Slice 2 `dist/index.js` | 578,058 |
+| Synthetic diagnostic increment | 6,470 (1.132%) |
+| Slice 2 ceiling | 579,584 (566 KiB) |
+| Remaining headroom | 1,526 |
+| Current `main` reproducible release ZIP | 160,095 |
+| Slice 2 reproducible release ZIP | 161,760 |
+| Release ZIP increment | 1,665 (1.040%) |
 
 This narrow increase does not admit a production runtime or model asset.
 
@@ -105,6 +105,32 @@ Photoshop caches are confounding factors. The probe releases its own
 references, but host memory reclamation remains **INCONCLUSIVE** rather than a
 confirmed leak or a confirmed reclamation result.
 
+## Windows runtime evidence
+
+Host: Photoshop 27.9.1 (Debug) on Windows, loaded from the production `dist`
+build through UXP Developer Tools on 2026-08-15.
+
+| Check | Observed result |
+| --- | --- |
+| Production build / plugin load | PASS; webpack 5.109.2, zero warnings |
+| Capability / module validation | PASS |
+| Synchronous module instantiation | PASS |
+| Synthetic score | `0.5` |
+| Warm runs | 10 |
+| WASM memory per run | 65,536 bytes (one fixed page) |
+| Publication | `publishable: false` |
+| Retained WASM references | `false` |
+| Photoshop documents opened by probe | 0 |
+| Explicit cancellation | `LIMITATION`, reason `CANCELLED`; `cancellationObserved: true` |
+| Repeated execution | 20 / 20 PASS; 0 Photoshop documents; 65,536-byte WASM memory |
+
+The recorded Windows summary does not include the returned preprocessing,
+cold-instantiation, first-inference, or warm-inference timing values. It also
+does not include the required host-process memory before, peak, idle, and
+post-unload observations. As on macOS, `retainedWasmReferences: false` proves
+only that the diagnostic does not retain its own references; host memory
+reclamation remains **INCONCLUSIVE**.
+
 ## Photoshop/UXP procedure
 
 Use a disposable AlbumAI Pro development install. Do not open a user project
@@ -138,11 +164,12 @@ or user photo folder for this procedure.
 | Host | Status | Required evidence |
 | --- | --- | --- |
 | macOS Photoshop/UXP | PASS_WITH_MEMORY_LIMITATION | Production load, bounded report, cold/warm latency, unchanged document count, repeated-run memory observation, and cancellation completed. Host memory reclamation remains inconclusive. |
-| Windows Photoshop/UXP | PENDING | Production load, bounded report, cold/warm latency, unchanged document count, repeated-run memory observation, cancellation |
+| Windows Photoshop/UXP | PASS_WITH_EVIDENCE_LIMITATION | Production load, bounded execution, unchanged document count, cancellation, and 20 repeated runs completed. Exact timing fields and host-process repeated-run memory observations remain to be recorded. |
 
 ## Decision rule
 
-Slice 2 remains `PENDING` until the Windows host row has evidence and Slice 3
-records `PASS`, `LIMITATION`, or `FAIL` for host support, concurrency, package,
-latency, and memory budgets. No production model or AI UI may proceed from
-Node harness results alone.
+Slice 2 has real-host execution evidence on macOS and Windows, but remains
+`PENDING` until the missing Windows timing and host-process memory observations
+are recorded. Slice 3 must then record `PASS`, `LIMITATION`, or `FAIL` for host
+support, concurrency, package, latency, and memory budgets. No production model
+or AI UI may proceed from synthetic probe results alone.

@@ -87,8 +87,8 @@ async function run() {
             error => error.code === "PROJECT_METADATA_INVALID" && error.diagnostic.field === "id"
         );
         assert.throws(
-            () => service.validateMetadata(metadata({ schemaVersion: 2 })),
-            error => error.code === "PROJECT_SCHEMA_INCOMPATIBLE" && error.diagnostic.schemaVersion === 2
+            () => service.validateMetadata(metadata({ schemaVersion: 3 })),
+            error => error.code === "PROJECT_SCHEMA_INCOMPATIBLE" && error.diagnostic.schemaVersion === 3
         );
 
         const engine = new ProjectEngine();
@@ -114,7 +114,10 @@ async function run() {
         const recovered = await projectService().readMetadata(primary, root);
         assert.strictEqual(recovered.name, "Recovered");
         assert.deepStrictEqual(JSON.parse((await root.getEntry("project.json")).content), recovered);
-        assert.deepStrictEqual(JSON.parse((await root.getEntry("project.json.bak")).content), recovered);
+        assert.strictEqual(
+            JSON.parse((await root.getEntry("project.json.bak")).content).schemaVersion,
+            1
+        );
     });
 
     await test("newer primary project schema never rolls back to an older backup", async () => {

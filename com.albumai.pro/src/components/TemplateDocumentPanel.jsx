@@ -1003,6 +1003,9 @@ export default function TemplateDocumentPanel({
     getCurrentBatchProgress,
     getCurrentExecutionLifecycle,
     executeProject,
+    albumSheetForRender = null,
+    createAlbumSheetRenderRequest,
+    executeAlbumSheetRenderRequest,
     resumeProjectBatch,
     retryFailedTemplates,
     clearRecoveryState,
@@ -1863,6 +1866,70 @@ export default function TemplateDocumentPanel({
 
     }
 
+    async function executeAlbumSheetRender() {
+
+        if (!albumSheetForRender?.id ||
+            typeof createAlbumSheetRenderRequest !== "function" ||
+            typeof executeAlbumSheetRenderRequest !== "function") return;
+
+        try {
+
+            setRegistryError(null);
+            const created = createAlbumSheetRenderRequest(albumSheetForRender.id);
+
+            if (!created?.accepted) {
+                setRegistryError(
+                    created?.reasonCodes?.join(", ") ||
+                    "The selected Album Sheet is not ready to render."
+                );
+                return;
+            }
+
+            const summary = await executeAlbumSheetRenderRequest(
+                created.request,
+                nextSummary => {
+                    setProjectExecutionSummary(nextSummary);
+                    refreshRecoveryState();
+                }
+            );
+
+            const gateFeedback = executionGateFeedback(summary);
+            if (gateFeedback) {
+                setRegistryError(gateFeedback);
+                refreshRegisteredTemplates();
+                refreshRegistryPreflightState();
+                setProjectExecutionSummary(
+                    getCurrentProjectExecutionSummary?.() || null
+                );
+                return;
+            }
+
+            setProjectExecutionSummary(
+                summary || getCurrentProjectExecutionSummary?.() || null
+            );
+            setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
+            setExportResult(getCurrentExportResult?.() || null);
+            refreshRecoveryState();
+
+        } catch (error) {
+
+            const reasonCodes = Array.isArray(error?.reasonCodes)
+                ? error.reasonCodes.join(", ")
+                : null;
+            setRegistryError(
+                reasonCodes || error?.message || "The selected Album Sheet could not be rendered."
+            );
+            setProjectExecutionSummary(
+                getCurrentProjectExecutionSummary?.() || null
+            );
+            setAutoSaveResult(getCurrentAutoSaveResult?.() || null);
+            setExportResult(getCurrentExportResult?.() || null);
+            refreshRecoveryState();
+
+        }
+
+    }
+
     async function executeRecoveryAction(action) {
         if (typeof action !== "function" || isExecuting) return;
         try {
@@ -1913,6 +1980,7 @@ export default function TemplateDocumentPanel({
     return (
 
         <section
+            className="template-workspace-section"
             style={{
                 marginBottom: 15,
                 padding: 12,
@@ -1921,8 +1989,9 @@ export default function TemplateDocumentPanel({
             }}
         >
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <div className="template-workspace-content">
+                <div className="template-setup-row">
+                    <div className="template-action-group">
 
                 <UxpDropdown
                     value={selectedName}
@@ -1943,13 +2012,16 @@ export default function TemplateDocumentPanel({
                 >
                     Open PSD
                 </button>
-
+                    </div>
+                    <div className="template-action-group">
                 <button
                     onClick={planPlacement}
                     disabled={isExecuting || !hasProject || !document}
                 >
                     Plan Placement
                 </button>
+                    </div>
+                    <div className="template-action-group">
                 <button
                     onClick={addCurrentPsd}
                     disabled={registryLocked || !hasProject || !selectedName}
@@ -1971,6 +2043,7 @@ export default function TemplateDocumentPanel({
                 >
                     {revalidateBusy ? "Revalidating…" : "Revalidate Templates"}
                 </button>
+                    </div>
                 </div>
 
                 <div style={{ fontSize: 12, color: registryBlocked ? "#ffcc88" : "#9ee6a5" }}>
@@ -1990,6 +2063,7 @@ export default function TemplateDocumentPanel({
 
                 <div
                     ref={templateListRef}
+                    className="template-registry-scroll"
                     aria-label="Registered project templates in batch execution order"
                     style={{ display: "flex", flexDirection: "column", gap: 4 }}
                 >
@@ -2068,7 +2142,8 @@ export default function TemplateDocumentPanel({
                     })}
                 </div>
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                <div className="template-execution-row">
+                    <div className="template-action-group">
                 <button
                     onClick={buildExecutionPlan}
                     disabled={isExecuting || !hasProject || !placementPlan}
@@ -2094,7 +2169,8 @@ export default function TemplateDocumentPanel({
                 >
                     {isExecuting ? "Replacing…" : "Replace All"}
                 </button>
-
+                    </div>
+                    <div className="template-action-group template-action-group--primary">
                 <button
                     onClick={executeProjectRequest}
                     disabled={!canProcessProject({
@@ -2106,6 +2182,19 @@ export default function TemplateDocumentPanel({
                 >
                     {isExecuting ? "Processing…" : "Process Project"}
                 </button>
+                {albumSheetForRender?.id && (
+                    <button
+                        className="template-render-sheet-button"
+                        onClick={executeAlbumSheetRender}
+                        disabled={isExecuting || !hasProject}
+                        title="Render only this Album Sheet using the current selected photos."
+                    >
+                        {isExecuting
+                            ? "Rendering…"
+                            : `Render Sheet: ${albumSheetForRender.label || albumSheetForRender.id}`}
+                    </button>
+                )}
+                    </div>
                 </div>
 
                 <BatchProgressPanel
@@ -2114,7 +2203,8 @@ export default function TemplateDocumentPanel({
                     recoveryOutput={recoveryState?.outputRecovery || null}
                 />
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                <div className="template-output-row">
+                    <div className="template-action-group">
                 <label style={{ fontSize: 12 }}>
                     <input
                         type="checkbox"
@@ -2145,7 +2235,8 @@ export default function TemplateDocumentPanel({
                         Overwrite Original is non-reversible. Cancellation cannot restore the prior PSD after the host save commits.
                     </span>
                 )}
-
+                    </div>
+                    <div className="template-action-group">
                 <label style={{ fontSize: 12 }}>
                     <input
                         type="checkbox"
@@ -2171,6 +2262,7 @@ export default function TemplateDocumentPanel({
                     ariaLabel="Export format"
                     title="Export format"
                 />
+                    </div>
                 </div>
             </div>
 
