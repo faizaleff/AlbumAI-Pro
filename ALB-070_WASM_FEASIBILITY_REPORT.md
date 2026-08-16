@@ -56,15 +56,15 @@ Production bundle measurement:
 | Pre-Slice 2 `main` `dist/index.js` | 571,588 |
 | Merged Slice 2 `dist/index.js` | 578,058 |
 | Synthetic diagnostic increment | 6,470 (1.132%) |
-| Slice 3 bounded series `dist/index.js` | 580,521 |
-| Bounded series increment over Slice 2 | 2,463 (0.426%) |
+| Slice 3 bounded series `dist/index.js` | 580,523 |
+| Bounded series increment over Slice 2 | 2,465 (0.426%) |
 | Slice 3 ceiling | 581,632 (568 KiB) |
-| Remaining headroom | 1,111 |
+| Remaining headroom | 1,109 |
 | Pre-Slice 2 `main` reproducible release ZIP | 160,095 |
 | Merged Slice 2 reproducible release ZIP | 161,760 |
 | Release ZIP increment | 1,665 (1.040%) |
-| Slice 3 reproducible release ZIP | 162,362 |
-| Bounded series ZIP increment over Slice 2 | 602 (0.372%) |
+| Slice 3 reproducible release ZIP | 162,363 |
+| Bounded series ZIP increment over Slice 2 | 603 (0.373%) |
 
 The Slice 3 package measurement is recorded after package verification below.
 These narrow increases do not admit a production runtime or model asset.

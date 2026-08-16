@@ -57,7 +57,7 @@ serialization, and the production-reachable developer hook. Full repository
 tests, architecture checks, production build, and package verification are
 required before review.
 
-The measured production bundle is 580,521 bytes. The fail-on-warning ceiling
-is narrowly raised by 2 KiB, from 566 KiB to 568 KiB, leaving 1,111 bytes of
-headroom. The reproducible release ZIP is 162,362 bytes, a 602-byte increase
+The measured production bundle is 580,523 bytes. The fail-on-warning ceiling
+is narrowly raised by 2 KiB, from 566 KiB to 568 KiB, leaving 1,109 bytes of
+headroom. The reproducible release ZIP is 162,363 bytes, a 603-byte increase
 over Slice 2. This does not admit a production runtime or model asset.
