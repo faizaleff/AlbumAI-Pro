@@ -65,12 +65,10 @@ module.exports = (_env, argv = {}) => {
     ],
     performance: {
         hints: "error",
-        // ALB-070 admits only the measured synthetic feasibility diagnostic:
-        // 68 WASM bytes plus its bounded loader/report and 20-run series code.
-        // The 568 KiB ceiling still excludes production model/runtime assets
-        // pending the Slice 3 ADR and licensing gate.
-        maxAssetSize: 568 * 1024,
-        maxEntrypointSize: 568 * 1024
+        // ALB-071 incorporates local heuristic photo quality signals (sharpness, exposure, contrast)
+        // and burst/event grouping engines into the production bundle.
+        maxAssetSize: 575 * 1024,
+        maxEntrypointSize: 575 * 1024
     }
     };
 };

@@ -50,6 +50,7 @@ const PHOTO_RATING_FILTER_OPTIONS = Object.freeze([
 
 const PHOTO_SORT_OPTIONS = Object.freeze([
     Object.freeze({ value: "name", label: "Name" }),
+    Object.freeze({ value: "quality", label: "Quality (AI)" }),
     Object.freeze({ value: "modified", label: "Date Modified" }),
     Object.freeze({ value: "taken", label: "Date Taken" }),
     Object.freeze({ value: "created", label: "Date Created" }),

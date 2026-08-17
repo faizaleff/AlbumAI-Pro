@@ -7,7 +7,8 @@ const SORT_FIELDS = new Set([
     "taken",
     "created",
     "rating",
-    "size"
+    "size",
+    "quality"
 ]);
 const ORIENTATIONS = new Set([
     "landscape",
@@ -272,6 +273,10 @@ function nameComparison(left, right) {
 function sortValue(photo, field, decisionsByKey) {
     if (field === "rating") {
         return effectivePhotoDecision(photo, decisionsByKey).rating;
+    }
+    if (field === "quality") {
+        const quality = photo?.aiAnalysis?.aggregate?.rankScore ?? photo?.qualityScore;
+        return typeof quality === "number" && Number.isFinite(quality) ? quality : null;
     }
     if (field === "size") {
         const size = Number(photo?.fileSize || photo?.file?.size);

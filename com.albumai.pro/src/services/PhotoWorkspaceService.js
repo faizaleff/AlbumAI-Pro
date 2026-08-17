@@ -23,9 +23,19 @@ import {
     reconcilePhotoDuplicateEvidence
 } from "./PhotoDuplicateModel";
 import {
+    grantLocalPhotoAiConsent,
     normalizePhotoAiAnalysis,
-    normalizePhotoAiConsent
+    normalizePhotoAiConsent,
+    revokePhotoAiConsent
 } from "./PhotoAiPolicy";
+import {
+    buildPhotoGroupIndex,
+    groupPhotosByBurst,
+    groupPhotosByEvent
+} from "./PhotoGroupingEngine";
+import {
+    derivePhotoQualityAnalysis
+} from "./PhotoQualitySignalEngine";
 
 const METADATA_FILE = "photos.json";
 const INITIAL_VISIBLE_PHOTOS = 30;
@@ -883,6 +893,44 @@ export default class PhotoWorkspaceService {
             });
         }
         return this.photoAiPolicyState;
+
+    }
+
+    async setPhotoAiConsent({ disclosureVersion = "disclosure-v1.0", enabled = true } = {}) {
+
+        this.requireProject();
+        const consent = enabled
+            ? grantLocalPhotoAiConsent({
+                disclosureVersion,
+                consentedAt: new Date().toISOString()
+            })
+            : revokePhotoAiConsent();
+        await this.projectService.saveProject({
+            photoAiConsent: consent
+        });
+        this.photoAiProjectId = null;
+        return this.getPhotoAiPolicyState().consent;
+
+    }
+
+    getPhotoGroupIndex(options = {}) {
+
+        const photos = this.library.getPhotos();
+        return buildPhotoGroupIndex(photos, options);
+
+    }
+
+    getPhotoBursts(burstThresholdMs) {
+
+        const photos = this.library.getPhotos();
+        return groupPhotosByBurst(photos, burstThresholdMs);
+
+    }
+
+    getPhotoEvents(eventGapThresholdMs) {
+
+        const photos = this.library.getPhotos();
+        return groupPhotosByEvent(photos, eventGapThresholdMs);
 
     }
 
