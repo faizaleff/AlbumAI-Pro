@@ -70,18 +70,23 @@ export function createAlbumSheetRenderRequest({
         ]);
     }
 
-    return accepted({
-        schemaVersion: ALBUM_SHEET_RENDER_REQUEST_SCHEMA_VERSION,
-        projectId,
-        sheet: Object.freeze({
-            id: sheet.id,
-            templateId: sheet.templateId,
-            label: sheet.label || ""
-        }),
-        template: templateSnapshot(resolved, registry),
-        selectedPhotoIds: selected.photoIds
-    });
-}
+        const assignedPhotoIds = Array.isArray(sheet.slots) && sheet.slots.length > 0
+            ? sheet.slots.map(s => s.photoId)
+            : null;
+
+        return accepted({
+            schemaVersion: ALBUM_SHEET_RENDER_REQUEST_SCHEMA_VERSION,
+            projectId,
+            sheet: Object.freeze({
+                id: sheet.id,
+                templateId: sheet.templateId,
+                label: sheet.label || "",
+                slots: Array.isArray(sheet.slots) ? Object.freeze([...sheet.slots]) : Object.freeze([])
+            }),
+            template: templateSnapshot(resolved, registry),
+            selectedPhotoIds: assignedPhotoIds && assignedPhotoIds.length > 0 ? assignedPhotoIds : selected.photoIds
+        });
+    }
 
 /**
  * Rebuild the detached request from current canonical facts.  Execution must

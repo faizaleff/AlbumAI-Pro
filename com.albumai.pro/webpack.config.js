@@ -65,10 +65,10 @@ module.exports = (_env, argv = {}) => {
     ],
     performance: {
         hints: "error",
-        // ALB-071 and ALB-072 incorporate local heuristic photo quality signals,
-        // burst/event grouping engines, and side-by-side comparison modal into the production bundle.
-        maxAssetSize: 600 * 1024,
-        maxEntrypointSize: 600 * 1024
+        // ALB-071, ALB-072, and ALB-081 incorporate local AI signals, culling modal,
+        // live spread canvas, and sheet storyboard strip into the production bundle.
+        maxAssetSize: 615 * 1024,
+        maxEntrypointSize: 615 * 1024
     }
     };
 };

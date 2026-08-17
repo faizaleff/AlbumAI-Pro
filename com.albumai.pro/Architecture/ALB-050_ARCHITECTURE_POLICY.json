@@ -18,6 +18,8 @@
     "src/components/PhotoImage.jsx",
     "src/components/PreviewPanel.jsx",
     "src/components/SelectionCount.jsx",
+    "src/components/SheetStoryboardStrip.jsx",
+    "src/components/SpreadCanvas.jsx",
     "src/components/TemplateDocumentPanel.jsx",
     "src/components/ThumbnailCard.jsx",
     "src/components/ThumbnailGrid.jsx",

@@ -36,7 +36,11 @@ export const AlbumSheetMutationIntent = Object.freeze({
     RENAME: "RENAME",
     MOVE: "MOVE",
     DUPLICATE: "DUPLICATE",
-    RESTORE: "RESTORE"
+    RESTORE: "RESTORE",
+    ASSIGN_SLOT: "ASSIGN_SLOT",
+    UNASSIGN_SLOT: "UNASSIGN_SLOT",
+    SWAP_SLOTS: "SWAP_SLOTS",
+    SET_SLOT_CROP: "SET_SLOT_CROP"
 });
 
 export const AlbumSheetMutationReason = Object.freeze({
@@ -55,7 +59,7 @@ const MAX_IDENTIFIER_LENGTH = 120;
 const MAX_LABEL_LENGTH = 160;
 const MAX_HISTORY_SNAPSHOTS = 20;
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
-const SHEET_FIELDS = new Set(["id", "templateId", "label"]);
+const SHEET_FIELDS = new Set(["id", "templateId", "label", "slots"]);
 
 export function createEmptyAlbum() {
 
@@ -305,6 +309,117 @@ export function applyAlbumSheetMutation(album, mutation, options = {}) {
             break;
         }
 
+        case AlbumSheetMutationIntent.ASSIGN_SLOT: {
+            if (sheetIndex < 0) {
+                return mutationRejected([AlbumSheetMutationReason.SHEET_NOT_FOUND], inspected.album);
+            }
+            if (mutation.slotId == null || mutation.photoId == null) {
+                return mutationRejected([AlbumSheetMutationReason.INVALID_MUTATION], inspected.album);
+            }
+            const targetSheet = sheets[sheetIndex];
+            const slotId = typeof mutation.slotId === "number" ? mutation.slotId : String(mutation.slotId);
+            const photoId = String(mutation.photoId);
+            const cropFocus = typeof mutation.cropFocus === "string" &&
+                ["center", "top", "bottom", "left", "right"].includes(mutation.cropFocus)
+                ? mutation.cropFocus
+                : "center";
+            const currentSlots = Array.isArray(targetSheet.slots) ? targetSheet.slots : [];
+            const remaining = currentSlots.filter(s => String(s.slotId) !== String(slotId));
+            const nextSlotList = [...remaining, { slotId, photoId, cropFocus }];
+            const candidate = inspectSheet({
+                ...targetSheet,
+                slots: nextSlotList
+            }, new Set());
+            if (!candidate.valid) {
+                return mutationRejected(candidate.reasonCodes, inspected.album);
+            }
+            nextSheets = sheets.map((sheet, index) => index === sheetIndex ? candidate.sheet : sheet);
+            break;
+        }
+
+        case AlbumSheetMutationIntent.UNASSIGN_SLOT: {
+            if (sheetIndex < 0) {
+                return mutationRejected([AlbumSheetMutationReason.SHEET_NOT_FOUND], inspected.album);
+            }
+            const targetSheet = sheets[sheetIndex];
+            const currentSlots = Array.isArray(targetSheet.slots) ? targetSheet.slots : [];
+            const nextSlotList = currentSlots.filter(s => String(s.slotId) !== String(mutation.slotId));
+            if (nextSlotList.length === currentSlots.length) {
+                return mutationUnchanged(inspected.album);
+            }
+            const candidate = inspectSheet({
+                ...targetSheet,
+                slots: nextSlotList
+            }, new Set());
+            if (!candidate.valid) {
+                return mutationRejected(candidate.reasonCodes, inspected.album);
+            }
+            nextSheets = sheets.map((sheet, index) => index === sheetIndex ? candidate.sheet : sheet);
+            break;
+        }
+
+        case AlbumSheetMutationIntent.SWAP_SLOTS: {
+            if (sheetIndex < 0) {
+                return mutationRejected([AlbumSheetMutationReason.SHEET_NOT_FOUND], inspected.album);
+            }
+            const targetSheet = sheets[sheetIndex];
+            const currentSlots = Array.isArray(targetSheet.slots) ? targetSheet.slots : [];
+            const slotA = currentSlots.find(s => String(s.slotId) === String(mutation.slotIdA));
+            const slotB = currentSlots.find(s => String(s.slotId) === String(mutation.slotIdB));
+            if (!slotA && !slotB) {
+                return mutationUnchanged(inspected.album);
+            }
+            const remaining = currentSlots.filter(s =>
+                String(s.slotId) !== String(mutation.slotIdA) && String(s.slotId) !== String(mutation.slotIdB)
+            );
+            const nextSlotList = [...remaining];
+            if (slotA) {
+                nextSlotList.push({ ...slotA, slotId: mutation.slotIdB });
+            }
+            if (slotB) {
+                nextSlotList.push({ ...slotB, slotId: mutation.slotIdA });
+            }
+            const candidate = inspectSheet({
+                ...targetSheet,
+                slots: nextSlotList
+            }, new Set());
+            if (!candidate.valid) {
+                return mutationRejected(candidate.reasonCodes, inspected.album);
+            }
+            nextSheets = sheets.map((sheet, index) => index === sheetIndex ? candidate.sheet : sheet);
+            break;
+        }
+
+        case AlbumSheetMutationIntent.SET_SLOT_CROP: {
+            if (sheetIndex < 0) {
+                return mutationRejected([AlbumSheetMutationReason.SHEET_NOT_FOUND], inspected.album);
+            }
+            const targetSheet = sheets[sheetIndex];
+            const currentSlots = Array.isArray(targetSheet.slots) ? targetSheet.slots : [];
+            const targetSlot = currentSlots.find(s => String(s.slotId) === String(mutation.slotId));
+            if (!targetSlot) {
+                return mutationUnchanged(inspected.album);
+            }
+            const cropFocus = typeof mutation.cropFocus === "string" &&
+                ["center", "top", "bottom", "left", "right"].includes(mutation.cropFocus)
+                ? mutation.cropFocus
+                : "center";
+            if (targetSlot.cropFocus === cropFocus) {
+                return mutationUnchanged(inspected.album);
+            }
+            const remaining = currentSlots.filter(s => String(s.slotId) !== String(mutation.slotId));
+            const nextSlotList = [...remaining, { ...targetSlot, cropFocus }];
+            const candidate = inspectSheet({
+                ...targetSheet,
+                slots: nextSlotList
+            }, new Set());
+            if (!candidate.valid) {
+                return mutationRejected(candidate.reasonCodes, inspected.album);
+            }
+            nextSheets = sheets.map((sheet, index) => index === sheetIndex ? candidate.sheet : sheet);
+            break;
+        }
+
         case AlbumSheetMutationIntent.RESTORE: {
             const restored = inspectAlbum(mutation.album);
             if (restored.valid && albumsEqual(restored.album, inspected.album)) {
@@ -468,6 +583,23 @@ function inspectSheet(sheet, ids) {
         normalized.label = sheet.label.trim();
     }
 
+    if (Array.isArray(sheet.slots)) {
+        const validSlots = [];
+        for (const slot of sheet.slots) {
+            if (!isObject(slot) || slot.slotId == null || slot.photoId == null) continue;
+            const slotId = typeof slot.slotId === "number" ? slot.slotId : String(slot.slotId);
+            const photoId = String(slot.photoId);
+            const cropFocus = typeof slot.cropFocus === "string" &&
+                ["center", "top", "bottom", "left", "right"].includes(slot.cropFocus)
+                ? slot.cropFocus
+                : "center";
+            validSlots.push(Object.freeze({ slotId, photoId, cropFocus }));
+        }
+        if (validSlots.length > 0) {
+            normalized.slots = Object.freeze(validSlots);
+        }
+    }
+
     return Object.freeze({
         valid: true,
         reasonCodes: Object.freeze([]),
@@ -490,6 +622,17 @@ function isRegisteredTemplate(templateId, templateIds) {
 
 }
 
+function slotsEqual(left = [], right = []) {
+    const l = Array.isArray(left) ? left : [];
+    const r = Array.isArray(right) ? right : [];
+    if (l.length !== r.length) return false;
+    return l.every((slot, i) =>
+        String(slot.slotId) === String(r[i].slotId) &&
+        String(slot.photoId) === String(r[i].photoId) &&
+        String(slot.cropFocus || "center") === String(r[i].cropFocus || "center")
+    );
+}
+
 function albumsEqual(left, right) {
 
     return left.schemaVersion === right.schemaVersion &&
@@ -497,7 +640,8 @@ function albumsEqual(left, right) {
         left.sheets.every((sheet, index) =>
             sheet.id === right.sheets[index].id &&
             sheet.templateId === right.sheets[index].templateId &&
-            sheet.label === right.sheets[index].label
+            sheet.label === right.sheets[index].label &&
+            slotsEqual(sheet.slots, right.sheets[index].slots)
         );
 
 }

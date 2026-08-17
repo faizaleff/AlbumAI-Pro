@@ -9,6 +9,8 @@ import PhotoBrowserSection from "./PhotoBrowserSection";
 import PreviewPanel from "./PreviewPanel";
 import TemplateDocumentPanel from "./TemplateDocumentPanel";
 import SelectionCount from "./SelectionCount";
+import SpreadCanvas from "./SpreadCanvas";
+import SheetStoryboardStrip from "./SheetStoryboardStrip";
 import {
     AlbumSheetMutationIntent,
     createAlbumSheetHistory,
@@ -52,6 +54,7 @@ export default function OpenFolder() {
     const [albumDuplicateId, setAlbumDuplicateId] = useState("");
     const [albumMutationBusy, setAlbumMutationBusy] = useState(false);
     const [albumMutationError, setAlbumMutationError] = useState(null);
+    const [albumSheetRenderBusy, setAlbumSheetRenderBusy] = useState(false);
     const unavailableDiagnosticRef = useRef(null);
     const mountedRef = useRef(true);
     const photoFolderChangeAttemptRef = useRef(0);
@@ -67,6 +70,10 @@ export default function OpenFolder() {
     const registeredTemplates = App.getRegisteredProjectTemplates();
     const album = albumHistory?.present || project?.metadata?.album || null;
     const albumMutationLocked = App.isAlbumSheetMutationLocked();
+    const workspacePhotos = App.getPhotos();
+    const activeSheet = album?.sheets?.find(sheet => sheet.id === selectedAlbumSheetId) || album?.sheets?.[0] || null;
+    const activeTemplate = registeredTemplates.find(t => t.id === activeSheet?.templateId) || null;
+    const activeSelectedPhoto = App.selection.getSelected()[0] || null;
 
     useEffect(() => {
         setAlbumHistory(createAlbumSheetHistory(project?.metadata?.album));
@@ -661,6 +668,71 @@ export default function OpenFolder() {
 
     }
 
+    async function duplicateAlbumSheet(sheetId) {
+        const source = album?.sheets?.find(s => s.id === sheetId);
+        if (!source) return;
+        const newSheetId = `${sheetId}-copy-${Date.now().toString(36).slice(-4)}`;
+        await mutateAlbum({
+            intent: AlbumSheetMutationIntent.DUPLICATE,
+            sheetId,
+            newSheetId
+        });
+    }
+
+    async function assignAlbumSheetSlot(sheetId, slotId, photoId, cropFocus = "center") {
+        await mutateAlbum({
+            intent: AlbumSheetMutationIntent.ASSIGN_SLOT,
+            sheetId,
+            slotId,
+            photoId,
+            cropFocus
+        });
+    }
+
+    async function unassignAlbumSheetSlot(sheetId, slotId) {
+        await mutateAlbum({
+            intent: AlbumSheetMutationIntent.UNASSIGN_SLOT,
+            sheetId,
+            slotId
+        });
+    }
+
+    async function swapAlbumSheetSlots(sheetId, slotIdA, slotIdB) {
+        await mutateAlbum({
+            intent: AlbumSheetMutationIntent.SWAP_SLOTS,
+            sheetId,
+            slotIdA,
+            slotIdB
+        });
+    }
+
+    async function setAlbumSheetSlotCrop(sheetId, slotId, cropFocus) {
+        await mutateAlbum({
+            intent: AlbumSheetMutationIntent.SET_SLOT_CROP,
+            sheetId,
+            slotId,
+            cropFocus
+        });
+    }
+
+    async function renderAlbumSheet(sheetId) {
+        if (!sheetId || albumSheetRenderBusy) return;
+        setAlbumSheetRenderBusy(true);
+        setAlbumMutationError(null);
+        try {
+            const request = App.createAlbumSheetRenderRequest(sheetId);
+            if (!request.accepted) {
+                setAlbumMutationError(request.reasonCodes?.join(", ") || "Cannot render sheet.");
+                return;
+            }
+            await App.executeAlbumSheetRenderRequest(request.request);
+        } catch (error) {
+            setAlbumMutationError(error?.message || "Failed to render sheet.");
+        } finally {
+            setAlbumSheetRenderBusy(false);
+        }
+    }
+
     async function restoreAlbumHistory(operation) {
 
         if (!albumHistory || albumMutationBusy) return;
@@ -949,54 +1021,40 @@ export default function OpenFolder() {
                                     Album: {albumMutationError}
                                 </div>
                             )}
+
                             {!!album?.sheets?.length && (
                                 <>
-                                    <div className="album-sheet-list" style={{ marginTop: 8 }}>
-                                        {album.sheets.map((sheet, index) => {
-                                            const template = registeredTemplates.find(
-                                                candidate => candidate.id === sheet.templateId
-                                            );
-                                            const isSelected = selectedAlbumSheetId === sheet.id;
+                                    <SpreadCanvas
+                                        sheet={activeSheet}
+                                        template={activeTemplate}
+                                        photos={workspacePhotos}
+                                        selectedPhoto={activeSelectedPhoto}
+                                        onAssignSlot={assignAlbumSheetSlot}
+                                        onUnassignSlot={unassignAlbumSheetSlot}
+                                        onSwapSlots={swapAlbumSheetSlots}
+                                        onSetSlotCrop={setAlbumSheetSlotCrop}
+                                        onRenderSheet={renderAlbumSheet}
+                                        renderBusy={albumSheetRenderBusy}
+                                        disabled={albumMutationLocked || albumMutationBusy}
+                                    />
 
-                                            return (
-                                        <div key={sheet.id} className={`album-sheet-row${isSelected ? " is-selected" : ""}`}>
-                                            <div className="album-sheet-identity">
-                                                <span className="album-sheet-order">{index + 1}</span>
-                                                <span className="album-sheet-label">{sheet.label || sheet.id}</span>
-                                                <span className="album-sheet-template">{template?.name || sheet.templateId}</span>
-                                            </div>
-                                            <div className="album-sheet-actions">
-                                            <button
-                                                onClick={() => selectAlbumSheet(sheet)}
-                                                disabled={albumMutationLocked || albumMutationBusy}
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                onClick={() => moveAlbumSheet(sheet.id, index - 1)}
-                                                disabled={albumMutationLocked || albumMutationBusy || index === 0}
-                                                aria-label={`Move ${sheet.label || sheet.id} up`}
-                                            >
-                                                ↑
-                                            </button>
-                                            <button
-                                                onClick={() => moveAlbumSheet(sheet.id, index + 1)}
-                                                disabled={albumMutationLocked || albumMutationBusy || index === album.sheets.length - 1}
-                                                aria-label={`Move ${sheet.label || sheet.id} down`}
-                                            >
-                                                ↓
-                                            </button>
-                                            <button
-                                                onClick={() => removeAlbumSheet(sheet.id)}
-                                                disabled={albumMutationLocked || albumMutationBusy}
-                                            >
-                                                Remove
-                                            </button>
-                                            </div>
-                                        </div>
-                                            );
-                                        })}
-                                    </div>
+                                    <SheetStoryboardStrip
+                                        sheets={album?.sheets || []}
+                                        selectedSheetId={activeSheet?.id}
+                                        templates={registeredTemplates}
+                                        onSelectSheet={selectAlbumSheet}
+                                        onMoveSheet={moveAlbumSheet}
+                                        onDuplicateSheet={duplicateAlbumSheet}
+                                        onRemoveSheet={removeAlbumSheet}
+                                        onAddSheet={() => {
+                                            if (registeredTemplates.length > 0) {
+                                                const nextIndex = (album?.sheets?.length || 0) + 1;
+                                                setAlbumSheetId(`Sheet_${nextIndex}`);
+                                                setAlbumTemplateId(registeredTemplates[0].id);
+                                            }
+                                        }}
+                                        disabled={albumMutationLocked || albumMutationBusy}
+                                    />
 
                                     {!!selectedAlbumSheetId && (
                                         <div className="album-sheet-editor">

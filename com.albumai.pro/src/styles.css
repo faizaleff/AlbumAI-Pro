@@ -1133,3 +1133,444 @@ button.photo-browser-control:active:not(:disabled) {
     background: #444;
     color: #fff;
 }
+
+/* ALB-081 Spread Canvas & Storyboard Styles */
+.spread-canvas-container {
+    background: #202020;
+    border: 1px solid #3c3c3c;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 14px;
+}
+
+.spread-canvas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.spread-canvas-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.spread-sheet-title {
+    margin: 0;
+    font-size: 14px;
+    color: #fff;
+}
+
+.spread-template-badge {
+    font-size: 10px;
+    background: #2e3b4e;
+    color: #79b8ff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid #3f5573;
+}
+
+.spread-fill-badge {
+    font-size: 10px;
+    color: #aaa;
+    background: #2a2a2a;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.spread-render-btn {
+    background: #238636;
+    border: 1px solid #2ea043;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 100ms ease;
+}
+
+.spread-render-btn:hover:not(:disabled) {
+    background: #2ea043;
+}
+
+.spread-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.spread-slot-card {
+    background: #282828;
+    border: 2px dashed #484848;
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    transition: all 120ms ease;
+    box-sizing: border-box;
+}
+
+.spread-slot-card.has-photo {
+    border-style: solid;
+    border-color: #3b506b;
+    background: #222a33;
+}
+
+.spread-slot-card.is-drag-over {
+    border-color: #58a6ff;
+    background: #1f364d;
+    box-shadow: 0 0 10px rgba(88, 166, 255, 0.4);
+    transform: scale(1.02);
+}
+
+.spread-slot-card.is-swap-source {
+    border-color: #f1e05a;
+    box-shadow: 0 0 8px rgba(241, 224, 90, 0.4);
+}
+
+.spread-slot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 11px;
+}
+
+.spread-slot-name {
+    color: #ccc;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+
+.spread-slot-crop-btn {
+    background: #333;
+    border: 1px solid #4a4a4a;
+    color: #bbb;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.spread-slot-crop-btn:hover:not(:disabled) {
+    background: #444;
+    color: #fff;
+}
+
+.spread-slot-preview-box {
+    height: 120px;
+    background: #1a1a1a;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 6px;
+    position: relative;
+}
+
+.spread-slot-image-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.spread-slot-image-wrapper.crop-focus-top img {
+    object-position: top;
+}
+
+.spread-slot-image-wrapper.crop-focus-bottom img {
+    object-position: bottom;
+}
+
+.spread-slot-image-wrapper.crop-focus-left img {
+    object-position: left;
+}
+
+.spread-slot-image-wrapper.crop-focus-right img {
+    object-position: right;
+}
+
+.spread-slot-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: #666;
+    font-size: 10px;
+}
+
+.placeholder-icon {
+    font-size: 20px;
+}
+
+.spread-slot-assign-btn {
+    margin-top: 4px;
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #58a6ff;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.spread-slot-assign-btn:hover:not(:disabled) {
+    background: #30363d;
+}
+
+.spread-slot-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    min-height: 20px;
+}
+
+.spread-slot-photo-name {
+    color: #ddd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90px;
+}
+
+.spread-slot-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.spread-slot-action-btn {
+    background: #333;
+    border: 1px solid #444;
+    color: #ccc;
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.spread-slot-action-btn.active {
+    background: #1f6feb;
+    border-color: #58a6ff;
+    color: #fff;
+}
+
+.spread-slot-action-btn.danger:hover {
+    background: #da3633;
+    border-color: #f85149;
+    color: #fff;
+}
+
+.spread-slot-status-empty {
+    color: #777;
+    font-size: 9px;
+}
+
+/* Sheet Storyboard Strip Styles */
+.storyboard-strip-container {
+    background: #242424;
+    border: 1px solid #383838;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 12px;
+}
+
+.storyboard-strip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.storyboard-title-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.storyboard-sheet-count {
+    color: #888;
+    font-size: 11px;
+}
+
+.storyboard-scroll-track {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+}
+
+.storyboard-card {
+    flex: 0 0 130px;
+    background: #1f1f1f;
+    border: 2px solid #383838;
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 120ms ease;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.storyboard-card:hover {
+    background: #2a2a2a;
+    border-color: #505050;
+}
+
+.storyboard-card.is-selected {
+    border-color: #2680eb;
+    background: #1c2a38;
+    box-shadow: 0 0 8px rgba(38, 128, 235, 0.3);
+}
+
+.storyboard-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.storyboard-sheet-number {
+    font-size: 11px;
+    font-weight: 600;
+    color: #eee;
+}
+
+.storyboard-fill-pill {
+    font-size: 9px;
+    background: #333;
+    color: #888;
+    padding: 1px 5px;
+    border-radius: 8px;
+}
+
+.storyboard-fill-pill.is-full {
+    background: #238636;
+    color: #fff;
+    font-weight: 600;
+}
+
+.storyboard-fill-pill.is-partial {
+    background: #9e6a03;
+    color: #fff;
+}
+
+.storyboard-mini-spread {
+    height: 48px;
+    background: #141414;
+    border: 1px solid #2d2d2d;
+    border-radius: 3px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20px, 1fr));
+    gap: 3px;
+    padding: 4px;
+    margin-bottom: 6px;
+}
+
+.mini-slot {
+    background: #282828;
+    border: 1px dashed #444;
+    border-radius: 2px;
+}
+
+.mini-slot.filled {
+    background: #388bfd;
+    border-style: solid;
+    border-color: #58a6ff;
+}
+
+.storyboard-card-info {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 6px;
+}
+
+.storyboard-sheet-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #ddd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.storyboard-template-name {
+    font-size: 9px;
+    color: #777;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.storyboard-card-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 2px;
+    border-top: 1px solid #2c2c2c;
+    padding-top: 4px;
+}
+
+.storyboard-action-btn {
+    flex: 1;
+    background: #2a2a2a;
+    border: 1px solid #3c3c3c;
+    color: #aaa;
+    font-size: 9px;
+    padding: 2px;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.storyboard-action-btn:hover:not(:disabled) {
+    background: #383838;
+    color: #fff;
+}
+
+.storyboard-action-btn.danger:hover:not(:disabled) {
+    background: #da3633;
+    color: #fff;
+}
+
+.storyboard-add-card {
+    flex: 0 0 90px;
+    background: #1a1a1a;
+    border: 2px dashed #383838;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: #777;
+    cursor: pointer;
+    transition: all 120ms ease;
+}
+
+.storyboard-add-card:hover:not(:disabled) {
+    border-color: #58a6ff;
+    color: #58a6ff;
+    background: #1a2330;
+}
+
+.add-icon {
+    font-size: 18px;
+}
+
+.add-text {
+    font-size: 10px;
+}
+

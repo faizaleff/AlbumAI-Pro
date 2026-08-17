@@ -49,9 +49,22 @@ function ThumbnailCard({
         </div>
     );
 
+    const handleDragStart = useCallback(event => {
+        if (!photo?.id) return;
+        event.dataTransfer.setData("application/json", JSON.stringify({
+            type: "ALBUMAI_PHOTO",
+            photoId: photo.id,
+            photoName: photo.name
+        }));
+        event.dataTransfer.setData("text/plain", String(photo.id));
+        event.dataTransfer.effectAllowed = "copy";
+    }, [photo]);
+
     return (
         <div
             onClick={handleClick}
+            draggable={true}
+            onDragStart={handleDragStart}
             className={`photo-thumbnail-card${selected ? " is-selected" : ""}`}
             role="option"
             aria-selected={selected}
@@ -59,7 +72,7 @@ function ThumbnailCard({
             style={{
                 width: "100%",
                 height: "100%",
-                cursor: "pointer",
+                cursor: "grab",
                 userSelect: "none",
                 overflow: "hidden",
                 borderRadius: compact ? 5 : 8
