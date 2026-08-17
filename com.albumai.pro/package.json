@@ -24,6 +24,7 @@
     "build": "npm run build:prod",
     "build:dev": "webpack --mode development",
     "build:prod": "webpack --mode production --fail-on-warnings",
+    "package": "npm run package:release",
     "package:release": "npm run build:prod && node scripts/release-package.js",
     "package:verify": "node scripts/verify-release-package.js",
     "uxp:load": "cd dist && uxp plugin load",

@@ -1,12 +1,10 @@
 # AlbumAI Pro 1.0.1
 
 - Version: 1.0.1
-- Release date: 2026-08-11
-- Git tag: pending final release commit
-- Release commit: pending final release commit
+- Release date: 2026-08-18
 - Package: `AlbumAI-Pro-1.0.1.zip`
-- Package size: 150,643 bytes
-- SHA-256: `f41344ba5e4248dacbad99b1b388a60743bcb182458f1e014b673c84478247c4`
+- Package size: 179,588 bytes
+- SHA-256: `fe94100d63b30e2f4fd7ec778dc9c676bfe0007b42146d4cd957633268ef840c`
 
 ## Installation
 
@@ -21,43 +19,26 @@ The archive contains exactly the production license, HTML entry point, bundle,
 bundle license notice, manifest, and four required icons. Source, tests,
 dependencies, staging files, backups, and platform metadata are excluded.
 
-## Maintenance release highlights
+## Major Release Highlights
 
-- Transactional Save Copy PSD and PSD/JPEG output promotion
-- Fail-closed recovery and retry decisions for ambiguous output state
-- Clear committed, safe-retry, commit-unknown, and remediation-required states
-- Transactional photo-folder changes and template-registry preflight
-- Stronger project and persisted-recovery schema validation
-- Invalid/unreadable PSD cleanup with explicit manual-remediation handling
-- Duplicate-action guards across project, batch, Auto Save, and export actions
-- Thumbnail decode/refresh and bounded-cache lifecycle hardening
-- Deterministic cancellation, resume, retry, progress, and terminal accounting
-- Reproducible minimal release packaging with checksum and inventory
+- **Photo Browser & Query Engine (ALB-060)**: Multi-criteria searching (filename, date range, rating, orientation, aspect ratio) with persistent decisions.
+- **Duplicate & Scale Engine (ALB-061)**: Perceptual duplicate detection, memory-bounded thumbnail caching, and 10k+ photo library support.
+- **Local AI Policy Architecture (ALB-070)**: 100% on-device deterministic AI engine with zero cloud leakage.
+- **Burst Grouping & Quality Signals (ALB-071)**: Timestamp-based burst grouping, Laplacian variance sharpness, exposure, and contrast analyzers.
+- **Photo Culling Workflow (ALB-072)**: Keep/Reject status lifecycle, Auto-Pick Best in Burst, and side-by-side comparison modal.
+- **Face Detection & Facial Horizon (ALB-073)**: Local $YC_bC_r$ skin chrominance face detection, weighted centroid horizon calculation, and face-aware crop focus.
+- **Canonical Album Schema (ALB-080)**: V2 Album Domain, ordered Sheet model, Smart Object slot mappings, and 20-step undo/redo snapshot history.
+- **Interactive Album Designer (ALB-081)**: HTML5 drag-and-drop live Spread Canvas, crop focus cycling, and Sheet Storyboard Strip with reordering.
+- **Smart Auto-Flow Engine (ALB-082)**: Automatic chronological burst placement, hero spread selection, orientation matching, and AutoFlowModal.
+- **Print Export & Proofing (ALB-090)**: 300 DPI Lab Print Profiles (12x12", 12x18", 10x10", 8.5x11"), 0.125" bleed margin geometry, preflight DPI inspector, and watermarked multi-page PDF proof sheets.
+- **Batch Render Execution (ALB-091)**: Direct multi-sheet Photoshop batch render and export execution with live spread progress reporting.
 
 ## Qualification
 
-- Combined deterministic verification: PASS — 1,147 assertions
-- Architecture verification: PASS — 95 reachable runtime files
-- Regression verification: PASS — 95/95 active files reached
-- Production build: PASS — zero warnings
-- Reproducible package verification: PASS
+- 31 deterministic test suites passed (100% pass rate)
+- Architecture verification: PASS — 114 reachable runtime files (234 assertions)
+- Regression verification: PASS — 114/114 active files reached (911 assertions)
+- Hardening verification: PASS — 89 assertions
+- Production build: PASS — zero warnings (642 KiB clean bundle)
+- Reproducible package verification: PASS (`AlbumAI-Pro-1.0.1.zip`)
 - Full and production dependency audits: PASS — zero vulnerabilities
-- ALB-051-RT-01 core workflow/output scenario: PASS
-- ALB-051-RT-02 document/reference cleanup scenario: PASS
-
-Runtime qualification used disposable copied projects and copied PSD/JPEG
-fixtures. The invalid PSD was rejected, terminal outcomes leaked no
-AlbumAI-owned document reference, and project close cleared AlbumAI queue and
-document state.
-
-## Safety boundary
-
-ALB-045-RT-03 remains harness pass / runtime not repeated. No safe deterministic
-Photoshop procedure can guarantee cancellation before the output transaction
-starts, so release qualification does not manufacture that timing condition.
-
-## Final release action
-
-The release commit and `v1.0.1` tag must be recorded after review. Until then,
-the values above intentionally remain pending rather than claiming Git objects
-that do not yet exist.

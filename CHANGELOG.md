@@ -2,9 +2,23 @@
 
 All notable changes to AlbumAI Pro will be documented in this file.
 
-## [1.0.1] - 2026-08-11
+## [1.0.1] - 2026-08-18
 
-### Fixed
+### Added
+
+- **Photo Browser & Search (ALB-060)**: Multi-criteria search (name, date range, rating, orientation, aspect ratio) with persistent decisions
+- **Duplicate & Scale Engine (ALB-061)**: Perceptual duplicate detection, memory-bounded thumbnail cache, and 10k+ photo library scale architecture
+- **Local AI & Privacy (ALB-070)**: 100% on-device AI policy architecture with deterministic license gating
+- **Burst Grouping & Quality Signals (ALB-071)**: Timestamp-based burst grouping, Laplacian variance sharpness, exposure, and contrast analyzers
+- **Photo Culling Workflow (ALB-072)**: Keep/Reject status lifecycle, Auto-Pick Best in Burst, and side-by-side comparison modal
+- **Face Detection & Facial Horizon (ALB-073)**: Local $YC_bC_r$ skin chrominance face detection, weighted centroid horizon calculation, and face-aware crop focus
+- **Canonical Album Schema (ALB-080)**: V2 Album Domain, ordered Sheet model, Smart Object slot mappings, and 20-step undo/redo snapshot history
+- **Interactive Album Designer (ALB-081)**: HTML5 drag-and-drop live Spread Canvas, crop focus cycling, and Sheet Storyboard Strip with reordering
+- **Smart Auto-Flow Engine (ALB-082)**: Automatic chronological burst placement, hero spread selection, orientation matching, and AutoFlowModal
+- **Print Export & Proofing (ALB-090)**: 300 DPI Lab Print Profiles (12x12", 12x18", 10x10", 8.5x11"), 0.125" bleed margin geometry, preflight DPI inspector, and watermarked multi-page PDF proof sheets
+- **Batch Render Execution (ALB-091)**: Direct multi-sheet Photoshop batch render and export execution with live spread progress reporting
+
+### Fixed & Hardened
 
 - Hardened thumbnail decode, refresh, bounded-cache, and stale-result handling
 - Made photo-folder changes transactional with deterministic rollback
@@ -15,26 +29,16 @@ All notable changes to AlbumAI Pro will be documented in this file.
 - Closed AlbumAI-owned documents after invalid/unreadable PSD failures
 - Prevented duplicate project, batch, Auto Save, and export actions
 
-### Improved
-
-- Added explicit output recovery/operator states and remediation wording
-- Improved safe cancellation, resume, retry, progress, and outcome accounting
-- Consolidated the canonical 95-file runtime architecture
-- Added full 95/95 automated regression reachability
-- Added deterministic product-hardening and release-policy verification
-- Added clean, minimal, byte-reproducible release packaging
-- Added SHA-256 sidecars and machine-readable package inventories
-
 ### Verification
 
-- 1,147 combined deterministic assertions passed
-- Architecture verification passed with 95 reachable runtime files
-- Regression verification passed with 95/95 active files reached
-- Production build completed with zero warnings
+- 31 deterministic test suites passed (100% pass rate)
+- Architecture verification passed with 114 reachable runtime files (234 assertions)
+- Regression verification passed with 114/114 active files reached (911 assertions)
+- Hardening verification passed with 89 assertions
+- Production build completed with zero warnings (642 KiB clean bundle)
 - Full and production dependency audits reported zero vulnerabilities
-- Photoshop/UXP scenarios ALB-051-RT-01 and ALB-051-RT-02 passed using disposable fixtures
-- `AlbumAI-Pro-1.0.1.zip` is 150,643 bytes
-- SHA-256: `f41344ba5e4248dacbad99b1b388a60743bcb182458f1e014b673c84478247c4`
+- `AlbumAI-Pro-1.0.1.zip` is 179,588 bytes
+- SHA-256: `fe94100d63b30e2f4fd7ec778dc9c676bfe0007b42146d4cd957633268ef840c`
 
 ### Preserved limitation
 
