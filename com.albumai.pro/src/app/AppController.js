@@ -1728,6 +1728,48 @@ export class AppController {
 
     }
 
+    getPhotoAiPolicyState() {
+
+        return this.photoWorkspace.getPhotoAiPolicyState();
+
+    }
+
+    setPhotoAiConsent(options) {
+
+        return this.photoWorkspace.setPhotoAiConsent(options);
+
+    }
+
+    getPhotoGroupIndex(options) {
+
+        return this.photoWorkspace.getPhotoGroupIndex(options);
+
+    }
+
+    getPhotoBursts(burstThresholdMs) {
+
+        return this.photoWorkspace.getPhotoBursts(burstThresholdMs);
+
+    }
+
+    getPhotoEvents(eventGapThresholdMs) {
+
+        return this.photoWorkspace.getPhotoEvents(eventGapThresholdMs);
+
+    }
+
+    autoPickBurstBest(burstThresholdMs) {
+
+        return this.photoWorkspace.autoPickBurstBest(burstThresholdMs);
+
+    }
+
+    getCullingSummary(burstThresholdMs) {
+
+        return this.photoWorkspace.getCullingSummary(burstThresholdMs);
+
+    }
+
     prioritizePhotoThumbnail(photo) {
 
         this.photoWorkspace.prioritizePhoto(photo);

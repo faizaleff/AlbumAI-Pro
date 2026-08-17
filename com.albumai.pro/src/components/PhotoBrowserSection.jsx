@@ -30,6 +30,13 @@ import App from "../app/AppController";
 import {
     canStartPhotoFolderChange
 } from "./photoFolderChangeMessages";
+import {
+    CullingFilterMode,
+    CullingStatus,
+    filterPhotosByCulling,
+    summarizeCulling
+} from "../services/PhotoCullingService";
+import PhotoComparisonModal from "./PhotoComparisonModal";
 
 const PHOTO_DATE_FILTER_OPTIONS = Object.freeze([
     Object.freeze({ value: "any", label: "Any" }),
@@ -50,6 +57,7 @@ const PHOTO_RATING_FILTER_OPTIONS = Object.freeze([
 
 const PHOTO_SORT_OPTIONS = Object.freeze([
     Object.freeze({ value: "name", label: "Name" }),
+    Object.freeze({ value: "quality", label: "Quality (AI)" }),
     Object.freeze({ value: "modified", label: "Date Modified" }),
     Object.freeze({ value: "taken", label: "Date Taken" }),
     Object.freeze({ value: "created", label: "Date Created" }),
@@ -105,6 +113,9 @@ function PhotoBrowserSection({
     );
     const [duplicateBusy, setDuplicateBusy] = useState(false);
     const [duplicateError, setDuplicateError] = useState(null);
+    const [cullingFilter, setCullingFilter] = useState(CullingFilterMode.ALL);
+    const [comparingPair, setComparingPair] = useState(null);
+    const [cullingBusy, setCullingBusy] = useState(false);
     const decisionRevision = useRef(0);
     const queryResult = useMemo(
         () => queryPhotoBrowser(photos, preferences, {
@@ -117,8 +128,17 @@ function PhotoBrowserSection({
         () => createPhotoDecisionLookup(decisions),
         [decisions]
     );
-    const visiblePhotos = queryResult.photos;
-    const filtersActive = hasActivePhotoBrowserFilters(preferences);
+    const culledPhotos = useMemo(
+        () => filterPhotosByCulling(queryResult.photos, cullingFilter, decisionForPhoto),
+        [queryResult.photos, cullingFilter, decisionForPhoto]
+    );
+    const visiblePhotos = culledPhotos;
+    const filtersActive = hasActivePhotoBrowserFilters(preferences) || cullingFilter !== CullingFilterMode.ALL;
+
+    const cullingSummary = useMemo(
+        () => summarizeCulling(photos, decisionForPhoto, App.getPhotoBursts ? App.getPhotoBursts() : []),
+        [photos, decisionForPhoto]
+    );
 
     useEffect(() => {
         setPreferences(readSavedPreferences());
@@ -200,6 +220,60 @@ function PhotoBrowserSection({
                 console.warn("Photo decision persistence:", error);
             });
     }, []);
+
+    const handleAutoPickBurstBest = async () => {
+        setCullingBusy(true);
+        try {
+            const next = await App.autoPickBurstBest();
+            setDecisions(normalizePhotoDecisions(next));
+        } catch (error) {
+            setDecisionError("Failed to auto-pick burst best photos.");
+        } finally {
+            setCullingBusy(false);
+        }
+    };
+
+    const startComparison = () => {
+        const selectedIds = Array.from(App.selection.selectedIds());
+        const selected = photos.filter(p => selectedIds.includes(p.id));
+        if (selected.length >= 2) {
+            setComparingPair([selected[0], selected[1]]);
+        }
+    };
+
+    const handlePickKeepFromComparison = (keepId, rejectId) => {
+        const keepPhoto = photos.find(p => p.id === keepId);
+        if (keepPhoto) {
+            changePhotoDecision(keepPhoto, { culling: CullingStatus.KEEP });
+        }
+        if (rejectId) {
+            const rejectPhoto = photos.find(p => p.id === rejectId);
+            if (rejectPhoto) {
+                changePhotoDecision(rejectPhoto, { culling: CullingStatus.REJECT });
+            }
+        }
+        setComparingPair(null);
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.target && ["input", "textarea", "select"].includes(e.target.tagName?.toLowerCase())) {
+                return;
+            }
+            const focused = photos.find(p => p.id === focusedPhotoId);
+            if (!focused) return;
+            const key = e.key?.toLowerCase();
+            if (key === "k") {
+                changePhotoDecision(focused, { culling: CullingStatus.KEEP });
+            } else if (key === "x") {
+                changePhotoDecision(focused, { culling: CullingStatus.REJECT });
+            } else if (key === "u") {
+                changePhotoDecision(focused, { culling: CullingStatus.UNRATED });
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [focusedPhotoId, photos, changePhotoDecision]);
 
     const analyzeDuplicates = useCallback(() => {
         if (duplicateBusy || !folderLoaded || !photos.length) return;
@@ -652,6 +726,63 @@ function PhotoBrowserSection({
                 </div>
             </div>
 
+            {photos.length > 0 && (
+                <div className="photo-culling-toolbar">
+                    <div className="photo-culling-pills">
+                        <span className="culling-label">Culling:</span>
+                        <button
+                            type="button"
+                            className={`culling-pill${cullingFilter === CullingFilterMode.ALL ? " active" : ""}`}
+                            onClick={() => setCullingFilter(CullingFilterMode.ALL)}
+                        >
+                            All ({cullingSummary.total})
+                        </button>
+                        <button
+                            type="button"
+                            className={`culling-pill keep-pill${cullingFilter === CullingFilterMode.KEPT ? " active" : ""}`}
+                            onClick={() => setCullingFilter(CullingFilterMode.KEPT)}
+                        >
+                            ✓ Kept ({cullingSummary.kept})
+                        </button>
+                        <button
+                            type="button"
+                            className={`culling-pill reject-pill${cullingFilter === CullingFilterMode.REJECTED ? " active" : ""}`}
+                            onClick={() => setCullingFilter(CullingFilterMode.REJECTED)}
+                        >
+                            ✕ Rejected ({cullingSummary.rejected})
+                        </button>
+                        <button
+                            type="button"
+                            className={`culling-pill unrated-pill${cullingFilter === CullingFilterMode.UNRATED ? " active" : ""}`}
+                            onClick={() => setCullingFilter(CullingFilterMode.UNRATED)}
+                        >
+                            ? Unrated ({cullingSummary.unrated})
+                        </button>
+                    </div>
+
+                    <div className="photo-culling-actions">
+                        <button
+                            type="button"
+                            className="photo-browser-control culling-action-btn"
+                            onClick={handleAutoPickBurstBest}
+                            disabled={cullingBusy || !cullingSummary.burstCount}
+                            title="Auto-pick highest quality photo in each burst sequence"
+                        >
+                            {cullingBusy ? "Auto-picking…" : "⚡ Auto-Pick Bursts"}
+                        </button>
+                        <button
+                            type="button"
+                            className="photo-browser-control culling-action-btn"
+                            onClick={startComparison}
+                            disabled={selectedCount !== 2}
+                            title="Compare 2 selected photos side by side"
+                        >
+                            🔍 Compare (2)
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="photo-browser-content">
                 {photoFolderChange?.message && !isLoading && (
                     <div className="photo-folder-change-message" role="status" aria-live="polite">
@@ -788,6 +919,15 @@ function PhotoBrowserSection({
                     {preferences.sort.direction === "asc" ? "↑" : "↓"}
                 </span>
             </div>
+
+            {comparingPair && (
+                <PhotoComparisonModal
+                    photoA={comparingPair[0]}
+                    photoB={comparingPair[1]}
+                    onClose={() => setComparingPair(null)}
+                    onPickKeep={handlePickKeepFromComparison}
+                />
+            )}
         </section>
     );
 

@@ -23,9 +23,23 @@ import {
     reconcilePhotoDuplicateEvidence
 } from "./PhotoDuplicateModel";
 import {
+    grantLocalPhotoAiConsent,
     normalizePhotoAiAnalysis,
-    normalizePhotoAiConsent
+    normalizePhotoAiConsent,
+    revokePhotoAiConsent
 } from "./PhotoAiPolicy";
+import {
+    buildPhotoGroupIndex,
+    groupPhotosByBurst,
+    groupPhotosByEvent
+} from "./PhotoGroupingEngine";
+import {
+    derivePhotoQualityAnalysis
+} from "./PhotoQualitySignalEngine";
+import {
+    autoPickBurstBest as autoPickBurstBestFn,
+    summarizeCulling
+} from "./PhotoCullingService";
 
 const METADATA_FILE = "photos.json";
 const INITIAL_VISIBLE_PHOTOS = 30;
@@ -883,6 +897,69 @@ export default class PhotoWorkspaceService {
             });
         }
         return this.photoAiPolicyState;
+
+    }
+
+    async setPhotoAiConsent({ disclosureVersion = "disclosure-v1.0", enabled = true } = {}) {
+
+        this.requireProject();
+        const consent = enabled
+            ? grantLocalPhotoAiConsent({
+                disclosureVersion,
+                consentedAt: new Date().toISOString()
+            })
+            : revokePhotoAiConsent();
+        await this.projectService.saveProject({
+            photoAiConsent: consent
+        });
+        this.photoAiProjectId = null;
+        return this.getPhotoAiPolicyState().consent;
+
+    }
+
+    getPhotoGroupIndex(options = {}) {
+
+        const photos = this.library.getPhotos();
+        return buildPhotoGroupIndex(photos, options);
+
+    }
+
+    getPhotoBursts(burstThresholdMs) {
+
+        const photos = this.library.getPhotos();
+        return groupPhotosByBurst(photos, burstThresholdMs);
+
+    }
+
+    getPhotoEvents(eventGapThresholdMs) {
+
+        const photos = this.library.getPhotos();
+        return groupPhotosByEvent(photos, eventGapThresholdMs);
+
+    }
+
+    async autoPickBurstBest(burstThresholdMs = 3000) {
+
+        const bursts = this.getPhotoBursts(burstThresholdMs);
+        const photos = this.library.getPhotos();
+        const current = this.getPhotoDecisions();
+        const next = autoPickBurstBestFn(
+            photos,
+            bursts,
+            current,
+            updatePhotoDecision
+        );
+        return this.savePhotoDecisions(next);
+
+    }
+
+    getCullingSummary(burstThresholdMs = 3000) {
+
+        const photos = this.library.getPhotos();
+        const decisions = this.getPhotoDecisions();
+        const lookup = createPhotoDecisionLookup(decisions);
+        const bursts = this.getPhotoBursts(burstThresholdMs);
+        return summarizeCulling(photos, lookup, bursts);
 
     }
 
