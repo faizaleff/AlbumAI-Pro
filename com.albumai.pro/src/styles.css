@@ -1260,6 +1260,22 @@ button.photo-browser-control:active:not(:disabled) {
     cursor: pointer;
 }
 
+.spread-slot-title-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.spread-slot-face-badge {
+    background: #1f3a5f;
+    border: 1px solid #388bfd;
+    color: #79b8ff;
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
 .spread-slot-crop-btn:hover:not(:disabled) {
     background: #444;
     color: #fff;

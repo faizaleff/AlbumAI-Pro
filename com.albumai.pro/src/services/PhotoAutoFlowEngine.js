@@ -2,6 +2,7 @@ import {
     groupPhotosByBurst,
     groupPhotosByEvent
 } from "./PhotoGroupingEngine";
+import { computeOptimalCropFocus } from "./PhotoFaceDetectionEngine";
 import { CullingStatus } from "./PhotoCullingService";
 
 export const AutoFlowStrategy = Object.freeze({
@@ -154,7 +155,14 @@ export function assignPhotosToTemplateSlots(photos = [], template = null) {
         const slot = smartObjects[i];
         const slotId = slot.layerId ?? slot.id ?? (i + 1);
         const isPortrait = isPortraitPhoto(photo);
-        const cropFocus = isPortrait ? "top" : "center";
+        const photoWidth = photo.metadata?.width || photo.width || (isPortrait ? 3000 : 4000);
+        const photoHeight = photo.metadata?.height || photo.height || (isPortrait ? 4000 : 3000);
+        const faceFocus = computeOptimalCropFocus(
+            photo.faces || photo.aiAnalysis?.faces || [],
+            photoWidth,
+            photoHeight
+        );
+        const cropFocus = faceFocus.cropFocus || (isPortrait ? "top" : "center");
 
         assignments.push(Object.freeze({
             slotId,

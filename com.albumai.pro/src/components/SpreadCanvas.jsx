@@ -60,6 +60,8 @@ function SlotCard({
         onSetCropFocus(slotId, CROP_FOCUS_OPTIONS[nextIndex]);
     };
 
+    const faceCount = assignedPhoto?.faces?.length || assignedPhoto?.aiAnalysis?.faces?.length || 0;
+
     return (
         <div
             className={`spread-slot-card${isDragOver ? " is-drag-over" : ""}${isSwapSource ? " is-swap-source" : ""}${assignedPhoto ? " has-photo" : " is-empty"}`}
@@ -68,7 +70,14 @@ function SlotCard({
             onDrop={handleDrop}
         >
             <div className="spread-slot-header">
-                <span className="spread-slot-name" title={slotName}>{slotName}</span>
+                <div className="spread-slot-title-group">
+                    <span className="spread-slot-name" title={slotName}>{slotName}</span>
+                    {faceCount > 0 && (
+                        <span className="spread-slot-face-badge" title={`${faceCount} face${faceCount > 1 ? "s" : ""} detected`}>
+                            👤 {faceCount}
+                        </span>
+                    )}
+                </div>
                 {assignedPhoto && (
                     <button
                         type="button"
