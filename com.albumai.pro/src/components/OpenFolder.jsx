@@ -751,6 +751,22 @@ export default function OpenFolder() {
         }
     }
 
+    async function handleExportPrint(exportPayload) {
+        if (exportPayload?.type === "LAB_PRINT") {
+            setAlbumSheetRenderBusy(true);
+            try {
+                const summary = await App.executeAlbumBatchRender({
+                    album,
+                    exportOptions: exportPayload
+                });
+                return summary;
+            } finally {
+                setAlbumSheetRenderBusy(false);
+            }
+        }
+        return null;
+    }
+
     async function restoreAlbumHistory(operation) {
 
         if (!albumHistory || albumMutationBusy) return;
@@ -1229,7 +1245,8 @@ export default function OpenFolder() {
                 album={album}
                 photos={workspacePhotos}
                 templates={registeredTemplates}
-                disabled={albumMutationLocked || albumMutationBusy}
+                onExportPrint={handleExportPrint}
+                disabled={albumMutationLocked || albumMutationBusy || albumSheetRenderBusy}
             />
 
         </div>

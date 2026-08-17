@@ -45,7 +45,9 @@ import { summarizeOutputRecovery } from
     "../project/OutputRecoveryOperatorState";
 import {
     createAlbumSheetRenderRequest,
-    validateAlbumSheetRenderRequest
+    validateAlbumSheetRenderRequest,
+    createAlbumBatchRenderRequest,
+    validateAlbumBatchRenderRequest
 } from "../project/AlbumSheetRenderBridge";
 
 export const ExecutionLifecycleStatus = Object.freeze({
@@ -569,6 +571,102 @@ export class AppController {
             runMode: "ALBUM_SHEET_RENDER"
         });
 
+    }
+
+    async executeAlbumBatchRender({ album, exportOptions = {} } = {}, onUpdate) {
+        if (this.isAlbumSheetMutationLocked()) {
+            throw new Error("A project batch is running. Batch rendering is available after it stops safely.");
+        }
+
+        const preflight = await this.revalidateProjectTemplates({
+            reason: "ALBUM_BATCH_RENDER_PREFLIGHT"
+        });
+        if (!preflight.persisted && String(preflight.reason).endsWith("PERSISTENCE_FAILED")) {
+            throw new Error("Template registry observations could not be saved.");
+        }
+
+        const project = this.project.getProject();
+        const projectId = project?.metadata?.id ?? project?.metadata?.name ?? "album-project";
+        const currentAlbum = album || project?.metadata?.album;
+
+        const batchRequest = createAlbumBatchRenderRequest({
+            projectId,
+            album: currentAlbum,
+            registry: this.projectTemplateRegistry.getAll(),
+            selectedPhotoIds: this.selectedPhotoIds(),
+            options: exportOptions
+        });
+
+        if (!batchRequest.accepted) {
+            const error = new Error("Album Batch render request could not be created.");
+            error.code = "ALBUM_BATCH_RENDER_REJECTED";
+            error.reasonCodes = batchRequest.reasonCodes;
+            throw error;
+        }
+
+        const sheetRequests = batchRequest.request.sheetRequests;
+        const totalSheets = sheetRequests.length;
+        const results = [];
+        let completed = 0;
+        let successful = 0;
+        let failed = 0;
+
+        for (let i = 0; i < sheetRequests.length; i++) {
+            const sheetReq = sheetRequests[i];
+            const sheetLabel = sheetReq.sheet.label || `Sheet ${i + 1}`;
+
+            if (onUpdate) {
+                onUpdate({
+                    lifecycle: "RUNNING",
+                    currentSheetIndex: i + 1,
+                    totalSheets,
+                    sheetId: sheetReq.sheet.id,
+                    sheetLabel,
+                    percent: Math.round((completed / totalSheets) * 100)
+                });
+            }
+
+            try {
+                const sheetOutcome = await this.executeAlbumSheetRenderRequest(sheetReq, onUpdate);
+                successful += 1;
+                results.push({
+                    sheetId: sheetReq.sheet.id,
+                    status: "SUCCESS",
+                    outcome: sheetOutcome
+                });
+            } catch (sheetError) {
+                failed += 1;
+                results.push({
+                    sheetId: sheetReq.sheet.id,
+                    status: "FAILED",
+                    error: sheetError?.message || "Failed to render sheet"
+                });
+            } finally {
+                completed += 1;
+            }
+        }
+
+        const summary = Object.freeze({
+            batchId: batchRequest.request.batchId,
+            totalSheets,
+            completedSheets: completed,
+            successfulSheets: successful,
+            failedSheets: failed,
+            results: Object.freeze(results),
+            success: failed === 0
+        });
+
+        if (onUpdate) {
+            onUpdate({
+                lifecycle: "COMPLETED",
+                currentSheetIndex: totalSheets,
+                totalSheets,
+                percent: 100,
+                summary
+            });
+        }
+
+        return summary;
     }
 
     buildReplacementRequest() {

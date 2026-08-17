@@ -5,6 +5,7 @@ import {
 } from "./AlbumSheetSchema";
 
 export const ALBUM_SHEET_RENDER_REQUEST_SCHEMA_VERSION = 1;
+export const ALBUM_BATCH_RENDER_REQUEST_SCHEMA_VERSION = 1;
 
 export const AlbumSheetRenderReason = Object.freeze({
     INVALID_PROJECT: "INVALID_PROJECT",
@@ -17,12 +18,101 @@ export const AlbumSheetRenderReason = Object.freeze({
     PROJECT_MISMATCH: "PROJECT_MISMATCH",
     SHEET_STALE: "SHEET_STALE",
     TEMPLATE_REGISTRY_STALE: "TEMPLATE_REGISTRY_STALE",
-    PHOTO_SELECTION_STALE: "PHOTO_SELECTION_STALE"
+    PHOTO_SELECTION_STALE: "PHOTO_SELECTION_STALE",
+    NO_RENDERABLE_SHEETS: "NO_RENDERABLE_SHEETS"
 });
 
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 const PHOTO_ID_MAX_LENGTH = 2048;
 const CONTROL_CHARACTER = /[\u0000-\u001F\u007F]/;
+
+/**
+ * Build a detached, serializable request for an entire album batch (all sheets).
+ */
+export function createAlbumBatchRenderRequest({
+    projectId,
+    album,
+    registry,
+    selectedPhotoIds,
+    options = {}
+} = {}) {
+    const inspected = inspectAlbum(album);
+    if (!inspected.valid) {
+        return rejected(inspected.reasonCodes);
+    }
+
+    const sheets = inspected.album.sheets || [];
+    if (sheets.length === 0) {
+        return rejected([AlbumSheetRenderReason.NO_RENDERABLE_SHEETS]);
+    }
+
+    const sheetRequests = [];
+    const skippedSheets = [];
+
+    for (const sheet of sheets) {
+        const result = createAlbumSheetRenderRequest({
+            projectId,
+            album: inspected.album,
+            registry,
+            sheetId: sheet.id,
+            selectedPhotoIds
+        });
+
+        if (result.accepted) {
+            sheetRequests.push(result.request);
+        } else {
+            skippedSheets.push({
+                sheetId: sheet.id,
+                reasonCodes: result.reasonCodes
+            });
+        }
+    }
+
+    if (sheetRequests.length === 0) {
+        return rejected([AlbumSheetRenderReason.NO_RENDERABLE_SHEETS]);
+    }
+
+    return accepted({
+        schemaVersion: ALBUM_BATCH_RENDER_REQUEST_SCHEMA_VERSION,
+        projectId,
+        batchId: `batch_${Date.now()}`,
+        sheetRequests: Object.freeze(sheetRequests),
+        totalSheets: sheetRequests.length,
+        skippedSheets: Object.freeze(skippedSheets),
+        options: Object.freeze({ ...options })
+    });
+}
+
+/**
+ * Validate a detached batch request against current context.
+ */
+export function validateAlbumBatchRenderRequest(batchRequest, context = {}) {
+    if (!batchRequest || batchRequest.schemaVersion !== ALBUM_BATCH_RENDER_REQUEST_SCHEMA_VERSION) {
+        return rejected([AlbumSheetRenderReason.INVALID_RENDER_REQUEST]);
+    }
+
+    const validatedRequests = [];
+    const reasonCodes = [];
+
+    for (const sheetReq of (batchRequest.sheetRequests || [])) {
+        const val = validateAlbumSheetRenderRequest(sheetReq, context);
+        if (val.accepted) {
+            validatedRequests.push(val.request);
+        } else {
+            reasonCodes.push(...val.reasonCodes);
+        }
+    }
+
+    if (validatedRequests.length === 0) {
+        return rejected(reasonCodes.length ? reasonCodes : [AlbumSheetRenderReason.NO_RENDERABLE_SHEETS]);
+    }
+
+    return accepted({
+        ...batchRequest,
+        sheetRequests: Object.freeze(validatedRequests),
+        totalSheets: validatedRequests.length
+    });
+}
 
 /**
  * Build a detached, serializable request for exactly one Album Sheet.  This
@@ -216,11 +306,24 @@ function rejected(reasonCodes) {
 }
 
 function freezeRequest(request) {
+    if (!request || typeof request !== "object") return request;
+    if (Array.isArray(request.sheetRequests)) {
+        return Object.freeze({
+            ...request,
+            sheetRequests: Object.freeze(request.sheetRequests.slice()),
+            skippedSheets: Array.isArray(request.skippedSheets)
+                ? Object.freeze(request.skippedSheets.slice())
+                : Object.freeze([]),
+            options: Object.freeze({ ...request.options })
+        });
+    }
     const value = {
         ...request,
-        sheet: Object.freeze({ ...request.sheet }),
-        template: Object.freeze({ ...request.template }),
-        selectedPhotoIds: Object.freeze(request.selectedPhotoIds.slice())
+        sheet: request.sheet ? Object.freeze({ ...request.sheet }) : null,
+        template: request.template ? Object.freeze({ ...request.template }) : null,
+        selectedPhotoIds: Array.isArray(request.selectedPhotoIds)
+            ? Object.freeze(request.selectedPhotoIds.slice())
+            : Object.freeze([])
     };
     return Object.freeze(value);
 }
