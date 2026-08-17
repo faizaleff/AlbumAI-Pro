@@ -59,6 +59,7 @@ export default function OpenFolder() {
     const [albumSheetRenderBusy, setAlbumSheetRenderBusy] = useState(false);
     const [isAutoFlowModalOpen, setIsAutoFlowModalOpen] = useState(false);
     const [isPrintProofModalOpen, setIsPrintProofModalOpen] = useState(false);
+    const [activeWorkspaceMode, setActiveWorkspaceMode] = useState("LIBRARY");
     const unavailableDiagnosticRef = useRef(null);
     const mountedRef = useRef(true);
     const photoFolderChangeAttemptRef = useRef(0);
@@ -902,331 +903,445 @@ export default function OpenFolder() {
         App.getCurrentExportResult();
 
     return (
-
         <div
             className="albumai-workspace-layout"
             style={{
                 display: "flex",
+                flexDirection: "column",
                 height: "100%",
                 width: "100%",
                 boxSizing: "border-box",
                 minHeight: 0,
                 overflow: "hidden",
                 color: "#ffffff",
-                background: "#1e1e1e"
+                background: "#121418"
             }}
         >
+            {/* Top Workspace Navigation Bar */}
+            <header className="workspace-top-bar">
+                <div className="workspace-brand-group">
+                    <span className="workspace-brand-title">
+                        <span>✨ AlbumAI Pro</span>
+                    </span>
+                    <span className={`workspace-project-badge ${hasProject ? "active" : ""}`}>
+                        {hasProject ? `📁 ${project.metadata.name}` : "No Project Open"}
+                    </span>
+                </div>
 
-            <div
-                className="left-pane album-workspace-scroll-pane"
-                style={{
-                    flex: "1 1 0",
-                    display: "flex",
-                    flexDirection: "column",
-                    padding: 15,
-                    minHeight: 0,
-                    minWidth: 0,
-                    overflowX: "hidden",
-                    overflowY: "auto"
-                }}
-            >
+                <nav className="workspace-mode-nav">
+                    <button
+                        type="button"
+                        className={`mode-tab-btn ${activeWorkspaceMode === "LIBRARY" ? "active" : ""}`}
+                        onClick={() => setActiveWorkspaceMode("LIBRARY")}
+                    >
+                        📁 1. Library & Culling
+                    </button>
+                    <button
+                        type="button"
+                        className={`mode-tab-btn ${activeWorkspaceMode === "DESIGNER" ? "active designer" : ""}`}
+                        onClick={() => setActiveWorkspaceMode("DESIGNER")}
+                    >
+                        🎨 2. Album Designer
+                    </button>
+                    <button
+                        type="button"
+                        className={`mode-tab-btn ${activeWorkspaceMode === "EXPORT" ? "active export" : ""}`}
+                        onClick={() => setActiveWorkspaceMode("EXPORT")}
+                    >
+                        🖨 3. Proof & Export
+                    </button>
+                </nav>
 
-                <div className="fixed-controls" style={{ flex: "0 0 auto" }}>
-                <section
-                    className="album-workspace-section album-workspace-project-section"
-                    style={{
-                        marginBottom: 15,
-                        padding: 12,
-                        background: "#2f2f2f",
-                        borderRadius: 6
-                    }}
-                >
-                    <div className="album-workspace-summary" style={{ fontSize: 13, marginBottom: 10 }}>
-                        <span>Project: {hasProject ? project.metadata.name : "MISSING"}</span>
-                        <span>Photos: {App.getPhotos().length}</span>
-                        <span>Selected: <SelectionCount selection={App.selection} /></span>
-                    </div>
+                <div className="workspace-quick-actions">
+                    <button
+                        type="button"
+                        className="workspace-quick-btn"
+                        onClick={saveProject}
+                        disabled={!hasProject || Boolean(projectAction)}
+                        title="Save Project Metadata"
+                    >
+                        {projectAction === "SAVING" ? "Saving…" : "💾 Save"}
+                    </button>
+                    <button
+                        type="button"
+                        className="workspace-quick-btn"
+                        onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
+                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
+                        title="Undo Sheet Change"
+                    >
+                        ⟲ Undo
+                    </button>
+                    <button
+                        type="button"
+                        className="workspace-quick-btn"
+                        onClick={() => restoreAlbumHistory(redoAlbumSheetHistory)}
+                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
+                        title="Redo Sheet Change"
+                    >
+                        ⟳ Redo
+                    </button>
+                </div>
+            </header>
 
-                    <div className="album-workspace-action-row">
-                        <div className="album-workspace-action-group">
-                            <input
-                                value={projectName}
-                                onChange={event => setProjectName(event.target.value)}
-                                placeholder="Project name"
-                                disabled={hasProject || Boolean(projectAction)}
+            {/* Mode-specific Workspace View */}
+            <div className="workspace-view-container">
+                {activeWorkspaceMode === "LIBRARY" && (
+                    <div style={{ display: "flex", flex: "1 1 0", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
+                        <div
+                            className="left-pane album-workspace-scroll-pane"
+                            style={{
+                                flex: "1 1 0",
+                                display: "flex",
+                                flexDirection: "column",
+                                padding: 12,
+                                minHeight: 0,
+                                minWidth: 0,
+                                overflowX: "hidden",
+                                overflowY: "auto"
+                            }}
+                        >
+                            <section
+                                className="album-workspace-section album-workspace-project-section"
+                                style={{
+                                    marginBottom: 12,
+                                    padding: 12,
+                                    background: "#1c1f26",
+                                    borderRadius: 6,
+                                    border: "1px solid #2d333f"
+                                }}
+                            >
+                                <div className="album-workspace-summary" style={{ fontSize: 12, marginBottom: 8, display: "flex", gap: 12, color: "#8b949e" }}>
+                                    <span>Project: <strong style={{ color: "#f0f3f6" }}>{hasProject ? project.metadata.name : "None"}</strong></span>
+                                    <span>Photos: <strong style={{ color: "#f0f3f6" }}>{App.getPhotos().length}</strong></span>
+                                    <span>Selected: <SelectionCount selection={App.selection} /></span>
+                                </div>
+
+                                <div className="album-workspace-action-row">
+                                    <div className="album-workspace-action-group">
+                                        <input
+                                            value={projectName}
+                                            onChange={event => setProjectName(event.target.value)}
+                                            placeholder="Project name"
+                                            disabled={hasProject || Boolean(projectAction)}
+                                        />
+                                        <button onClick={createProject} disabled={hasProject || Boolean(projectAction)}>
+                                            {projectAction === "CREATING" ? "Creating…" : "Create Project"}
+                                        </button>
+                                        <button onClick={openProject} disabled={hasProject || Boolean(projectAction)}>
+                                            {projectAction === "OPENING" ? "Opening…" : "Open Project"}
+                                        </button>
+                                    </div>
+                                    <div className="album-workspace-action-group album-workspace-action-group--primary">
+                                        <button onClick={closeProject} disabled={!hasProject || Boolean(projectAction)}>
+                                            {projectAction === "CLOSING" ? "Closing…" : "Close Project"}
+                                        </button>
+                                        {hasProject && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setActiveWorkspaceMode("DESIGNER")}
+                                                style={{ background: "#1f6feb", borderColor: "#388bfd", color: "#fff", fontWeight: 600 }}
+                                            >
+                                                🎨 Go to Designer →
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {projectError && (
+                                    <div style={{ marginTop: 8, fontSize: 12, color: "#ff9999" }}>
+                                        Project: {projectError}
+                                    </div>
+                                )}
+                            </section>
+
+                            <PhotoBrowserSection
+                                photos={App.getPhotos()}
+                                onPhotoClick={onPhotoClick}
+                                focusedPhotoId={focusedPhotoId}
+                                onFocusPhoto={setFocusedPhotoId}
+                                projectId={project?.metadata?.id || null}
+                                folderLoaded={photoFolderAvailable}
+                                folderMessage={photoFolderMessage}
+                                onOpenFolder={openFolder}
+                                onRefresh={refreshFolder}
+                                onChangePhotoFolder={changePhotoFolder}
+                                isLoading={isImportingPhotos}
+                                loadingPhotoCount={importedPhotoCount}
+                                photoFolderChange={{
+                                    ...photoFolderChange,
+                                    onCancel: cancelPhotoFolderChange,
+                                    onConfirm: confirmPhotoFolderChange,
+                                    onRecoveryAcceptance: accepted => setPhotoFolderChange(
+                                        previous => ({ ...previous, clearRecovery: accepted })
+                                    )
+                                }}
                             />
-                            <button onClick={createProject} disabled={hasProject || Boolean(projectAction)}>
-                                {projectAction === "CREATING" ? "Creating…" : "Create Project"}
-                            </button>
-                            <button onClick={openProject} disabled={hasProject || Boolean(projectAction)}>
-                                {projectAction === "OPENING" ? "Opening…" : "Open Project"}
-                            </button>
                         </div>
-                        <div className="album-workspace-action-group album-workspace-action-group--primary">
-                            <button onClick={saveProject} disabled={!hasProject || Boolean(projectAction)}>
-                                {projectAction === "SAVING" ? "Saving…" : "Save Project"}
-                            </button>
-                            <button onClick={closeProject} disabled={!hasProject || Boolean(projectAction)}>
-                                {projectAction === "CLOSING" ? "Closing…" : "Close Project"}
-                            </button>
-                        </div>
+
+                        <PreviewPanel
+                            photos={App.getPhotos()}
+                            selection={App.selection}
+                            focusedPhotoId={focusedPhotoId}
+                            executionDetails={executionDetails}
+                        />
                     </div>
+                )}
 
-                    {projectError && (
-                        <div style={{ marginTop: 8, fontSize: 12, color: "#ff9999" }}>
-                            Project: {projectError}
-                        </div>
-                    )}
-                </section>
-
-                <section
-                    className="album-workspace-section album-sheets-section"
-                    style={{
-                        marginBottom: 15,
-                        padding: 12,
-                        background: "#292929",
-                        borderRadius: 6
-                    }}
-                >
-                    <div className="album-workspace-section-header" style={{ marginBottom: 8 }}>
-                        <strong>Album Sheets</strong>
-                        <span style={{ fontSize: 12, color: "#bdbdbd" }}>
-                            {album?.sheets?.length || 0} sheets
-                        </span>
-                    </div>
-
-                    {hasProject && (
-                        <>
-                            <div className="album-workspace-action-row" style={{ marginBottom: 8 }}>
-                                <div className="album-workspace-action-group">
-                                    <input
-                                        value={albumSheetId}
-                                        onChange={event => setAlbumSheetId(event.target.value)}
-                                        placeholder="Sheet ID"
-                                        disabled={albumMutationLocked || albumMutationBusy}
-                                    />
-                                    <select
-                                        value={albumTemplateId}
-                                        onChange={event => setAlbumTemplateId(event.target.value)}
-                                        disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                    >
-                                        <option value="">Select template</option>
-                                        {registeredTemplates.map(template => (
-                                            <option key={template.id} value={template.id}>
-                                                {template.name || template.id}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        onClick={addAlbumSheet}
-                                        disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                    >
-                                        Add Sheet
-                                    </button>
+                {activeWorkspaceMode === "DESIGNER" && (
+                    <div className="workspace-mode-pane">
+                        {!hasProject ? (
+                            <div className="workspace-empty-state">
+                                <div className="workspace-empty-icon">🎨</div>
+                                <div className="workspace-empty-title">No Project Open</div>
+                                <div className="workspace-empty-subtitle">
+                                    Create or open a project in Library mode to start designing multi-sheet album spreads.
                                 </div>
-                                <div className="album-workspace-action-group">
-                                    <button
-                                        type="button"
-                                        className="album-autoflow-btn"
-                                        onClick={() => setIsAutoFlowModalOpen(true)}
-                                        disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                        title="Open Smart Auto-Flow Engine"
-                                    >
-                                        ⚡ Auto-Flow
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="album-printproof-btn"
-                                        onClick={() => setIsPrintProofModalOpen(true)}
-                                        disabled={albumMutationLocked || albumMutationBusy || !album?.sheets?.length}
-                                        title="Open Print Export & PDF Proofing Engine"
-                                    >
-                                        🖨 Print & Proof
-                                    </button>
-                                    <button
-                                        onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
-                                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
-                                    >
-                                        Undo
-                                    </button>
-                                    <button
-                                        onClick={() => restoreAlbumHistory(redoAlbumSheetHistory)}
-                                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
-                                    >
-                                        Redo
-                                    </button>
-                                </div>
+                                <button
+                                    type="button"
+                                    className="workspace-empty-action-btn"
+                                    onClick={() => setActiveWorkspaceMode("LIBRARY")}
+                                >
+                                    📁 Go to Library & Projects
+                                </button>
                             </div>
+                        ) : (
+                            <>
+                                <section
+                                    className="album-workspace-section album-sheets-section"
+                                    style={{
+                                        padding: 12,
+                                        background: "#1c1f26",
+                                        borderRadius: 6,
+                                        border: "1px solid #2d333f"
+                                    }}
+                                >
+                                    <div className="album-workspace-section-header" style={{ marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <strong style={{ fontSize: 13 }}>Album Spreads & Layouts</strong>
+                                        <span style={{ fontSize: 11, color: "#8b949e", background: "#262b35", padding: "2px 8px", borderRadius: 10 }}>
+                                            {album?.sheets?.length || 0} spreads defined
+                                        </span>
+                                    </div>
 
-                            {!registeredTemplates.length && (
-                                <div style={{ fontSize: 12, color: "#bdbdbd" }}>
-                                    Register a template before adding a Sheet.
-                                </div>
-                            )}
-                            {albumMutationLocked && (
-                                <div style={{ fontSize: 12, color: "#ffca7a" }}>
-                                    Sheet changes are locked while the batch is running or stopping.
-                                </div>
-                            )}
-                            {albumMutationError && (
-                                <div style={{ fontSize: 12, color: "#ff9999", marginTop: 6 }}>
-                                    Album: {albumMutationError}
-                                </div>
-                            )}
+                                    <div className="album-workspace-action-row" style={{ marginBottom: 10 }}>
+                                        <div className="album-workspace-action-group">
+                                            <input
+                                                value={albumSheetId}
+                                                onChange={event => setAlbumSheetId(event.target.value)}
+                                                placeholder="Spread ID (e.g. Spread_1)"
+                                                disabled={albumMutationLocked || albumMutationBusy}
+                                            />
+                                            <select
+                                                value={albumTemplateId}
+                                                onChange={event => setAlbumTemplateId(event.target.value)}
+                                                disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
+                                            >
+                                                <option value="">Select template</option>
+                                                {registeredTemplates.map(template => (
+                                                    <option key={template.id} value={template.id}>
+                                                        {template.name || template.id}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                onClick={addAlbumSheet}
+                                                disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
+                                            >
+                                                + Add Spread
+                                            </button>
+                                        </div>
+                                        <div className="album-workspace-action-group">
+                                            <button
+                                                type="button"
+                                                className="album-autoflow-btn"
+                                                onClick={() => setIsAutoFlowModalOpen(true)}
+                                                disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
+                                                title="Open Smart Auto-Flow Engine"
+                                            >
+                                                ⚡ Smart Auto-Flow
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="album-printproof-btn"
+                                                onClick={() => setIsPrintProofModalOpen(true)}
+                                                disabled={albumMutationLocked || albumMutationBusy || !album?.sheets?.length}
+                                                title="Open Print Export & PDF Proofing Suite"
+                                            >
+                                                🖨 Print & Proof
+                                            </button>
+                                        </div>
+                                    </div>
 
-                            {!!album?.sheets?.length && (
-                                <>
-                                    <SpreadCanvas
-                                        sheet={activeSheet}
-                                        template={activeTemplate}
-                                        photos={workspacePhotos}
-                                        selectedPhoto={activeSelectedPhoto}
-                                        onAssignSlot={assignAlbumSheetSlot}
-                                        onUnassignSlot={unassignAlbumSheetSlot}
-                                        onSwapSlots={swapAlbumSheetSlots}
-                                        onSetSlotCrop={setAlbumSheetSlotCrop}
-                                        onRenderSheet={renderAlbumSheet}
-                                        renderBusy={albumSheetRenderBusy}
-                                        disabled={albumMutationLocked || albumMutationBusy}
-                                    />
-
-                                    <SheetStoryboardStrip
-                                        sheets={album?.sheets || []}
-                                        selectedSheetId={activeSheet?.id}
-                                        templates={registeredTemplates}
-                                        onSelectSheet={selectAlbumSheet}
-                                        onMoveSheet={moveAlbumSheet}
-                                        onDuplicateSheet={duplicateAlbumSheet}
-                                        onRemoveSheet={removeAlbumSheet}
-                                        onAddSheet={() => {
-                                            if (registeredTemplates.length > 0) {
-                                                const nextIndex = (album?.sheets?.length || 0) + 1;
-                                                setAlbumSheetId(`Sheet_${nextIndex}`);
-                                                setAlbumTemplateId(registeredTemplates[0].id);
-                                            }
-                                        }}
-                                        disabled={albumMutationLocked || albumMutationBusy}
-                                    />
-
-                                    {!!selectedAlbumSheetId && (
-                                        <div className="album-sheet-editor">
-                                            <div className="album-workspace-action-group">
-                                                <input
-                                                    value={albumSheetLabel}
-                                                    onChange={event => setAlbumSheetLabel(event.target.value)}
-                                                    placeholder="Sheet label"
-                                                    disabled={albumMutationLocked || albumMutationBusy}
-                                                />
-                                                <button
-                                                    onClick={renameSelectedAlbumSheet}
-                                                    disabled={albumMutationLocked || albumMutationBusy || !albumSheetLabel.trim()}
-                                                >
-                                                    Rename
-                                                </button>
-                                            </div>
-                                            <div className="album-workspace-action-group">
-                                                <input
-                                                    value={albumDuplicateId}
-                                                    onChange={event => setAlbumDuplicateId(event.target.value)}
-                                                    placeholder="New Sheet ID"
-                                                    disabled={albumMutationLocked || albumMutationBusy}
-                                                />
-                                                <button
-                                                    onClick={duplicateSelectedAlbumSheet}
-                                                    disabled={albumMutationLocked || albumMutationBusy || !albumDuplicateId.trim()}
-                                                >
-                                                    Duplicate
-                                                </button>
-                                            </div>
+                                    {!registeredTemplates.length && (
+                                        <div style={{ fontSize: 12, color: "#e3b341", padding: 6, background: "rgba(227, 179, 65, 0.1)", borderRadius: 4 }}>
+                                            ⚠️ Register at least one PSD template in the panel below to add spreads.
                                         </div>
                                     )}
-                                </>
-                            )}
-                        </>
-                    )}
-                </section>
+                                    {albumMutationLocked && (
+                                        <div style={{ fontSize: 12, color: "#ffca7a", marginTop: 4 }}>
+                                            Sheet changes are locked while the batch is running or stopping.
+                                        </div>
+                                    )}
+                                    {albumMutationError && (
+                                        <div style={{ fontSize: 12, color: "#ff9999", marginTop: 6 }}>
+                                            Album: {albumMutationError}
+                                        </div>
+                                    )}
 
-                <TemplateDocumentPanel
-                    loadTemplates={loadTemplates}
-                    getRegisteredProjectTemplates={getRegisteredProjectTemplates}
-                    revalidateProjectTemplates={revalidateProjectTemplates}
-                    getTemplateRegistryPreflightState={getTemplateRegistryPreflightState}
-                    getTemplateRegistryRecoveryCompatibility={getTemplateRegistryRecoveryCompatibility}
-                    addCurrentPsdToProject={addCurrentPsdToProject}
-                    removeRegisteredProjectTemplate={removeRegisteredProjectTemplate}
-                    moveRegisteredProjectTemplate={moveRegisteredProjectTemplate}
-                    requestBatchCancellation={requestBatchCancellation}
-                    openTemplate={openTemplate}
-                    planPhotoPlacement={planPhotoPlacement}
-                    getCurrentPlacementPlan={getCurrentPlacementPlan}
-                    buildPlacementExecutionPlan={buildPlacementExecutionPlan}
-                    getCurrentPlacementExecutionPlan={getCurrentPlacementExecutionPlan}
-                    getCurrentReplacementRequest={getCurrentReplacementRequest}
-                    executeReplacementStep={executeReplacementStep}
-                    executeReplacementBatch={executeReplacementBatch}
-                    getCurrentExecutionSummary={getCurrentExecutionSummary}
-                    getCurrentBatchProgress={getCurrentBatchProgress}
-                    getCurrentExecutionLifecycle={getCurrentExecutionLifecycle}
-                    executeProject={executeProject}
-                    albumSheetForRender={album?.sheets?.find(
-                        sheet => sheet.id === selectedAlbumSheetId
-                    ) || null}
-                    createAlbumSheetRenderRequest={createAlbumSheetRenderRequest}
-                    executeAlbumSheetRenderRequest={executeAlbumSheetRenderRequest}
-                    resumeProjectBatch={resumeProjectBatch}
-                    retryFailedTemplates={retryFailedTemplates}
-                    clearRecoveryState={clearRecoveryState}
-                    getBatchRecoveryState={getBatchRecoveryState}
-                    getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
-                    getPhotos={getPhotos}
-                    getCurrentTemplate={getCurrentTemplate}
-                    setAutoSaveEnabled={setAutoSaveEnabled}
-                    getAutoSaveEnabled={getAutoSaveEnabled}
-                    setAutoSaveMode={setAutoSaveMode}
-                    getAutoSaveMode={getAutoSaveMode}
-                    getCurrentAutoSaveResult={getCurrentAutoSaveResult}
-                    setExportEnabled={setExportEnabled}
-                    getExportEnabled={getExportEnabled}
-                    setExportFormat={setExportFormat}
-                    getExportFormat={getExportFormat}
-                    getCurrentExportResult={getCurrentExportResult}
-                    onExecutionDetailsChange={setExecutionDetails}
-                    projectId={project?.metadata?.id || null}
-                    projectName={project?.metadata?.name || ""}
-                    hasProject={hasProject}
-                />
-                </div>
-                <PhotoBrowserSection
-                    photos={App.getPhotos()}
-                    onPhotoClick={onPhotoClick}
-                    focusedPhotoId={focusedPhotoId}
-                    onFocusPhoto={setFocusedPhotoId}
-                    projectId={project?.metadata?.id || null}
-                    folderLoaded={photoFolderAvailable}
-                    folderMessage={photoFolderMessage}
-                    onOpenFolder={openFolder}
-                    onRefresh={refreshFolder}
-                    onChangePhotoFolder={changePhotoFolder}
-                    isLoading={isImportingPhotos}
-                    loadingPhotoCount={importedPhotoCount}
-                    photoFolderChange={{
-                        ...photoFolderChange,
-                        onCancel: cancelPhotoFolderChange,
-                        onConfirm: confirmPhotoFolderChange,
-                        onRecoveryAcceptance: accepted => setPhotoFolderChange(
-                            previous => ({ ...previous, clearRecovery: accepted })
-                        )
-                    }}
-                />
+                                    {!!album?.sheets?.length && (
+                                        <>
+                                            <SpreadCanvas
+                                                sheet={activeSheet}
+                                                template={activeTemplate}
+                                                photos={workspacePhotos}
+                                                selectedPhoto={activeSelectedPhoto}
+                                                onAssignSlot={assignAlbumSheetSlot}
+                                                onUnassignSlot={unassignAlbumSheetSlot}
+                                                onSwapSlots={swapAlbumSheetSlots}
+                                                onSetSlotCrop={setAlbumSheetSlotCrop}
+                                                onRenderSheet={renderAlbumSheet}
+                                                renderBusy={albumSheetRenderBusy}
+                                                disabled={albumMutationLocked || albumMutationBusy}
+                                            />
 
+                                            <SheetStoryboardStrip
+                                                sheets={album?.sheets || []}
+                                                selectedSheetId={activeSheet?.id}
+                                                templates={registeredTemplates}
+                                                onSelectSheet={selectAlbumSheet}
+                                                onMoveSheet={moveAlbumSheet}
+                                                onDuplicateSheet={duplicateAlbumSheet}
+                                                onRemoveSheet={removeAlbumSheet}
+                                                onAddSheet={() => {
+                                                    if (registeredTemplates.length > 0) {
+                                                        const nextIndex = (album?.sheets?.length || 0) + 1;
+                                                        setAlbumSheetId(`Sheet_${nextIndex}`);
+                                                        setAlbumTemplateId(registeredTemplates[0].id);
+                                                    }
+                                                }}
+                                                disabled={albumMutationLocked || albumMutationBusy}
+                                            />
+
+                                            {!!selectedAlbumSheetId && (
+                                                <div className="album-sheet-editor" style={{ marginTop: 10 }}>
+                                                    <div className="album-workspace-action-group">
+                                                        <input
+                                                            value={albumSheetLabel}
+                                                            onChange={event => setAlbumSheetLabel(event.target.value)}
+                                                            placeholder="Spread label"
+                                                            disabled={albumMutationLocked || albumMutationBusy}
+                                                        />
+                                                        <button
+                                                            onClick={renameSelectedAlbumSheet}
+                                                            disabled={albumMutationLocked || albumMutationBusy || !albumSheetLabel.trim()}
+                                                        >
+                                                            Rename
+                                                        </button>
+                                                    </div>
+                                                    <div className="album-workspace-action-group">
+                                                        <input
+                                                            value={albumDuplicateId}
+                                                            onChange={event => setAlbumDuplicateId(event.target.value)}
+                                                            placeholder="New Spread ID"
+                                                            disabled={albumMutationLocked || albumMutationBusy}
+                                                        />
+                                                        <button
+                                                            onClick={duplicateSelectedAlbumSheet}
+                                                            disabled={albumMutationLocked || albumMutationBusy || !albumDuplicateId.trim()}
+                                                        >
+                                                            Duplicate
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </section>
+
+                                <TemplateDocumentPanel
+                                    loadTemplates={loadTemplates}
+                                    getRegisteredProjectTemplates={getRegisteredProjectTemplates}
+                                    revalidateProjectTemplates={revalidateProjectTemplates}
+                                    getTemplateRegistryPreflightState={getTemplateRegistryPreflightState}
+                                    getTemplateRegistryRecoveryCompatibility={getTemplateRegistryRecoveryCompatibility}
+                                    addCurrentPsdToProject={addCurrentPsdToProject}
+                                    removeRegisteredProjectTemplate={removeRegisteredProjectTemplate}
+                                    moveRegisteredProjectTemplate={moveRegisteredProjectTemplate}
+                                    requestBatchCancellation={requestBatchCancellation}
+                                    openTemplate={openTemplate}
+                                    planPhotoPlacement={planPhotoPlacement}
+                                    getCurrentPlacementPlan={getCurrentPlacementPlan}
+                                    buildPlacementExecutionPlan={buildPlacementExecutionPlan}
+                                    getCurrentPlacementExecutionPlan={getCurrentPlacementExecutionPlan}
+                                    getCurrentReplacementRequest={getCurrentReplacementRequest}
+                                    executeReplacementStep={executeReplacementStep}
+                                    executeReplacementBatch={executeReplacementBatch}
+                                    getCurrentExecutionSummary={getCurrentExecutionSummary}
+                                    getCurrentBatchProgress={getCurrentBatchProgress}
+                                    getCurrentExecutionLifecycle={getCurrentExecutionLifecycle}
+                                    executeProject={executeProject}
+                                    albumSheetForRender={album?.sheets?.find(
+                                        sheet => sheet.id === selectedAlbumSheetId
+                                    ) || null}
+                                    createAlbumSheetRenderRequest={createAlbumSheetRenderRequest}
+                                    executeAlbumSheetRenderRequest={executeAlbumSheetRenderRequest}
+                                    resumeProjectBatch={resumeProjectBatch}
+                                    retryFailedTemplates={retryFailedTemplates}
+                                    clearRecoveryState={clearRecoveryState}
+                                    getBatchRecoveryState={getBatchRecoveryState}
+                                    getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
+                                    getPhotos={getPhotos}
+                                    getCurrentTemplate={getCurrentTemplate}
+                                    setAutoSaveEnabled={setAutoSaveEnabled}
+                                    getAutoSaveEnabled={getAutoSaveEnabled}
+                                    setAutoSaveMode={setAutoSaveMode}
+                                    getAutoSaveMode={getAutoSaveMode}
+                                    getCurrentAutoSaveResult={getCurrentAutoSaveResult}
+                                    setExportEnabled={setExportEnabled}
+                                    getExportEnabled={getExportEnabled}
+                                    setExportFormat={setExportFormat}
+                                    getExportFormat={getExportFormat}
+                                    getCurrentExportResult={getCurrentExportResult}
+                                    onExecutionDetailsChange={setExecutionDetails}
+                                    projectId={project?.metadata?.id || null}
+                                    projectName={project?.metadata?.name || ""}
+                                    hasProject={hasProject}
+                                />
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {activeWorkspaceMode === "EXPORT" && (
+                    <div className="workspace-mode-pane">
+                        <div className="workspace-empty-state" style={{ background: "#1c1f26", border: "1px solid #2d333f" }}>
+                            <div className="workspace-empty-icon">🖨</div>
+                            <div className="workspace-empty-title">High-Resolution Print Export & Multi-Page PDF Proofing</div>
+                            <div className="workspace-empty-subtitle">
+                                Preflight inspection, 300 DPI Lab Print profiles (12×12", 12×18", 10×10", 8.5×11"), bleed geometry calculations, studio watermarking, and direct Photoshop batch rendering.
+                            </div>
+                            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                                <button
+                                    type="button"
+                                    className="workspace-empty-action-btn"
+                                    style={{ background: "#8957e5", borderColor: "#a371f7" }}
+                                    onClick={() => setIsPrintProofModalOpen(true)}
+                                    disabled={albumMutationLocked || albumMutationBusy || !album?.sheets?.length}
+                                >
+                                    ⚡ Open Print & Proof Suite
+                                </button>
+                                <button
+                                    type="button"
+                                    className="workspace-empty-action-btn"
+                                    style={{ background: "#21262d", borderColor: "#363c4a", color: "#c9d1d9" }}
+                                    onClick={() => setActiveWorkspaceMode("DESIGNER")}
+                                >
+                                    🎨 Back to Designer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
-
-            <PreviewPanel
-                photos={App.getPhotos()}
-                selection={App.selection}
-                focusedPhotoId={focusedPhotoId}
-                executionDetails={executionDetails}
-            />
 
             <AutoFlowModal
                 isOpen={isAutoFlowModalOpen}
@@ -1248,9 +1363,7 @@ export default function OpenFolder() {
                 onExportPrint={handleExportPrint}
                 disabled={albumMutationLocked || albumMutationBusy || albumSheetRenderBusy}
             />
-
         </div>
-
     );
 
 }

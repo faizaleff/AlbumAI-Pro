@@ -3,8 +3,8 @@
 - Version: 1.0.1
 - Release date: 2026-08-18
 - Package: `AlbumAI-Pro-1.0.1.zip`
-- Package size: 179,588 bytes
-- SHA-256: `fe94100d63b30e2f4fd7ec778dc9c676bfe0007b42146d4cd957633268ef840c`
+- Package size: 180,627 bytes
+- SHA-256: `3b2a55875a3d3fdb769e3f6eb0e1071cfe0596e9e00cf8b0574ba48645fe3ce4`
 
 ## Installation
 
@@ -32,6 +32,7 @@ dependencies, staging files, backups, and platform metadata are excluded.
 - **Smart Auto-Flow Engine (ALB-082)**: Automatic chronological burst placement, hero spread selection, orientation matching, and AutoFlowModal.
 - **Print Export & Proofing (ALB-090)**: 300 DPI Lab Print Profiles (12x12", 12x18", 10x10", 8.5x11"), 0.125" bleed margin geometry, preflight DPI inspector, and watermarked multi-page PDF proof sheets.
 - **Batch Render Execution (ALB-091)**: Direct multi-sheet Photoshop batch render and export execution with live spread progress reporting.
+- **User-Friendly 3-Mode Workflow (ALB-101)**: Segmented workspace navigation (Library, Album Designer, Proof & Export) with actionable empty states.
 
 ## Qualification
 
@@ -39,6 +40,6 @@ dependencies, staging files, backups, and platform metadata are excluded.
 - Architecture verification: PASS — 114 reachable runtime files (234 assertions)
 - Regression verification: PASS — 114/114 active files reached (911 assertions)
 - Hardening verification: PASS — 89 assertions
-- Production build: PASS — zero warnings (642 KiB clean bundle)
+- Production build: PASS — zero warnings (649 KiB clean bundle)
 - Reproducible package verification: PASS (`AlbumAI-Pro-1.0.1.zip`)
 - Full and production dependency audits: PASS — zero vulnerabilities
