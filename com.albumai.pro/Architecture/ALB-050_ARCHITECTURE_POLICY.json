@@ -11,6 +11,7 @@
   "activeFiles": [
     "src/app/AppController.js",
     "src/cache/ThumbnailCache.js",
+    "src/components/AutoFlowModal.jsx",
     "src/components/BatchProgressPanel.jsx",
     "src/components/OpenFolder.jsx",
     "src/components/PhotoBrowserSection.jsx",
@@ -89,6 +90,7 @@
     "src/services/AtomicJsonFileWriter.js",
     "src/services/AutoSaveResult.js",
     "src/services/BrowserDecodeScheduler.js",
+    "src/services/PhotoAutoFlowEngine.js",
     "src/services/PhotoBrowserModel.js",
     "src/services/PhotoBrowserSelection.js",
     "src/services/PhotoCullingService.js",

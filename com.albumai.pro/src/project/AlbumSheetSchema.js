@@ -40,7 +40,8 @@ export const AlbumSheetMutationIntent = Object.freeze({
     ASSIGN_SLOT: "ASSIGN_SLOT",
     UNASSIGN_SLOT: "UNASSIGN_SLOT",
     SWAP_SLOTS: "SWAP_SLOTS",
-    SET_SLOT_CROP: "SET_SLOT_CROP"
+    SET_SLOT_CROP: "SET_SLOT_CROP",
+    SET_SHEETS: "SET_SHEETS"
 });
 
 export const AlbumSheetMutationReason = Object.freeze({
@@ -417,6 +418,30 @@ export function applyAlbumSheetMutation(album, mutation, options = {}) {
                 return mutationRejected(candidate.reasonCodes, inspected.album);
             }
             nextSheets = sheets.map((sheet, index) => index === sheetIndex ? candidate.sheet : sheet);
+            break;
+        }
+
+        case AlbumSheetMutationIntent.SET_SHEETS: {
+            if (!Array.isArray(mutation.sheets)) {
+                return mutationRejected([AlbumSheetMutationReason.INVALID_MUTATION], inspected.album);
+            }
+            const candidateAlbum = inspectAlbum({
+                schemaVersion: ALBUM_SCHEMA_VERSION,
+                sheets: mutation.sheets
+            });
+            if (!candidateAlbum.valid) {
+                return mutationRejected(candidateAlbum.reasonCodes, inspected.album);
+            }
+            if (options?.templateIds) {
+                for (const sheet of candidateAlbum.album.sheets) {
+                    if (!isRegisteredTemplate(sheet.templateId, options.templateIds)) {
+                        return mutationRejected([
+                            AlbumSheetMutationReason.TEMPLATE_NOT_REGISTERED
+                        ], inspected.album);
+                    }
+                }
+            }
+            nextSheets = candidateAlbum.album.sheets;
             break;
         }
 

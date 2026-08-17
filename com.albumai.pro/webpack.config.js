@@ -65,10 +65,10 @@ module.exports = (_env, argv = {}) => {
     ],
     performance: {
         hints: "error",
-        // ALB-071, ALB-072, and ALB-081 incorporate local AI signals, culling modal,
-        // live spread canvas, and sheet storyboard strip into the production bundle.
-        maxAssetSize: 615 * 1024,
-        maxEntrypointSize: 615 * 1024
+        // ALB-071, ALB-072, ALB-081, and ALB-082 incorporate local AI signals, culling modal,
+        // live spread canvas, sheet storyboard strip, and smart auto-flow engine into the production bundle.
+        maxAssetSize: 630 * 1024,
+        maxEntrypointSize: 630 * 1024
     }
     };
 };

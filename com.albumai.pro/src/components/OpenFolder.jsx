@@ -11,6 +11,7 @@ import TemplateDocumentPanel from "./TemplateDocumentPanel";
 import SelectionCount from "./SelectionCount";
 import SpreadCanvas from "./SpreadCanvas";
 import SheetStoryboardStrip from "./SheetStoryboardStrip";
+import AutoFlowModal from "./AutoFlowModal";
 import {
     AlbumSheetMutationIntent,
     createAlbumSheetHistory,
@@ -55,6 +56,7 @@ export default function OpenFolder() {
     const [albumMutationBusy, setAlbumMutationBusy] = useState(false);
     const [albumMutationError, setAlbumMutationError] = useState(null);
     const [albumSheetRenderBusy, setAlbumSheetRenderBusy] = useState(false);
+    const [isAutoFlowModalOpen, setIsAutoFlowModalOpen] = useState(false);
     const unavailableDiagnosticRef = useRef(null);
     const mountedRef = useRef(true);
     const photoFolderChangeAttemptRef = useRef(0);
@@ -733,6 +735,20 @@ export default function OpenFolder() {
         }
     }
 
+    async function handleApplyAutoFlow(generatedSheets, append = false) {
+        if (!Array.isArray(generatedSheets) || generatedSheets.length === 0) return;
+        const currentSheets = album?.sheets || [];
+        const nextSheets = append ? [...currentSheets, ...generatedSheets] : generatedSheets;
+        const result = await mutateAlbum({
+            intent: AlbumSheetMutationIntent.SET_SHEETS,
+            sheets: nextSheets
+        });
+        if (result && nextSheets.length > 0) {
+            setSelectedAlbumSheetId(nextSheets[0].id);
+            setAlbumSheetLabel(nextSheets[0].label || nextSheets[0].id);
+        }
+    }
+
     async function restoreAlbumHistory(operation) {
 
         if (!albumHistory || albumMutationBusy) return;
@@ -992,6 +1008,15 @@ export default function OpenFolder() {
                                 </div>
                                 <div className="album-workspace-action-group">
                                     <button
+                                        type="button"
+                                        className="album-autoflow-btn"
+                                        onClick={() => setIsAutoFlowModalOpen(true)}
+                                        disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
+                                        title="Open Smart Auto-Flow Engine"
+                                    >
+                                        ⚡ Auto-Flow
+                                    </button>
+                                    <button
                                         onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
                                         disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
                                     >
@@ -1174,6 +1199,17 @@ export default function OpenFolder() {
                 selection={App.selection}
                 focusedPhotoId={focusedPhotoId}
                 executionDetails={executionDetails}
+            />
+
+            <AutoFlowModal
+                isOpen={isAutoFlowModalOpen}
+                onClose={() => setIsAutoFlowModalOpen(false)}
+                photos={workspacePhotos}
+                selectedPhotoIds={new Set(App.selection.getSelected().map(p => p.id))}
+                templates={registeredTemplates}
+                existingSheetCount={album?.sheets?.length || 0}
+                onApplyAutoFlow={handleApplyAutoFlow}
+                disabled={albumMutationLocked || albumMutationBusy}
             />
 
         </div>
