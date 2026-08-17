@@ -12,6 +12,7 @@ import SelectionCount from "./SelectionCount";
 import SpreadCanvas from "./SpreadCanvas";
 import SheetStoryboardStrip from "./SheetStoryboardStrip";
 import AutoFlowModal from "./AutoFlowModal";
+import PrintProofModal from "./PrintProofModal";
 import {
     AlbumSheetMutationIntent,
     createAlbumSheetHistory,
@@ -57,6 +58,7 @@ export default function OpenFolder() {
     const [albumMutationError, setAlbumMutationError] = useState(null);
     const [albumSheetRenderBusy, setAlbumSheetRenderBusy] = useState(false);
     const [isAutoFlowModalOpen, setIsAutoFlowModalOpen] = useState(false);
+    const [isPrintProofModalOpen, setIsPrintProofModalOpen] = useState(false);
     const unavailableDiagnosticRef = useRef(null);
     const mountedRef = useRef(true);
     const photoFolderChangeAttemptRef = useRef(0);
@@ -1017,6 +1019,15 @@ export default function OpenFolder() {
                                         ⚡ Auto-Flow
                                     </button>
                                     <button
+                                        type="button"
+                                        className="album-printproof-btn"
+                                        onClick={() => setIsPrintProofModalOpen(true)}
+                                        disabled={albumMutationLocked || albumMutationBusy || !album?.sheets?.length}
+                                        title="Open Print Export & PDF Proofing Engine"
+                                    >
+                                        🖨 Print & Proof
+                                    </button>
+                                    <button
                                         onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
                                         disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
                                     >
@@ -1209,6 +1220,15 @@ export default function OpenFolder() {
                 templates={registeredTemplates}
                 existingSheetCount={album?.sheets?.length || 0}
                 onApplyAutoFlow={handleApplyAutoFlow}
+                disabled={albumMutationLocked || albumMutationBusy}
+            />
+
+            <PrintProofModal
+                isOpen={isPrintProofModalOpen}
+                onClose={() => setIsPrintProofModalOpen(false)}
+                album={album}
+                photos={workspacePhotos}
+                templates={registeredTemplates}
                 disabled={albumMutationLocked || albumMutationBusy}
             />
 
