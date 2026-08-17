@@ -36,6 +36,10 @@ import {
 import {
     derivePhotoQualityAnalysis
 } from "./PhotoQualitySignalEngine";
+import {
+    autoPickBurstBest as autoPickBurstBestFn,
+    summarizeCulling
+} from "./PhotoCullingService";
 
 const METADATA_FILE = "photos.json";
 const INITIAL_VISIBLE_PHOTOS = 30;
@@ -931,6 +935,31 @@ export default class PhotoWorkspaceService {
 
         const photos = this.library.getPhotos();
         return groupPhotosByEvent(photos, eventGapThresholdMs);
+
+    }
+
+    async autoPickBurstBest(burstThresholdMs = 3000) {
+
+        const bursts = this.getPhotoBursts(burstThresholdMs);
+        const photos = this.library.getPhotos();
+        const current = this.getPhotoDecisions();
+        const next = autoPickBurstBestFn(
+            photos,
+            bursts,
+            current,
+            updatePhotoDecision
+        );
+        return this.savePhotoDecisions(next);
+
+    }
+
+    getCullingSummary(burstThresholdMs = 3000) {
+
+        const photos = this.library.getPhotos();
+        const decisions = this.getPhotoDecisions();
+        const lookup = createPhotoDecisionLookup(decisions);
+        const bursts = this.getPhotoBursts(burstThresholdMs);
+        return summarizeCulling(photos, lookup, bursts);
 
     }
 

@@ -833,3 +833,303 @@ button.photo-browser-control:active:not(:disabled) {
         width: 100%;
     }
 }
+
+/* ALB-072 Culling Toolbar & Comparison Modal Styles */
+.photo-culling-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    background: #252525;
+    border-bottom: 1px solid #3d3d3d;
+    font-size: 11px;
+}
+
+.photo-culling-pills {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.culling-label {
+    color: #999;
+    font-weight: 600;
+    margin-right: 2px;
+}
+
+.culling-pill {
+    background: #333;
+    border: 1px solid #4a4a4a;
+    color: #ccc;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 120ms ease;
+}
+
+.culling-pill:hover {
+    background: #404040;
+    color: #fff;
+}
+
+.culling-pill.active {
+    background: #2680eb;
+    border-color: #58a8ff;
+    color: #fff;
+    font-weight: 600;
+}
+
+.culling-pill.keep-pill.active {
+    background: #27ae60;
+    border-color: #2ecc71;
+}
+
+.culling-pill.reject-pill.active {
+    background: #c0392b;
+    border-color: #e74c3c;
+}
+
+.photo-culling-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.culling-action-btn {
+    font-size: 10px;
+    padding: 3px 7px;
+    background: #383838;
+    border: 1px solid #505050;
+    color: #eee;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.culling-action-btn:hover:not(:disabled) {
+    background: #484848;
+}
+
+/* Side-by-Side Comparison Modal */
+.comparison-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.comparison-modal {
+    background: #282828;
+    border: 1px solid #484848;
+    border-radius: 8px;
+    max-width: 720px;
+    width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+
+.comparison-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: #202020;
+    border-bottom: 1px solid #3a3a3a;
+}
+
+.comparison-header h3 {
+    margin: 0;
+    font-size: 13px;
+    color: #eee;
+}
+
+.comparison-close-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.comparison-close-btn:hover {
+    color: #fff;
+}
+
+.comparison-grid {
+    display: flex;
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    gap: 14px;
+}
+
+.comparison-column {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+    border: 1px solid #363636;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.comparison-divider {
+    width: 1px;
+    background: #3a3a3a;
+}
+
+.comparison-badge-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.comparison-side-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #bbb;
+}
+
+.comparison-rank-badge {
+    background: #27ae60;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.comparison-image-box {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 180px;
+    background: #181818;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.comparison-image-box img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.comparison-photo-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #ddd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.comparison-photo-meta {
+    font-size: 10px;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.comparison-metrics-box {
+    background: #1c1c1c;
+    border: 1px solid #303030;
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.comparison-metric-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+}
+
+.comparison-metric-label {
+    width: 55px;
+    color: #aaa;
+}
+
+.comparison-bar-container {
+    flex: 1;
+    height: 6px;
+    background: #333;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.comparison-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 150ms ease;
+}
+
+.comparison-metric-value {
+    width: 28px;
+    text-align: right;
+    color: #ccc;
+    font-weight: 600;
+}
+
+.comparison-keep-btn {
+    width: 100%;
+    background: #27ae60;
+    border: 1px solid #2ecc71;
+    color: #fff;
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 100ms ease;
+}
+
+.comparison-keep-btn:hover {
+    background: #2ecc71;
+}
+
+.comparison-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #202020;
+    border-top: 1px solid #3a3a3a;
+}
+
+.comparison-secondary-btn {
+    background: #383838;
+    border: 1px solid #484848;
+    color: #ccc;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.comparison-secondary-btn:hover {
+    background: #444;
+    color: #fff;
+}

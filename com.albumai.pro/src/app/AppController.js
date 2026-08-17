@@ -1758,6 +1758,18 @@ export class AppController {
 
     }
 
+    autoPickBurstBest(burstThresholdMs) {
+
+        return this.photoWorkspace.autoPickBurstBest(burstThresholdMs);
+
+    }
+
+    getCullingSummary(burstThresholdMs) {
+
+        return this.photoWorkspace.getCullingSummary(burstThresholdMs);
+
+    }
+
     prioritizePhotoThumbnail(photo) {
 
         this.photoWorkspace.prioritizePhoto(photo);

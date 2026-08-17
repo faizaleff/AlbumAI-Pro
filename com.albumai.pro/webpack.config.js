@@ -65,10 +65,10 @@ module.exports = (_env, argv = {}) => {
     ],
     performance: {
         hints: "error",
-        // ALB-071 incorporates local heuristic photo quality signals (sharpness, exposure, contrast)
-        // and burst/event grouping engines into the production bundle.
-        maxAssetSize: 575 * 1024,
-        maxEntrypointSize: 575 * 1024
+        // ALB-071 and ALB-072 incorporate local heuristic photo quality signals,
+        // burst/event grouping engines, and side-by-side comparison modal into the production bundle.
+        maxAssetSize: 600 * 1024,
+        maxEntrypointSize: 600 * 1024
     }
     };
 };

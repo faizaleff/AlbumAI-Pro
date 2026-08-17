@@ -82,8 +82,13 @@ function normalizedDecision(item) {
     if (!photoKey) return null;
     const rating = normalizedRating(item.rating);
     const favorite = item.favorite === true;
-    if (!rating && !favorite) return null;
-    return Object.freeze({ photoKey, rating, favorite });
+    const culling = typeof item.culling === "string" && ["KEEP", "REJECT"].includes(item.culling.toUpperCase())
+        ? item.culling.toUpperCase()
+        : null;
+    if (!rating && !favorite && !culling) return null;
+    const result = { photoKey, rating, favorite };
+    if (culling) result.culling = culling;
+    return Object.freeze(result);
 }
 
 export function normalizePhotoDecisions(value = {}) {
@@ -120,20 +125,28 @@ function effectivePhotoDecision(photo, decisionsByKey) {
 
 export function photoDecisionFor(value, photo) {
     const decision = effectivePhotoDecision(photo, photoDecisionMap(value));
-    return Object.freeze({
+    const result = {
         rating: decision.rating,
         favorite: decision.favorite
-    });
+    };
+    if (decision.culling && decision.culling !== "UNRATED") {
+        result.culling = decision.culling;
+    }
+    return Object.freeze(result);
 }
 
 export function createPhotoDecisionLookup(value = {}) {
     const decisionsByKey = photoDecisionMap(value);
     return photo => {
         const decision = effectivePhotoDecision(photo, decisionsByKey);
-        return Object.freeze({
+        const result = {
             rating: decision.rating,
             favorite: decision.favorite
-        });
+        };
+        if (decision.culling && decision.culling !== "UNRATED") {
+            result.culling = decision.culling;
+        }
+        return Object.freeze(result);
     };
 }
 
@@ -149,8 +162,17 @@ export function updatePhotoDecision(value, photo, changes = {}) {
     const favorite = Object.prototype.hasOwnProperty.call(changes, "favorite")
         ? changes.favorite === true
         : previous.favorite;
-    if (!rating && !favorite) byKey.delete(photoKey);
-    else byKey.set(photoKey, { photoKey, rating, favorite });
+    const culling = Object.prototype.hasOwnProperty.call(changes, "culling")
+        ? (typeof changes.culling === "string" && ["KEEP", "REJECT"].includes(changes.culling.toUpperCase())
+            ? changes.culling.toUpperCase()
+            : null)
+        : (previous.culling || null);
+    if (!rating && !favorite && !culling) byKey.delete(photoKey);
+    else {
+        const next = { photoKey, rating, favorite };
+        if (culling) next.culling = culling;
+        byKey.set(photoKey, next);
+    }
     return normalizePhotoDecisions({ items: [...byKey.values()] });
 }
 
