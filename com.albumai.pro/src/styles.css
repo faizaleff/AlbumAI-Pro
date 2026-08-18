@@ -2672,3 +2672,56 @@ button.photo-browser-control:active:not(:disabled) {
     color: #ffffff !important;
     box-shadow: 0 0 8px rgba(163, 113, 247, 0.4);
 }
+
+/* ═══════════════════════════════════════════════════════
+   ULTIMATE PRO HYBRID: NEON GLOW & POLISHED WORKSPACE
+═══════════════════════════════════════════════════════ */
+
+.wizard-step--active {
+    color: #ffffff !important;
+    background: rgba(31, 111, 235, 0.18) !important;
+    border: 1px solid #00d2ff !important;
+    box-shadow: 0 0 14px rgba(0, 210, 255, 0.3) !important;
+    font-weight: 600 !important;
+}
+
+.wizard-step--active .wizard-step-icon {
+    background: #0088ff !important;
+    color: #ffffff !important;
+    border-color: #00d2ff !important;
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.6) !important;
+}
+
+.wizard-step--completed .wizard-step-icon {
+    background: #238636 !important;
+    color: #ffffff !important;
+    border-color: #2ea043 !important;
+    box-shadow: 0 0 8px rgba(46, 160, 67, 0.4) !important;
+}
+
+.wizard-step-connector.filled {
+    background: linear-gradient(90deg, #238636, #00d2ff) !important;
+    box-shadow: 0 0 6px rgba(0, 210, 255, 0.4) !important;
+}
+
+/* Event Tab Button Hover & Active Glow */
+.photo-event-strip button.culling-pill {
+    background: #1c2128;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    transition: all 0.15s ease;
+}
+
+.photo-event-strip button.culling-pill:hover {
+    background: #21262d;
+    border-color: #58a6ff;
+    color: #f0f6fc;
+    transform: translateY(-1px);
+}
+
+.photo-event-strip button.culling-pill.active {
+    background: #1f6feb !important;
+    border-color: #388bfd !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(56, 139, 253, 0.4) !important;
+}

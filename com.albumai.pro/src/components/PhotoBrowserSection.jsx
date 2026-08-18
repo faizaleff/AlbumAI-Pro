@@ -620,17 +620,33 @@ function PhotoBrowserSection({
                 </div>
             </div>
 
-            {/* Smart Event Timeline Bar (shown when multiple wedding events detected) */}
+            {/* Capture One Style Wedding Event Tabs */}
             {photos.length > 0 && smartEvents.length > 1 && (
-                <div className="photo-event-strip" style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", background: "#161b22", borderBottom: "1px solid #2d333f", overflowX: "auto" }}>
-                    <span style={{ fontSize: 10, color: "#8b949e", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}>
-                        🗓 Events ({smartEvents.length}):
+                <div
+                    className="photo-event-strip"
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        background: "#161b22",
+                        borderBottom: "1px solid #30363d",
+                        overflowX: "auto"
+                    }}
+                >
+                    <span style={{ fontSize: 11, color: "#8b949e", fontWeight: 600, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+                        <span>🗓</span> Events:
                     </span>
                     <button
                         type="button"
                         className={`culling-pill${!selectedEventId ? " active" : ""}`}
                         onClick={() => setSelectedEventId("")}
-                        style={{ fontSize: 10, padding: "2px 8px" }}
+                        style={{
+                            fontSize: 11,
+                            padding: "3px 10px",
+                            fontWeight: !selectedEventId ? 600 : 400,
+                            borderRadius: 14
+                        }}
                     >
                         All Events ({photos.length})
                     </button>
@@ -640,15 +656,35 @@ function PhotoBrowserSection({
                             type="button"
                             className={`culling-pill${selectedEventId === evt.eventId ? " active" : ""}`}
                             onClick={() => setSelectedEventId(selectedEventId === evt.eventId ? "" : evt.eventId)}
-                            style={{ fontSize: 10, padding: "2px 8px", whiteSpace: "nowrap" }}
+                            style={{
+                                fontSize: 11,
+                                padding: "3px 10px",
+                                whiteSpace: "nowrap",
+                                fontWeight: selectedEventId === evt.eventId ? 600 : 400,
+                                borderRadius: 14
+                            }}
                             title={`Event ${idx + 1}: ${evt.count} photos`}
                         >
                             {evt.label} ({evt.count})
                         </button>
                     ))}
                     {detectedCameras.length > 1 && (
-                        <span style={{ marginLeft: "auto", fontSize: 10, color: "#3fb950", background: "#1c2128", border: "1px solid #23863644", borderRadius: 10, padding: "2px 8px", whiteSpace: "nowrap" }}>
-                            📷 {detectedCameras.length} Cameras
+                        <span
+                            style={{
+                                marginLeft: "auto",
+                                fontSize: 10,
+                                color: "#3fb950",
+                                background: "rgba(56, 139, 253, 0.1)",
+                                border: "1px solid rgba(56, 139, 253, 0.3)",
+                                borderRadius: 12,
+                                padding: "2px 8px",
+                                whiteSpace: "nowrap",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4
+                            }}
+                        >
+                            📷 {detectedCameras.length} Cameras Synced
                         </span>
                     )}
                 </div>
