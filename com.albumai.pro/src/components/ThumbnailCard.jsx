@@ -17,7 +17,7 @@ function ThumbnailCard({
     PhotoBrowserPerformance.recordRender("ThumbnailCard");
     const [hoverStar, setHoverStar] = useState(0);
 
-    const imageHeight = compact ? 78 : 112;
+    const imageHeight = compact ? 74 : 100;
     const rating = decision?.rating || 0;
     const isFavorite = Boolean(decision?.favorite);
     const culling = decision?.culling?.toLowerCase();
@@ -50,20 +50,46 @@ function ThumbnailCard({
         onDecisionChange?.(photo, { favorite: !isFavorite });
     };
 
-    const activeStarCount = hoverStar > 0 ? hoverStar : rating;
+    const displayStars = hoverStar > 0 ? hoverStar : rating;
 
     return (
         <div
             onClick={handleClick}
-            draggable={true}
-            onDragStart={handleDragStart}
             className={`modern-studio-card${selected ? " is-selected" : ""}`}
             role="option"
             aria-selected={selected}
             title={photo.name}
+            style={{
+                width: "100%",
+                height: "100%",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+                background: selected ? "#162338" : "#151b23",
+                border: selected ? "1px solid #00d2ff" : "1px solid #30363d",
+                boxShadow: selected ? "0 0 10px rgba(0, 210, 255, 0.4)" : "none",
+                borderRadius: 6,
+                overflow: "hidden",
+                cursor: "pointer",
+                userSelect: "none"
+            }}
         >
             {/* Image Thumbnail Box */}
-            <div className="card-thumb-container" style={{ height: imageHeight }}>
+            <div
+                draggable={true}
+                onDragStart={handleDragStart}
+                style={{
+                    position: "relative",
+                    width: "100%",
+                    height: imageHeight,
+                    background: "#0d1117",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                    cursor: "grab"
+                }}
+            >
                 <PhotoImage
                     photo={photo}
                     profile="thumbnail"
@@ -75,9 +101,9 @@ function ThumbnailCard({
                     alt={photo.name}
                     fallback={status =>
                         status === "loading" ? (
-                            <div className="thumb-loading-text">Loading…</div>
+                            <div style={{ color: "#8b949e", fontSize: 10 }}>Loading…</div>
                         ) : (
-                            <div className="thumb-fallback-icon">▧</div>
+                            <div style={{ color: "#484f58", fontSize: 18 }}>▧</div>
                         )
                     }
                     style={{
@@ -91,34 +117,110 @@ function ThumbnailCard({
 
                 {/* Selection Badge */}
                 {selected && (
-                    <div className="card-select-badge" aria-label="Selected">
+                    <div
+                        style={{
+                            position: "absolute",
+                            top: 4,
+                            right: 4,
+                            width: 18,
+                            height: 18,
+                            borderRadius: "50%",
+                            background: "#00d2ff",
+                            color: "#0b0e14",
+                            fontWeight: 800,
+                            fontSize: 11,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxShadow: "0 2px 6px rgba(0, 210, 255, 0.6)",
+                            zIndex: 4
+                        }}
+                    >
                         ✓
                     </div>
                 )}
 
                 {/* Culling Badge (Keep / Reject) */}
                 {culling && culling !== "unrated" && (
-                    <div className={`card-cull-badge ${culling}`}>
+                    <div
+                        style={{
+                            position: "absolute",
+                            top: 4,
+                            left: 4,
+                            padding: "1px 5px",
+                            borderRadius: 3,
+                            fontSize: 9,
+                            fontWeight: 700,
+                            color: "#ffffff",
+                            background: culling === "keep" ? "#238636" : "#da3633",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.6)",
+                            zIndex: 4
+                        }}
+                    >
                         {culling === "keep" ? "✓ KEEP" : "✕ REJECT"}
                     </div>
                 )}
+            </div>
 
-                {/* Modern Studio Rating & Action Bar (CSS-driven Hover Overlay - No Flicker) */}
+            {/* Card Footer: Row 1 = Filename, Row 2 = 5 Stars + Heart */}
+            <div
+                style={{
+                    padding: "3px 5px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    background: selected ? "#162338" : "#151b23",
+                    minWidth: 0,
+                    boxSizing: "border-box"
+                }}
+            >
+                {/* Filename */}
                 <div
-                    className="card-hover-action-bar"
-                    onMouseLeave={() => setHoverStar(0)}
-                    onClick={e => e.stopPropagation()}
+                    title={photo.name}
+                    style={{
+                        fontSize: 10,
+                        color: selected ? "#ffffff" : "#c9d1d9",
+                        fontWeight: selected ? 600 : 400,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        lineHeight: 1.2
+                    }}
                 >
-                    <div className="card-stars-row">
+                    {photo.name}
+                </div>
+
+                {/* 5 Stars Rating + Favorite Heart (Always visible, fits perfectly, 0 flicker) */}
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingTop: 1
+                    }}
+                    onMouseLeave={() => setHoverStar(0)}
+                >
+                    {/* 5-Star Row */}
+                    <div style={{ display: "flex", gap: 1 }}>
                         {[1, 2, 3, 4, 5].map(starNum => {
-                            const isFilled = starNum <= activeStarCount;
+                            const isFilled = starNum <= displayStars;
                             return (
                                 <button
                                     key={starNum}
                                     type="button"
                                     onClick={(e) => handleStarClick(e, starNum)}
                                     onMouseEnter={() => setHoverStar(starNum)}
-                                    className={`star-btn${isFilled ? " filled" : ""}`}
+                                    style={{
+                                        border: "none",
+                                        background: "transparent",
+                                        padding: 0,
+                                        margin: 0,
+                                        cursor: "pointer",
+                                        fontSize: 13,
+                                        lineHeight: 1,
+                                        color: isFilled ? "#ffd700" : "#30363d",
+                                        transition: "color 0.1s ease"
+                                    }}
                                     title={`Rate ${starNum} star${starNum > 1 ? "s" : ""} (${starNum})`}
                                 >
                                     ★
@@ -127,32 +229,26 @@ function ThumbnailCard({
                         })}
                     </div>
 
+                    {/* Heart Button */}
                     <button
                         type="button"
                         onClick={handleFavoriteClick}
-                        className={`fav-btn${isFavorite ? " active" : ""}`}
+                        style={{
+                            border: "none",
+                            background: "transparent",
+                            padding: "0 2px",
+                            margin: 0,
+                            cursor: "pointer",
+                            fontSize: 13,
+                            lineHeight: 1,
+                            color: isFavorite ? "#ff4d4f" : "#484f58",
+                            transition: "color 0.1s ease"
+                        }}
                         title={isFavorite ? "Remove from favourites (F)" : "Add to favourites (F)"}
                     >
                         {isFavorite ? "♥" : "♡"}
                     </button>
                 </div>
-            </div>
-
-            {/* Card Footer Meta */}
-            <div className="card-footer-meta">
-                <span className="photo-title" title={photo.name}>
-                    {photo.name}
-                </span>
-                {rating > 0 && (
-                    <span className="rating-pill">
-                        ★ {rating}
-                    </span>
-                )}
-                {isFavorite && (
-                    <span className="fav-pill" title="Favorite">
-                        ♥
-                    </span>
-                )}
             </div>
         </div>
     );
