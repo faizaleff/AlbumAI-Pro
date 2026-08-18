@@ -161,11 +161,20 @@ function PhotoImage({
         onImageError?.(event);
     };
 
+    // Fire onImageLoad once when displayedSource is first set from cache (i.e. no pending
+    // decode was in flight). When a pending image is decoded, handlePendingLoad fires
+    // onImageLoad directly. The displayed <img> tag has no onLoad to prevent double-firing.
+    const prevDisplayedSourceRef = React.useRef(null);
     useEffect(() => {
-        if (displayedSource) {
-            onImageLoad?.();
+        if (displayedSource && displayedSource !== prevDisplayedSourceRef.current) {
+            prevDisplayedSourceRef.current = displayedSource;
+            // Only call onImageLoad here if the source came from cache (no pending swap).
+            // If a pending swap just completed, handlePendingLoad already called it.
+            if (!pendingSource) {
+                onImageLoad?.();
+            }
         }
-    }, [displayedSource, onImageLoad]);
+    }, [displayedSource, pendingSource, onImageLoad]);
 
     return (
         <div
@@ -184,7 +193,6 @@ function PhotoImage({
                     src={displayedSource}
                     alt={alt}
                     draggable={false}
-                    onLoad={onImageLoad}
                     style={style}
                 />
             )}

@@ -699,6 +699,22 @@ function PhotoBrowserSection({
                             />
                             ♥ Fav
                         </label>
+                        {duplicateReady && (
+                            <label
+                                className="photo-browser-favorite-filter"
+                                style={{ marginLeft: 4 }}
+                                title="Show only duplicate photos"
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={preferences.duplicatesOnly}
+                                    onChange={event => updatePreferences({
+                                        duplicatesOnly: event.target.checked
+                                    })}
+                                />
+                                ⊕ Dups only
+                            </label>
+                        )}
                         <button
                             type="button"
                             onClick={analyzeDuplicates}
@@ -854,15 +870,19 @@ function PhotoBrowserSection({
                     <strong>Sort:</strong>{" "}
                     {preferences.sort.field === "name"
                         ? "Name"
-                        : preferences.sort.field === "modified"
-                            ? "Date Modified"
-                            : preferences.sort.field === "taken"
-                                ? "Date Taken"
-                                : preferences.sort.field === "created"
-                                    ? "Date Created"
-                                    : preferences.sort.field === "rating"
-                                        ? "Rating"
-                                    : "File Size"}{" "}
+                        : preferences.sort.field === "quality"
+                            ? "Quality (AI)"
+                            : preferences.sort.field === "modified"
+                                ? "Date Modified"
+                                : preferences.sort.field === "taken"
+                                    ? "Date Taken"
+                                    : preferences.sort.field === "created"
+                                        ? "Date Created"
+                                        : preferences.sort.field === "rating"
+                                            ? "Rating"
+                                            : preferences.sort.field === "size"
+                                                ? "File Size"
+                                                : preferences.sort.field}{" "}
                     {preferences.sort.direction === "asc" ? "↑" : "↓"}
                 </span>
             </div>
