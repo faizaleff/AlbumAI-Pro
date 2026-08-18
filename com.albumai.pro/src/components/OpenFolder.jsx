@@ -1401,58 +1401,62 @@ export default function OpenFolder() {
                                         </>
                                     )}
                                 </section>
-
-                                <TemplateDocumentPanel
-                                    loadTemplates={loadTemplates}
-                                    getRegisteredProjectTemplates={getRegisteredProjectTemplates}
-                                    revalidateProjectTemplates={revalidateProjectTemplates}
-                                    getTemplateRegistryPreflightState={getTemplateRegistryPreflightState}
-                                    getTemplateRegistryRecoveryCompatibility={getTemplateRegistryRecoveryCompatibility}
-                                    addCurrentPsdToProject={addCurrentPsdToProject}
-                                    removeRegisteredProjectTemplate={removeRegisteredProjectTemplate}
-                                    moveRegisteredProjectTemplate={moveRegisteredProjectTemplate}
-                                    requestBatchCancellation={requestBatchCancellation}
-                                    openTemplate={openTemplate}
-                                    planPhotoPlacement={planPhotoPlacement}
-                                    getCurrentPlacementPlan={getCurrentPlacementPlan}
-                                    buildPlacementExecutionPlan={buildPlacementExecutionPlan}
-                                    getCurrentPlacementExecutionPlan={getCurrentPlacementExecutionPlan}
-                                    getCurrentReplacementRequest={getCurrentReplacementRequest}
-                                    executeReplacementStep={executeReplacementStep}
-                                    executeReplacementBatch={executeReplacementBatch}
-                                    getCurrentExecutionSummary={getCurrentExecutionSummary}
-                                    getCurrentBatchProgress={getCurrentBatchProgress}
-                                    getCurrentExecutionLifecycle={getCurrentExecutionLifecycle}
-                                    executeProject={executeProject}
-                                    albumSheetForRender={album?.sheets?.find(
-                                        sheet => sheet.id === selectedAlbumSheetId
-                                    ) || null}
-                                    createAlbumSheetRenderRequest={createAlbumSheetRenderRequest}
-                                    executeAlbumSheetRenderRequest={executeAlbumSheetRenderRequest}
-                                    resumeProjectBatch={resumeProjectBatch}
-                                    retryFailedTemplates={retryFailedTemplates}
-                                    clearRecoveryState={clearRecoveryState}
-                                    getBatchRecoveryState={getBatchRecoveryState}
-                                    getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
-                                    getPhotos={getPhotos}
-                                    getCurrentTemplate={getCurrentTemplate}
-                                    setAutoSaveEnabled={setAutoSaveEnabled}
-                                    getAutoSaveEnabled={getAutoSaveEnabled}
-                                    setAutoSaveMode={setAutoSaveMode}
-                                    getAutoSaveMode={getAutoSaveMode}
-                                    getCurrentAutoSaveResult={getCurrentAutoSaveResult}
-                                    setExportEnabled={setExportEnabled}
-                                    getExportEnabled={getExportEnabled}
-                                    setExportFormat={setExportFormat}
-                                    getExportFormat={getExportFormat}
-                                    getCurrentExportResult={getCurrentExportResult}
-                                    onExecutionDetailsChange={setExecutionDetails}
-                                    projectId={project?.metadata?.id || null}
-                                    projectName={project?.metadata?.name || ""}
-                                    hasProject={hasProject}
-                                />
                             </>
                         )}
+                    </div>
+                )}
+
+                {hasProject && (
+                    <div style={{ display: activeWorkspaceMode === "DESIGNER" ? "block" : "none" }}>
+                        <TemplateDocumentPanel
+                            loadTemplates={loadTemplates}
+                            getRegisteredProjectTemplates={getRegisteredProjectTemplates}
+                            revalidateProjectTemplates={revalidateProjectTemplates}
+                            getTemplateRegistryPreflightState={getTemplateRegistryPreflightState}
+                            getTemplateRegistryRecoveryCompatibility={getTemplateRegistryRecoveryCompatibility}
+                            addCurrentPsdToProject={addCurrentPsdToProject}
+                            removeRegisteredProjectTemplate={removeRegisteredProjectTemplate}
+                            moveRegisteredProjectTemplate={moveRegisteredProjectTemplate}
+                            requestBatchCancellation={requestBatchCancellation}
+                            openTemplate={openTemplate}
+                            planPhotoPlacement={planPhotoPlacement}
+                            getCurrentPlacementPlan={getCurrentPlacementPlan}
+                            buildPlacementExecutionPlan={buildPlacementExecutionPlan}
+                            getCurrentPlacementExecutionPlan={getCurrentPlacementExecutionPlan}
+                            getCurrentReplacementRequest={getCurrentReplacementRequest}
+                            executeReplacementStep={executeReplacementStep}
+                            executeReplacementBatch={executeReplacementBatch}
+                            getCurrentExecutionSummary={getCurrentExecutionSummary}
+                            getCurrentBatchProgress={getCurrentBatchProgress}
+                            getCurrentExecutionLifecycle={getCurrentExecutionLifecycle}
+                            executeProject={executeProject}
+                            albumSheetForRender={album?.sheets?.find(
+                                sheet => sheet.id === selectedAlbumSheetId
+                            ) || null}
+                            createAlbumSheetRenderRequest={createAlbumSheetRenderRequest}
+                            executeAlbumSheetRenderRequest={executeAlbumSheetRenderRequest}
+                            resumeProjectBatch={resumeProjectBatch}
+                            retryFailedTemplates={retryFailedTemplates}
+                            clearRecoveryState={clearRecoveryState}
+                            getBatchRecoveryState={getBatchRecoveryState}
+                            getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
+                            getPhotos={getPhotos}
+                            getCurrentTemplate={getCurrentTemplate}
+                            setAutoSaveEnabled={setAutoSaveEnabled}
+                            getAutoSaveEnabled={getAutoSaveEnabled}
+                            setAutoSaveMode={setAutoSaveMode}
+                            getAutoSaveMode={getAutoSaveMode}
+                            getCurrentAutoSaveResult={getCurrentAutoSaveResult}
+                            setExportEnabled={setExportEnabled}
+                            getExportEnabled={getExportEnabled}
+                            setExportFormat={setExportFormat}
+                            getExportFormat={getExportFormat}
+                            getCurrentExportResult={getCurrentExportResult}
+                            onExecutionDetailsChange={setExecutionDetails}
+                            projectId={project?.metadata?.id || null}
+                            projectName={project?.metadata?.name || ""}
+                            hasProject={hasProject}
+                        />
                     </div>
                 )}
 
