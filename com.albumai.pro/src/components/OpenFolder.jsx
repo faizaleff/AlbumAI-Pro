@@ -32,6 +32,11 @@ import {
     shouldResetPhotoPreview,
     upgradePhotoFolderChangeForRecovery
 } from "./photoFolderChangeMessages";
+import {
+    WIZARD_STEPS,
+    computeCompletedSteps,
+    canNavigateToStep
+} from "../services/PhotoGroupingEngine";
 
 export default function OpenFolder() {
 
@@ -67,6 +72,7 @@ export default function OpenFolder() {
     const projectActionBusyRef = useRef(false);
     const photoFolderChangeProjectIdRef = useRef(null);
     const [, forceRefresh] = useState(0);
+    const [wizardStep, setWizardStep] = useState(1);
 
     PhotoBrowserPerformance.recordRender("OpenFolder");
     const project = App.project.getProject();
@@ -79,6 +85,27 @@ export default function OpenFolder() {
     const activeSheet = album?.sheets?.find(sheet => sheet.id === selectedAlbumSheetId) || album?.sheets?.[0] || null;
     const activeTemplate = registeredTemplates.find(t => t.id === activeSheet?.templateId) || null;
     const activeSelectedPhoto = App.selection.getSelected()[0] || null;
+
+    const keptPhotoCount = workspacePhotos.filter(p => {
+        const decision = App.culling?.getDecision?.(p.id);
+        return decision === "keep" || decision === "KEEP";
+    }).length;
+    const placedPhotoCount = activeSheet?.slots?.filter(s => s.photoId)?.length || 0;
+    const wizardCompletedSteps = computeCompletedSteps({
+        photoCount: workspacePhotos.length,
+        analysisComplete: workspacePhotos.length > 0,
+        groupsReviewed: workspacePhotos.length > 0,
+        keptPhotoCount,
+        placedPhotoCount,
+        exportComplete: false
+    });
+    const handleWizardStepClick = (stepId) => {
+        if (!canNavigateToStep(wizardStep, stepId, wizardCompletedSteps)) return;
+        setWizardStep(stepId);
+        if (stepId <= 3) setActiveWorkspaceMode("LIBRARY");
+        else if (stepId === 4) setActiveWorkspaceMode("DESIGNER");
+        else setActiveWorkspaceMode("EXPORT");
+    };
 
     useEffect(() => {
         setAlbumHistory(createAlbumSheetHistory(project?.metadata?.album));
@@ -928,28 +955,42 @@ export default function OpenFolder() {
                     </span>
                 </div>
 
-                <nav className="workspace-mode-nav">
-                    <button
-                        type="button"
-                        className={`mode-tab-btn ${activeWorkspaceMode === "LIBRARY" ? "active" : ""}`}
-                        onClick={() => setActiveWorkspaceMode("LIBRARY")}
-                    >
-                        📁 1. Library & Culling
-                    </button>
-                    <button
-                        type="button"
-                        className={`mode-tab-btn ${activeWorkspaceMode === "DESIGNER" ? "active designer" : ""}`}
-                        onClick={() => setActiveWorkspaceMode("DESIGNER")}
-                    >
-                        🎨 2. Album Designer
-                    </button>
-                    <button
-                        type="button"
-                        className={`mode-tab-btn ${activeWorkspaceMode === "EXPORT" ? "active export" : ""}`}
-                        onClick={() => setActiveWorkspaceMode("EXPORT")}
-                    >
-                        🖨 3. Proof & Export
-                    </button>
+                <nav className="wizard-step-bar" role="navigation" aria-label="Workflow Steps">
+                    {WIZARD_STEPS.map((step, idx) => {
+                        const isActive = step.id === wizardStep;
+                        const isCompleted = wizardCompletedSteps?.has(step.id);
+                        const isClickable = canNavigateToStep(wizardStep, step.id, wizardCompletedSteps);
+                        const isLocked = !isClickable && !isActive && !isCompleted;
+
+                        let cls = "wizard-step";
+                        if (isActive) cls += " wizard-step--active";
+                        if (isCompleted) cls += " wizard-step--completed";
+                        if (isLocked) cls += " wizard-step--locked";
+
+                        return (
+                            <React.Fragment key={step.id}>
+                                {idx > 0 && (
+                                    <div
+                                        className={`wizard-step-connector${isCompleted || wizardCompletedSteps?.has(step.id - 1) ? " filled" : ""}`}
+                                        aria-hidden="true"
+                                    />
+                                )}
+                                <button
+                                    type="button"
+                                    className={cls}
+                                    onClick={() => handleWizardStepClick(step.id)}
+                                    disabled={isLocked}
+                                    title={isLocked ? `Complete Step ${step.id - 1} first` : `${step.id}. ${step.label} (${step.description})`}
+                                    aria-current={isActive ? "step" : undefined}
+                                >
+                                    <span className="wizard-step-icon">
+                                        {isCompleted ? "✓" : step.icon}
+                                    </span>
+                                    <span className="wizard-step-label">{step.id}. {step.label}</span>
+                                </button>
+                            </React.Fragment>
+                        );
+                    })}
                 </nav>
 
                 <div className="workspace-quick-actions">

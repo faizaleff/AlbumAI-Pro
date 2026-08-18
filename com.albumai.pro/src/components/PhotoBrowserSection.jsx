@@ -36,6 +36,10 @@ import {
     filterPhotosByCulling,
     summarizeCulling
 } from "../services/PhotoCullingService";
+import {
+    detectCameras,
+    groupPhotosByEvent
+} from "../services/PhotoGroupingEngine";
 import PhotoComparisonModal from "./PhotoComparisonModal";
 
 const PHOTO_DATE_FILTER_OPTIONS = Object.freeze([
@@ -114,9 +118,21 @@ function PhotoBrowserSection({
     const [duplicateBusy, setDuplicateBusy] = useState(false);
     const [duplicateError, setDuplicateError] = useState(null);
     const [cullingFilter, setCullingFilter] = useState(CullingFilterMode.ALL);
+    const [selectedEventId, setSelectedEventId] = useState("");
     const [comparingPair, setComparingPair] = useState(null);
     const [cullingBusy, setCullingBusy] = useState(false);
     const decisionRevision = useRef(0);
+
+    const smartEvents = useMemo(() => {
+        if (!photos || photos.length === 0) return [];
+        return groupPhotosByEvent(photos);
+    }, [photos]);
+
+    const detectedCameras = useMemo(() => {
+        if (!photos || photos.length === 0) return [];
+        return detectCameras(photos);
+    }, [photos]);
+
     const queryResult = useMemo(
         () => queryPhotoBrowser(photos, preferences, {
             decisions,
@@ -132,8 +148,15 @@ function PhotoBrowserSection({
         () => filterPhotosByCulling(queryResult.photos, cullingFilter, decisionForPhoto),
         [queryResult.photos, cullingFilter, decisionForPhoto]
     );
-    const visiblePhotos = culledPhotos;
-    const filtersActive = hasActivePhotoBrowserFilters(preferences) || cullingFilter !== CullingFilterMode.ALL;
+    const visiblePhotos = useMemo(() => {
+        if (!selectedEventId) return culledPhotos;
+        const targetEvent = smartEvents.find(e => e.eventId === selectedEventId);
+        if (!targetEvent) return culledPhotos;
+        const allowed = new Set(targetEvent.photoIds);
+        return culledPhotos.filter(p => allowed.has(p.id));
+    }, [culledPhotos, selectedEventId, smartEvents]);
+
+    const filtersActive = hasActivePhotoBrowserFilters(preferences) || cullingFilter !== CullingFilterMode.ALL || Boolean(selectedEventId);
 
     const cullingSummary = useMemo(
         () => summarizeCulling(photos, decisionForPhoto, App.getPhotoBursts ? App.getPhotoBursts() : []),
@@ -191,6 +214,8 @@ function PhotoBrowserSection({
     }, [updatePreferences]);
 
     const clearFilters = useCallback(() => {
+        setSelectedEventId("");
+        setCullingFilter(CullingFilterMode.ALL);
         updatePreferences(previous => ({ sort: previous.sort }));
     }, [updatePreferences]);
 
@@ -589,6 +614,40 @@ function PhotoBrowserSection({
                     </button>
                 </div>
             </div>
+
+            {/* Smart Event Timeline Bar (shown when multiple wedding events detected) */}
+            {photos.length > 0 && smartEvents.length > 1 && (
+                <div className="photo-event-strip" style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", background: "#161b22", borderBottom: "1px solid #2d333f", overflowX: "auto" }}>
+                    <span style={{ fontSize: 10, color: "#8b949e", fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}>
+                        🗓 Events ({smartEvents.length}):
+                    </span>
+                    <button
+                        type="button"
+                        className={`culling-pill${!selectedEventId ? " active" : ""}`}
+                        onClick={() => setSelectedEventId("")}
+                        style={{ fontSize: 10, padding: "2px 8px" }}
+                    >
+                        All Events ({photos.length})
+                    </button>
+                    {smartEvents.map((evt, idx) => (
+                        <button
+                            key={evt.eventId}
+                            type="button"
+                            className={`culling-pill${selectedEventId === evt.eventId ? " active" : ""}`}
+                            onClick={() => setSelectedEventId(selectedEventId === evt.eventId ? "" : evt.eventId)}
+                            style={{ fontSize: 10, padding: "2px 8px", whiteSpace: "nowrap" }}
+                            title={`Event ${idx + 1}: ${evt.count} photos`}
+                        >
+                            {evt.label} ({evt.count})
+                        </button>
+                    ))}
+                    {detectedCameras.length > 1 && (
+                        <span style={{ marginLeft: "auto", fontSize: 10, color: "#3fb950", background: "#1c2128", border: "1px solid #23863644", borderRadius: 10, padding: "2px 8px", whiteSpace: "nowrap" }}>
+                            📷 {detectedCameras.length} Cameras
+                        </span>
+                    )}
+                </div>
+            )}
 
             {/* Smart Secondary Filter & Culling Bar (Row 2) */}
             {photos.length > 0 && (
