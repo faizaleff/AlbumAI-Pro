@@ -121,7 +121,17 @@ function PhotoBrowserSection({
     const [selectedEventId, setSelectedEventId] = useState("");
     const [comparingPair, setComparingPair] = useState(null);
     const [cullingBusy, setCullingBusy] = useState(false);
+    const [contextMenu, setContextMenu] = useState(null);
     const decisionRevision = useRef(0);
+
+    const handleContextMenu = useCallback((event, photo) => {
+        if (!photo) return;
+        setContextMenu({
+            x: event.clientX || 120,
+            y: event.clientY || 120,
+            photo
+        });
+    }, []);
 
     const smartEvents = useMemo(() => {
         if (!photos || photos.length === 0) return [];
@@ -910,6 +920,7 @@ function PhotoBrowserSection({
                     <ThumbnailGrid
                         photos={visiblePhotos}
                         onPhotoClick={onPhotoClick}
+                        onContextMenu={handleContextMenu}
                         focusedPhotoId={focusedPhotoId}
                         onFocusPhoto={focusPhoto}
                         viewMode={viewMode}
@@ -986,6 +997,136 @@ function PhotoBrowserSection({
                     {preferences.sort.direction === "asc" ? "↑" : "↓"}
                 </span>
             </div>
+
+            {/* Right-Click Context Menu */}
+            {contextMenu && (
+                <div
+                    className="photo-context-backdrop"
+                    onClick={() => setContextMenu(null)}
+                    onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
+                    style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 9999
+                    }}
+                >
+                    <div
+                        className="photo-context-menu"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            position: "absolute",
+                            top: Math.max(10, Math.min(contextMenu.y, 400)),
+                            left: Math.max(10, Math.min(contextMenu.x, 350)),
+                            background: "#161b22",
+                            border: "1px solid #30363d",
+                            borderRadius: 8,
+                            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(0, 210, 255, 0.3)",
+                            padding: "6px 0",
+                            minWidth: 180,
+                            color: "#e6edf3",
+                            fontSize: 11,
+                            zIndex: 10000
+                        }}
+                    >
+                        <div style={{ padding: "4px 12px 6px", fontSize: 10, color: "#8b949e", borderBottom: "1px solid #21262d", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {contextMenu.photo.name}
+                        </div>
+
+                        {/* Star Ratings */}
+                        <div style={{ padding: "4px 12px 2px", fontSize: 9, color: "#58a6ff", fontWeight: 700, textTransform: "uppercase" }}>
+                            ⭐ Star Rating
+                        </div>
+                        {[5, 4, 3, 2, 1].map(stars => (
+                            <div
+                                key={stars}
+                                onClick={() => {
+                                    changePhotoDecision(contextMenu.photo, { rating: stars });
+                                    setContextMenu(null);
+                                }}
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    padding: "4px 12px",
+                                    cursor: "pointer",
+                                    color: (decisions?.[photoDecisionKey(contextMenu.photo)]?.rating === stars) ? "#ffd700" : "#c9d1d9"
+                                }}
+                            >
+                                <span>{"★".repeat(stars)} {stars} {stars === 1 ? "Star" : "Stars"}</span>
+                                <span style={{ fontSize: 9, color: "#6e7681" }}>({stars})</span>
+                            </div>
+                        ))}
+                        <div
+                            onClick={() => {
+                                changePhotoDecision(contextMenu.photo, { rating: 0 });
+                                setContextMenu(null);
+                            }}
+                            style={{ padding: "4px 12px", cursor: "pointer", color: "#8b949e", fontSize: 10 }}
+                        >
+                            ⊘ Clear Rating (0)
+                        </div>
+
+                        <div style={{ height: 1, background: "#21262d", margin: "3px 0" }} />
+
+                        {/* Favorite */}
+                        <div
+                            onClick={() => {
+                                const currentFav = Boolean(decisions?.[photoDecisionKey(contextMenu.photo)]?.favorite);
+                                changePhotoDecision(contextMenu.photo, { favorite: !currentFav });
+                                setContextMenu(null);
+                            }}
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "4px 12px",
+                                cursor: "pointer",
+                                color: Boolean(decisions?.[photoDecisionKey(contextMenu.photo)]?.favorite) ? "#ff4d4f" : "#c9d1d9"
+                            }}
+                        >
+                            <span>{Boolean(decisions?.[photoDecisionKey(contextMenu.photo)]?.favorite) ? "💔 Remove Favorite" : "♥ Mark Favorite"}</span>
+                            <span style={{ fontSize: 9, color: "#6e7681" }}>(F)</span>
+                        </div>
+
+                        <div style={{ height: 1, background: "#21262d", margin: "3px 0" }} />
+
+                        {/* Culling Actions */}
+                        <div
+                            onClick={() => {
+                                changePhotoDecision(contextMenu.photo, { culling: CullingStatus.KEEP });
+                                setContextMenu(null);
+                            }}
+                            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 12px", cursor: "pointer", color: "#3fb950" }}
+                        >
+                            <span>✓ Mark KEEP</span>
+                            <span style={{ fontSize: 9, color: "#6e7681" }}>(K)</span>
+                        </div>
+                        <div
+                            onClick={() => {
+                                changePhotoDecision(contextMenu.photo, { culling: CullingStatus.REJECT });
+                                setContextMenu(null);
+                            }}
+                            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 12px", cursor: "pointer", color: "#f85149" }}
+                        >
+                            <span>✕ Mark REJECT</span>
+                            <span style={{ fontSize: 9, color: "#6e7681" }}>(X)</span>
+                        </div>
+                        <div
+                            onClick={() => {
+                                changePhotoDecision(contextMenu.photo, { culling: CullingStatus.UNRATED });
+                                setContextMenu(null);
+                            }}
+                            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 12px", cursor: "pointer", color: "#8b949e" }}
+                        >
+                            <span>? Mark UNRATED</span>
+                            <span style={{ fontSize: 9, color: "#6e7681" }}>(U)</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {comparingPair && (
                 <PhotoComparisonModal

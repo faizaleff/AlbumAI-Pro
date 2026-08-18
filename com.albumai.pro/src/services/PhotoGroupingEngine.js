@@ -42,11 +42,11 @@ export const SCENE_LABELS = Object.freeze({
 });
 
 export const WIZARD_STEPS = Object.freeze([
-    { id: 1, key: "IMPORT", icon: "📂", label: "Import",       description: "Load Photos" },
-    { id: 2, key: "SORT",   icon: "🗂",  label: "Sort & Group", description: "Smart Groups" },
-    { id: 3, key: "CULL",   icon: "⭐",  label: "Cull & Rate",  description: "Select Best" },
-    { id: 4, key: "DESIGN", icon: "🎨", label: "Design",       description: "Album Layout" },
-    { id: 5, key: "EXPORT", icon: "🖨",  label: "Export",       description: "JPEG / PDF" }
+    { id: 1, key: "IMPORT", icon: "📂", label: "Import", description: "Load Photos" },
+    { id: 2, key: "SORT",   icon: "🗂",  label: "Sort",   description: "Smart Groups" },
+    { id: 3, key: "CULL",   icon: "⭐",  label: "Cull",   description: "Select Best" },
+    { id: 4, key: "DESIGN", icon: "🎨", label: "Design", description: "Album Layout" },
+    { id: 5, key: "EXPORT", icon: "🖨",  label: "Export", description: "JPEG / PDF" }
 ]);
 
 export const WIZARD_STEP_KEYS = Object.freeze({

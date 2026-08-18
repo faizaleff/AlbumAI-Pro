@@ -77,17 +77,22 @@ function usePhotoItemState(photo) {
     return state;
 }
 
-const IconsPhotoItem = React.memo(function IconsPhotoItem({ photo, onPhotoClick, style, focused, viewMode, visible, decision, onPhotoDecisionChange }) {
+const IconsPhotoItem = React.memo(function IconsPhotoItem({ photo, onPhotoClick, onContextMenu, style, focused, viewMode, visible, decision, onPhotoDecisionChange }) {
     PhotoBrowserPerformance.recordRender("IconsPhotoItem");
     const state = usePhotoItemState(photo);
-    return <div className={`photo-grid-item${focused ? " is-focused" : ""}`} style={style}><ThumbnailCard photo={photo} onClick={onPhotoClick} compact thumbnailRevision={state.thumbnailRevision} loading={state.loading} selected={state.selected} viewMode={viewMode} visible={visible} decision={decision} onDecisionChange={onPhotoDecisionChange} /></div>;
+    return <div className={`photo-grid-item${focused ? " is-focused" : ""}`} style={style}><ThumbnailCard photo={photo} onClick={onPhotoClick} onContextMenu={onContextMenu} compact thumbnailRevision={state.thumbnailRevision} loading={state.loading} selected={state.selected} viewMode={viewMode} visible={visible} decision={decision} onDecisionChange={onPhotoDecisionChange} /></div>;
 });
 
-const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, style, focused, viewMode, visible, decision, onPhotoDecisionChange }) {
+const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, onContextMenu, style, focused, viewMode, visible, decision, onPhotoDecisionChange }) {
     PhotoBrowserPerformance.recordRender("ListPhotoRow");
     const state = usePhotoItemState(photo);
     const handleClick = useCallback(event => onPhotoClick(photo, event), [photo, onPhotoClick]);
-    return <div onClick={handleClick} role="option" aria-selected={state.selected} title={photo.name} className={`photo-list-row${state.selected ? " is-selected" : ""}${focused ? " is-focused" : ""}`} style={{ ...style, display: "flex", gap: 8, alignItems: "center", padding: "0 8px", boxSizing: "border-box", cursor: "pointer", color: "#fff" }}>
+    const handleContextMenu = useCallback(event => {
+        event.preventDefault();
+        event.stopPropagation();
+        onContextMenu?.(event, photo);
+    }, [photo, onContextMenu]);
+    return <div onClick={handleClick} onContextMenu={handleContextMenu} role="option" aria-selected={state.selected} title={photo.name} className={`photo-list-row${state.selected ? " is-selected" : ""}${focused ? " is-focused" : ""}`} style={{ ...style, display: "flex", gap: 8, alignItems: "center", padding: "0 8px", boxSizing: "border-box", cursor: "pointer", color: "#fff" }}>
         <div style={{ flex: "0 0 30px", width: 30, height: 30, background: "#1f1f1f", overflow: "hidden" }}><PhotoImage photo={photo} profile="thumbnail" priority={visible ? 1 : 2} role="browser" onImageLoad={() => PhotoBrowserPerformance.thumbnailVisible(photo.id)} fallback={status => <div style={{ color: "#777", fontSize: 13, textAlign: "center", lineHeight: "30px" }}>{status === "loading" ? "…" : "▧"}</div>} style={LIST_IMAGE_STYLE} /></div>
         <div style={{ flex: "1 1 auto", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12 }}>{photo.name}</div>
         <div style={{ flex: "0 0 42px", color: "#aaa", fontSize: 11, textTransform: "uppercase" }}>{photo.extension || "—"}</div>
@@ -227,6 +232,7 @@ export function calculatePhotoBrowserWindow({
 function ThumbnailGrid({
     photos = [],
     onPhotoClick,
+    onContextMenu,
     viewMode = "icons",
     focusedPhotoId = null,
     onFocusPhoto,
@@ -244,25 +250,13 @@ function ThumbnailGrid({
     const [windowState, setWindowState] = useState(windowRef.current);
     const reducedProfiles =
         ImageSourceCapabilityService.supportsReducedProfiles(photos);
-    // UXP can publish photos before the viewport has a measurable size.
-    // Bootstrap a bounded window for both views so neither Icons nor List can
-    // render a transient empty browser before the layout pass replaces it.
-    const renderWindow = photos.length > 0 &&
-        windowState.end === windowState.start
-        ? bootstrapWindow(photos, viewMode, reducedProfiles)
-        : windowState;
-
-    const handlePhotoClick = useCallback((photo, event) => {
-        App.selection.handleClick(photo, event);
-        onFocusPhoto?.(photo);
-        onPhotoClick?.(photo);
-    }, [onFocusPhoto, onPhotoClick]);
 
     const calculateWindow = useCallback(() => {
         const viewport = viewportRef.current;
         if (!viewport) return false;
         const viewportWidth = viewport.clientWidth;
         const viewportHeight = viewport.clientHeight;
+        if (!viewportWidth || !viewportHeight) return false;
         const calculated = calculatePhotoBrowserWindow({
             photoCount: photos.length,
             viewMode,
@@ -374,18 +368,27 @@ function ThumbnailGrid({
     useEffect(() => {
         const scrollRenderMs = pendingScrollAt.current == null ? null : PhotoBrowserPerformance.timestamp() - pendingScrollAt.current;
         const initialRenderMs = initialRenderAt.current == null ? null : PhotoBrowserPerformance.timestamp() - initialRenderAt.current;
+        const renderWindow = windowState;
         PhotoBrowserPerformance.recordVirtualization({ visibleItems: renderWindow.visibleEnd - renderWindow.visibleStart, renderedItems: renderWindow.end - renderWindow.start, overscanItems: (renderWindow.end - renderWindow.start) - (renderWindow.visibleEnd - renderWindow.visibleStart), scrollRenderMs, initialRenderMs, viewMode });
         pendingScrollAt.current = null;
         initialRenderAt.current = null;
-    }, [renderWindow, viewMode]);
+    }, [windowState, viewMode]);
 
     useEffect(() => {
+        const renderWindow = windowState;
         PhotoBrowserPerformance.browserCards({
             visible: renderWindow.visibleEnd - renderWindow.visibleStart,
             mounted: renderWindow.end - renderWindow.start,
             viewMode
         });
-    }, [renderWindow, viewMode]);
+    }, [windowState, viewMode]);
+
+    const handlePhotoClick = useCallback((photo, event) => {
+        onFocusPhoto?.(photo?.id || null);
+        onPhotoClick?.(photo, event);
+    }, [onFocusPhoto, onPhotoClick]);
+
+    const renderWindow = windowState;
 
     const items = [];
     for (let index = renderWindow.start; index < renderWindow.end; index++) {
@@ -394,11 +397,11 @@ function ThumbnailGrid({
         const key = photo.id || photo.name || index;
         const decision = decisionForPhoto(photo);
         if (viewMode === "list") {
-            items.push(<ListPhotoRow key={key} photo={photo} onPhotoClick={handlePhotoClick} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} style={{ position: "absolute", top: index * LIST_ROW_HEIGHT, left: 0, right: 0, height: LIST_ROW_HEIGHT }} />);
+            items.push(<ListPhotoRow key={key} photo={photo} onPhotoClick={handlePhotoClick} onContextMenu={onContextMenu} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} style={{ position: "absolute", top: index * LIST_ROW_HEIGHT, left: 0, right: 0, height: LIST_ROW_HEIGHT }} />);
         } else {
             const row = Math.floor(index / renderWindow.columns);
             const column = index % renderWindow.columns;
-            items.push(<IconsPhotoItem key={key} photo={photo} onPhotoClick={handlePhotoClick} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} style={{ position: "absolute", left: ICON_PADDING + column * (ICON_WIDTH + ICON_GAP), top: ICON_PADDING + row * ICON_ROW_HEIGHT, width: ICON_WIDTH, height: ICON_HEIGHT }} />);
+            items.push(<IconsPhotoItem key={key} photo={photo} onPhotoClick={handlePhotoClick} onContextMenu={onContextMenu} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} style={{ position: "absolute", left: ICON_PADDING + column * (ICON_WIDTH + ICON_GAP), top: ICON_PADDING + row * ICON_ROW_HEIGHT, width: ICON_WIDTH, height: ICON_HEIGHT }} />);
         }
     }
 

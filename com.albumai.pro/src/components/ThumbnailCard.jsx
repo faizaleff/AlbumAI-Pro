@@ -5,6 +5,7 @@ import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 function ThumbnailCard({
     photo,
     onClick,
+    onContextMenu,
     compact = false,
     thumbnailRevision,
     loading,
@@ -25,6 +26,12 @@ function ThumbnailCard({
     const handleClick = useCallback(event => {
         onClick(photo, event);
     }, [photo, onClick]);
+
+    const handleContextMenu = useCallback(event => {
+        event.preventDefault();
+        event.stopPropagation();
+        onContextMenu?.(event, photo);
+    }, [photo, onContextMenu]);
 
     const handleDragStart = useCallback(event => {
         if (!photo?.id) return;
@@ -55,6 +62,7 @@ function ThumbnailCard({
     return (
         <div
             onClick={handleClick}
+            onContextMenu={handleContextMenu}
             className={`modern-studio-card${selected ? " is-selected" : ""}`}
             role="option"
             aria-selected={selected}
@@ -165,10 +173,10 @@ function ThumbnailCard({
             {/* Card Footer: Row 1 = Filename, Row 2 = 5 Stars + Heart */}
             <div
                 style={{
-                    padding: "3px 5px",
+                    padding: "3px 6px",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 2,
+                    gap: 1,
                     background: selected ? "#162338" : "#151b23",
                     minWidth: 0,
                     boxSizing: "border-box"
@@ -190,64 +198,71 @@ function ThumbnailCard({
                     {photo.name}
                 </div>
 
-                {/* 5 Stars Rating + Favorite Heart (Always visible, fits perfectly, 0 flicker) */}
+                {/* 5 Stars Rating + Favorite Heart (Explicit zero-min-width styling for UXP) */}
                 <div
                     style={{
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        paddingTop: 1
+                        paddingTop: 1,
+                        width: "100%",
+                        boxSizing: "border-box"
                     }}
                     onMouseLeave={() => setHoverStar(0)}
                 >
-                    {/* 5-Star Row */}
-                    <div style={{ display: "flex", gap: 1 }}>
+                    {/* 5-Star Row (All 5 Stars Tightly Spaced) */}
+                    <div style={{ display: "flex", gap: 1, alignItems: "center" }}>
                         {[1, 2, 3, 4, 5].map(starNum => {
                             const isFilled = starNum <= displayStars;
                             return (
-                                <button
+                                <span
                                     key={starNum}
-                                    type="button"
+                                    role="button"
                                     onClick={(e) => handleStarClick(e, starNum)}
                                     onMouseEnter={() => setHoverStar(starNum)}
                                     style={{
-                                        border: "none",
-                                        background: "transparent",
-                                        padding: 0,
-                                        margin: 0,
                                         cursor: "pointer",
-                                        fontSize: 13,
+                                        fontSize: 12,
                                         lineHeight: 1,
-                                        color: isFilled ? "#ffd700" : "#30363d",
-                                        transition: "color 0.1s ease"
+                                        width: 12,
+                                        height: 14,
+                                        minWidth: 0,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: isFilled ? "#ffd700" : "#484f58",
+                                        transition: "color 0.1s ease, transform 0.1s ease",
+                                        userSelect: "none"
                                     }}
                                     title={`Rate ${starNum} star${starNum > 1 ? "s" : ""} (${starNum})`}
                                 >
                                     ★
-                                </button>
+                                </span>
                             );
                         })}
                     </div>
 
                     {/* Heart Button */}
-                    <button
-                        type="button"
+                    <span
+                        role="button"
                         onClick={handleFavoriteClick}
                         style={{
-                            border: "none",
-                            background: "transparent",
-                            padding: "0 2px",
-                            margin: 0,
                             cursor: "pointer",
                             fontSize: 13,
                             lineHeight: 1,
-                            color: isFavorite ? "#ff4d4f" : "#484f58",
-                            transition: "color 0.1s ease"
+                            minWidth: 0,
+                            padding: "0 2px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: isFavorite ? "#ff4d4f" : "#6e7681",
+                            transition: "color 0.1s ease, transform 0.1s ease",
+                            userSelect: "none"
                         }}
                         title={isFavorite ? "Remove from favourites (F)" : "Add to favourites (F)"}
                     >
                         {isFavorite ? "♥" : "♡"}
-                    </button>
+                    </span>
                 </div>
             </div>
         </div>
@@ -261,6 +276,7 @@ export default React.memo(
         previous.photo?.file === next.photo?.file &&
         previous.photo?.name === next.photo?.name &&
         previous.onClick === next.onClick &&
+        previous.onContextMenu === next.onContextMenu &&
         previous.compact === next.compact &&
         previous.thumbnailRevision === next.thumbnailRevision &&
         previous.loading === next.loading &&
