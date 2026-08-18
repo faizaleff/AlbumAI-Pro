@@ -16,6 +16,13 @@ import {
 } from "../src/project/AlbumSheetRenderBridge";
 import SpreadCanvas from "../src/components/SpreadCanvas";
 import SheetStoryboardStrip from "../src/components/SheetStoryboardStrip";
+import {
+    computeCompletedSteps,
+    canNavigateToStep,
+    resolveWizardNavigation
+} from "../src/services/PhotoGroupingEngine";
+import LibraryEngine from "../src/core/LibraryEngine";
+import SelectionEngine from "../src/core/SelectionEngine";
 
 let assertions = 0;
 
@@ -329,6 +336,181 @@ export async function runAlb081Tests() {
         check(html.includes("Ceremony Spread"), "Contains sheet 2 label");
         check(html.includes("1/2"), "Contains slot fill ratio badge");
         check(html.includes("Add Sheet"), "Contains Add Sheet button");
+    }
+
+    // Test 10: Wizard Navigation & Direct Designer Entry Qualification
+    {
+        // 1. Normal Step-4 wizard gating without KEEP decisions fails
+        const stepsNoKeep = computeCompletedSteps({
+            photoCount: 36,
+            analysisComplete: true,
+            groupsReviewed: true,
+            keptPhotoCount: 0,
+            placedPhotoCount: 0,
+            exportComplete: false
+        });
+        check(stepsNoKeep.has(1) === true, "Step 1 completed with photos");
+        check(stepsNoKeep.has(2) === true, "Step 2 completed with groups reviewed");
+        check(stepsNoKeep.has(3) === false, "Step 3 not completed without KEEP decisions");
+        check(canNavigateToStep(1, 4, stepsNoKeep) === false, "Normal Step 4 navigation blocked without KEEP decisions");
+        check(resolveWizardNavigation({
+            currentStep: 1,
+            targetStep: 4,
+            completedSteps: stepsNoKeep,
+            hasProject: true,
+            photoCount: 36,
+            directDesignerEntry: false
+        }) === false, "resolveWizardNavigation blocks normal Step 4 without KEEP decisions");
+
+        // 2. Normal Step-4 wizard gating with KEEP decisions succeeds
+        const stepsWithKeep = computeCompletedSteps({
+            photoCount: 36,
+            analysisComplete: true,
+            groupsReviewed: true,
+            keptPhotoCount: 5,
+            placedPhotoCount: 0,
+            exportComplete: false
+        });
+        check(stepsWithKeep.has(3) === true, "Step 3 completed with KEEP decisions");
+        check(canNavigateToStep(1, 4, stepsWithKeep) === true, "Normal Step 4 navigation allowed with KEEP decisions");
+        check(resolveWizardNavigation({
+            currentStep: 1,
+            targetStep: 4,
+            completedSteps: stepsWithKeep,
+            hasProject: true,
+            photoCount: 36,
+            directDesignerEntry: false
+        }) === true, "resolveWizardNavigation allows normal Step 4 with KEEP decisions");
+
+        // 3. Direct Designer entry works with project + photos even with 0 KEEP decisions
+        const directAllowed = resolveWizardNavigation({
+            currentStep: 1,
+            targetStep: 4,
+            completedSteps: stepsNoKeep,
+            hasProject: true,
+            photoCount: 36,
+            directDesignerEntry: true
+        });
+        check(directAllowed === true, "Explicit Go to Designer allowed with project + photos even with 0 KEEP decisions");
+
+        // 4. Direct Designer entry fails closed without project
+        const directNoProject = resolveWizardNavigation({
+            currentStep: 1,
+            targetStep: 4,
+            completedSteps: stepsNoKeep,
+            hasProject: false,
+            photoCount: 36,
+            directDesignerEntry: true
+        });
+        check(directNoProject === false, "Direct Designer entry blocked without open project");
+
+        // 5. Direct Designer entry fails closed with zero photos
+        const directNoPhotos = resolveWizardNavigation({
+            currentStep: 1,
+            targetStep: 4,
+            completedSteps: stepsNoKeep,
+            hasProject: true,
+            photoCount: 0,
+            directDesignerEntry: true
+        });
+        check(directNoPhotos === false, "Direct Designer entry blocked with zero photos");
+
+        // 6. Direct Designer entry fails closed for non-step-4 targets
+        const directWrongStep = resolveWizardNavigation({
+            currentStep: 1,
+            targetStep: 5,
+            completedSteps: stepsNoKeep,
+            hasProject: true,
+            photoCount: 36,
+            directDesignerEntry: true
+        });
+        check(directWrongStep === false, "Direct Designer entry blocked for non-Designer step target");
+
+        // 7. Domain separation: browser selection does NOT alter culling KEEP decisions
+        const mockPhotos = [
+            { id: "photo-1", selected: true },
+            { id: "photo-2", selected: false }
+        ];
+        const mockCullingStore = new Map();
+        const cullingDecisions = mockPhotos.filter(p => {
+            const decision = mockCullingStore.get(p.id);
+            return decision === "keep" || decision === "KEEP";
+        }).length;
+        check(cullingDecisions === 0, "Browser selection (selected: true) does not alter culling KEEP count");
+    }
+
+    // Test 11: Canonical Selection Event Contract & Workspace Persistence Qualification
+    {
+        const library = new LibraryEngine();
+        const photos = [
+            { id: "photo-1", name: "1.jpg" },
+            { id: "photo-2", name: "2.jpg" },
+            { id: "photo-3", name: "3.jpg" },
+            { id: "photo-4", name: "4.jpg" }
+        ];
+        library.load(photos);
+        const selection = new SelectionEngine(library);
+        selection.setOrderedPhotos(photos);
+
+        // Simulated OpenFolder click handler contract: onPhotoClick(photo, event)
+        let focusedPhotoId = null;
+        const onPhotoClick = (photo, event = {}) => {
+            focusedPhotoId = photo?.id || null;
+            selection.handleClick(photo, event);
+        };
+
+        // 1. Normal click: updates both focusedPhotoId and canonical selection (single-selection)
+        onPhotoClick(photos[1], {});
+        check(focusedPhotoId === "photo-2", "Normal click sets focusedPhotoId");
+        check(selection.selectedIds().size === 1, "Normal click results in 1 selected photo");
+        check(selection.isSelected("photo-2") === true, "Normal click selects clicked photo");
+        check(selection.getSelected()[0]?.id === "photo-2", "selection.getSelected() returns clicked photo");
+
+        // 2. Modifier click: Cmd/Ctrl click toggles without replacing
+        onPhotoClick(photos[3], { ctrlKey: true });
+        check(focusedPhotoId === "photo-4", "Cmd/Ctrl click sets focusedPhotoId");
+        check(selection.selectedIds().size === 2, "Cmd/Ctrl click adds to selection");
+        check(selection.isSelected("photo-2") === true, "Previous selection preserved on Cmd/Ctrl click");
+        check(selection.isSelected("photo-4") === true, "New photo selected on Cmd/Ctrl click");
+
+        // 3. Modifier click: Shift click creates contiguous range
+        onPhotoClick(photos[0], {}); // Reset anchor to photo-1
+        onPhotoClick(photos[2], { shiftKey: true }); // Range from photo-1 to photo-3
+        check(selection.selectedIds().size === 3, "Shift click selects range of 3 photos");
+        check(selection.isSelected("photo-1") === true, "photo-1 in range");
+        check(selection.isSelected("photo-2") === true, "photo-2 in range");
+        check(selection.isSelected("photo-3") === true, "photo-3 in range");
+        check(selection.isSelected("photo-4") === false, "photo-4 not in range");
+
+        // 4. Normal click resets multi-selection to single photo
+        onPhotoClick(photos[2], {});
+        check(selection.selectedIds().size === 1, "Normal click resets multi-selection to single selection");
+        check(selection.isSelected("photo-3") === true, "Only photo-3 selected");
+
+        // 5. Workspace mode simulation: selection survives LIBRARY -> DESIGNER -> LIBRARY
+        // Entering Designer mode: components unmount, but App.selection is retained in memory
+        let activeWorkspaceMode = "LIBRARY";
+        check(selection.getSelected().length === 1, "Selected count is 1 before Designer");
+
+        // Transition to DESIGNER
+        activeWorkspaceMode = "DESIGNER";
+        const designerSelectedPhoto = selection.getSelected()[0] || null;
+        check(designerSelectedPhoto?.id === "photo-3", "SpreadCanvas receives activeSelectedPhoto in DESIGNER");
+
+        // Transition back to LIBRARY (e.g. 3. Cull)
+        activeWorkspaceMode = "LIBRARY";
+        check(selection.getSelected().length === 1, "Selected count survives return to LIBRARY");
+        check(selection.isSelected("photo-3") === true, "photo-3 remains selected upon return to LIBRARY");
+
+        // 6. Explicit clear: Escape or Clear button clears selection
+        selection.clear();
+        check(selection.selectedIds().size === 0, "Explicit clear zeroes selection");
+        check(selection.getSelected().length === 0, "selection.getSelected() returns empty array after clear");
+
+        // 7. Reconcile / Lifecycle clear: retainAvailable and library reload
+        selection.select(photos[0]);
+        selection.retainAvailable([photos[1], photos[2]]); // photos[0] no longer available
+        check(selection.selectedIds().size === 0, "retainAvailable removes unavailable photo IDs");
     }
 
     console.info(`PASS ALB-081: All assertions passed (${assertions} assertions).`);

@@ -35,7 +35,8 @@ import {
 import {
     WIZARD_STEPS,
     computeCompletedSteps,
-    canNavigateToStep
+    canNavigateToStep,
+    resolveWizardNavigation
 } from "../services/PhotoGroupingEngine";
 
 export default function OpenFolder() {
@@ -99,8 +100,16 @@ export default function OpenFolder() {
         placedPhotoCount,
         exportComplete: false
     });
-    const handleWizardStepClick = (stepId) => {
-        if (!canNavigateToStep(wizardStep, stepId, wizardCompletedSteps)) return;
+    const handleWizardStepClick = (stepId, { directDesignerEntry = false } = {}) => {
+        const isAllowed = resolveWizardNavigation({
+            currentStep: wizardStep,
+            targetStep: stepId,
+            completedSteps: wizardCompletedSteps,
+            hasProject,
+            photoCount: workspacePhotos.length,
+            directDesignerEntry
+        });
+        if (!isAllowed) return;
         setWizardStep(stepId);
         if (stepId <= 3) setActiveWorkspaceMode("LIBRARY");
         else if (stepId === 4) setActiveWorkspaceMode("DESIGNER");
@@ -458,9 +467,10 @@ export default function OpenFolder() {
 
     }
 
-    const onPhotoClick = useCallback(photo => {
+    const onPhotoClick = useCallback((photo, event) => {
 
         setFocusedPhotoId(photo?.id || null);
+        App.selection.handleClick(photo, event);
         App.prioritizePhotoThumbnail(photo);
 
     }, []);
@@ -1184,7 +1194,7 @@ export default function OpenFolder() {
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => handleWizardStepClick(4)}
+                                            onClick={() => handleWizardStepClick(4, { directDesignerEntry: true })}
                                             style={{ background: "#1f6feb", borderColor: "#388bfd", color: "#fff", fontWeight: 600, fontSize: 11, padding: "3px 10px" }}
                                         >
                                             🎨 Go to Designer →
@@ -1227,7 +1237,36 @@ export default function OpenFolder() {
                             photos={App.getPhotos()}
                             selection={App.selection}
                             focusedPhotoId={focusedPhotoId}
-                            executionDetails={executionDetails}
+                            diagnostics={{
+                                hasProject,
+                                projectId: project?.metadata?.id || null,
+                                projectName: project?.metadata?.name || "",
+                                healthPhotos: getPhotos(),
+                                healthTemplate: getCurrentTemplate(),
+                                placementPlan: getCurrentPlacementPlan(),
+                                placementError: null,
+                                executionPlan: getCurrentPlacementExecutionPlan(),
+                                replacementRequest: getCurrentReplacementRequest(),
+                                document: null,
+                                autoSaveEnabled: getAutoSaveEnabled(),
+                                autoSaveMode: getAutoSaveMode(),
+                                autoSaveResult: getCurrentAutoSaveResult(),
+                                exportEnabled: getExportEnabled(),
+                                exportFormat: getExportFormat(),
+                                exportResult: getCurrentExportResult(),
+                                replacementResult: null,
+                                executionSummary: getCurrentExecutionSummary(),
+                                batchProgress: getCurrentBatchProgress(),
+                                executionLifecycle: getCurrentExecutionLifecycle(),
+                                projectExecutionSummary: getCurrentProjectExecutionSummary(),
+                                registeredTemplates: getRegisteredProjectTemplates(),
+                                registryError: null,
+                                recoveryState: getBatchRecoveryState(),
+                                recoveryBusy: Boolean(projectAction),
+                                onResumeBatch: resumeProjectBatch,
+                                onRetryFailed: retryFailedTemplates,
+                                onClearRecovery: clearRecoveryState
+                            }}
                         />
                     </div>
                 )}
@@ -1406,8 +1445,8 @@ export default function OpenFolder() {
                     </div>
                 )}
 
-                {hasProject && (
-                    <div style={{ display: activeWorkspaceMode === "DESIGNER" ? "block" : "none" }}>
+                {hasProject && activeWorkspaceMode === "DESIGNER" && (
+                    <div>
                         <TemplateDocumentPanel
                             loadTemplates={loadTemplates}
                             getRegisteredProjectTemplates={getRegisteredProjectTemplates}
@@ -1452,7 +1491,6 @@ export default function OpenFolder() {
                             setExportFormat={setExportFormat}
                             getExportFormat={getExportFormat}
                             getCurrentExportResult={getCurrentExportResult}
-                            onExecutionDetailsChange={setExecutionDetails}
                             projectId={project?.metadata?.id || null}
                             projectName={project?.metadata?.name || ""}
                             hasProject={hasProject}

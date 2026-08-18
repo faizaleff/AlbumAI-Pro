@@ -524,3 +524,17 @@ export function stepLockedReason(targetStep, completedSteps) {
     };
     return reasons[targetStep] || null;
 }
+
+export function resolveWizardNavigation({
+    currentStep = 1,
+    targetStep,
+    completedSteps,
+    hasProject = false,
+    photoCount = 0,
+    directDesignerEntry = false
+} = {}) {
+    if (directDesignerEntry) {
+        return Boolean(hasProject && photoCount > 0 && targetStep === 4);
+    }
+    return canNavigateToStep(currentStep, targetStep, completedSteps);
+}

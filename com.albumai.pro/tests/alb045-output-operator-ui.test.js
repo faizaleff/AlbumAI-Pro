@@ -118,7 +118,8 @@ test("batch panel prefers authoritative recovery totals over partial template re
 });
 
 test("UI hides automatic actions without safe work and includes operator diagnostics", () => {
-    const panel = fs.readFileSync(path.join(process.cwd(), "src/components/TemplateDocumentPanel.jsx"), "utf8");
+    const panel = fs.readFileSync(path.join(process.cwd(), "src/components/TemplateDocumentPanel.jsx"), "utf8") +
+        fs.readFileSync(path.join(process.cwd(), "src/components/ExecutionDetailsPanel.jsx"), "utf8");
     const progress = fs.readFileSync(path.join(process.cwd(), "src/components/BatchProgressPanel.jsx"), "utf8");
     const executor = fs.readFileSync(path.join(process.cwd(), "src/project/ProjectExecutor.js"), "utf8");
     const projectSummary = fs.readFileSync(path.join(process.cwd(), "src/project/ProjectExecutionSummary.js"), "utf8");

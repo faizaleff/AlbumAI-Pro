@@ -13,6 +13,7 @@
     "src/cache/ThumbnailCache.js",
     "src/components/AutoFlowModal.jsx",
     "src/components/BatchProgressPanel.jsx",
+    "src/components/ExecutionDetailsPanel.jsx",
     "src/components/OpenFolder.jsx",
     "src/components/PhotoBrowserSection.jsx",
     "src/components/PhotoComparisonModal.jsx",

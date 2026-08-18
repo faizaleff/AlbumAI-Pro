@@ -5,14 +5,15 @@
   "sourcePolicy": "Architecture/ALB-050_ARCHITECTURE_POLICY.json",
   "regressionEntry": "tests/alb051-regression-baseline.test.js",
   "baseline": {
-    "activeFiles": 114,
+    "activeFiles": 115,
     "legacyTestReachableFiles": 103,
-    "legacyTestGapFiles": 11,
-    "postAlb051ReachableFiles": 114
+    "legacyTestGapFiles": 12,
+    "postAlb051ReachableFiles": 115
   },
   "requiredUiModules": [
     "src/components/AutoFlowModal.jsx",
     "src/components/BatchProgressPanel.jsx",
+    "src/components/ExecutionDetailsPanel.jsx",
     "src/components/OpenFolder.jsx",
     "src/components/PhotoBrowserSection.jsx",
     "src/components/PhotoComparisonModal.jsx",

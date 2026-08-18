@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import PhotoImage from "./PhotoImage";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+import ExecutionDetailsPanel from "./ExecutionDetailsPanel";
 
 function PreviewPanel({
     photos = [],
     selection,
     focusedPhotoId = null,
-    executionDetails
+    executionDetails = null,
+    diagnostics = null
 }) {
     PhotoBrowserPerformance.recordRender("PreviewPanel");
     const [selectedPhotoId, setSelectedPhotoId] = useState(
@@ -163,7 +165,7 @@ function PreviewPanel({
                 data-execution-log-viewport="true"
                 style={{ flex: 1, minHeight: 0, minWidth: 0, maxWidth: "100%", boxSizing: "border-box", overflowY: "auto", overflowX: "hidden", marginTop: 8 }}
             >
-                {executionDetails}
+                {executionDetails || (diagnostics ? <ExecutionDetailsPanel {...diagnostics} /> : null)}
             </div>
         </div>
     );

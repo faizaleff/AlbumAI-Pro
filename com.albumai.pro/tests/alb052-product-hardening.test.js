@@ -262,7 +262,8 @@ async function run() {
 
     await test("operator UI blocks duplicate project actions and explains invalid recovery", async () => {
         const openFolder = fs.readFileSync(path.join(process.cwd(), "src/components/OpenFolder.jsx"), "utf8");
-        const templatePanel = fs.readFileSync(path.join(process.cwd(), "src/components/TemplateDocumentPanel.jsx"), "utf8");
+        const templatePanel = fs.readFileSync(path.join(process.cwd(), "src/components/TemplateDocumentPanel.jsx"), "utf8") +
+            fs.readFileSync(path.join(process.cwd(), "src/components/ExecutionDetailsPanel.jsx"), "utf8");
         assert(openFolder.includes("projectActionBusyRef.current"));
         assert(openFolder.includes("hasProject || Boolean(projectAction)"));
         assert(openFolder.includes("!hasProject || Boolean(projectAction)"));
