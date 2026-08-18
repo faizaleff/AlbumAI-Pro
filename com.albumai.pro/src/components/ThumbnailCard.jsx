@@ -15,15 +15,16 @@ function ThumbnailCard({
     onDecisionChange
 }) {
     PhotoBrowserPerformance.recordRender("ThumbnailCard");
-    const [hoverRating, setHoverRating] = useState(0);
-    const [isCardHovered, setIsCardHovered] = useState(false);
+    const [hoverStar, setHoverStar] = useState(0);
 
-    const imageHeight = compact ? 76 : 110;
+    const imageHeight = compact ? 78 : 112;
     const rating = decision?.rating || 0;
     const isFavorite = Boolean(decision?.favorite);
     const culling = decision?.culling?.toLowerCase();
 
-    const handleClick = useCallback(event => onClick(photo, event), [photo, onClick]);
+    const handleClick = useCallback(event => {
+        onClick(photo, event);
+    }, [photo, onClick]);
 
     const handleDragStart = useCallback(event => {
         if (!photo?.id) return;
@@ -38,59 +39,31 @@ function ThumbnailCard({
 
     const handleStarClick = (event, starValue) => {
         event.stopPropagation();
+        event.preventDefault();
         const nextRating = rating === starValue ? 0 : starValue;
         onDecisionChange?.(photo, { rating: nextRating });
     };
 
     const handleFavoriteClick = (event) => {
         event.stopPropagation();
+        event.preventDefault();
         onDecisionChange?.(photo, { favorite: !isFavorite });
     };
 
-    const activeRatingDisplay = hoverRating > 0 ? hoverRating : rating;
+    const activeStarCount = hoverStar > 0 ? hoverStar : rating;
 
     return (
         <div
             onClick={handleClick}
             draggable={true}
             onDragStart={handleDragStart}
-            onMouseEnter={() => setIsCardHovered(true)}
-            onMouseLeave={() => {
-                setIsCardHovered(false);
-                setHoverRating(0);
-            }}
-            className={`photo-thumbnail-card${selected ? " is-selected" : ""}${isCardHovered ? " is-hovered" : ""}`}
+            className={`modern-studio-card${selected ? " is-selected" : ""}`}
             role="option"
             aria-selected={selected}
             title={photo.name}
-            style={{
-                width: "100%",
-                height: "100%",
-                cursor: "pointer",
-                userSelect: "none",
-                overflow: "hidden",
-                borderRadius: compact ? 6 : 8,
-                position: "relative",
-                display: "flex",
-                flexDirection: "column",
-                background: selected ? "#1c2c40" : "#1c2128",
-                border: selected ? "2px solid #388bfd" : "1px solid #30363d",
-                transition: "all 0.15s ease",
-                boxShadow: selected ? "0 0 10px rgba(56, 139, 253, 0.35)" : "none"
-            }}
         >
-            {/* Image Thumbnail Container */}
-            <div
-                style={{
-                    position: "relative",
-                    height: imageHeight,
-                    background: "#0d1117",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    overflow: "hidden"
-                }}
-            >
+            {/* Image Thumbnail Box */}
+            <div className="card-thumb-container" style={{ height: imageHeight }}>
                 <PhotoImage
                     photo={photo}
                     profile="thumbnail"
@@ -102,9 +75,9 @@ function ThumbnailCard({
                     alt={photo.name}
                     fallback={status =>
                         status === "loading" ? (
-                            <div style={{ color: "#6e7681", fontSize: 11 }}>Loading…</div>
+                            <div className="thumb-loading-text">Loading…</div>
                         ) : (
-                            <div style={{ color: "#484f58", fontSize: 18 }}>▧</div>
+                            <div className="thumb-fallback-icon">▧</div>
                         )
                     }
                     style={{
@@ -112,162 +85,72 @@ function ThumbnailCard({
                         height: "100%",
                         objectFit: "cover",
                         pointerEvents: "none",
-                        display: "block",
-                        transition: "transform 0.2s ease",
-                        transform: isCardHovered ? "scale(1.04)" : "scale(1)"
+                        display: "block"
                     }}
                 />
 
-                {/* Top-Right Selection Checkmark Badge */}
+                {/* Selection Badge */}
                 {selected && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            top: 4,
-                            right: 4,
-                            width: compact ? 18 : 22,
-                            height: compact ? 18 : 22,
-                            borderRadius: "50%",
-                            background: "#1f6feb",
-                            border: "1px solid #ffffff",
-                            color: "#fff",
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            fontSize: compact ? 11 : 13,
-                            fontWeight: "bold",
-                            boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
-                            zIndex: 3
-                        }}
-                    >
+                    <div className="card-select-badge" aria-label="Selected">
                         ✓
                     </div>
                 )}
 
-                {/* Top-Left Culling Status Badge (Keep / Reject) */}
+                {/* Culling Badge (Keep / Reject) */}
                 {culling && culling !== "unrated" && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            top: 4,
-                            left: 4,
-                            padding: "1px 5px",
-                            borderRadius: 3,
-                            fontSize: 9,
-                            fontWeight: 700,
-                            letterSpacing: "0.03em",
-                            background: culling === "keep" ? "rgba(35, 134, 54, 0.9)" : "rgba(218, 54, 51, 0.9)",
-                            color: "#ffffff",
-                            boxShadow: "0 1px 4px rgba(0,0,0,0.6)",
-                            zIndex: 3
-                        }}
-                    >
+                    <div className={`card-cull-badge ${culling}`}>
                         {culling === "keep" ? "✓ KEEP" : "✕ REJECT"}
                     </div>
                 )}
 
-                {/* Bottom Overlay: Bridge-Style Responsive Star Rating & Heart Favorite */}
-                {(isCardHovered || rating > 0 || isFavorite) && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "3px 6px",
-                            background: isCardHovered ? "rgba(13, 17, 23, 0.95)" : "rgba(13, 17, 23, 0.75)",
-                            transition: "all 0.15s ease",
-                            zIndex: 4
-                        }}
-                    >
-                        {/* 5-Star Rating Buttons */}
-                        <div
-                            style={{ display: "flex", gap: 1 }}
-                            onMouseLeave={() => setHoverRating(0)}
-                        >
-                            {[1, 2, 3, 4, 5].map(starNum => {
-                                const isStarActive = starNum <= activeRatingDisplay;
-                                return (
-                                    <button
-                                        key={starNum}
-                                        type="button"
-                                        onClick={(e) => handleStarClick(e, starNum)}
-                                        onMouseEnter={() => setHoverRating(starNum)}
-                                        style={{
-                                            border: "none",
-                                            background: "transparent",
-                                            padding: 0,
-                                            margin: 0,
-                                            cursor: "pointer",
-                                            fontSize: compact ? 12 : 14,
-                                            lineHeight: 1,
-                                            color: isStarActive ? "#e3b341" : (isCardHovered ? "#484f58" : "transparent"),
-                                            transition: "transform 0.1s ease, color 0.1s ease",
-                                            transform: hoverRating === starNum ? "scale(1.25)" : "scale(1)"
-                                        }}
-                                        title={`Rate ${starNum} star${starNum > 1 ? "s" : ""}`}
-                                    >
-                                        ★
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        {/* Heart Favorite Button */}
-                        <button
-                            type="button"
-                            onClick={handleFavoriteClick}
-                            style={{
-                                border: "none",
-                                background: "transparent",
-                                padding: "0 2px",
-                                margin: 0,
-                                cursor: "pointer",
-                                fontSize: compact ? 12 : 14,
-                                lineHeight: 1,
-                                color: isFavorite ? "#f85149" : (isCardHovered ? "#6e7681" : "transparent"),
-                                transition: "transform 0.15s ease, color 0.15s ease",
-                                transform: isFavorite ? "scale(1.1)" : "scale(1)"
-                            }}
-                            title={isFavorite ? "Remove from favourites (F)" : "Add to favourites (F)"}
-                        >
-                            {isFavorite ? "♥" : "♡"}
-                        </button>
+                {/* Modern Studio Rating & Action Bar (CSS-driven Hover Overlay - No Flicker) */}
+                <div
+                    className="card-hover-action-bar"
+                    onMouseLeave={() => setHoverStar(0)}
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div className="card-stars-row">
+                        {[1, 2, 3, 4, 5].map(starNum => {
+                            const isFilled = starNum <= activeStarCount;
+                            return (
+                                <button
+                                    key={starNum}
+                                    type="button"
+                                    onClick={(e) => handleStarClick(e, starNum)}
+                                    onMouseEnter={() => setHoverStar(starNum)}
+                                    className={`star-btn${isFilled ? " filled" : ""}`}
+                                    title={`Rate ${starNum} star${starNum > 1 ? "s" : ""} (${starNum})`}
+                                >
+                                    ★
+                                </button>
+                            );
+                        })}
                     </div>
-                )}
+
+                    <button
+                        type="button"
+                        onClick={handleFavoriteClick}
+                        className={`fav-btn${isFavorite ? " active" : ""}`}
+                        title={isFavorite ? "Remove from favourites (F)" : "Add to favourites (F)"}
+                    >
+                        {isFavorite ? "♥" : "♡"}
+                    </button>
+                </div>
             </div>
 
-            {/* Card Footer Info */}
-            <div
-                style={{
-                    padding: compact ? "4px 6px" : "6px 8px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    background: selected ? "#1c2c40" : "#161b22",
-                    minWidth: 0
-                }}
-            >
-                <span
-                    title={photo.name}
-                    style={{
-                        fontSize: 10,
-                        color: selected ? "#ffffff" : "#c9d1d9",
-                        fontWeight: selected ? 600 : 400,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        flex: 1
-                    }}
-                >
+            {/* Card Footer Meta */}
+            <div className="card-footer-meta">
+                <span className="photo-title" title={photo.name}>
                     {photo.name}
                 </span>
-                {photo.extension && (
-                    <span style={{ fontSize: 9, color: "#8b949e", textTransform: "uppercase", marginLeft: 4, flexShrink: 0 }}>
-                        {photo.extension}
+                {rating > 0 && (
+                    <span className="rating-pill">
+                        ★ {rating}
+                    </span>
+                )}
+                {isFavorite && (
+                    <span className="fav-pill" title="Favorite">
+                        ♥
                     </span>
                 )}
             </div>
