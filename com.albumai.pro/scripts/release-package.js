@@ -233,11 +233,68 @@ function writeAtomically(filePath, content) {
     }
 }
 
-function packageRelease({ outputDir } = {}) {
+const childProcess = require("child_process");
+
+function getGitReleaseTags({ cwd = PROJECT_ROOT } = {}) {
+    try {
+        const output = childProcess.execSync("git tag -l", {
+            cwd,
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"]
+        });
+        return new Set(output.split(/\r?\n/).map(tag => tag.trim()).filter(Boolean));
+    } catch (_) {
+        return new Set();
+    }
+}
+
+function checkReleaseDestinationSafety(destinationPath, archiveName, version, {
+    isDefaultReleaseTarget = true,
+    gitTagReader = getGitReleaseTags
+} = {}) {
+    if (isDefaultReleaseTarget) {
+        const tags = typeof gitTagReader === "function" ? gitTagReader() : getGitReleaseTags();
+        const expectedTag = `v${version}`;
+        if (tags && typeof tags.has === "function" && tags.has(expectedTag)) {
+            throw new Error(
+                `Refusing to generate release package for version ${version}. ` +
+                `Git release tag '${expectedTag}' already exists and historical releases are immutable. ` +
+                `Bump the project version in package.json and manifests to cut a new release.`
+            );
+        }
+    }
+
+    const targetFiles = [
+        path.join(destinationPath, archiveName),
+        path.join(destinationPath, `${archiveName}.sha256`),
+        path.join(destinationPath, `${archiveName}.inventory.json`)
+    ];
+
+    for (const filePath of targetFiles) {
+        if (fs.existsSync(filePath)) {
+            throw new Error(
+                `Refusing to overwrite existing release artifact: ${filePath}. ` +
+                `Release artifacts are immutable. Bump the version or package to a dedicated clean directory.`
+            );
+        }
+    }
+}
+
+function packageRelease({ outputDir, gitTagReader } = {}) {
     const packageJson = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, "package.json"), "utf8"));
     const packageLock = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, "package-lock.json"), "utf8"));
     const manifest = JSON.parse(fs.readFileSync(path.join(DIST_ROOT, "manifest.json"), "utf8"));
     validateReleaseInputs(packageJson, manifest, packageLock);
+
+    const isDefaultReleaseTarget = !outputDir ||
+        path.resolve(outputDir) === path.resolve(path.join(PROJECT_ROOT, "release", packageJson.version));
+    const destination = path.resolve(outputDir || path.join(PROJECT_ROOT, "release", packageJson.version));
+    const archiveName = `AlbumAI-Pro-${packageJson.version}.zip`;
+
+    checkReleaseDestinationSafety(destination, archiveName, packageJson.version, {
+        isDefaultReleaseTarget,
+        gitTagReader
+    });
 
     const entries = PACKAGE_FILES.map(file => ({
         path: file.archivePath,
@@ -245,8 +302,7 @@ function packageRelease({ outputDir } = {}) {
     }));
     const archiveBuffer = createDeterministicZip(entries);
     const archiveHash = sha256(archiveBuffer);
-    const archiveName = `AlbumAI-Pro-${packageJson.version}.zip`;
-    const destination = path.resolve(outputDir || path.join(PROJECT_ROOT, "release", packageJson.version));
+
     fs.mkdirSync(destination, { recursive: true });
 
     const inventory = {
@@ -312,7 +368,9 @@ module.exports = {
     PACKAGE_FILES,
     FIXED_DOS_DATE,
     FIXED_DOS_TIME,
+    checkReleaseDestinationSafety,
     createDeterministicZip,
+    getGitReleaseTags,
     isForbiddenPackagePath,
     listZipEntries,
     packageRelease,

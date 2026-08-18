@@ -9,6 +9,7 @@ const {
     FIXED_DOS_DATE,
     FIXED_DOS_TIME,
     PACKAGE_FILES,
+    checkReleaseDestinationSafety,
     isForbiddenPackagePath,
     listZipEntries,
     packageRelease,
@@ -106,6 +107,71 @@ try {
         assert.strictEqual(first.inventory.packageVersion, first.inventory.pluginVersion);
         assert.strictEqual(first.inventory.pluginId, "com.albumai.pro");
         assert.strictEqual(first.inventory.archive.file, "AlbumAI-Pro-1.0.1.zip");
+    });
+
+    test("refuses to overwrite an existing release archive and leaves original intact", () => {
+        const overwriteDir = path.join(testRoot, "overwrite-zip-test");
+        fs.mkdirSync(overwriteDir, { recursive: true });
+        const existingArchive = path.join(overwriteDir, "AlbumAI-Pro-1.0.1.zip");
+        const sentinelContent = Buffer.from("SENTINEL_ZIP_DO_NOT_OVERWRITE", "utf8");
+        fs.writeFileSync(existingArchive, sentinelContent);
+
+        assert.throws(
+            () => packageRelease({ outputDir: overwriteDir }),
+            /Refusing to overwrite existing release artifact.*AlbumAI-Pro-1\.0\.1\.zip/
+        );
+
+        assert.strictEqual(fs.readFileSync(existingArchive).toString("utf8"), "SENTINEL_ZIP_DO_NOT_OVERWRITE");
+    });
+
+    test("refuses to overwrite when checksum sidecar exists even if ZIP is absent", () => {
+        const sidecarDir = path.join(testRoot, "sidecar-test");
+        fs.mkdirSync(sidecarDir, { recursive: true });
+        const existingSha = path.join(sidecarDir, "AlbumAI-Pro-1.0.1.zip.sha256");
+        fs.writeFileSync(existingSha, "SENTINEL_SHA_DO_NOT_OVERWRITE");
+
+        assert.throws(
+            () => packageRelease({ outputDir: sidecarDir }),
+            /Refusing to overwrite existing release artifact.*AlbumAI-Pro-1\.0\.1\.zip\.sha256/
+        );
+
+        assert.strictEqual(fs.readFileSync(existingSha).toString("utf8"), "SENTINEL_SHA_DO_NOT_OVERWRITE");
+    });
+
+    test("refuses to overwrite when inventory JSON exists even if ZIP is absent", () => {
+        const inventoryDir = path.join(testRoot, "inventory-test");
+        fs.mkdirSync(inventoryDir, { recursive: true });
+        const existingInventory = path.join(inventoryDir, "AlbumAI-Pro-1.0.1.zip.inventory.json");
+        fs.writeFileSync(existingInventory, "SENTINEL_INVENTORY_DO_NOT_OVERWRITE");
+
+        assert.throws(
+            () => packageRelease({ outputDir: inventoryDir }),
+            /Refusing to overwrite existing release artifact.*AlbumAI-Pro-1\.0\.1\.zip\.inventory\.json/
+        );
+
+        assert.strictEqual(fs.readFileSync(existingInventory).toString("utf8"), "SENTINEL_INVENTORY_DO_NOT_OVERWRITE");
+    });
+
+    test("enforces Git release tag protection on canonical default destination without bypass", () => {
+        const defaultDest = path.join(testRoot, "release", "1.0.1");
+        assert.throws(
+            () => checkReleaseDestinationSafety(defaultDest, "AlbumAI-Pro-1.0.1.zip", "1.0.1", {
+                isDefaultReleaseTarget: true,
+                gitTagReader: () => new Set(["v1.0.1"])
+            }),
+            /Refusing to generate release package for version 1\.0\.1.*Git release tag 'v1\.0\.1' already exists/
+        );
+    });
+
+    test("permits packaging when no Git tag matches and destination is clean", () => {
+        const cleanDir = path.join(testRoot, "clean-test");
+        const result = packageRelease({
+            outputDir: cleanDir,
+            gitTagReader: () => new Set(["v1.0.0", "v0.9.0"])
+        });
+        assert.strictEqual(fs.existsSync(result.archivePath), true);
+        assert.strictEqual(fs.existsSync(result.checksumPath), true);
+        assert.strictEqual(fs.existsSync(result.inventoryPath), true);
     });
 } finally {
     fs.rmSync(testRoot, { recursive: true, force: true });
