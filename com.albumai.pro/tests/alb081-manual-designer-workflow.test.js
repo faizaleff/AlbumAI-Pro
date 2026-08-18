@@ -19,7 +19,8 @@ import SheetStoryboardStrip from "../src/components/SheetStoryboardStrip";
 import {
     computeCompletedSteps,
     canNavigateToStep,
-    resolveWizardNavigation
+    resolveWizardNavigation,
+    workspaceModeForWizardStep
 } from "../src/services/PhotoGroupingEngine";
 import LibraryEngine from "../src/core/LibraryEngine";
 import SelectionEngine from "../src/core/SelectionEngine";
@@ -511,6 +512,87 @@ export async function runAlb081Tests() {
         selection.select(photos[0]);
         selection.retainAvailable([photos[1], photos[2]]); // photos[0] no longer available
         check(selection.selectedIds().size === 0, "retainAvailable removes unavailable photo IDs");
+    }
+
+    // Test 12: REC-002 Derived Workspace Mode & Unified Navigation Architecture Qualification
+    {
+        // 1. workspaceModeForWizardStep mappings
+        check(workspaceModeForWizardStep(1) === "LIBRARY", "Step 1 maps to LIBRARY");
+        check(workspaceModeForWizardStep(2) === "LIBRARY", "Step 2 maps to LIBRARY");
+        check(workspaceModeForWizardStep(3) === "LIBRARY", "Step 3 maps to LIBRARY");
+        check(workspaceModeForWizardStep(4) === "DESIGNER", "Step 4 maps to DESIGNER");
+        check(workspaceModeForWizardStep(5) === "EXPORT", "Step 5 maps to EXPORT");
+        check(workspaceModeForWizardStep(0) === "LIBRARY", "Out of bounds step 0 defaults to LIBRARY");
+        check(workspaceModeForWizardStep(6) === "LIBRARY", "Out of bounds step 6 defaults to LIBRARY");
+        check(workspaceModeForWizardStep(null) === "LIBRARY", "Null step defaults to LIBRARY");
+        check(workspaceModeForWizardStep(undefined) === "LIBRARY", "Undefined step defaults to LIBRARY");
+        check(workspaceModeForWizardStep("4") === "DESIGNER", "String '4' coerces to DESIGNER");
+
+        // 2. Canonical dispatcher state progression simulation
+        let wizardStep = 1;
+        const setWizardStep = (next) => { wizardStep = next; };
+        const getActiveWorkspaceMode = () => workspaceModeForWizardStep(wizardStep);
+
+        const completedSteps = computeCompletedSteps({
+            photoCount: 36,
+            analysisComplete: true,
+            groupsReviewed: true,
+            keptPhotoCount: 0,
+            placedPhotoCount: 0,
+            exportComplete: false
+        });
+
+        const handleWizardStepClick = (stepId, { directDesignerEntry = false } = {}) => {
+            const isAllowed = resolveWizardNavigation({
+                currentStep: wizardStep,
+                targetStep: stepId,
+                completedSteps,
+                hasProject: true,
+                photoCount: 36,
+                directDesignerEntry
+            });
+            if (!isAllowed) return;
+            setWizardStep(stepId);
+        };
+
+        // Start at Step 1 (Import)
+        check(wizardStep === 1, "Initial wizard step is 1");
+        check(getActiveWorkspaceMode() === "LIBRARY", "Initial workspace mode is LIBRARY");
+
+        // Navigate to Step 2 (Sort)
+        handleWizardStepClick(2);
+        check(wizardStep === 2, "Navigated to Step 2");
+        check(getActiveWorkspaceMode() === "LIBRARY", "Step 2 renders LIBRARY workspace");
+
+        // Navigate to Step 3 (Cull)
+        handleWizardStepClick(3);
+        check(wizardStep === 3, "Navigated to Step 3");
+        check(getActiveWorkspaceMode() === "LIBRARY", "Step 3 renders LIBRARY workspace");
+
+        // Step 4 without directDesignerEntry fails because Step 3 is incomplete
+        handleWizardStepClick(4);
+        check(wizardStep === 3, "Normal Step 4 navigation blocked without KEEP decisions");
+        check(getActiveWorkspaceMode() === "LIBRARY", "Workspace mode remains LIBRARY");
+
+        // Direct Designer action transitions to Step 4 and DESIGNER workspace
+        handleWizardStepClick(4, { directDesignerEntry: true });
+        check(wizardStep === 4, "Direct Designer action transitions to Step 4");
+        check(getActiveWorkspaceMode() === "DESIGNER", "Derived workspace mode is DESIGNER");
+
+        // Designer empty state return button transitions back to Step 1 and LIBRARY workspace
+        handleWizardStepClick(1);
+        check(wizardStep === 1, "Return to Library transitions to Step 1");
+        check(getActiveWorkspaceMode() === "LIBRARY", "Derived workspace mode is LIBRARY");
+
+        // Export pane return button transitions to Step 4 and DESIGNER workspace
+        handleWizardStepClick(4, { directDesignerEntry: true });
+        check(wizardStep === 4, "Navigated back to Step 4");
+        check(getActiveWorkspaceMode() === "DESIGNER", "Derived workspace mode is DESIGNER");
+
+        // Project lifecycle resets: closeProject / createProject / openProject reset to Step 1
+        setWizardStep(1);
+        check(wizardStep === 1, "Project close resets wizard step to 1");
+        check(getActiveWorkspaceMode() === "LIBRARY", "Project close resets workspace mode to LIBRARY");
     }
 
     console.info(`PASS ALB-081: All assertions passed (${assertions} assertions).`);

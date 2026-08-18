@@ -36,7 +36,8 @@ import {
     WIZARD_STEPS,
     computeCompletedSteps,
     canNavigateToStep,
-    resolveWizardNavigation
+    resolveWizardNavigation,
+    workspaceModeForWizardStep
 } from "../services/PhotoGroupingEngine";
 
 export default function OpenFolder() {
@@ -65,7 +66,6 @@ export default function OpenFolder() {
     const [albumSheetRenderBusy, setAlbumSheetRenderBusy] = useState(false);
     const [isAutoFlowModalOpen, setIsAutoFlowModalOpen] = useState(false);
     const [isPrintProofModalOpen, setIsPrintProofModalOpen] = useState(false);
-    const [activeWorkspaceMode, setActiveWorkspaceMode] = useState("LIBRARY");
     const unavailableDiagnosticRef = useRef(null);
     const mountedRef = useRef(true);
     const photoFolderChangeAttemptRef = useRef(0);
@@ -74,6 +74,7 @@ export default function OpenFolder() {
     const photoFolderChangeProjectIdRef = useRef(null);
     const [, forceRefresh] = useState(0);
     const [wizardStep, setWizardStep] = useState(1);
+    const activeWorkspaceMode = workspaceModeForWizardStep(wizardStep);
 
     PhotoBrowserPerformance.recordRender("OpenFolder");
     const project = App.project.getProject();
@@ -111,9 +112,6 @@ export default function OpenFolder() {
         });
         if (!isAllowed) return;
         setWizardStep(stepId);
-        if (stepId <= 3) setActiveWorkspaceMode("LIBRARY");
-        else if (stepId === 4) setActiveWorkspaceMode("DESIGNER");
-        else setActiveWorkspaceMode("EXPORT");
     };
 
     useEffect(() => {
@@ -510,6 +508,7 @@ export default function OpenFolder() {
             }
 
             setProjectName("");
+            setWizardStep(1);
             setProjectError(null);
             forceRefresh(value => value + 1);
 
@@ -538,6 +537,7 @@ export default function OpenFolder() {
                 return;
             }
 
+            setWizardStep(1);
             setProjectError(null);
             forceRefresh(value => value + 1);
 
@@ -590,6 +590,7 @@ export default function OpenFolder() {
             setProjectError(error.message);
             return;
         }
+        setWizardStep(1);
         setFolderName("");
         setPhotoFolderAvailable(false);
         setPhotoFolderMessage(null);
@@ -1283,7 +1284,7 @@ export default function OpenFolder() {
                                 <button
                                     type="button"
                                     className="workspace-empty-action-btn"
-                                    onClick={() => setActiveWorkspaceMode("LIBRARY")}
+                                    onClick={() => handleWizardStepClick(1)}
                                 >
                                     📁 Go to Library & Projects
                                 </button>
@@ -1520,7 +1521,7 @@ export default function OpenFolder() {
                                     type="button"
                                     className="workspace-empty-action-btn"
                                     style={{ background: "#21262d", borderColor: "#363c4a", color: "#c9d1d9" }}
-                                    onClick={() => setActiveWorkspaceMode("DESIGNER")}
+                                    onClick={() => handleWizardStepClick(4)}
                                 >
                                     🎨 Back to Designer
                                 </button>

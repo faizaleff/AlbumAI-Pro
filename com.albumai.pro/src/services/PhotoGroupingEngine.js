@@ -538,3 +538,11 @@ export function resolveWizardNavigation({
     }
     return canNavigateToStep(currentStep, targetStep, completedSteps);
 }
+
+export function workspaceModeForWizardStep(stepId) {
+    const step = Number(stepId);
+    if (step >= 1 && step <= 3) return "LIBRARY";
+    if (step === 4) return "DESIGNER";
+    if (step === 5) return "EXPORT";
+    return "LIBRARY";
+}
