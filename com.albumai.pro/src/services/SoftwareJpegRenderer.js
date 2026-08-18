@@ -2,14 +2,11 @@ import { Buffer as JpegBuffer } from "../utils/JpegBuffer";
 import jpeg from "jpeg-js";
 import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
 
-const EMBEDDED_DECODE_RESOLUTION_MP = 2;
-const EMBEDDED_DECODE_MEMORY_MB = 32;
-// Evidence from the no-preview test folder: 990 files are 10800x3600
-// (38.88 MP). jpeg-js needs just under 800 MB of guarded allocations for
-// that RGB decode. Concurrency remains one and the decoded pixels are never
-// cached.
-const FULL_DECODE_RESOLUTION_MP = 40;
-const FULL_DECODE_MEMORY_MB = 820;
+const EMBEDDED_DECODE_RESOLUTION_MP = 4;
+const EMBEDDED_DECODE_MEMORY_MB = 64;
+// Support up to 100 Megapixel professional camera files (Sony A7R, Canon R5, Fuji GFX, Nikon Z9)
+const FULL_DECODE_RESOLUTION_MP = 100;
+const FULL_DECODE_MEMORY_MB = 1500;
 const CONTENT_FINGERPRINT_CHUNKS = 64;
 const CONTENT_FINGERPRINT_CHUNK_BYTES = 512;
 const JPEG_BUFFER_READY =
@@ -542,12 +539,19 @@ class SoftwareJpegRenderer {
             const inspected = inspectJpegMetadata(binary);
             let decoded = null;
             let input = "embedded-exif";
-            if (inspected.embedded) {
+            // For high-resolution preview rendering (maxEdge > 300) or when embedded EXIF thumbnail
+            // is smaller than requested target, decode directly from full JPEG binary for Adobe Bridge clarity.
+            const preferFullDecode = maxEdge > 300;
+            if (inspected.embedded && !preferFullDecode) {
                 try {
                     decoded = decodeJpeg(
                         inspected.embedded,
                         true
                     );
+                    if (decoded && Math.max(decoded.width, decoded.height) < maxEdge * 0.75) {
+                        decoded = null;
+                        input = "full-jpeg";
+                    }
                 } catch (_) {
                     input = "full-jpeg";
                 }
@@ -558,7 +562,20 @@ class SoftwareJpegRenderer {
                 lifecycle?.throwIfCancelled?.(
                     "before-full-jpeg-decode"
                 );
-                decoded = decodeJpeg(binary, false);
+                try {
+                    decoded = decodeJpeg(binary, false);
+                } catch (decodeErr) {
+                    if (inspected.embedded) {
+                        try {
+                            decoded = decodeJpeg(inspected.embedded, true);
+                            input = "embedded-exif";
+                        } catch (_) {
+                            throw decodeErr;
+                        }
+                    } else {
+                        throw decodeErr;
+                    }
+                }
                 lifecycle?.throwIfCancelled?.(
                     "after-full-jpeg-decode"
                 );

@@ -794,7 +794,7 @@ function PhotoBrowserSection({
                         {decisionError}
                     </div>
                 )}
-                {(photos.length > 0 || duplicateError) && (
+                {(duplicateReady || duplicateError || duplicateEvidence.status === PhotoDuplicateStatus.STALE) && (
                     <div
                         className={`photo-duplicate-summary${duplicateError ? " has-error" : ""}`}
                         role={duplicateError ? "alert" : "status"}

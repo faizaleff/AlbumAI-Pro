@@ -18,6 +18,7 @@ All notable changes to AlbumAI Pro will be documented in this file.
 - **Print Export & Proofing (ALB-090)**: 300 DPI Lab Print Profiles (12x12", 12x18", 10x10", 8.5x11"), 0.125" bleed margin geometry, preflight DPI inspector, and watermarked multi-page PDF proof sheets
 - **Batch Render Execution (ALB-091)**: Direct multi-sheet Photoshop batch render and export execution with live spread progress reporting
 - **User-Friendly 3-Mode Workflow (ALB-101)**: Segmented workspace navigation (Library, Album Designer, Proof & Export) with actionable empty states
+- **Adobe Bridge Quality Photo Engine (ALB-102)**: Up to 100MP professional camera file decode support, crisp full-resolution preview generation, and fluid browser grid scaling
 
 ### Fixed & Hardened
 
@@ -36,10 +37,10 @@ All notable changes to AlbumAI Pro will be documented in this file.
 - Architecture verification passed with 114 reachable runtime files (234 assertions)
 - Regression verification passed with 114/114 active files reached (911 assertions)
 - Hardening verification passed with 89 assertions
-- Production build completed with zero warnings (649 KiB clean bundle)
+- Production build completed with zero warnings (650 KiB clean bundle)
 - Full and production dependency audits reported zero vulnerabilities
-- `AlbumAI-Pro-1.0.1.zip` is 180,627 bytes
-- SHA-256: `3b2a55875a3d3fdb769e3f6eb0e1071cfe0596e9e00cf8b0574ba48645fe3ce4`
+- `AlbumAI-Pro-1.0.1.zip` is 180,683 bytes
+- SHA-256: `45ae4c2adf97a2e64f5915a056de3756f37b984f16df995f05b5faec81da391c`
 
 ### Preserved limitation
 

@@ -9,7 +9,7 @@ const PROFILE_CONFIGURATION = Object.freeze({
     thumbnail: {
         suffix: "thumb-200-v5",
         maxEdge: 200,
-        quality: 0.60,
+        quality: 0.75,
         priority: 1,
         successEvent: "THUMBNAIL_GENERATION_SUCCESS",
         failureEvent: "THUMBNAIL_GENERATION_FAILURE"
@@ -17,7 +17,7 @@ const PROFILE_CONFIGURATION = Object.freeze({
     preview: {
         suffix: "preview-1000-v5",
         maxEdge: 1000,
-        quality: 0.70,
+        quality: 0.85,
         priority: 0,
         successEvent: "PREVIEW_GENERATION_SUCCESS",
         failureEvent: "PREVIEW_GENERATION_FAILURE"

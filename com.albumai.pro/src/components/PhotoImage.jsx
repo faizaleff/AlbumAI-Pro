@@ -161,6 +161,12 @@ function PhotoImage({
         onImageError?.(event);
     };
 
+    useEffect(() => {
+        if (displayedSource) {
+            onImageLoad?.();
+        }
+    }, [displayedSource, onImageLoad]);
+
     return (
         <div
             className="photo-image-container"
@@ -178,6 +184,7 @@ function PhotoImage({
                     src={displayedSource}
                     alt={alt}
                     draggable={false}
+                    onLoad={onImageLoad}
                     style={style}
                 />
             )}
