@@ -1,14 +1,6 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import PhotoImage from "./PhotoImage";
-import UxpDropdown from "./UxpDropdown";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
-
-const PHOTO_RATING_OPTIONS = Object.freeze(
-    [0, 1, 2, 3, 4, 5].map(rating => Object.freeze({
-        value: rating,
-        label: rating ? String(rating) : "—"
-    }))
-);
 
 function ThumbnailCard({
     photo,
@@ -19,35 +11,19 @@ function ThumbnailCard({
     selected,
     viewMode = "icons",
     visible = false,
-    decision = { rating: 0, favorite: false },
+    decision = { rating: 0, favorite: false, culling: "unrated" },
     onDecisionChange
 }) {
-
     PhotoBrowserPerformance.recordRender("ThumbnailCard");
+    const [hoverRating, setHoverRating] = useState(0);
+    const [isCardHovered, setIsCardHovered] = useState(false);
+
     const imageHeight = compact ? 76 : 110;
+    const rating = decision?.rating || 0;
+    const isFavorite = Boolean(decision?.favorite);
+    const culling = decision?.culling?.toLowerCase();
 
     const handleClick = useCallback(event => onClick(photo, event), [photo, onClick]);
-    const dimensions = photo.width > 0 && photo.height > 0
-        ? `${photo.width} × ${photo.height}`
-        : null;
-    const date = photo.modified || photo.created;
-    const dateLabel = date
-        ? new Date(date).toLocaleDateString()
-        : null;
-    const placeholder = (
-        <div style={{ color: "#999", textAlign: "center", lineHeight: 1.25, padding: 6, maxWidth: "100%" }}>
-            <div style={{ fontSize: 24, color: "#666" }}>▧</div>
-            <div style={{ fontSize: 10 }}>Thumbnail unavailable</div>
-            <div style={{ fontSize: 9, color: "#777", marginTop: 2 }}>
-                {photo.name || "Unnamed file"} · {photo.extension || "FILE"}
-            </div>
-            {(dimensions || dateLabel) && (
-                <div style={{ fontSize: 8, color: "#707070", marginTop: 3 }}>
-                    {[dimensions, dateLabel].filter(Boolean).join(" · ")}
-                </div>
-            )}
-        </div>
-    );
 
     const handleDragStart = useCallback(event => {
         if (!photo?.id) return;
@@ -60,32 +36,59 @@ function ThumbnailCard({
         event.dataTransfer.effectAllowed = "copy";
     }, [photo]);
 
+    const handleStarClick = (event, starValue) => {
+        event.stopPropagation();
+        const nextRating = rating === starValue ? 0 : starValue;
+        onDecisionChange?.(photo, { rating: nextRating });
+    };
+
+    const handleFavoriteClick = (event) => {
+        event.stopPropagation();
+        onDecisionChange?.(photo, { favorite: !isFavorite });
+    };
+
+    const activeRatingDisplay = hoverRating > 0 ? hoverRating : rating;
+
     return (
         <div
             onClick={handleClick}
             draggable={true}
             onDragStart={handleDragStart}
-            className={`photo-thumbnail-card${selected ? " is-selected" : ""}`}
+            onMouseEnter={() => setIsCardHovered(true)}
+            onMouseLeave={() => {
+                setIsCardHovered(false);
+                setHoverRating(0);
+            }}
+            className={`photo-thumbnail-card${selected ? " is-selected" : ""}${isCardHovered ? " is-hovered" : ""}`}
             role="option"
             aria-selected={selected}
             title={photo.name}
             style={{
                 width: "100%",
                 height: "100%",
-                cursor: "grab",
+                cursor: "pointer",
                 userSelect: "none",
                 overflow: "hidden",
-                borderRadius: compact ? 5 : 8
+                borderRadius: compact ? 6 : 8,
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                background: selected ? "#1c2c40" : "#1c2128",
+                border: selected ? "2px solid #388bfd" : "1px solid #30363d",
+                transition: "all 0.15s ease",
+                boxShadow: selected ? "0 0 10px rgba(56, 139, 253, 0.35)" : "none"
             }}
         >
+            {/* Image Thumbnail Container */}
             <div
                 style={{
                     position: "relative",
                     height: imageHeight,
-                    background: "#262626",
+                    background: "#0d1117",
                     display: "flex",
                     justifyContent: "center",
-                    alignItems: "center"
+                    alignItems: "center",
+                    overflow: "hidden"
                 }}
             >
                 <PhotoImage
@@ -94,99 +97,183 @@ function ThumbnailCard({
                     priority={visible ? 1 : 2}
                     role="browser"
                     onImageLoad={() => {
-                        PhotoBrowserPerformance.thumbnailVisible(
-                            photo.id
-                        );
+                        PhotoBrowserPerformance.thumbnailVisible(photo.id);
                     }}
                     alt={photo.name}
                     fallback={status =>
                         status === "loading" ? (
-                            <div style={{ color: "#888", fontSize: 12 }}>
-                                Loading...
-                            </div>
-                        ) : placeholder
+                            <div style={{ color: "#6e7681", fontSize: 11 }}>Loading…</div>
+                        ) : (
+                            <div style={{ color: "#484f58", fontSize: 18 }}>▧</div>
+                        )
                     }
                     style={{
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
                         pointerEvents: "none",
-                        display: "block"
+                        display: "block",
+                        transition: "transform 0.2s ease",
+                        transform: isCardHovered ? "scale(1.04)" : "scale(1)"
                     }}
                 />
 
+                {/* Top-Right Selection Checkmark Badge */}
                 {selected && (
                     <div
                         style={{
                             position: "absolute",
                             top: 4,
                             right: 4,
-                            width: compact ? 16 : 22,
-                            height: compact ? 16 : 22,
+                            width: compact ? 18 : 22,
+                            height: compact ? 18 : 22,
                             borderRadius: "50%",
-                            background: "#3B82F6",
+                            background: "#1f6feb",
+                            border: "1px solid #ffffff",
                             color: "#fff",
                             display: "flex",
                             justifyContent: "center",
                             alignItems: "center",
-                            fontSize: compact ? 10 : 13,
-                            fontWeight: "bold"
+                            fontSize: compact ? 11 : 13,
+                            fontWeight: "bold",
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
+                            zIndex: 3
                         }}
                     >
                         ✓
                     </div>
                 )}
+
+                {/* Top-Left Culling Status Badge (Keep / Reject) */}
+                {culling && culling !== "unrated" && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            top: 4,
+                            left: 4,
+                            padding: "1px 5px",
+                            borderRadius: 3,
+                            fontSize: 9,
+                            fontWeight: 700,
+                            letterSpacing: "0.03em",
+                            background: culling === "keep" ? "rgba(35, 134, 54, 0.9)" : "rgba(218, 54, 51, 0.9)",
+                            color: "#ffffff",
+                            boxShadow: "0 1px 4px rgba(0,0,0,0.6)",
+                            zIndex: 3
+                        }}
+                    >
+                        {culling === "keep" ? "✓ KEEP" : "✕ REJECT"}
+                    </div>
+                )}
+
+                {/* Bottom Overlay: Bridge-Style Responsive Star Rating & Heart Favorite */}
+                {(isCardHovered || rating > 0 || isFavorite) && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "3px 6px",
+                            background: isCardHovered ? "rgba(13, 17, 23, 0.88)" : "rgba(13, 17, 23, 0.65)",
+                            backdropFilter: "blur(4px)",
+                            transition: "all 0.15s ease",
+                            zIndex: 4
+                        }}
+                    >
+                        {/* 5-Star Rating Buttons */}
+                        <div
+                            style={{ display: "flex", gap: 1 }}
+                            onMouseLeave={() => setHoverRating(0)}
+                        >
+                            {[1, 2, 3, 4, 5].map(starNum => {
+                                const isStarActive = starNum <= activeRatingDisplay;
+                                return (
+                                    <button
+                                        key={starNum}
+                                        type="button"
+                                        onClick={(e) => handleStarClick(e, starNum)}
+                                        onMouseEnter={() => setHoverRating(starNum)}
+                                        style={{
+                                            border: "none",
+                                            background: "transparent",
+                                            padding: 0,
+                                            margin: 0,
+                                            cursor: "pointer",
+                                            fontSize: compact ? 12 : 14,
+                                            lineHeight: 1,
+                                            color: isStarActive ? "#e3b341" : (isCardHovered ? "#484f58" : "transparent"),
+                                            transition: "transform 0.1s ease, color 0.1s ease",
+                                            transform: hoverRating === starNum ? "scale(1.25)" : "scale(1)"
+                                        }}
+                                        title={`Rate ${starNum} star${starNum > 1 ? "s" : ""}`}
+                                    >
+                                        ★
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Heart Favorite Button */}
+                        <button
+                            type="button"
+                            onClick={handleFavoriteClick}
+                            style={{
+                                border: "none",
+                                background: "transparent",
+                                padding: "0 2px",
+                                margin: 0,
+                                cursor: "pointer",
+                                fontSize: compact ? 12 : 14,
+                                lineHeight: 1,
+                                color: isFavorite ? "#f85149" : (isCardHovered ? "#6e7681" : "transparent"),
+                                transition: "transform 0.15s ease, color 0.15s ease",
+                                transform: isFavorite ? "scale(1.1)" : "scale(1)"
+                            }}
+                            title={isFavorite ? "Remove from favourites (F)" : "Add to favourites (F)"}
+                        >
+                            {isFavorite ? "♥" : "♡"}
+                        </button>
+                    </div>
+                )}
             </div>
 
-            <div style={{ padding: compact ? "4px 5px" : 8 }}>
-                <div
+            {/* Card Footer Info */}
+            <div
+                style={{
+                    padding: compact ? "4px 6px" : "6px 8px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    background: selected ? "#1c2c40" : "#161b22",
+                    minWidth: 0
+                }}
+            >
+                <span
                     title={photo.name}
                     style={{
-                        fontSize: 11,
-                        color: "#fff",
+                        fontSize: 10,
+                        color: selected ? "#ffffff" : "#c9d1d9",
+                        fontWeight: selected ? 600 : 400,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        whiteSpace: "nowrap"
+                        whiteSpace: "nowrap",
+                        flex: 1
                     }}
                 >
                     {photo.name}
-                </div>
-                <div className="photo-decision-controls">
-                    <UxpDropdown
-                        value={decision.rating}
-                        options={PHOTO_RATING_OPTIONS}
-                        onValueChange={rating => {
-                            onDecisionChange?.(photo, {
-                                rating: Number(rating)
-                            });
-                        }}
-                        className="photo-decision-rating"
-                        ariaLabel={`Rate ${photo.name}`}
-                        title="Photo rating"
-                        stopPropagation
-                    />
-                    <button
-                        type="button"
-                        className={decision.favorite ? "is-favorite" : ""}
-                        onClick={event => {
-                            event.stopPropagation();
-                            onDecisionChange?.(photo, {
-                                favorite: !decision.favorite
-                            });
-                        }}
-                        aria-pressed={decision.favorite}
-                        aria-label={`${decision.favorite ? "Remove" : "Add"} ${photo.name} ${decision.favorite ? "from" : "to"} favourites`}
-                        title={decision.favorite
-                            ? "Remove from favourites"
-                            : "Add to favourites"}
-                    >
-                        {decision.favorite ? "♥" : "♡"}
-                    </button>
-                </div>
+                </span>
+                {photo.extension && (
+                    <span style={{ fontSize: 9, color: "#8b949e", textTransform: "uppercase", marginLeft: 4, flexShrink: 0 }}>
+                        {photo.extension}
+                    </span>
+                )}
             </div>
         </div>
     );
-
 }
 
 export default React.memo(
@@ -197,13 +284,13 @@ export default React.memo(
         previous.photo?.name === next.photo?.name &&
         previous.onClick === next.onClick &&
         previous.compact === next.compact &&
-        previous.thumbnailRevision ===
-            next.thumbnailRevision &&
+        previous.thumbnailRevision === next.thumbnailRevision &&
         previous.loading === next.loading &&
         previous.selected === next.selected &&
         previous.viewMode === next.viewMode &&
-        previous.visible === next.visible
-        && previous.decision?.rating === next.decision?.rating
-        && previous.decision?.favorite === next.decision?.favorite
-        && previous.onDecisionChange === next.onDecisionChange
+        previous.visible === next.visible &&
+        previous.decision?.rating === next.decision?.rating &&
+        previous.decision?.favorite === next.decision?.favorite &&
+        previous.decision?.culling === next.decision?.culling &&
+        previous.onDecisionChange === next.onDecisionChange
 );

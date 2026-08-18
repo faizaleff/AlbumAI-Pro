@@ -294,11 +294,16 @@ function PhotoBrowserSection({
                 changePhotoDecision(focused, { culling: CullingStatus.REJECT });
             } else if (key === "u") {
                 changePhotoDecision(focused, { culling: CullingStatus.UNRATED });
+            } else if (key === "f" || key === "l") {
+                const currentFav = Boolean(decisions?.[photoDecisionKey(focused)]?.favorite);
+                changePhotoDecision(focused, { favorite: !currentFav });
+            } else if (["0", "1", "2", "3", "4", "5"].includes(e.key)) {
+                changePhotoDecision(focused, { rating: Number(e.key) });
             }
         };
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [focusedPhotoId, photos, changePhotoDecision]);
+    }, [focusedPhotoId, photos, changePhotoDecision, decisions]);
 
     const analyzeDuplicates = useCallback(() => {
         if (duplicateBusy || !folderLoaded || !photos.length) return;

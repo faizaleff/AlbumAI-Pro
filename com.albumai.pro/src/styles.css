@@ -2606,3 +2606,69 @@ button.photo-browser-control:active:not(:disabled) {
 .wizard-nav-btn--primary:hover:not(:disabled) {
     background: #388bfd;
 }
+
+/* ═══════════════════════════════════════════════════════
+   ADOBE BRIDGE-GRADE PHOTO EXPLORER & HOVER ANIMATIONS
+═══════════════════════════════════════════════════════ */
+
+.photo-thumbnail-card {
+    will-change: transform, box-shadow, border-color;
+    transition: transform 0.16s cubic-bezier(0.2, 0, 0, 1),
+                border-color 0.16s ease,
+                box-shadow 0.16s ease,
+                background-color 0.16s ease !important;
+}
+
+.photo-thumbnail-card:hover {
+    transform: translateY(-2px) scale(1.01) !important;
+    border-color: #58a6ff !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(88, 166, 255, 0.3) !important;
+}
+
+.photo-thumbnail-card.is-selected {
+    transform: translateY(-1px) !important;
+    border-color: #388bfd !important;
+    box-shadow: 0 0 0 2px #388bfd, 0 4px 12px rgba(56, 139, 253, 0.35) !important;
+}
+
+/* Button & Control Micro-Interactions */
+.photo-browser-control,
+.culling-pill,
+.mode-tab-btn,
+.workspace-quick-btn {
+    transition: all 0.14s ease !important;
+    cursor: pointer;
+}
+
+.photo-browser-control:hover:not(:disabled),
+.culling-pill:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.photo-browser-control:active:not(:disabled),
+.culling-pill:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+/* Culling pill active states with Bridge styling */
+.culling-pill.keep-pill.active {
+    background: #238636 !important;
+    border-color: #2ea043 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 8px rgba(46, 160, 67, 0.4);
+}
+
+.culling-pill.reject-pill.active {
+    background: #da3633 !important;
+    border-color: #f85149 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 8px rgba(248, 81, 73, 0.4);
+}
+
+.culling-pill.unrated-pill.active {
+    background: #8957e5 !important;
+    border-color: #a371f7 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 8px rgba(163, 113, 247, 0.4);
+}
