@@ -945,88 +945,209 @@ export default function OpenFolder() {
             }}
         >
             {/* Top Workspace Navigation Bar */}
-            <header className="workspace-top-bar">
+            <header className="workspace-top-bar" style={{ minHeight: 42 }}>
                 <div className="workspace-brand-group">
                     <span className="workspace-brand-title">
                         <span>✨ AlbumAI Pro</span>
                     </span>
                     <span className={`workspace-project-badge ${hasProject ? "active" : ""}`}>
-                        {hasProject ? `📁 ${project.metadata.name}` : "No Project Open"}
+                        {hasProject ? `📁 ${project.metadata.name}` : "v1.0.1"}
                     </span>
                 </div>
 
-                <nav className="wizard-step-bar" role="navigation" aria-label="Workflow Steps">
-                    {WIZARD_STEPS.map((step, idx) => {
-                        const isActive = step.id === wizardStep;
-                        const isCompleted = wizardCompletedSteps?.has(step.id);
-                        const isClickable = canNavigateToStep(wizardStep, step.id, wizardCompletedSteps);
-                        const isLocked = !isClickable && !isActive && !isCompleted;
+                {hasProject && (
+                    <>
+                        <nav className="wizard-step-bar" role="navigation" aria-label="Workflow Steps">
+                            {WIZARD_STEPS.map((step, idx) => {
+                                const isActive = step.id === wizardStep;
+                                const isCompleted = wizardCompletedSteps?.has(step.id);
+                                const isClickable = canNavigateToStep(wizardStep, step.id, wizardCompletedSteps);
+                                const isLocked = !isClickable && !isActive && !isCompleted;
 
-                        let cls = "wizard-step";
-                        if (isActive) cls += " wizard-step--active";
-                        if (isCompleted) cls += " wizard-step--completed";
-                        if (isLocked) cls += " wizard-step--locked";
+                                let cls = "wizard-step";
+                                if (isActive) cls += " wizard-step--active";
+                                if (isCompleted) cls += " wizard-step--completed";
+                                if (isLocked) cls += " wizard-step--locked";
 
-                        return (
-                            <React.Fragment key={step.id}>
-                                {idx > 0 && (
-                                    <div
-                                        className={`wizard-step-connector${isCompleted || wizardCompletedSteps?.has(step.id - 1) ? " filled" : ""}`}
-                                        aria-hidden="true"
-                                    />
-                                )}
-                                <button
-                                    type="button"
-                                    className={cls}
-                                    onClick={() => handleWizardStepClick(step.id)}
-                                    disabled={isLocked}
-                                    title={isLocked ? `Complete Step ${step.id - 1} first` : `${step.id}. ${step.label} (${step.description})`}
-                                    aria-current={isActive ? "step" : undefined}
-                                >
-                                    <span className="wizard-step-icon">
-                                        {isCompleted ? "✓" : step.icon}
-                                    </span>
-                                    <span className="wizard-step-label">{step.id}. {step.label}</span>
-                                </button>
-                            </React.Fragment>
-                        );
-                    })}
-                </nav>
+                                return (
+                                    <React.Fragment key={step.id}>
+                                        {idx > 0 && (
+                                            <div
+                                                className={`wizard-step-connector${isCompleted || wizardCompletedSteps?.has(step.id - 1) ? " filled" : ""}`}
+                                                aria-hidden="true"
+                                            />
+                                        )}
+                                        <button
+                                            type="button"
+                                            className={cls}
+                                            onClick={() => handleWizardStepClick(step.id)}
+                                            disabled={isLocked}
+                                            title={isLocked ? `Complete Step ${step.id - 1} first` : `${step.id}. ${step.label} (${step.description})`}
+                                            aria-current={isActive ? "step" : undefined}
+                                        >
+                                            <span className="wizard-step-icon">
+                                                {isCompleted ? "✓" : step.icon}
+                                            </span>
+                                            <span className="wizard-step-label">{step.id}. {step.label}</span>
+                                        </button>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </nav>
 
-                <div className="workspace-quick-actions">
-                    <button
-                        type="button"
-                        className="workspace-quick-btn"
-                        onClick={saveProject}
-                        disabled={!hasProject || Boolean(projectAction)}
-                        title="Save Project Metadata"
-                    >
-                        {projectAction === "SAVING" ? "Saving…" : "💾 Save"}
-                    </button>
-                    <button
-                        type="button"
-                        className="workspace-quick-btn"
-                        onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
-                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
-                        title="Undo Sheet Change"
-                    >
-                        ⟲ Undo
-                    </button>
-                    <button
-                        type="button"
-                        className="workspace-quick-btn"
-                        onClick={() => restoreAlbumHistory(redoAlbumSheetHistory)}
-                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
-                        title="Redo Sheet Change"
-                    >
-                        ⟳ Redo
-                    </button>
-                </div>
+                        <div className="workspace-quick-actions">
+                            <button
+                                type="button"
+                                className="workspace-quick-btn"
+                                onClick={saveProject}
+                                disabled={!hasProject || Boolean(projectAction)}
+                                title="Save Project Metadata"
+                            >
+                                {projectAction === "SAVING" ? "Saving…" : "💾 Save"}
+                            </button>
+                            <button
+                                type="button"
+                                className="workspace-quick-btn"
+                                onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
+                                disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
+                                title="Undo Sheet Change"
+                            >
+                                ⟲ Undo
+                            </button>
+                            <button
+                                type="button"
+                                className="workspace-quick-btn"
+                                onClick={() => restoreAlbumHistory(redoAlbumSheetHistory)}
+                                disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
+                                title="Redo Sheet Change"
+                            >
+                                ⟳ Redo
+                            </button>
+                        </div>
+                    </>
+                )}
             </header>
 
             {/* Mode-specific Workspace View */}
             <div className="workspace-view-container">
-                {activeWorkspaceMode === "LIBRARY" && (
+                {!hasProject ? (
+                    <div
+                        className="welcome-landing-screen"
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flex: "1 1 auto",
+                            width: "100%",
+                            padding: "40px 20px",
+                            boxSizing: "border-box",
+                            textAlign: "center"
+                        }}
+                    >
+                        <div style={{ fontSize: 40, marginBottom: 8 }}>✨</div>
+                        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0", color: "#f0f6fc", letterSpacing: "0.02em" }}>
+                            AlbumAI Pro
+                        </h1>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
+                            <span style={{ fontSize: 11, background: "#1f6feb22", color: "#58a6ff", border: "1px solid #388bfd44", padding: "2px 8px", borderRadius: 12, fontWeight: 600 }}>
+                                v1.0.1
+                            </span>
+                            <span style={{ fontSize: 12, color: "#8b949e" }}>
+                                Smart Wedding & Event Album Designer
+                            </span>
+                        </div>
+
+                        <div
+                            style={{
+                                background: "#161b22",
+                                border: "1px solid #30363d",
+                                borderRadius: 10,
+                                padding: "24px 28px",
+                                width: "100%",
+                                maxWidth: 360,
+                                boxSizing: "border-box",
+                                boxShadow: "0 8px 24px rgba(0,0,0,0.4)"
+                            }}
+                        >
+                            <div style={{ marginBottom: 14, textAlign: "left" }}>
+                                <label style={{ fontSize: 11, fontWeight: 600, color: "#c9d1d9", display: "block", marginBottom: 6 }}>
+                                    Project Name
+                                </label>
+                                <input
+                                    value={projectName}
+                                    onChange={event => setProjectName(event.target.value)}
+                                    placeholder="e.g. Rahul_Ananya_Wedding"
+                                    disabled={hasProject || Boolean(projectAction)}
+                                    style={{
+                                        width: "100%",
+                                        padding: "8px 12px",
+                                        background: "#0d1117",
+                                        border: "1px solid #30363d",
+                                        borderRadius: 6,
+                                        color: "#fff",
+                                        fontSize: 13,
+                                        boxSizing: "border-box"
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                <button
+                                    type="button"
+                                    onClick={createProject}
+                                    disabled={hasProject || Boolean(projectAction) || !projectName.trim()}
+                                    style={{
+                                        padding: "10px 16px",
+                                        background: projectName.trim() ? "#238636" : "#21262d",
+                                        borderColor: projectName.trim() ? "#2ea043" : "#30363d",
+                                        color: projectName.trim() ? "#fff" : "#6e7681",
+                                        borderRadius: 6,
+                                        fontWeight: 600,
+                                        fontSize: 13,
+                                        cursor: projectName.trim() ? "pointer" : "not-allowed",
+                                        border: "1px solid",
+                                        transition: "all 0.15s ease"
+                                    }}
+                                >
+                                    {projectAction === "CREATING" ? "Creating Project…" : "+ Create Project"}
+                                </button>
+
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
+                                    <div style={{ flex: 1, height: 1, background: "#30363d" }} />
+                                    <span style={{ fontSize: 11, color: "#6e7681" }}>or</span>
+                                    <div style={{ flex: 1, height: 1, background: "#30363d" }} />
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={openProject}
+                                    disabled={hasProject || Boolean(projectAction)}
+                                    style={{
+                                        padding: "10px 16px",
+                                        background: "#21262d",
+                                        borderColor: "#30363d",
+                                        color: "#c9d1d9",
+                                        borderRadius: 6,
+                                        fontWeight: 600,
+                                        fontSize: 13,
+                                        cursor: "pointer",
+                                        border: "1px solid #30363d",
+                                        transition: "all 0.15s ease"
+                                    }}
+                                >
+                                    {projectAction === "OPENING" ? "Opening Project…" : "📁 Open Existing Project"}
+                                </button>
+                            </div>
+
+                            {projectError && (
+                                <div style={{ marginTop: 12, fontSize: 11, color: "#f85149", background: "#f8514911", border: "1px solid #f8514933", padding: "6px 10px", borderRadius: 4 }}>
+                                    ⚠️ {projectError}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : activeWorkspaceMode === "LIBRARY" && (
                     <div style={{ display: "flex", flex: "1 1 0", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
                         <div
                             className="left-pane album-workspace-scroll-pane"
@@ -1051,40 +1172,23 @@ export default function OpenFolder() {
                                     border: "1px solid #2d333f"
                                 }}
                             >
-                                <div className="album-workspace-summary" style={{ fontSize: 12, marginBottom: 8, display: "flex", gap: 12, color: "#8b949e" }}>
-                                    <span>Project: <strong style={{ color: "#f0f3f6" }}>{hasProject ? project.metadata.name : "None"}</strong></span>
-                                    <span>Photos: <strong style={{ color: "#f0f3f6" }}>{App.getPhotos().length}</strong></span>
-                                    <span>Selected: <SelectionCount selection={App.selection} /></span>
-                                </div>
-
-                                <div className="album-workspace-action-row">
-                                    <div className="album-workspace-action-group">
-                                        <input
-                                            value={projectName}
-                                            onChange={event => setProjectName(event.target.value)}
-                                            placeholder="Project name"
-                                            disabled={hasProject || Boolean(projectAction)}
-                                        />
-                                        <button onClick={createProject} disabled={hasProject || Boolean(projectAction)}>
-                                            {projectAction === "CREATING" ? "Creating…" : "Create Project"}
-                                        </button>
-                                        <button onClick={openProject} disabled={hasProject || Boolean(projectAction)}>
-                                            {projectAction === "OPENING" ? "Opening…" : "Open Project"}
-                                        </button>
+                                <div className="album-workspace-summary" style={{ fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center", color: "#8b949e" }}>
+                                    <div style={{ display: "flex", gap: 12 }}>
+                                        <span>Project: <strong style={{ color: "#f0f3f6" }}>{project.metadata.name}</strong></span>
+                                        <span>Photos: <strong style={{ color: "#f0f3f6" }}>{App.getPhotos().length}</strong></span>
+                                        <span>Selected: <SelectionCount selection={App.selection} /></span>
                                     </div>
                                     <div className="album-workspace-action-group album-workspace-action-group--primary">
-                                        <button onClick={closeProject} disabled={!hasProject || Boolean(projectAction)}>
+                                        <button onClick={closeProject} disabled={!hasProject || Boolean(projectAction)} style={{ fontSize: 11, padding: "3px 8px" }}>
                                             {projectAction === "CLOSING" ? "Closing…" : "Close Project"}
                                         </button>
-                                        {hasProject && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setActiveWorkspaceMode("DESIGNER")}
-                                                style={{ background: "#1f6feb", borderColor: "#388bfd", color: "#fff", fontWeight: 600 }}
-                                            >
-                                                🎨 Go to Designer →
-                                            </button>
-                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleWizardStepClick(4)}
+                                            style={{ background: "#1f6feb", borderColor: "#388bfd", color: "#fff", fontWeight: 600, fontSize: 11, padding: "3px 10px" }}
+                                        >
+                                            🎨 Go to Designer →
+                                        </button>
                                     </div>
                                 </div>
 
