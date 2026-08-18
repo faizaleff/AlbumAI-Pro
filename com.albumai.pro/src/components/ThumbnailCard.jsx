@@ -178,8 +178,7 @@ function ThumbnailCard({
                             alignItems: "center",
                             justifyContent: "space-between",
                             padding: "3px 6px",
-                            background: isCardHovered ? "rgba(13, 17, 23, 0.88)" : "rgba(13, 17, 23, 0.65)",
-                            backdropFilter: "blur(4px)",
+                            background: isCardHovered ? "rgba(13, 17, 23, 0.95)" : "rgba(13, 17, 23, 0.75)",
                             transition: "all 0.15s ease",
                             zIndex: 4
                         }}
