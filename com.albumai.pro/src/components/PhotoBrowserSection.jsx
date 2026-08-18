@@ -480,29 +480,52 @@ function PhotoBrowserSection({
 
     return (
         <section className="photo-browser-shell" aria-label="Photo browser">
+            {/* Primary Action Bar (Row 1) */}
             <div className="photo-browser-toolbar" role="toolbar" aria-label="Photo browser controls">
                 <div className="photo-browser-toolbar-group photo-browser-view-group" aria-label="View options">
-                {[
-                    ["icons", "▦", "Icons"],
-                    ["list", "☷", "List"]
-                ].map(([mode, icon, label]) => (
+                    {[
+                        ["icons", "▦", "Icons"],
+                        ["list", "☷", "List"]
+                    ].map(([mode, icon, label]) => (
+                        <button
+                            key={mode}
+                            type="button"
+                            onClick={() => switchView(mode)}
+                            aria-pressed={viewMode === mode}
+                            aria-label={`Show photos in ${label.toLowerCase()} view`}
+                            title={`${label} view`}
+                            className={`photo-browser-control photo-browser-view-button${viewMode === mode ? " is-active" : ""}`}
+                        >
+                            <span className="photo-browser-control-icon" aria-hidden="true">{icon}</span>
+                            {label}
+                        </button>
+                    ))}
                     <button
-                        key={mode}
                         type="button"
-                        onClick={() => switchView(mode)}
-                        aria-pressed={viewMode === mode}
-                        aria-label={`Show photos in ${label.toLowerCase()} view`}
-                        title={`${label} view`}
-                        className={`photo-browser-control photo-browser-view-button${viewMode === mode ? " is-active" : ""}`}
+                        onClick={onRefresh}
+                        disabled={!folderLoaded || isLoading}
+                        aria-disabled={!folderLoaded || isLoading}
+                        className="photo-browser-control"
+                        title={folderLoaded ? "Refresh photo folder" : "Open a photo folder before refreshing"}
+                        aria-label="Refresh photo folder"
                     >
-                        <span className="photo-browser-control-icon" aria-hidden="true">{icon}</span>
-                        {label}
+                        <span className="photo-browser-control-icon" aria-hidden="true">↻</span>
+                        Refresh
                     </button>
-                ))}
+                    <button
+                        type="button"
+                        onClick={onChangePhotoFolder}
+                        disabled={!canChangePhotoFolder}
+                        aria-disabled={!canChangePhotoFolder}
+                        className="photo-browser-control"
+                        title={canChangePhotoFolder ? "Choose a different photo folder" : "Open a photo folder before changing it"}
+                        aria-label="Change photo folder"
+                    >
+                        {photoFolderChange?.busy ? "Changing…" : "📁 Change Folder"}
+                    </button>
                 </div>
-                <div className="photo-browser-toolbar-group photo-browser-query-group">
-                <label className="photo-browser-filter-label" htmlFor="photo-browser-search">
-                    Search
+
+                <div className="photo-browser-toolbar-group photo-browser-search-group" style={{ flex: "1 1 140px" }}>
                     <input
                         id="photo-browser-search"
                         type="search"
@@ -519,126 +542,13 @@ function PhotoBrowserSection({
                             }
                         }}
                         className="photo-browser-search-input photo-browser-control"
-                        placeholder="Filename"
+                        placeholder="🔍 Search filename…"
                         aria-label="Search photos by filename"
+                        style={{ width: "100%" }}
                     />
-                </label>
-                <label className="photo-browser-filter-label" htmlFor="photo-browser-type">
-                    Type
-                    <UxpDropdown
-                        id="photo-browser-type"
-                        value={preferences.types[0] || ""}
-                        options={[
-                            { value: "", label: "All" },
-                            ...queryResult.facets.types.map(type => ({
-                                value: type,
-                                label: type.toUpperCase()
-                            }))
-                        ]}
-                        onValueChange={type => updatePreferences({
-                            types: type ? [type] : []
-                        })}
-                        className="photo-browser-filter-select photo-browser-control"
-                        ariaLabel="Filter photos by file type"
-                    />
-                </label>
-                <label className="photo-browser-filter-label" htmlFor="photo-browser-orientation">
-                    Orientation
-                    <UxpDropdown
-                        id="photo-browser-orientation"
-                        value={preferences.orientations[0] || ""}
-                        options={[
-                            { value: "", label: "All" },
-                            ...queryResult.facets.orientations.map(
-                                orientation => ({
-                                    value: orientation,
-                                    label: orientation.charAt(0).toUpperCase()
-                                        + orientation.slice(1)
-                                })
-                            )
-                        ]}
-                        onValueChange={orientation => updatePreferences({
-                            orientations: orientation ? [orientation] : []
-                        })}
-                        className="photo-browser-filter-select photo-browser-control"
-                        ariaLabel="Filter photos by orientation"
-                    />
-                </label>
-                <label className="photo-browser-filter-label" htmlFor="photo-browser-date">
-                    Date
-                    <UxpDropdown
-                        id="photo-browser-date"
-                        value={preferences.datePreset}
-                        options={PHOTO_DATE_FILTER_OPTIONS}
-                        onValueChange={datePreset => updatePreferences({
-                            datePreset
-                        })}
-                        className="photo-browser-filter-select photo-browser-control"
-                        ariaLabel="Filter photos by date"
-                    />
-                </label>
-                <label className="photo-browser-filter-label" htmlFor="photo-browser-rating">
-                    Rating
-                    <UxpDropdown
-                        id="photo-browser-rating"
-                        value={preferences.minimumRating}
-                        options={PHOTO_RATING_FILTER_OPTIONS}
-                        onValueChange={minimumRating => updatePreferences({
-                            minimumRating: Number(minimumRating)
-                        })}
-                        className="photo-browser-filter-select photo-browser-control"
-                        ariaLabel="Filter photos by minimum rating"
-                    />
-                </label>
-                <label className="photo-browser-favorite-filter">
-                    <input
-                        type="checkbox"
-                        checked={preferences.favoritesOnly}
-                        onChange={event => updatePreferences({
-                            favoritesOnly: event.target.checked
-                        })}
-                    />
-                    Favourites only
-                </label>
-                <label className="photo-browser-favorite-filter">
-                    <input
-                        type="checkbox"
-                        checked={preferences.duplicatesOnly}
-                        disabled={!duplicateReady}
-                        onChange={event => updatePreferences({
-                            duplicatesOnly: event.target.checked
-                        })}
-                    />
-                    Duplicates only
-                </label>
-                <button
-                    type="button"
-                    onClick={analyzeDuplicates}
-                    disabled={!folderLoaded || !photos.length || duplicateBusy}
-                    className="photo-browser-control"
-                    aria-label="Analyze exact duplicate photos"
-                    title="Compare same-size candidates using full-content SHA-256"
-                >
-                    {duplicateBusy
-                        ? "Analyzing Duplicates…"
-                        : duplicateReady
-                            ? "Reanalyze Duplicates"
-                            : "Find Duplicates"}
-                </button>
-                <button
-                    type="button"
-                    onClick={clearFilters}
-                    disabled={!filtersActive}
-                    className="photo-browser-control"
-                    aria-label="Clear photo filters"
-                    title="Clear search and filters"
-                >
-                    Clear Filters
-                </button>
                 </div>
+
                 <div className="photo-browser-toolbar-group photo-browser-sort-group">
-                <label className="photo-browser-sort-label" htmlFor="photo-browser-sort">
-                    Sort by
                     <UxpDropdown
                         id="photo-browser-sort"
                         value={preferences.sort.field}
@@ -648,84 +558,39 @@ function PhotoBrowserSection({
                         ariaLabel="Sort photos by"
                         title="Sort photos by"
                     />
-                </label>
-                <button
-                    type="button"
-                    onClick={() => updateSort({ direction: preferences.sort.direction === "asc" ? "desc" : "asc" })}
-                    title={`Sort ${preferences.sort.direction === "asc" ? "ascending" : "descending"}`}
-                    aria-label="Toggle sort direction"
-                    className="photo-browser-control photo-browser-direction-button"
-                >
-                    {preferences.sort.direction === "asc" ? "↑ Asc" : "↓ Desc"}
-                </button>
-                </div>
-                <div className="photo-browser-toolbar-group photo-browser-selection-group">
-                {!photos.length && (
                     <button
                         type="button"
-                        onClick={onOpenFolder}
-                        disabled={isLoading}
-                        className="photo-browser-control photo-browser-open-folder-control"
-                        title="Choose a photo folder"
-                        aria-label="Open photo folder"
+                        onClick={() => updateSort({ direction: preferences.sort.direction === "asc" ? "desc" : "asc" })}
+                        title={`Sort ${preferences.sort.direction === "asc" ? "ascending" : "descending"}`}
+                        aria-label="Toggle sort direction"
+                        className="photo-browser-control photo-browser-direction-button"
                     >
-                        {isLoading ? "Opening Folder…" : "Open Photo Folder"}
+                        {preferences.sort.direction === "asc" ? "↑" : "↓"}
                     </button>
-                )}
-                <button
-                    type="button"
-                    onClick={onRefresh}
-                    disabled={!folderLoaded || isLoading}
-                    aria-disabled={!folderLoaded || isLoading}
-                    className="photo-browser-control"
-                    title={folderLoaded
-                        ? "Refresh photo folder"
-                        : "Open a photo folder before refreshing"}
-                    aria-label="Refresh photo folder"
-                >
-                    <span className="photo-browser-control-icon" aria-hidden="true">↻</span>
-                    Refresh
-                </button>
-                <button
-                    type="button"
-                    onClick={onChangePhotoFolder}
-                    disabled={!canChangePhotoFolder}
-                    aria-disabled={!canChangePhotoFolder}
-                    className="photo-browser-control"
-                    title={canChangePhotoFolder
-                        ? "Choose a different photo folder"
-                        : "Open a photo folder before changing it"}
-                    aria-label="Change photo folder"
-                >
-                    {photoFolderChange?.busy
-                        ? "Changing Folder…"
-                        : "Change Photo Folder"}
-                </button>
-                <button
-                    type="button"
-                    onClick={() => {
-                        selectAllBrowserPhotos();
-                    }}
-                    disabled={!visiblePhotos.length}
-                    className="photo-browser-control"
-                    title="Select all photos"
-                    aria-label="Select all photos"
-                >
-                    Select All
-                </button>
-                <button
-                    type="button"
-                    onClick={() => App.selection.clear()}
-                    disabled={!selectedCount}
-                    className="photo-browser-control"
-                    title="Clear photo selection"
-                    aria-label="Clear photo selection"
-                >
-                    Clear Selection
-                </button>
+                    <button
+                        type="button"
+                        onClick={() => selectAllBrowserPhotos()}
+                        disabled={!visiblePhotos.length}
+                        className="photo-browser-control"
+                        title="Select all photos"
+                        aria-label="Select all photos"
+                    >
+                        Select All
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => App.selection.clear()}
+                        disabled={!selectedCount}
+                        className="photo-browser-control"
+                        title="Clear photo selection"
+                        aria-label="Clear photo selection"
+                    >
+                        Clear
+                    </button>
                 </div>
             </div>
 
+            {/* Smart Secondary Filter & Culling Bar (Row 2) */}
             {photos.length > 0 && (
                 <div className="photo-culling-toolbar">
                     <div className="photo-culling-pills">
@@ -758,9 +623,6 @@ function PhotoBrowserSection({
                         >
                             ? Unrated ({cullingSummary.unrated})
                         </button>
-                    </div>
-
-                    <div className="photo-culling-actions">
                         <button
                             type="button"
                             className="photo-browser-control culling-action-btn"
@@ -768,7 +630,7 @@ function PhotoBrowserSection({
                             disabled={cullingBusy || !cullingSummary.burstCount}
                             title="Auto-pick highest quality photo in each burst sequence"
                         >
-                            {cullingBusy ? "Auto-picking…" : "⚡ Auto-Pick Bursts"}
+                            {cullingBusy ? "Auto-picking…" : "⚡ Auto-Pick"}
                         </button>
                         <button
                             type="button"
@@ -779,6 +641,91 @@ function PhotoBrowserSection({
                         >
                             🔍 Compare (2)
                         </button>
+                    </div>
+
+                    <div className="photo-filter-inline-group" style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                        <UxpDropdown
+                            id="photo-browser-type"
+                            value={preferences.types[0] || ""}
+                            options={[
+                                { value: "", label: "Type: All" },
+                                ...queryResult.facets.types.map(type => ({
+                                    value: type,
+                                    label: `Type: ${type.toUpperCase()}`
+                                }))
+                            ]}
+                            onValueChange={type => updatePreferences({
+                                types: type ? [type] : []
+                            })}
+                            className="photo-browser-filter-select photo-browser-control"
+                            ariaLabel="Filter photos by file type"
+                        />
+                        <UxpDropdown
+                            id="photo-browser-rating"
+                            value={preferences.minimumRating}
+                            options={PHOTO_RATING_FILTER_OPTIONS.map(opt => ({
+                                value: opt.value,
+                                label: opt.value === 0 ? "Rating: Any" : `Rating: ${opt.label}`
+                            }))}
+                            onValueChange={minimumRating => updatePreferences({
+                                minimumRating: Number(minimumRating)
+                            })}
+                            className="photo-browser-filter-select photo-browser-control"
+                            ariaLabel="Filter photos by minimum rating"
+                        />
+                        <UxpDropdown
+                            id="photo-browser-orientation"
+                            value={preferences.orientations[0] || ""}
+                            options={[
+                                { value: "", label: "Orientation: All" },
+                                ...queryResult.facets.orientations.map(orientation => ({
+                                    value: orientation,
+                                    label: `Orientation: ${orientation.charAt(0).toUpperCase() + orientation.slice(1)}`
+                                }))
+                            ]}
+                            onValueChange={orientation => updatePreferences({
+                                orientations: orientation ? [orientation] : []
+                            })}
+                            className="photo-browser-filter-select photo-browser-control"
+                            ariaLabel="Filter photos by orientation"
+                        />
+                        <label className="photo-browser-favorite-filter" style={{ marginLeft: 4 }}>
+                            <input
+                                type="checkbox"
+                                checked={preferences.favoritesOnly}
+                                onChange={event => updatePreferences({
+                                    favoritesOnly: event.target.checked
+                                })}
+                            />
+                            ♥ Fav
+                        </label>
+                        <button
+                            type="button"
+                            onClick={analyzeDuplicates}
+                            disabled={!folderLoaded || !photos.length || duplicateBusy}
+                            className="photo-browser-control"
+                            aria-label="Analyze exact duplicate photos"
+                            title="Compare same-size candidates using full-content SHA-256"
+                            style={{ fontSize: 10, padding: "3px 6px", minHeight: 24 }}
+                        >
+                            {duplicateBusy
+                                ? "Analyzing…"
+                                : duplicateReady
+                                    ? "Reanalyze Dups"
+                                    : "Find Dups"}
+                        </button>
+                        {filtersActive && (
+                            <button
+                                type="button"
+                                onClick={clearFilters}
+                                className="photo-browser-control photo-browser-clear-btn"
+                                aria-label="Clear photo filters"
+                                title="Clear search and filters"
+                                style={{ background: "#4a2020", borderColor: "#7a3030", color: "#ffaaaa", fontSize: 10, padding: "3px 6px", minHeight: 24 }}
+                            >
+                                ✕ Clear
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

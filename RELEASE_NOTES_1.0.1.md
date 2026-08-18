@@ -4,7 +4,7 @@
 - Release date: 2026-08-18
 - Package: `AlbumAI-Pro-1.0.1.zip`
 - Package size: 180,683 bytes
-- SHA-256: `45ae4c2adf97a2e64f5915a056de3756f37b984f16df995f05b5faec81da391c`
+- SHA-256: `6bf15d7f5a2a60adc5b05a7417d3e19afe54de96f69374435193860c96035cf4`
 
 ## Installation
 
@@ -33,7 +33,7 @@ dependencies, staging files, backups, and platform metadata are excluded.
 - **Print Export & Proofing (ALB-090)**: 300 DPI Lab Print Profiles (12x12", 12x18", 10x10", 8.5x11"), 0.125" bleed margin geometry, preflight DPI inspector, and watermarked multi-page PDF proof sheets.
 - **Batch Render Execution (ALB-091)**: Direct multi-sheet Photoshop batch render and export execution with live spread progress reporting.
 - **User-Friendly 3-Mode Workflow (ALB-101)**: Segmented workspace navigation (Library, Album Designer, Proof & Export) with actionable empty states.
-- **Adobe Bridge Quality Photo Engine (ALB-102)**: Up to 100MP professional camera file decode support, crisp full-resolution preview generation, and fluid browser grid scaling.
+- **Adobe Bridge Quality Photo Engine (ALB-102)**: Up to 100MP professional camera file decode support, crisp full-resolution preview generation, streamlined 2-row toolbar, and immediate RGB buffer garbage collection for ultra-low memory footprint.
 
 ## Qualification
 
@@ -41,6 +41,6 @@ dependencies, staging files, backups, and platform metadata are excluded.
 - Architecture verification: PASS — 114 reachable runtime files (234 assertions)
 - Regression verification: PASS — 114/114 active files reached (911 assertions)
 - Hardening verification: PASS — 89 assertions
-- Production build: PASS — zero warnings (650 KiB clean bundle)
+- Production build: PASS — zero warnings (649 KiB clean bundle)
 - Reproducible package verification: PASS (`AlbumAI-Pro-1.0.1.zip`)
 - Full and production dependency audits: PASS — zero vulnerabilities

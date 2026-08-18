@@ -598,6 +598,10 @@ class SoftwareJpegRenderer {
                 dimensions.height,
                 inspected.orientation
             );
+            // Free the large raw decoded pixel buffer immediately to minimize Photoshop RAM usage
+            decoded.data = null;
+            decoded = null;
+
             lifecycle?.throwIfCancelled?.("before-jpeg-encoding");
             const encoded = jpeg.encode(
                 {

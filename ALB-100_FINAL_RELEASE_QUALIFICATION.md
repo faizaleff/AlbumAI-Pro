@@ -5,7 +5,7 @@
 - **Version:** 1.0.1
 - **Package:** `AlbumAI-Pro-1.0.1.zip`
 - **Package Size:** 180,683 bytes
-- **SHA-256 Digest:** `45ae4c2adf97a2e64f5915a056de3756f37b984f16df995f05b5faec81da391c`
+- **SHA-256 Digest:** `6bf15d7f5a2a60adc5b05a7417d3e19afe54de96f69374435193860c96035cf4`
 - **Host Target:** Adobe Photoshop 2024–2026 (UXP API Version 27.4.0+)
 - **License:** Apache-2.0
 
