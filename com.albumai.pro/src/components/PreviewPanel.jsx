@@ -60,21 +60,7 @@ function PreviewPanel({
         : null;
 
     return (
-        <div
-            className="album-preview-panel"
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                background: "#161b22",
-                borderLeft: "1px solid #30363d",
-                padding: 12,
-                boxSizing: "border-box",
-                color: "#f0f6fc",
-                minHeight: 0,
-                minWidth: 0,
-                overflow: "hidden"
-            }}
-        >
+        <div className="album-preview-panel">
             <div style={{ flex: "0 0 auto", borderBottom: "1px solid #30363d", paddingBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: "#f0f6fc", letterSpacing: "0.02em" }}>

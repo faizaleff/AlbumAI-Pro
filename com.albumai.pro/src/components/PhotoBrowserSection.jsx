@@ -521,8 +521,9 @@ function PhotoBrowserSection({
     return (
         <section className="photo-browser-shell" aria-label="Photo browser">
             {/* Primary Action Bar (Row 1) */}
-            <div className="photo-browser-toolbar" role="toolbar" aria-label="Photo browser controls">
-                <div className="photo-browser-toolbar-group photo-browser-view-group" aria-label="View options">
+            <div className="photo-browser-toolbar" role="toolbar" aria-label="Primary photo controls">
+                {/* 1. View / Source Group */}
+                <div className="photo-browser-toolbar-group photo-browser-view-group" aria-label="View and source options">
                     {[
                         ["icons", "▦", "Icons"],
                         ["list", "☷", "List"]
@@ -565,7 +566,8 @@ function PhotoBrowserSection({
                     </button>
                 </div>
 
-                <div className="photo-browser-toolbar-group photo-browser-search-group" style={{ flex: "1 1 140px" }}>
+                {/* 2. Discovery Group */}
+                <div className="photo-browser-toolbar-group photo-browser-search-group" aria-label="Search">
                     <input
                         id="photo-browser-search"
                         type="search"
@@ -584,11 +586,11 @@ function PhotoBrowserSection({
                         className="photo-browser-search-input photo-browser-control"
                         placeholder="🔍 Search filename…"
                         aria-label="Search photos by filename"
-                        style={{ width: "100%" }}
                     />
                 </div>
 
-                <div className="photo-browser-toolbar-group photo-browser-sort-group">
+                {/* 3. Sort & Selection Group */}
+                <div className="photo-browser-toolbar-group photo-browser-sort-group" aria-label="Sort and selection">
                     <UxpDropdown
                         id="photo-browser-sort"
                         value={preferences.sort.field}
@@ -622,10 +624,10 @@ function PhotoBrowserSection({
                         onClick={() => App.selection.clear()}
                         disabled={!selectedCount}
                         className="photo-browser-control"
-                        title="Clear photo selection"
-                        aria-label="Clear photo selection"
+                        title="Deselect all photos"
+                        aria-label="Deselect all photos"
                     >
-                        Clear
+                        Deselect
                     </button>
                 </div>
             </div>
@@ -638,7 +640,7 @@ function PhotoBrowserSection({
                         display: "flex",
                         alignItems: "center",
                         gap: 6,
-                        padding: "6px 12px",
+                        padding: "4px 8px",
                         background: "#161b22",
                         borderBottom: "1px solid #30363d",
                         overflowX: "auto",
@@ -703,10 +705,11 @@ function PhotoBrowserSection({
                 </div>
             )}
 
-            {/* Smart Secondary Filter & Culling Bar (Row 2) */}
+            {/* Workflow & Filter Toolbar (Row 2) */}
             {photos.length > 0 && (
-                <div className="photo-culling-toolbar">
-                    <div className="photo-culling-pills">
+                <div className="photo-culling-toolbar" role="toolbar" aria-label="Workflow and filter controls">
+                    {/* 1. Culling Workflow Group */}
+                    <div className="photo-culling-pills" aria-label="Culling workflow">
                         <span className="culling-label">Culling:</span>
                         <button
                             type="button"
@@ -756,7 +759,8 @@ function PhotoBrowserSection({
                         </button>
                     </div>
 
-                    <div className="photo-filter-inline-group" style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                    {/* 2. Metadata & Decision Filters Group */}
+                    <div className="photo-filter-inline-group" aria-label="Metadata and decision filters">
                         <UxpDropdown
                             id="photo-browser-type"
                             value={preferences.types[0] || ""}
@@ -848,11 +852,11 @@ function PhotoBrowserSection({
                                 type="button"
                                 onClick={clearFilters}
                                 className="photo-browser-control photo-browser-clear-btn"
-                                aria-label="Clear photo filters"
-                                title="Clear search and filters"
+                                aria-label="Reset photo filters"
+                                title="Reset active search and filters"
                                 style={{ background: "#4a2020", borderColor: "#7a3030", color: "#ffaaaa", fontSize: 10, padding: "3px 6px", minHeight: 24 }}
                             >
-                                ✕ Clear
+                                ✕ Reset Filters
                             </button>
                         )}
                     </div>

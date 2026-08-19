@@ -602,10 +602,12 @@ export async function runAlb081Tests() {
         const projectRoot = path.resolve(__dirname, "..");
         const previewPath = path.join(projectRoot, "src/components/PreviewPanel.jsx");
         const stylesPath = path.join(projectRoot, "src/styles.css");
+        const photoBrowserPath = path.join(projectRoot, "src/components/PhotoBrowserSection.jsx");
 
-        if (fs.existsSync(previewPath) && fs.existsSync(stylesPath)) {
+        if (fs.existsSync(previewPath) && fs.existsSync(stylesPath) && fs.existsSync(photoBrowserPath)) {
             const previewPanelSource = fs.readFileSync(previewPath, "utf8");
             const stylesSource = fs.readFileSync(stylesPath, "utf8");
+            const photoBrowserSource = fs.readFileSync(photoBrowserPath, "utf8");
 
             // 1. Verify rigid inline width locks removed from PreviewPanel
             check(!previewPanelSource.includes('flex: "0 0 280px"'), "Rigid flex: 0 0 280px inline lock removed");
@@ -625,7 +627,24 @@ export async function runAlb081Tests() {
             check(stylesSource.includes(".album-printproof-btn:disabled"), "styles.css defines disabled styles for Print & Proof button");
             check(stylesSource.includes("cursor: not-allowed"), "styles.css sets cursor: not-allowed on disabled designer action buttons");
 
-            // 3. Verify preview box height reduced for diagnostic viewport clearance
+            // 3. Verify PhotoBrowserSection structured toolbar hierarchy and disambiguated action labels
+            check(photoBrowserSource.includes('aria-label="Primary photo controls"'), "Primary toolbar defines role and primary aria-label");
+            check(photoBrowserSource.includes('aria-label="View and source options"'), "Primary toolbar contains View / Source group");
+            check(photoBrowserSource.includes('aria-label="Search"'), "Primary toolbar contains Discovery group");
+            check(photoBrowserSource.includes('aria-label="Sort and selection"'), "Primary toolbar contains Sort / Selection group");
+            check(photoBrowserSource.includes('aria-label="Workflow and filter controls"'), "Secondary toolbar defines Workflow / Filter role and aria-label");
+            check(photoBrowserSource.includes('aria-label="Culling workflow"'), "Workflow toolbar contains Culling group");
+            check(photoBrowserSource.includes('aria-label="Metadata and decision filters"'), "Workflow toolbar contains Metadata / Decision Filters group");
+            check(photoBrowserSource.includes("Deselect"), "PhotoBrowserSection uses unambiguous Deselect label for selection clear");
+            check(photoBrowserSource.includes("✕ Reset Filters"), "PhotoBrowserSection uses unambiguous Reset Filters label for filter reset");
+            check(photoBrowserSource.includes("photo-browser-orientation"), "PhotoBrowserSection preserves orientation filter dropdown");
+            check(photoBrowserSource.includes("duplicatesOnly") && photoBrowserSource.includes("analyzeDuplicates"), "PhotoBrowserSection preserves separate duplicates only checkbox and duplicate analysis action");
+
+            // 4. Verify styles.css photo-culling-toolbar containment
+            check(stylesSource.includes(".photo-culling-toolbar"), "styles.css defines .photo-culling-toolbar rule");
+            check(stylesSource.includes("flex: 0 0 auto"), "styles.css prevents toolbar shrinking under flex column layout");
+
+            // 5. Verify preview box height reduced for diagnostic viewport clearance
             check(previewPanelSource.includes("height: 160"), "Preview image box height reduced to 160px");
             check(previewPanelSource.includes('flex: "0 1 auto"'), "Preview image box configured with flex: 0 1 auto");
         } else {

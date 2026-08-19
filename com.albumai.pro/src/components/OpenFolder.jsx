@@ -1159,20 +1159,8 @@ export default function OpenFolder() {
                         </div>
                     </div>
                 ) : activeWorkspaceMode === "LIBRARY" && (
-                    <div className="library-workspace-container" style={{ display: "flex", flex: "1 1 0", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
-                        <div
-                            className="left-pane album-workspace-scroll-pane"
-                            style={{
-                                flex: "1 1 0",
-                                display: "flex",
-                                flexDirection: "column",
-                                padding: 12,
-                                minHeight: 0,
-                                minWidth: 0,
-                                overflowX: "hidden",
-                                overflowY: "auto"
-                            }}
-                        >
+                    <div className="library-workspace-container">
+                        <div className="left-pane album-workspace-scroll-pane">
                             <section
                                 className="album-workspace-section album-workspace-project-section"
                                 style={{
