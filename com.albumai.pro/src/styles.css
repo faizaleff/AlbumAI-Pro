@@ -1,3 +1,17 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+}
+
 .tabbar {
     display: flex;
     flex: 0 0 auto;
@@ -638,7 +652,7 @@ button.photo-browser-control:active:not(:disabled) {
 
 .album-preview-panel {
     flex: 0 1 360px;
-    min-width: 300px;
+    min-width: 0;
     max-width: 400px;
 }
 
@@ -790,30 +804,7 @@ button.photo-browser-control:active:not(:disabled) {
     border-color: #63adeb;
 }
 
-@media (max-width: 980px) {
-    .album-preview-panel {
-        flex-basis: 300px;
-        min-width: 260px;
-    }
-}
-
-@media (max-width: 760px) {
-    .albumai-workspace-layout {
-        flex-wrap: wrap;
-        overflow-y: auto !important;
-    }
-
-    .album-workspace-scroll-pane,
-    .album-preview-panel {
-        flex-basis: 100% !important;
-        min-width: 0;
-        max-width: none;
-    }
-
-    .album-workspace-scroll-pane {
-        overflow-y: visible !important;
-    }
-
+@media (max-width: 720px) {
     .album-workspace-action-group,
     .template-action-group,
     .album-sheet-identity,
@@ -920,17 +911,20 @@ button.photo-browser-control:active:not(:disabled) {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(0, 0, 0, 0.85);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 100000 !important;
     padding: 16px;
     box-sizing: border-box;
+    backdrop-filter: blur(4px);
 }
 
 .comparison-modal {
-    background: #282828;
+    position: relative;
+    z-index: 100001 !important;
+    background: #242424;
     border: 1px solid #484848;
     border-radius: 8px;
     max-width: 720px;
@@ -938,16 +932,18 @@ button.photo-browser-control:active:not(:disabled) {
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85);
     overflow: hidden;
 }
 
 .comparison-header {
+    position: relative;
+    z-index: 100002 !important;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px 16px;
-    background: #202020;
+    background: #1c1c1c;
     border-bottom: 1px solid #3a3a3a;
 }
 
@@ -1607,23 +1603,34 @@ button.photo-browser-control:active:not(:disabled) {
     background: #388bfd;
 }
 
+.album-autoflow-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed !important;
+    background: #21262d !important;
+    border-color: #30363d !important;
+    color: #6e7681 !important;
+    box-shadow: none !important;
+}
+
 .autoflow-modal-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(0, 0, 0, 0.85);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10000;
-    backdrop-filter: blur(3px);
+    z-index: 100000 !important;
+    backdrop-filter: blur(4px);
 }
 
 .autoflow-modal-container {
+    position: relative;
+    z-index: 100001 !important;
     width: 480px;
-    max-width: 90vw;
+    max-width: 90%;
     max-height: 85vh;
     background: #242424;
     border: 1px solid #444;
@@ -1917,23 +1924,34 @@ button.photo-browser-control:active:not(:disabled) {
     background: #8957e5;
 }
 
+.album-printproof-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed !important;
+    background: #21262d !important;
+    border-color: #30363d !important;
+    color: #6e7681 !important;
+    box-shadow: none !important;
+}
+
 .print-proof-modal-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(0, 0, 0, 0.85);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10000;
-    backdrop-filter: blur(3px);
+    z-index: 100000 !important;
+    backdrop-filter: blur(4px);
 }
 
 .print-proof-modal-container {
+    position: relative;
+    z-index: 100001 !important;
     width: 520px;
-    max-width: 90vw;
+    max-width: 90%;
     max-height: 88vh;
     background: #242424;
     border: 1px solid #444;
@@ -2408,6 +2426,223 @@ button.photo-browser-control:active:not(:disabled) {
     gap: 12px;
 }
 
+/* ═══════════════════════════════════════════════════════
+   REC-003A RESPONSIVE DOCK CONTAINMENT (<=720px)
+═══════════════════════════════════════════════════════ */
+
+/* Global Root Invariant: Prevent root window horizontal scrollbar */
+html, body, .albumai-workspace-layout, .workspace-view-container {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Default Side-by-Side Library Layout (>720px Wide / Floating Panel) */
+.library-workspace-container {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: row;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.left-pane {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.album-preview-panel {
+    flex: 0 0 280px;
+    width: 280px;
+    min-width: 0;
+    max-width: 320px;
+    min-height: 0;
+    box-sizing: border-box;
+}
+
+/* Narrow & Medium Dock Layout (<= 720px): Vertical Stack (Photo Library Top, Inspector Bottom) */
+@media (max-width: 720px) {
+    .library-workspace-container {
+        flex-direction: column !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    .left-pane.album-workspace-scroll-pane {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        padding: 8px !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    .album-preview-panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        border-left: none !important;
+        border-top: 1px solid #30363d !important;
+        margin-top: 8px !important;
+        flex: 0 0 auto !important;
+        padding: 10px !important;
+        max-height: 420px !important;
+        box-sizing: border-box !important;
+    }
+
+    .workspace-top-bar {
+        padding: 6px 8px !important;
+        gap: 6px !important;
+        flex-wrap: wrap !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .workspace-brand-group {
+        flex: 0 0 auto !important;
+        min-width: 0 !important;
+    }
+
+    .workspace-quick-actions {
+        flex: 0 0 auto !important;
+        margin-left: auto !important;
+        display: flex !important;
+        gap: 4px !important;
+    }
+
+    .wizard-step-bar {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        scrollbar-width: none !important;
+        padding: 4px 0 !important;
+        margin-top: 2px !important;
+        box-sizing: border-box !important;
+    }
+
+    .wizard-step {
+        flex: 0 0 auto !important;
+        min-width: max-content !important;
+        padding: 4px 8px !important;
+        box-sizing: border-box !important;
+    }
+
+    .wizard-step-label {
+        white-space: nowrap !important;
+        font-size: 11px !important;
+        display: inline-block !important;
+    }
+
+    .wizard-step-connector {
+        flex: 0 0 12px !important;
+        min-width: 6px !important;
+        max-width: 16px !important;
+    }
+
+    .album-workspace-summary {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .album-workspace-meta-stats {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 6px 12px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .album-workspace-action-group {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .photo-browser-toolbar {
+        padding: 6px !important;
+        gap: 6px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .photo-browser-toolbar-group {
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .photo-browser-view-group {
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+    }
+
+    .photo-browser-search-group {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .photo-browser-search-input {
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .photo-browser-sort-group {
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+    }
+
+    .photo-browser-sort-select {
+        flex: 1 1 100px !important;
+        min-width: 80px !important;
+    }
+
+    .photo-event-strip {
+        max-width: 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        overflow-x: auto !important;
+        scrollbar-width: none !important;
+    }
+
+    .photo-culling-toolbar {
+        padding: 6px !important;
+        gap: 6px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .photo-culling-pills,
+    .photo-filter-inline-group {
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        min-width: 0 !important;
+    }
+}
+
 .workspace-empty-state {
     display: flex;
     flex-direction: column;
@@ -2467,7 +2702,11 @@ button.photo-browser-control:active:not(:disabled) {
     gap: 0;
     flex: 1;
     min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
     padding: 0 4px;
+    box-sizing: border-box;
 }
 
 .wizard-step {
@@ -2481,7 +2720,8 @@ button.photo-browser-control:active:not(:disabled) {
     color: #8b949e;
     border-radius: 6px;
     transition: all 0.15s ease;
-    min-width: 0;
+    min-width: max-content;
+    flex-shrink: 0;
     position: relative;
     user-select: none;
 }

@@ -1159,7 +1159,7 @@ export default function OpenFolder() {
                         </div>
                     </div>
                 ) : activeWorkspaceMode === "LIBRARY" && (
-                    <div style={{ display: "flex", flex: "1 1 0", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
+                    <div className="library-workspace-container" style={{ display: "flex", flex: "1 1 0", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
                         <div
                             className="left-pane album-workspace-scroll-pane"
                             style={{
@@ -1183,13 +1183,13 @@ export default function OpenFolder() {
                                     border: "1px solid #2d333f"
                                 }}
                             >
-                                <div className="album-workspace-summary" style={{ fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center", color: "#8b949e" }}>
-                                    <div style={{ display: "flex", gap: 12 }}>
+                                <div className="album-workspace-summary" style={{ fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center", color: "#8b949e", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
+                                    <div className="album-workspace-meta-stats" style={{ display: "flex", gap: "6px 12px", flexWrap: "wrap", minWidth: 0 }}>
                                         <span>Project: <strong style={{ color: "#f0f3f6" }}>{project.metadata.name}</strong></span>
                                         <span>Photos: <strong style={{ color: "#f0f3f6" }}>{App.getPhotos().length}</strong></span>
                                         <span>Selected: <SelectionCount selection={App.selection} /></span>
                                     </div>
-                                    <div className="album-workspace-action-group album-workspace-action-group--primary">
+                                    <div className="album-workspace-action-group album-workspace-action-group--primary" style={{ display: "flex", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
                                         <button onClick={closeProject} disabled={!hasProject || Boolean(projectAction)} style={{ fontSize: 11, padding: "3px 8px" }}>
                                             {projectAction === "CLOSING" ? "Closing…" : "Close Project"}
                                         </button>
@@ -1340,7 +1340,13 @@ export default function OpenFolder() {
                                                 className="album-autoflow-btn"
                                                 onClick={() => setIsAutoFlowModalOpen(true)}
                                                 disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                                title="Open Smart Auto-Flow Engine"
+                                                title={
+                                                    !registeredTemplates.length
+                                                        ? "Register at least one PSD template to use Smart Auto-Flow"
+                                                        : (albumMutationLocked || albumMutationBusy)
+                                                            ? "Spread changes are locked while the batch is running"
+                                                            : "Open Smart Auto-Flow Engine"
+                                                }
                                             >
                                                 ⚡ Smart Auto-Flow
                                             </button>
@@ -1349,7 +1355,13 @@ export default function OpenFolder() {
                                                 className="album-printproof-btn"
                                                 onClick={() => setIsPrintProofModalOpen(true)}
                                                 disabled={albumMutationLocked || albumMutationBusy || !album?.sheets?.length}
-                                                title="Open Print Export & PDF Proofing Suite"
+                                                title={
+                                                    !album?.sheets?.length
+                                                        ? "Add at least one spread to use Print & Proof"
+                                                        : (albumMutationLocked || albumMutationBusy)
+                                                            ? "Spread changes are locked while the batch is running"
+                                                            : "Open Print Export & PDF Proofing Suite"
+                                                }
                                             >
                                                 🖨 Print & Proof
                                             </button>

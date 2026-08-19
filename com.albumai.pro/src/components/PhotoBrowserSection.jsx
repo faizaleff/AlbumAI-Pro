@@ -641,7 +641,10 @@ function PhotoBrowserSection({
                         padding: "6px 12px",
                         background: "#161b22",
                         borderBottom: "1px solid #30363d",
-                        overflowX: "auto"
+                        overflowX: "auto",
+                        maxWidth: "100%",
+                        minWidth: 0,
+                        boxSizing: "border-box"
                     }}
                 >
                     <span style={{ fontSize: 11, color: "#8b949e", fontWeight: 600, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>

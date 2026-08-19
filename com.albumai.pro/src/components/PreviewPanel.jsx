@@ -72,8 +72,6 @@ function PreviewPanel({
                 color: "#f0f6fc",
                 minHeight: 0,
                 minWidth: 0,
-                width: 280,
-                flex: "0 0 280px",
                 overflow: "hidden"
             }}
         >
@@ -90,7 +88,7 @@ function PreviewPanel({
                 </div>
 
                 {!activePhoto && (
-                    <div style={{ height: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#6e7681", background: "#0d1117", borderRadius: 6, border: "1px dashed #30363d" }}>
+                    <div style={{ height: 160, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#6e7681", background: "#0d1117", borderRadius: 6, border: "1px dashed #30363d" }}>
                         <div style={{ fontSize: 24, marginBottom: 4 }}>🖼️</div>
                         <div style={{ fontSize: 11 }}>Select a photo to preview</div>
                     </div>
@@ -101,7 +99,10 @@ function PreviewPanel({
                         <div
                             style={{
                                 position: "relative",
-                                height: 210,
+                                height: 160,
+                                maxHeight: 180,
+                                minHeight: 120,
+                                flex: "0 1 auto",
                                 background: "#0d1117",
                                 border: "1px solid #30363d",
                                 borderRadius: 6,
