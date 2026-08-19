@@ -644,9 +644,24 @@ export async function runAlb081Tests() {
             check(stylesSource.includes(".photo-culling-toolbar"), "styles.css defines .photo-culling-toolbar rule");
             check(stylesSource.includes("flex: 0 0 auto"), "styles.css prevents toolbar shrinking under flex column layout");
 
-            // 5. Verify preview box height reduced for diagnostic viewport clearance
-            check(previewPanelSource.includes("height: 160"), "Preview image box height reduced to 160px");
-            check(previewPanelSource.includes('flex: "0 1 auto"'), "Preview image box configured with flex: 0 1 auto");
+            // 5. Verify REC-003C class-based responsive preview and metadata structure
+            check(stylesSource.includes(".inspector-preview-box"), "styles.css defines .inspector-preview-box rule");
+            check(stylesSource.includes("object-fit: contain"), "styles.css ensures preview images are not cropped");
+            check(previewPanelSource.includes("inspector-preview-box"), "PreviewPanel uses class-based responsive preview box");
+            check(previewPanelSource.includes('objectFit: "contain"'), "PreviewPanel explicitly passes objectFit contain style to PhotoImage");
+            check(previewPanelSource.includes("inspector-metadata-card"), "PreviewPanel uses structured metadata card");
+            check(previewPanelSource.includes('data-execution-log-viewport="true"'), "PreviewPanel preserves execution log viewport marker");
+
+            // 6. Verify ExecutionDetailsPanel invariants
+            const executionDetailsPath = path.join(projectRoot, "src/components/ExecutionDetailsPanel.jsx");
+            if (fs.existsSync(executionDetailsPath)) {
+                const executionDetailsSource = fs.readFileSync(executionDetailsPath, "utf8");
+                check(executionDetailsSource.includes("Project Health"), "Project Health remains directly visible in Execution Details");
+                check(executionDetailsSource.includes("Copy Summary"), "Copy Summary action preserved");
+                check(executionDetailsSource.includes("Copy Debug Log"), "Copy Debug Log action preserved");
+                check(executionDetailsSource.includes("export function summaryText"), "summaryText export preserved");
+                check(executionDetailsSource.includes("export function debugText"), "debugText export preserved");
+            }
         } else {
             // In temp execution directories, verify source module exists via dynamic string path
             const previewRel = "../src/components/PreviewPanel.jsx";

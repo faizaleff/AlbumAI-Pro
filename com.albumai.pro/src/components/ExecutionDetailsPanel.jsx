@@ -466,14 +466,36 @@ export function ExecutionDetails({
     )?.name || recoverySnapshot?.currentTemplateId || "—";
     const [templateDetailsOpen, setTemplateDetailsOpen] = useState(false);
     const [layerListOpen, setLayerListOpen] = useState(false);
-    const [detailSections, setDetailSections] = useState({
-        autoSave: false,
-        export: false,
-        template: false,
-        placement: false,
-        executionPlan: true,
-        batchProgress: true,
-        recovery: true
+    const [detailSections, setDetailSections] = useState(() => {
+        const hasAutoSaveAlert = Boolean(autoSaveResult?.status === "FAILED" || autoSaveResult?.error || (autoSaveResult?.warnings && autoSaveResult.warnings.length > 0));
+        const hasExportAlert = Boolean(exportResult?.status === "FAILED" || exportResult?.error || (exportResult?.warnings && exportResult.warnings.length > 0));
+        const hasTemplateAlert = Boolean(registryError);
+        const hasPlacementAlert = Boolean(placementError || (placementPlan?.warnings && placementPlan.warnings.length > 0));
+        const hasExecutionAlert = Boolean(
+            executionLifecycle?.error ||
+            (replacementResult?.errors && replacementResult.errors.length > 0) ||
+            (executionPlan && executionPlan.status === "FAILED") ||
+            (executionSummary && executionSummary.failedSteps > 0)
+        );
+        const hasActiveBatch = Boolean(
+            (batchProgress && batchProgress.status === "RUNNING") ||
+            (projectExecutionSummary?.batchProgress?.stage && projectExecutionSummary.batchProgress.stage !== "IDLE" && projectExecutionSummary.batchProgress.stage !== "COMPLETE")
+        );
+        const hasRecoveryAlert = Boolean(
+            recoveryState?.available &&
+            recoveryState?.classification &&
+            recoveryState.classification !== "NONE"
+        );
+
+        return {
+            autoSave: hasAutoSaveAlert,
+            export: hasExportAlert,
+            template: hasTemplateAlert,
+            placement: hasPlacementAlert,
+            executionPlan: hasExecutionAlert,
+            batchProgress: hasActiveBatch,
+            recovery: hasRecoveryAlert
+        };
     });
     const [copyFeedback, setCopyFeedback] = useState("");
     const [clearRecoveryFeedback, setClearRecoveryFeedback] = useState("");
@@ -495,32 +517,34 @@ export function ExecutionDetails({
         }
     }, [projectId, recoveryRefreshVersion]);
     const sectionStyle = {
-        marginTop: 16,
-        paddingTop: 12,
-        borderTop: "1px solid #4a4a4a",
+        marginTop: 10,
+        paddingTop: 8,
+        borderTop: "1px solid #30363d",
         minWidth: 0,
         maxWidth: "100%",
         boxSizing: "border-box"
     };
     const titleStyle = {
         margin: 0,
-        fontSize: 15,
-        fontWeight: 700
+        fontSize: 12,
+        fontWeight: 600,
+        color: "#f0f6fc"
     };
     const rowStyle = {
         display: "flex",
-        gap: 8,
+        gap: 6,
         alignItems: "baseline",
-        marginTop: 8,
+        marginTop: 4,
         lineHeight: 1.35,
         minWidth: 0,
         maxWidth: "100%",
         boxSizing: "border-box"
     };
     const labelStyle = {
-        flex: "0 0 108px",
-        color: "#b8b8b8",
-        fontSize: 12
+        flex: "0 0 96px",
+        color: "#8b949e",
+        fontSize: 11,
+        minWidth: 0
     };
     const valueStyle = {
         flex: "1 1 0",
@@ -529,7 +553,7 @@ export function ExecutionDetails({
         overflowWrap: "anywhere",
         wordBreak: "break-word",
         whiteSpace: "normal",
-        fontSize: 13
+        fontSize: 11
     };
     const Row = ({ label, value, warning = false }) => (
         <div style={{ ...rowStyle, color: warning ? "#ffcc99" : undefined }}>
@@ -541,7 +565,7 @@ export function ExecutionDetails({
         <button
             type="button"
             onClick={onClick}
-            style={{ marginTop: 8, fontSize: 12 }}
+            style={{ marginTop: 6, fontSize: 11 }}
         >
             {open ? "Hide" : "Show"} {children}
         </button>
@@ -557,7 +581,7 @@ export function ExecutionDetails({
                     style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: 0, background: "transparent", border: 0, color: "#fff", cursor: "pointer" }}
                 >
                     <span style={titleStyle}>{title}</span>
-                    <span style={{ fontSize: 12, color: "#aaa" }}>{open ? "−" : "+"}</span>
+                    <span style={{ fontSize: 11, color: "#8b949e" }}>{open ? "−" : "+"}</span>
                 </button>
                 {open && children}
             </div>
@@ -664,13 +688,13 @@ export function ExecutionDetails({
     };
 
     return (
-        <section style={{ marginTop: 20, paddingBottom: 16, minWidth: 0, maxWidth: "100%", boxSizing: "border-box", overflowWrap: "anywhere", wordBreak: "break-word" }}>
-            <h3 style={titleStyle}>Execution Details</h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-                <button type="button" onClick={copySummary} style={{ minHeight: 30, padding: "4px 10px" }}>Copy Summary</button>
-                <button type="button" onClick={copyDebugLog} style={{ minHeight: 30, padding: "4px 10px" }}>Copy Debug Log</button>
+        <section style={{ marginTop: 12, paddingBottom: 12, minWidth: 0, maxWidth: "100%", boxSizing: "border-box", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 600, color: "#c9d1d9" }}>Execution Details</h3>
+            <div className="execution-details-actions" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                <button type="button" className="execution-details-copy-btn" onClick={copySummary} style={{ minHeight: 24, padding: "2px 8px", fontSize: 10, background: "#21262d", border: "1px solid #30363d", color: "#c9d1d9", borderRadius: 4 }}>Copy Summary</button>
+                <button type="button" className="execution-details-copy-btn" onClick={copyDebugLog} style={{ minHeight: 24, padding: "2px 8px", fontSize: 10, background: "#21262d", border: "1px solid #30363d", color: "#c9d1d9", borderRadius: 4 }}>Copy Debug Log</button>
             </div>
-            {copyFeedback && <div style={{ marginTop: 8, fontSize: 12, color: "#b8dca0" }}>{copyFeedback}</div>}
+            {copyFeedback && <div style={{ marginTop: 6, fontSize: 11, color: "#b8dca0" }}>{copyFeedback}</div>}
 
             <div style={sectionStyle}>
                 <h4 style={titleStyle}>Project Health</h4>

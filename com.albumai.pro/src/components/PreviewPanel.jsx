@@ -61,20 +61,20 @@ function PreviewPanel({
 
     return (
         <div className="album-preview-panel">
-            <div style={{ flex: "0 0 auto", borderBottom: "1px solid #30363d", paddingBottom: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#f0f6fc", letterSpacing: "0.02em" }}>
+            <div style={{ flex: "0 0 auto", borderBottom: "1px solid #30363d", paddingBottom: 8 }}>
+                <div className="inspector-preview-header">
+                    <span className="inspector-preview-title">
                         🔍 Inspector Preview
                     </span>
                     {activePhoto && (
-                        <span style={{ fontSize: 10, background: "#21262d", border: "1px solid #30363d", borderRadius: 10, padding: "1px 6px", color: "#8b949e" }}>
+                        <span className="inspector-badge">
                             {activePhoto.extension || "JPEG"}
                         </span>
                     )}
                 </div>
 
                 {!activePhoto && (
-                    <div style={{ height: 160, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#6e7681", background: "#0d1117", borderRadius: 6, border: "1px dashed #30363d" }}>
+                    <div className="inspector-preview-empty">
                         <div style={{ fontSize: 24, marginBottom: 4 }}>🖼️</div>
                         <div style={{ fontSize: 11 }}>Select a photo to preview</div>
                     </div>
@@ -82,28 +82,19 @@ function PreviewPanel({
 
                 {activePhoto && (
                     <>
-                        <div
-                            style={{
-                                position: "relative",
-                                height: 160,
-                                maxHeight: 180,
-                                minHeight: 120,
-                                flex: "0 1 auto",
-                                background: "#0d1117",
-                                border: "1px solid #30363d",
-                                borderRadius: 6,
-                                overflow: "hidden",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center"
-                            }}
-                        >
+                        <div className="inspector-preview-box">
                             <PhotoImage
                                 photo={activePhoto}
                                 profile="preview"
                                 priority={0}
                                 role="preview"
                                 alt={activePhoto.name}
+                                style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "contain",
+                                    display: "block"
+                                }}
                                 onImageLoad={() => setPreviewState("ready")}
                                 onImageError={() => setPreviewState("unavailable")}
                                 fallback={previewState === "loading" ? (
@@ -111,31 +102,25 @@ function PreviewPanel({
                                 ) : (
                                     <div style={{ color: "#6e7681", fontSize: 12 }}>Preview unavailable</div>
                                 )}
-                                style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "contain",
-                                    display: "block"
-                                }}
                             />
                         </div>
 
                         {/* Metadata Details Card */}
-                        <div style={{ marginTop: 8, padding: "6px 8px", background: "#1c2128", border: "1px solid #30363d", borderRadius: 6, fontSize: 11, lineHeight: 1.5 }}>
-                            <div style={{ overflowWrap: "anywhere", fontWeight: 600, color: "#f0f6fc", marginBottom: 2 }}>
+                        <div className="inspector-metadata-card">
+                            <div className="inspector-metadata-filename">
                                 {activePhoto.name}
                             </div>
                             {cameraModel && (
-                                <div style={{ color: "#58a6ff" }}>
+                                <div className="inspector-metadata-camera">
                                     📷 {cameraModel}
                                 </div>
                             )}
                             {dateTaken && (
-                                <div style={{ color: "#8b949e" }}>
+                                <div className="inspector-metadata-date">
                                     🕐 {dateTaken}
                                 </div>
                             )}
-                            <div style={{ display: "flex", gap: 8, color: "#8b949e", marginTop: 2 }}>
+                            <div className="inspector-metadata-stats">
                                 {activePhoto.width > 0 && activePhoto.height > 0 && (
                                     <span>📐 {activePhoto.width} × {activePhoto.height}</span>
                                 )}
