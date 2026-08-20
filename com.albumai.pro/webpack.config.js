@@ -58,7 +58,10 @@ module.exports = (_env, argv = {}) => {
                 from: "plugin",
                 to: ".",
                 globOptions: {
-                    ignore: ["**/.DS_Store"]
+                    ignore: [
+                        "**/.DS_Store",
+                        "**/index.js"
+                    ]
                 }
             }]
         })
