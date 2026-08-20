@@ -144,15 +144,18 @@ export default class ReplacementStepExecutor {
 
         this.layerManager.scan(document);
 
-        const layer = this.layerManager.byId(step.slotLayerId);
+        const slotId = step.slotLayerId;
+        const layer = this.layerManager.byId(slotId) ||
+            (Number.isInteger(Number(slotId)) ? this.layerManager.byId(Number(slotId)) : null) ||
+            this.layerManager.byId(String(slotId));
 
-        if (!layer) throw new Error("Target Smart Object was not found.");
+        if (!layer) throw new Error(`Target Smart Object was not found for slot ${slotId}.`);
         if (layer.kind !== "smartObject") {
-            throw new Error("Target Smart Object was not found.");
+            throw new Error(`Target layer ${slotId} is not a Smart Object (${layer.kind}).`);
         }
 
         const photo = (Array.isArray(photos) ? photos : []).find(item =>
-            item?.id === step.photoId
+            item?.id === step.photoId || String(item?.id) === String(step.photoId)
         );
 
         const fileEntry = getPhotoFileEntry(photo) || photo?.file;
@@ -271,10 +274,12 @@ export default class ReplacementStepExecutor {
 
         this.layerManager.scan(document);
 
-        const layer = this.layerManager.byId(slotLayerId);
+        const layer = this.layerManager.byId(slotLayerId) ||
+            (Number.isInteger(Number(slotLayerId)) ? this.layerManager.byId(Number(slotLayerId)) : null) ||
+            this.layerManager.byId(String(slotLayerId));
 
         if (!layer) {
-            throw new Error("Target Smart Object was not found.");
+            throw new Error(`Target Smart Object was not found for slot ${slotLayerId}.`);
         }
 
         return layer;

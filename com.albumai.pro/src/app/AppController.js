@@ -1994,8 +1994,9 @@ export class AppController {
 
     getActivePhotoshopDocument() {
         try {
-            const active = this.replacementStepExecutor?.documentManager?.sync() ||
-                this.replacementStepExecutor?.documentManager?.active;
+            const docManager = this.replacementStepExecutor?.documentManager ||
+                this.templateDocumentReader?.documentManager;
+            const active = docManager?.sync?.() || docManager?.active;
             if (!active) return null;
             const title = active.title || active.name || "";
             if (!title) return null;
@@ -2017,11 +2018,13 @@ export class AppController {
         this.registryMutationInProgress = true;
         const rollback = this.captureTemplateRegistryTransaction();
         try {
-            const targetFile = file || this.getActivePhotoshopDocument();
+            const docManager = this.replacementStepExecutor?.documentManager ||
+                this.templateDocumentReader?.documentManager;
+            const liveActiveDoc = this.getActivePhotoshopDocument();
+            const targetFile = file || liveActiveDoc;
             if (!targetFile) {
                 throw new Error("No PSD file or active Photoshop document is available to register.");
             }
-            const docManager = this.replacementStepExecutor?.documentManager;
             const activeDoc = docManager?.sync?.() || docManager?.active;
             const layerManager = this.replacementStepExecutor?.layerManager;
             let detectedSmartObjects = [];
@@ -2033,6 +2036,19 @@ export class AppController {
                         layerName: l.name || ""
                     }));
                 } catch (_) {}
+            }
+            if (detectedSmartObjects.length === 0 && this.templateDocumentReader && typeof this.templateDocumentReader.read === "function") {
+                try {
+                    const readResult = await this.templateDocumentReader.read(targetFile);
+                    if (Array.isArray(readResult?.smartObjects) && readResult.smartObjects.length > 0) {
+                        detectedSmartObjects = readResult.smartObjects.map(l => ({
+                            layerId: l.layerId ?? l.id,
+                            layerName: l.layerName ?? l.name ?? ""
+                        }));
+                    }
+                } catch (readErr) {
+                    Logger.warn(`Could not read PSD template smart objects: ${readErr?.message}`);
+                }
             }
             const descriptor = this.projectTemplateRegistry.add(targetFile, undefined, {
                 smartObjects: detectedSmartObjects

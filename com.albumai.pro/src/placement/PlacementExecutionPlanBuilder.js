@@ -7,16 +7,24 @@ export default class PlacementExecutionPlanBuilder {
         this.requirePlacementResult(placementResult);
         this.validateContext(placementResult, project, template);
 
-        const photoById = new Map(
-            (Array.isArray(photos) ? photos : [])
-                .filter(photo => photo?.id != null)
-                .map(photo => [photo.id, photo])
-        );
-        const slotById = new Map(
-            (Array.isArray(template.smartObjects) ? template.smartObjects : [])
-                .filter(slot => slot?.layerId != null)
-                .map(slot => [slot.layerId, slot])
-        );
+        const photoById = new Map();
+        (Array.isArray(photos) ? photos : [])
+            .filter(photo => photo?.id != null)
+            .forEach(photo => {
+                photoById.set(photo.id, photo);
+                photoById.set(String(photo.id), photo);
+            });
+
+        const slotById = new Map();
+        (Array.isArray(template.smartObjects) ? template.smartObjects : [])
+            .filter(slot => slot?.layerId != null)
+            .forEach(slot => {
+                slotById.set(slot.layerId, slot);
+                slotById.set(String(slot.layerId), slot);
+                if (Number.isInteger(Number(slot.layerId))) {
+                    slotById.set(Number(slot.layerId), slot);
+                }
+            });
         const assignments = Array.isArray(placementResult.assignments)
             ? placementResult.assignments
             : [];

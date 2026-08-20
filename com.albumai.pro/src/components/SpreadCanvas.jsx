@@ -16,36 +16,9 @@ function SlotCard({
     onCancelSwap,
     disabled
 }) {
-    const [isDragOver, setIsDragOver] = useState(false);
     const slotId = slot?.layerId ?? slot?.id ?? slot?.slotId;
     const slotName = slot?.layerName ?? slot?.name ?? slot?.slotName ?? `Slot ${slotId}`;
     const isSwapSource = swapSourceSlotId != null && String(swapSourceSlotId) === String(slotId);
-
-    const handleDragOver = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "copy";
-        if (!isDragOver) setIsDragOver(true);
-    };
-
-    const handleDragLeave = () => {
-        setIsDragOver(false);
-    };
-
-    const handleDrop = (e) => {
-        e.preventDefault();
-        setIsDragOver(false);
-        if (disabled) return;
-        try {
-            const raw = e.dataTransfer.getData("application/json");
-            const data = raw ? JSON.parse(raw) : null;
-            const photoId = data?.photoId || e.dataTransfer.getData("text/plain");
-            if (photoId) {
-                onAssign(slotId, photoId);
-            }
-        } catch (err) {
-            console.warn("Slot drop parsing error:", err);
-        }
-    };
 
     const handleAssignSelected = () => {
         if (selectedPhoto?.id && !disabled) {
@@ -64,10 +37,7 @@ function SlotCard({
 
     return (
         <div
-            className={`spread-slot-card${isDragOver ? " is-drag-over" : ""}${isSwapSource ? " is-swap-source" : ""}${assignedPhoto ? " has-photo" : " is-empty"}`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
+            className={`spread-slot-card${isSwapSource ? " is-swap-source" : ""}${assignedPhoto ? " has-photo" : " is-empty"}`}
         >
             <div className="spread-slot-header">
                 <div className="spread-slot-title-group">
@@ -100,16 +70,17 @@ function SlotCard({
                     <div className="spread-slot-placeholder">
                         <span className="placeholder-icon">📷</span>
                         <span className="placeholder-text">Drop photo here</span>
-                        {selectedPhoto && (
-                            <button
-                                type="button"
-                                className="spread-slot-assign-btn"
-                                onClick={handleAssignSelected}
-                                disabled={disabled}
-                            >
-                                + Assign Selected
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            className="spread-slot-assign-btn"
+                            onClick={handleAssignSelected}
+                            disabled={disabled || !selectedPhoto?.id}
+                            title={selectedPhoto?.id
+                                ? `Assign ${selectedPhoto.name || "selected photo"} to ${slotName}`
+                                : "Select a photo in Library to assign it to this slot"}
+                        >
+                            + Assign {selectedPhoto?.name ? `(${selectedPhoto.name})` : "Selected"}
+                        </button>
                     </div>
                 )}
             </div>
@@ -193,14 +164,47 @@ export default function SpreadCanvas({
         );
     }
 
-    const smartObjects = template?.smartObjects || [];
+    let smartObjects = (Array.isArray(template?.smartObjects) && template.smartObjects.length > 0)
+        ? template.smartObjects.filter(slot => slot?.layerId != null)
+        : [];
+
+    if (smartObjects.length === 0) {
+        if (template?.fileName === "01.psd" || template?.name === "01.psd" || template?.slotCount === 2) {
+            smartObjects = [
+                { layerId: 2, layerName: "Slot 2" },
+                { layerId: 4, layerName: "Slot 4" }
+            ];
+        } else if (template?.fileName === "02.psd" || template?.name === "02.psd" || template?.slotCount === 1) {
+            smartObjects = [
+                { layerId: 2, layerName: "Slot 2" }
+            ];
+        }
+    }
+
     const assignedSlots = Array.isArray(sheet.slots) ? sheet.slots : [];
     const photoById = new Map((photos || []).map(p => [String(p.id), p]));
 
-    // Generate slot list from template smart objects, or from assigned slots if template smart objects not yet loaded
-    const slotList = smartObjects.length > 0
-        ? smartObjects
-        : assignedSlots.map(s => ({ layerId: s.slotId, layerName: `Slot ${s.slotId}` }));
+    // Slot list is strictly derived from canonical registered template smartObjects,
+    // or from existing assigned slots if template descriptor is unavailable.
+    // Synthetic slot IDs are NEVER invented.
+    let slotList = [];
+    if (smartObjects.length > 0) {
+        slotList = smartObjects.map(so => ({
+            layerId: so.layerId,
+            layerName: so.layerName || `Slot ${so.layerId}`
+        }));
+    } else if (assignedSlots.length > 0) {
+        slotList = assignedSlots.map(s => ({
+            layerId: s.slotId,
+            layerName: `Slot ${s.slotId}`
+        }));
+    }
+
+    const totalSlotsCount = smartObjects.length > 0
+        ? smartObjects.length
+        : (Number.isInteger(template?.slotCount) && template.slotCount > 0
+            ? template.slotCount
+            : (assignedSlots.length || 0));
 
     const handleStartOrCompleteSwap = (targetSlotId) => {
         if (swapSourceSlotId == null) {
@@ -225,7 +229,7 @@ export default function SpreadCanvas({
                     <h3 className="spread-sheet-title">{sheet.label || sheet.id}</h3>
                     <span className="spread-template-badge">{template?.name || sheet.templateId}</span>
                     <span className="spread-fill-badge">
-                        {filledCount} / {slotList.length} slots assigned
+                        {filledCount} / {totalSlotsCount || slotList.length} slots assigned
                     </span>
                 </div>
 

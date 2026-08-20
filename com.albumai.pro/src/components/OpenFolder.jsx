@@ -55,10 +55,10 @@ export default function OpenFolder() {
     const [photoFolderChange, setPhotoFolderChange] = useState(
         createIdlePhotoFolderChangeState
     );
-    const [albumHistory, setAlbumHistory] = useState(null);
+    const [albumHistory, setAlbumHistory] = useState(() => createAlbumSheetHistory(App.project?.getProject?.()?.metadata?.album));
     const [albumSheetId, setAlbumSheetId] = useState("");
     const [registeredTemplates, setRegisteredTemplates] = useState(() => App.getRegisteredProjectTemplates?.() || []);
-    const [albumTemplateId, setAlbumTemplateId] = useState("");
+    const [albumTemplateId, setAlbumTemplateId] = useState(() => App.getRegisteredProjectTemplates?.()?.[0]?.id || "");
     const [selectedAlbumSheetId, setSelectedAlbumSheetId] = useState("");
     const [albumSheetLabel, setAlbumSheetLabel] = useState("");
     const [albumDuplicateId, setAlbumDuplicateId] = useState("");
@@ -84,9 +84,19 @@ export default function OpenFolder() {
     const album = albumHistory?.present || project?.metadata?.album || null;
     const albumMutationLocked = App.isAlbumSheetMutationLocked();
     const workspacePhotos = App.getPhotos();
+    const [selectedPhoto, setSelectedPhoto] = useState(() => App.selection.getSelected()[0] || null);
+    const templateList = registeredTemplates.length > 0
+        ? registeredTemplates
+        : (App.getRegisteredProjectTemplates?.() || []);
     const activeSheet = album?.sheets?.find(sheet => sheet.id === selectedAlbumSheetId) || album?.sheets?.[0] || null;
-    const activeTemplate = registeredTemplates.find(t => t.id === activeSheet?.templateId) || null;
-    const activeSelectedPhoto = App.selection.getSelected()[0] || null;
+    const activeTemplate = templateList.find(t => t.id === activeSheet?.templateId || t.name === activeSheet?.templateId || t.fileName === activeSheet?.templateId) || templateList[0] || null;
+    const activeSelectedPhoto = selectedPhoto || App.selection.getSelected()[0] || null;
+
+    useEffect(() => {
+        return App.selection.subscribe(() => {
+            setSelectedPhoto(App.selection.getSelected()[0] || null);
+        });
+    }, []);
 
     const refreshRegisteredTemplates = useCallback(() => {
         const entries = App.getRegisteredProjectTemplates?.() || [];
@@ -635,20 +645,31 @@ export default function OpenFolder() {
 
     async function mutateAlbum(mutation) {
 
-        if (!albumHistory || albumMutationBusy) return false;
+        const currentHistory = albumHistory || createAlbumSheetHistory(project?.metadata?.album);
+        if (!currentHistory) {
+            setAlbumMutationError("No active album project available.");
+            return false;
+        }
+
+        if (albumMutationBusy) return false;
 
         setAlbumMutationBusy(true);
         setAlbumMutationError(null);
 
         try {
-            const result = await App.saveAlbumSheetMutation(albumHistory, mutation);
+            const result = await App.saveAlbumSheetMutation(currentHistory, mutation);
 
             if (!result.accepted) {
-                setAlbumMutationError(result.reasonCodes?.join(", ") || "Sheet change was not saved.");
+                const message = (Array.isArray(result.reasonCodes) && result.reasonCodes.length > 0)
+                    ? result.reasonCodes.join(", ")
+                    : "Sheet change was not saved.";
+                setAlbumMutationError(message);
                 return false;
             }
 
-            if (result.changed) setAlbumHistory(result.history);
+            if (result.changed) {
+                setAlbumHistory(result.history);
+            }
             return result.changed;
         } catch (error) {
             setAlbumMutationError(error?.message || "Sheet change was not saved.");
@@ -661,18 +682,36 @@ export default function OpenFolder() {
 
     async function addAlbumSheet() {
 
-        const id = albumSheetId.trim();
+        const templates = registeredTemplates.length > 0
+            ? registeredTemplates
+            : (App.getRegisteredProjectTemplates?.() || []);
 
-        if (!id || !albumTemplateId) {
-            setAlbumMutationError("Enter a Sheet ID and select a registered template.");
+        if (!templates.length) {
+            setAlbumMutationError("Register at least one PSD template before adding spreads.");
             return;
         }
 
+        const templateId = (albumTemplateId && templates.some(t => t.id === albumTemplateId))
+            ? albumTemplateId
+            : templates[0].id;
+
+        const existingIds = new Set((album?.sheets || []).map(sheet => sheet.id));
+        let nextNum = 1;
+        let defaultId;
+        do {
+            defaultId = `Spread_${String(nextNum).padStart(2, "0")}`;
+            nextNum += 1;
+        } while (existingIds.has(defaultId));
+        const id = albumSheetId.trim() || defaultId;
+
         const added = await mutateAlbum({
             intent: AlbumSheetMutationIntent.ADD,
-            sheet: { id, templateId: albumTemplateId }
+            sheet: { id, templateId, label: id }
         });
-        if (added) setAlbumSheetId("");
+        if (added) {
+            setAlbumSheetId("");
+            setSelectedAlbumSheetId(id);
+        }
 
     }
 
@@ -1352,14 +1391,14 @@ export default function OpenFolder() {
                                                 disabled={albumMutationLocked || albumMutationBusy}
                                             />
                                             <select
-                                                value={albumTemplateId}
+                                                value={albumTemplateId || registeredTemplates[0]?.id || ""}
                                                 onChange={event => setAlbumTemplateId(event.target.value)}
                                                 disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
                                             >
-                                                <option value="">Select template</option>
+                                                {!registeredTemplates.length && <option value="">No templates registered</option>}
                                                 {registeredTemplates.map(template => (
                                                     <option key={template.id} value={template.id}>
-                                                        {template.name || template.id}
+                                                        {template.name || template.fileName || template.id}
                                                     </option>
                                                 ))}
                                             </select>

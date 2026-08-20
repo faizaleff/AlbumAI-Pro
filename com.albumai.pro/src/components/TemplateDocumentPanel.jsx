@@ -172,8 +172,8 @@ export default function TemplateDocumentPanel({
         registryPreflightState
     );
     const activePhotoshopDocument = getActivePhotoshopDocument?.() || null;
-    const activePsdTarget = (selectedName ? templates.find(item => item.name === selectedName) : null) ||
-        activePhotoshopDocument ||
+    const activePsdTarget = activePhotoshopDocument ||
+        (selectedName ? templates.find(item => item.name === selectedName) : null) ||
         null;
     const recoveryCompatibility = recoverySnapshot
         ? getTemplateRegistryRecoveryCompatibility?.() || ""
@@ -365,8 +365,8 @@ export default function TemplateDocumentPanel({
     }
 
     async function addCurrentPsd() {
-        const file = (selectedName ? templates.find(item => item.name === selectedName) : null) ||
-            getActivePhotoshopDocument?.() ||
+        const file = getActivePhotoshopDocument?.() ||
+            (selectedName ? templates.find(item => item.name === selectedName) : null) ||
             null;
         if (!file) return;
         try {

@@ -685,17 +685,19 @@ async function run() {
             schemaVersion: ALBUM_SCHEMA_VERSION,
             sheets: [
                 {
-                    id: "Spread_1",
-                    templateId: "template-22",
-                    label: "Spread 1",
-                    slots: [{ slotId: "slot-1", photoId: "IMG_5733.jpg" }]
+                    id: "Spread_A1",
+                    templateId: "template-01",
+                    label: "Spread A1",
+                    slots: []
                 },
                 {
-                    id: "Spread_2",
-                    templateId: "template-22",
-                    label: "Spread 2",
-                    slots: [{ slotId: "slot-1", photoId: "IMG_5734.jpg" }]
-                }
+                    id: "Spread_B1",
+                    templateId: "template-02",
+                    label: "Spread B1",
+                    slots: []
+                },
+                { id: "Spread_A2", templateId: "template-01", label: "Spread A2", slots: [] },
+                { id: "Spread_B2", templateId: "template-02", label: "Spread B2", slots: [] }
             ]
         };
 
@@ -704,7 +706,8 @@ async function run() {
             parentFolder: root
         });
 
-        await createdProject.workspace.templates.createFile("22.psd");
+        await createdProject.workspace.templates.createFile("01.psd");
+        await createdProject.workspace.templates.createFile("02.psd");
 
         await controller.saveProject({
             photoSource: { name: "Wedding_Photos", token: "token-wedding" },
@@ -715,18 +718,46 @@ async function run() {
             },
             templateRegistry: [
                 {
-                    id: "template-22",
-                    name: "22.psd",
-                    fileReference: "22.psd",
-                    fileName: "22.psd",
+                    id: "template-01",
+                    name: "01.psd",
+                    fileReference: "01.psd",
+                    fileName: "01.psd",
                     registrationOrder: 0,
-                    validationState: "READY"
+                    validationState: "READY",
+                    smartObjects: [{ layerId: 2 }, { layerId: 4 }]
+                },
+                {
+                    id: "template-02",
+                    name: "02.psd",
+                    fileReference: "02.psd",
+                    fileName: "02.psd",
+                    registrationOrder: 1,
+                    validationState: "READY",
+                    smartObjects: [{ layerId: 2 }]
                 }
             ],
             album: initialAlbum
         }, { reason: "TEST_INITIAL_SAVE" });
 
-        controller.templateDocumentReader.listTemplates = async () => [{ name: "22.psd", isFile: true }];
+        let history = createAlbumSheetHistory(initialAlbum);
+        for (const mutation of [
+            { sheetId: "Spread_A1", slotId: 2 },
+            { sheetId: "Spread_A1", slotId: 4 },
+            { sheetId: "Spread_B1", slotId: 2 }
+        ]) {
+            const saved = await controller.saveAlbumSheetMutation(history, {
+                intent: AlbumSheetMutationIntent.ASSIGN_SLOT,
+                photoId: "IMG_5733.jpg",
+                ...mutation
+            });
+            assert.strictEqual(saved.accepted, true, `${mutation.sheetId} slot ${mutation.slotId} saved`);
+            history = saved.history;
+        }
+
+        controller.templateDocumentReader.listTemplates = async () => [
+            { name: "01.psd", isFile: true },
+            { name: "02.psd", isFile: true }
+        ];
 
         let hydratedPhotos = null;
         controller.photoWorkspace.resolveSourceFolder = async () => ({ name: "Wedding_Photos" });
@@ -744,10 +775,24 @@ async function run() {
         const reopened = await controller.openProject(createdProject.folder);
         assert(reopened, "project reopened");
         assert.strictEqual(reopened.metadata.name, "REC004-E2E-ALBUM", "name check");
-        assert.strictEqual(reopened.metadata.album.sheets.length, 2, "sheets count check");
-        assert.strictEqual(reopened.metadata.album.sheets[0].slots[0].photoId, "IMG_5733.jpg", "slot photoId check");
-        assert.strictEqual(controller.getRegisteredProjectTemplates().length, 1, "templates count check");
-        assert.strictEqual(controller.getRegisteredProjectTemplates()[0].name, "22.psd", "template name check");
+        assert.deepStrictEqual(
+            reopened.metadata.album.sheets.map(sheet => sheet.templateId),
+            ["template-01", "template-02", "template-01", "template-02"],
+            "A-B-A-B template mapping check"
+        );
+        assert.deepStrictEqual(
+            reopened.metadata.album.sheets[0].slots.map(slot => [slot.slotId, slot.photoId]),
+            [[2, "IMG_5733.jpg"], [4, "IMG_5733.jpg"]],
+            "01.psd slot 2 and slot 4 assignments persist"
+        );
+        assert.deepStrictEqual(
+            reopened.metadata.album.sheets[1].slots.map(slot => [slot.slotId, slot.photoId]),
+            [[2, "IMG_5733.jpg"]],
+            "02.psd slot 2 assignment persists"
+        );
+        assert.strictEqual(controller.getRegisteredProjectTemplates().length, 2, "templates count check");
+        assert.strictEqual(controller.getRegisteredProjectTemplates()[0].name, "01.psd", "template 01 name check");
+        assert.strictEqual(controller.getRegisteredProjectTemplates()[1].name, "02.psd", "template 02 name check");
         assert.strictEqual(controller.getPhotos().length, 2, "photos count check");
         assert.strictEqual(controller.getPhotos()[0].id, "IMG_5733.jpg", "photo ID check");
     });

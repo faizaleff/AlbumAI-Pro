@@ -47,7 +47,13 @@ export default class ProjectTemplateRegistry {
                 entry.validationState
             );
             result.push(Object.freeze({
-                id: entry.id || `template-${index + 1}-${fileReference}`,
+                id: (typeof entry.id === "string" && entry.id.trim() && !/^\s*\[object/i.test(entry.id))
+                    ? entry.id.trim()
+                    : (typeof entry.id === "number"
+                        ? String(entry.id)
+                        : (typeof crypto !== "undefined" && crypto.randomUUID
+                            ? crypto.randomUUID()
+                            : `template_${index + 1}_${fileReference.replace(/[^A-Za-z0-9_-]/g, "_")}`)),
                 name: entry.name || entry.fileName || "PSD Template",
                 fileReference,
                 fileName: entry.fileName || entry.name || "",
@@ -93,7 +99,11 @@ export default class ProjectTemplateRegistry {
             ? options.slotCount
             : (smartObjects.length > 0 ? smartObjects.length : undefined);
         const descriptor = Object.freeze({
-            id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+            id: (typeof options?.id === "string" && options.id.trim())
+                ? options.id.trim()
+                : (typeof crypto !== "undefined" && crypto.randomUUID
+                    ? crypto.randomUUID()
+                    : `template_${Date.now()}_${Math.random().toString(36).slice(2)}`),
             name: file.name || "PSD Template",
             fileReference,
             fileName: file.name || "",

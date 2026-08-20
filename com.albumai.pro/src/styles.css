@@ -1204,9 +1204,10 @@ button.photo-browser-control:active:not(:disabled) {
 }
 
 .spread-slots-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    display: flex;
     gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 6px;
 }
 
 .spread-slot-card {
@@ -1218,6 +1219,9 @@ button.photo-browser-control:active:not(:disabled) {
     flex-direction: column;
     transition: all 120ms ease;
     box-sizing: border-box;
+    flex: 0 0 180px;
+    min-width: 180px;
+    min-height: 180px;
 }
 
 .spread-slot-card.has-photo {

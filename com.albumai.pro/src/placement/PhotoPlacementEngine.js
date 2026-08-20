@@ -26,12 +26,17 @@ export default class PhotoPlacementEngine {
             : {};
         const warnings = this.templateWarnings(template);
         const selectedPhotos = inputPhotos.filter(photo => photo?.selected);
-        const slots = selectedPhotos.length > 1
+        const isMultiPhoto = selectedPhotos.length > 1 || inputPhotos.length > 1;
+        let slots = isMultiPhoto
             ? this.assignmentSlots(template)
             : this.slots(template, warnings);
 
+        if (!slots.length) {
+            slots = this.assignmentSlots(template);
+        }
+
         Logger.info(
-            `Placement planner: selected photos=${selectedPhotos.length}, smart object slots=${slots.length}.`
+            `Placement planner: photos=${inputPhotos.length}, selected photos=${selectedPhotos.length}, smart object slots=${slots.length}.`
         );
 
         if (!slots.length) {
@@ -49,12 +54,13 @@ export default class PhotoPlacementEngine {
         let assignments = [];
         let emptySlots = [];
 
-        if (selectedPhotos.length > 1) {
-            if (selectedPhotos.length > slots.length) {
+        if (isMultiPhoto) {
+            const photoCount = candidates.length;
+            if (photoCount > slots.length) {
                 warnings.push({
                     type: "EXCESS_SELECTED_PHOTOS",
-                    message: `Using ${slots.length} selected photos for ${slots.length} Smart Object slots; ${selectedPhotos.length - slots.length} selected photos were not assigned.`,
-                    selectedPhotos: selectedPhotos.length,
+                    message: `Using ${slots.length} selected photos for ${slots.length} Smart Object slots; ${photoCount - slots.length} selected photos were not assigned.`,
+                    selectedPhotos: photoCount,
                     availableSlots: slots.length
                 });
             }

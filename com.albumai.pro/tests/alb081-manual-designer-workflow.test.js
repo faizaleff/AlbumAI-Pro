@@ -719,6 +719,108 @@ export async function runAlb081Tests() {
         check(html.includes("2/2"), "StoryboardCard displays canonical 2/2 fill count for 2-slot template");
     }
 
+    // Test 12: real multi-template slot cards and manual assignment mapping
+    {
+        const selectedPhoto = { id: "IMG_5733.jpg", name: "IMG_5733.jpg" };
+        const templates = [
+            {
+                id: "template-01",
+                name: "01.psd",
+                smartObjects: [
+                    { layerId: 2, layerName: "01 Photo Left" },
+                    { layerId: 4, layerName: "01 Photo Right" }
+                ]
+            },
+            {
+                id: "template-02",
+                name: "02.psd",
+                smartObjects: [{ layerId: 2, layerName: "02 Photo" }]
+            }
+        ];
+        const sheets = [
+            { id: "Spread_A1", templateId: "template-01", slots: [] },
+            { id: "Spread_B1", templateId: "template-02", slots: [] },
+            { id: "Spread_A2", templateId: "template-01", slots: [] },
+            { id: "Spread_B2", templateId: "template-02", slots: [] }
+        ];
+
+        const render = (sheet, template, photo = selectedPhoto) => ReactDOMServer.renderToStaticMarkup(
+            <SpreadCanvas
+                sheet={sheet}
+                template={template}
+                photos={[selectedPhoto]}
+                selectedPhoto={photo}
+                onAssignSlot={() => {}}
+                onUnassignSlot={() => {}}
+                onSwapSlots={() => {}}
+                onSetSlotCrop={() => {}}
+            />
+        );
+
+        const template01Html = render(sheets[0], templates[0]);
+        check((template01Html.match(/\+ Assign/g) || []).length === 2,
+            "01.psd renders assignment actions for slots 2 and 4");
+        check(template01Html.includes("01 Photo Left") && template01Html.includes("01 Photo Right"),
+            "01.psd renders both canonical slot cards");
+
+        const template02Html = render(sheets[1], templates[1]);
+        check((template02Html.match(/\+ Assign/g) || []).length === 1,
+            "02.psd renders the assignment action for slot 2");
+        check(template02Html.includes("02 Photo"), "02.psd renders its canonical slot card");
+
+        const noSelectionHtml = render(sheets[0], templates[0], null);
+        check((noSelectionHtml.match(/\+ Assign/g) || []).length === 2,
+            "empty slots keep assignment actions visible without a Library selection");
+        check(noSelectionHtml.includes("Select a photo in Library to assign it to this slot"),
+            "disabled empty-slot actions explain how to select a photo");
+
+        let album = { schemaVersion: 1, sheets };
+        for (const mutation of [
+            { sheetId: "Spread_A1", slotId: 2 },
+            { sheetId: "Spread_A1", slotId: 4 },
+            { sheetId: "Spread_B1", slotId: 2 }
+        ]) {
+            const result = applyAlbumSheetMutation(album, {
+                intent: AlbumSheetMutationIntent.ASSIGN_SLOT,
+                photoId: selectedPhoto.id,
+                ...mutation
+            });
+            check(result.accepted && result.changed, `${mutation.sheetId} slot ${mutation.slotId} accepts selected photo`);
+            album = result.album;
+        }
+
+        check(album.sheets[0].slots.map(slot => slot.slotId).join(",") === "2,4",
+            "01.psd assignments stay mapped to slots 2 and 4");
+        check(album.sheets[1].slots.map(slot => slot.slotId).join(",") === "2",
+            "02.psd assignment stays mapped to slot 2");
+        check(!album.sheets[2].slots?.length && !album.sheets[3].slots?.length,
+            "A-B-A-B sheets keep manual assignments isolated per spread");
+    }
+
+    // Test 13: Photoshop UXP-compatible slot-card layout
+    {
+        const fs = require("fs");
+        const path = require("path");
+        const spreadCanvasSource = fs.readFileSync(
+            path.resolve(process.cwd(), "src/components/SpreadCanvas.jsx"),
+            "utf8"
+        );
+        const stylesSource = fs.readFileSync(
+            path.resolve(process.cwd(), "src/styles.css"),
+            "utf8"
+        );
+        check(!/\.spread-slots-grid\s*\{[^}]*display:\s*grid/s.test(stylesSource),
+            "SpreadCanvas avoids CSS Grid, which Photoshop UXP does not lay out reliably");
+        check(/\.spread-slots-grid\s*\{[^}]*display:\s*flex[^}]*overflow-x:\s*auto/s.test(stylesSource),
+            "SpreadCanvas uses the proven Storyboard horizontal flex layout in UXP");
+        check(/\.spread-slot-card\s*\{[^}]*flex:\s*0 0 180px[^}]*min-width:\s*180px[^}]*min-height:\s*180px/s.test(stylesSource),
+            "SpreadCanvas slot cards retain fixed visible UXP dimensions");
+        check(!spreadCanvasSource.includes("onDragOver={handleDragOver}"),
+            "manual slot cards avoid unsupported UXP drag-over bindings");
+        check(!spreadCanvasSource.includes("onDrop={handleDrop}"),
+            "manual slot cards avoid unsupported UXP drop bindings");
+    }
+
     console.info(`PASS ALB-081: All assertions passed (${assertions} assertions).`);
 }
 
