@@ -17,6 +17,7 @@ import {
 import {
     createAlbumSheetRenderRequest,
     createAlbumBatchRenderRequest,
+    validateAlbumSheetRenderRequest,
     validateAlbumBatchRenderRequest,
     AlbumSheetRenderReason
 } from "../src/project/AlbumSheetRenderBridge";
@@ -31,6 +32,8 @@ import {
     selectBestTemplate
 } from "../src/services/PhotoAutoFlowEngine";
 import ProjectExecutor from "../src/project/ProjectExecutor";
+import PhotoPlacementEngine from "../src/placement/PhotoPlacementEngine";
+import PlacementExecutionPlanBuilder from "../src/placement/PlacementExecutionPlanBuilder";
 
 let assertions = 0;
 
@@ -155,6 +158,97 @@ export async function runAlb092Tests() {
     });
     check(s2Req.accepted === true, "Test 3: Sheet 2 render request accepted");
     check(s2Req.request.template.id === templateB.id, "Test 3: Sheet 2 request bound to Template B");
+
+    // -------------------------------------------------------------------------
+    // Test 3b: One Library photo can fill both persisted 01.psd slots
+    // -------------------------------------------------------------------------
+    let reusedPhotoAlbum = album;
+    for (const slotId of [4, 2]) {
+        const mutation = applyAlbumSheetMutation(reusedPhotoAlbum, {
+            intent: AlbumSheetMutationIntent.ASSIGN_SLOT,
+            sheetId: "spread-01",
+            slotId,
+            photoId: "photo-reused"
+        });
+        check(mutation.changed === true, `Test 3b: assigned reused photo to layer ${slotId}`);
+        reusedPhotoAlbum = mutation.album;
+    }
+
+    const reusedRequest = createAlbumSheetRenderRequest({
+        projectId: "proj-rec005",
+        album: reusedPhotoAlbum,
+        registry: templateList,
+        sheetId: "spread-01",
+        selectedPhotoIds: ["photo-reused"]
+    });
+    check(reusedRequest.accepted === true, "Test 3b: duplicate slot photo IDs are accepted");
+    check(reusedRequest.request.selectedPhotoIds.length === 2, "Test 3b: request preserves two slot positions");
+    check(reusedRequest.request.selectedPhotoIds.every(id => id === "photo-reused"), "Test 3b: both positions retain the same photo ID");
+
+    const exactProject = { metadata: { id: "proj-rec005" } };
+    const exactPhoto = {
+        id: "photo-reused",
+        name: "ZSA00166.jpg",
+        width: 4000,
+        height: 3000,
+        selected: true,
+        file: { nativePath: "/Photos/ZSA00166.jpg", name: "ZSA00166.jpg" }
+    };
+    const exactTemplate = {
+        id: templateA.id,
+        document: { id: 101 },
+        validationState: "READY",
+        layerTree: [],
+        smartObjects: [
+            { layerId: 2, layerName: "ZWK02241", bounds: { left: 0, top: 0, right: 100, bottom: 100 } },
+            { layerId: 4, layerName: "ZWK02262", bounds: { left: 100, top: 0, right: 200, bottom: 100 } }
+        ]
+    };
+    const exactPhotos = [exactPhoto, exactPhoto];
+    const exactPlacement = new PhotoPlacementEngine().plan({
+        project: exactProject,
+        photos: exactPhotos,
+        template: exactTemplate,
+        options: {
+            slotAssignments: reusedRequest.request.sheet.slots,
+            allowReuse: true
+        }
+    });
+    check(exactPlacement.assignments.length === 2, "Test 3b: placement creates two assignments");
+    check(exactPlacement.assignments[0].layerId === 4, "Test 3b: first persisted binding targets layer 4");
+    check(exactPlacement.assignments[1].layerId === 2, "Test 3b: second persisted binding targets layer 2");
+    check(exactPlacement.assignments.every(item => item.photoId === "photo-reused"), "Test 3b: both assignments reuse the selected photo");
+
+    const exactExecutionPlan = new PlacementExecutionPlanBuilder().build({
+        placementResult: exactPlacement,
+        project: exactProject,
+        template: exactTemplate,
+        photos: exactPhotos
+    });
+    check(exactExecutionPlan.steps.length === 2, "Test 3b: 01.psd execution plan contains two steps");
+    check(exactExecutionPlan.steps.map(step => step.slotLayerId).join(",") === "4,2", "Test 3b: execution plan preserves exact layer mapping");
+    check(exactExecutionPlan.statistics.reusedPhotos === 1, "Test 3b: execution plan records one reused photo");
+
+    const persistedReuseAlbum = inspectAlbum(
+        JSON.parse(JSON.stringify(reusedPhotoAlbum))
+    ).album;
+    check(persistedReuseAlbum.sheets[0].slots.length === 2, "Test 3b: save/reopen preserves both slot assignments");
+    check(persistedReuseAlbum.sheets[0].slots.every(slot => slot.photoId === "photo-reused"), "Test 3b: save/reopen preserves duplicate photo reuse");
+
+    const changedCrop = applyAlbumSheetMutation(reusedPhotoAlbum, {
+        intent: AlbumSheetMutationIntent.SET_SLOT_CROP,
+        sheetId: "spread-01",
+        slotId: 2,
+        cropFocus: "top"
+    }).album;
+    const staleRequest = validateAlbumSheetRenderRequest(reusedRequest.request, {
+        projectId: "proj-rec005",
+        album: changedCrop,
+        registry: templateList,
+        selectedPhotoIds: ["photo-reused"]
+    });
+    check(staleRequest.accepted === false, "Test 3b: changed persisted slot binding invalidates stale request");
+    check(staleRequest.reasonCodes.includes(AlbumSheetRenderReason.SHEET_STALE), "Test 3b: stale binding reports SHEET_STALE");
 
     // -------------------------------------------------------------------------
     // Test 4: Slot capacities remain A -> 2, B -> 1

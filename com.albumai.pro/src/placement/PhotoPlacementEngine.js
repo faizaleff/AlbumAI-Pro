@@ -35,6 +35,17 @@ export default class PhotoPlacementEngine {
             slots = this.assignmentSlots(template);
         }
 
+        const slotAssignments = Array.isArray(placementOptions.slotAssignments)
+            ? placementOptions.slotAssignments.filter(binding => binding?.photoId != null)
+            : [];
+        if (slotAssignments.length) {
+            const slotById = new Map(slots.map(slot => [String(slot.layerId), slot]));
+            slots = slotAssignments.map(binding => slotById.get(String(binding.slotId)));
+            if (slots.some(slot => !slot)) {
+                throw new Error("Album Sheet assignment references a missing slot.");
+            }
+        }
+
         Logger.info(
             `Placement planner: photos=${inputPhotos.length}, selected photos=${selectedPhotos.length}, smart object slots=${slots.length}.`
         );
