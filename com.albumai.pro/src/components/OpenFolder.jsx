@@ -870,6 +870,15 @@ export default function OpenFolder() {
                     album,
                     exportOptions: exportPayload
                 });
+                if (!summary?.success) {
+                    const failedSheets = Number(summary?.failedSheets) || 0;
+                    const error = new Error(
+                        `Lab Print Batch completed with ${failedSheets} failed spread(s).`
+                    );
+                    error.code = "ALBUM_BATCH_RENDER_FAILED";
+                    error.summary = summary;
+                    throw error;
+                }
                 return summary;
             } finally {
                 setAlbumSheetRenderBusy(false);

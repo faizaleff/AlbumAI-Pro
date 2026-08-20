@@ -106,6 +106,16 @@ export function createAlbumBatchRenderRequest({
         return rejected([AlbumSheetRenderReason.NO_RENDERABLE_SHEETS]);
     }
 
+    // A full-album request must represent every canonical sheet. Silently
+    // dropping a stale or unrenderable sheet would produce an incomplete
+    // album while still allowing the batch to report success.
+    if (skippedSheets.length > 0) {
+        return rejected(
+            skippedSheets.flatMap(item => item.reasonCodes),
+            { skippedSheets: Object.freeze(skippedSheets) }
+        );
+    }
+
     return accepted({
         schemaVersion: ALBUM_BATCH_RENDER_REQUEST_SCHEMA_VERSION,
         projectId,
@@ -125,10 +135,27 @@ export function validateAlbumBatchRenderRequest(batchRequest, context = {}) {
         return rejected([AlbumSheetRenderReason.INVALID_RENDER_REQUEST]);
     }
 
+    const inspected = inspectAlbum(context.album);
+    const requestedSheets = batchRequest.sheetRequests;
+    if (!inspected.valid) return rejected(inspected.reasonCodes);
+    if (!Array.isArray(requestedSheets) ||
+        batchRequest.totalSheets !== requestedSheets.length ||
+        requestedSheets.length !== inspected.album.sheets.length ||
+        (Array.isArray(batchRequest.skippedSheets) && batchRequest.skippedSheets.length > 0)) {
+        return rejected([AlbumSheetRenderReason.SHEET_STALE]);
+    }
+
+    const orderIsCurrent = inspected.album.sheets.every((sheet, index) =>
+        requestedSheets[index]?.sheet?.id === sheet.id
+    );
+    if (!orderIsCurrent) {
+        return rejected([AlbumSheetRenderReason.SHEET_STALE]);
+    }
+
     const validatedRequests = [];
     const reasonCodes = [];
 
-    for (const sheetReq of (batchRequest.sheetRequests || [])) {
+    for (const sheetReq of requestedSheets) {
         const val = validateAlbumSheetRenderRequest(sheetReq, context);
         if (val.accepted) {
             validatedRequests.push(val.request);
@@ -137,8 +164,8 @@ export function validateAlbumBatchRenderRequest(batchRequest, context = {}) {
         }
     }
 
-    if (validatedRequests.length === 0) {
-        return rejected(reasonCodes.length ? reasonCodes : [AlbumSheetRenderReason.NO_RENDERABLE_SHEETS]);
+    if (reasonCodes.length > 0 || validatedRequests.length !== requestedSheets.length) {
+        return rejected(reasonCodes.length ? reasonCodes : [AlbumSheetRenderReason.SHEET_STALE]);
     }
 
     return accepted({
@@ -195,7 +222,9 @@ export function createAlbumSheetRenderRequest({
 
     let photoIdsToUse;
     if (assignedPhotoIds.length > 0) {
-        const inspectedAssigned = inspectSelectedPhotoIds(assignedPhotoIds);
+        const inspectedAssigned = inspectSelectedPhotoIds(assignedPhotoIds, {
+            allowDuplicates: true
+        });
         if (!inspectedAssigned.valid) {
             return rejected([inspectedAssigned.reasonCode]);
         }
@@ -258,7 +287,7 @@ export function validateAlbumSheetRenderRequest(request, context = {}) {
     return reasonCodes.length ? rejected(reasonCodes) : accepted(current.request);
 }
 
-function inspectSelectedPhotoIds(photoIds) {
+function inspectSelectedPhotoIds(photoIds, { allowDuplicates = false } = {}) {
     if (!Array.isArray(photoIds)) {
         return { valid: false, reasonCode: AlbumSheetRenderReason.INVALID_SELECTED_PHOTOS };
     }
@@ -266,7 +295,8 @@ function inspectSelectedPhotoIds(photoIds) {
         return { valid: false, reasonCode: AlbumSheetRenderReason.NO_SELECTED_PHOTOS };
     }
     const ids = photoIds.map(id => typeof id === "string" ? id : "");
-    if (ids.some(id => !isOpaquePhotoId(id)) || new Set(ids).size !== ids.length) {
+    if (ids.some(id => !isOpaquePhotoId(id)) ||
+        (!allowDuplicates && new Set(ids).size !== ids.length)) {
         return { valid: false, reasonCode: AlbumSheetRenderReason.INVALID_SELECTED_PHOTOS };
     }
     return { valid: true, photoIds: Object.freeze(ids.slice()) };
@@ -317,7 +347,18 @@ function isOpaquePhotoId(value) {
 function sameSheet(left, right) {
     return left?.id === right?.id &&
         left?.templateId === right?.templateId &&
-        left?.label === right?.label;
+        left?.label === right?.label &&
+        sameSlots(left?.slots, right?.slots);
+}
+
+function sameSlots(left, right) {
+    return Array.isArray(left) && Array.isArray(right) &&
+        left.length === right.length && left.every((slot, index) => {
+            const candidate = right[index];
+            return slot?.slotId === candidate?.slotId &&
+                slot?.photoId === candidate?.photoId &&
+                slot?.cropFocus === candidate?.cropFocus;
+        });
 }
 
 function sameTemplate(left, right) {

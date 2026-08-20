@@ -248,7 +248,17 @@ export default class ProjectExecutor {
         this.templateRegistry.register(template);
         await this.activateContext(context, "EXECUTION");
         onStageProgress?.("PLANNING");
-        const placementResult = this.photoPlacementEngine.plan({ project, photos, template });
+        const slotAssignments = Array.isArray(sheetContext?.slots)
+            ? sheetContext.slots
+            : [];
+        const placementResult = this.photoPlacementEngine.plan({
+            project,
+            photos,
+            template,
+            options: slotAssignments.length
+                ? { slotAssignments, allowReuse: true }
+                : {}
+        });
         Logger.info(`TEMPLATE_ASSIGNMENT_COUNT: ${placementResult.assignments?.length || 0}`);
         this.requireReplacementPlan(placementResult, null, null, context);
         await this.activateContext(context, "EXECUTION PLAN");
