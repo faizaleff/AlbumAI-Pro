@@ -183,6 +183,33 @@ export async function runAlb090Tests() {
         check(html.includes("Generate PDF Proof Sheet"), "Contains Generate PDF Proof button");
     }
 
+    // Test 7: PrintProofModal SSR with Incomplete Spread disables Lab Print button
+    {
+        const album = {
+            sheets: [
+                { id: "sheet-1", label: "Spread 1", templateId: "t2", slots: [{ slotId: 1, photoId: "p1" }] } // 1 of 2 slots filled
+            ]
+        };
+        const photos = [{ id: "p1", name: "Shot.jpg", width: 4000, height: 3000 }];
+        const templates = [{ id: "t2", name: "Double Spread", smartObjects: [{ layerId: 1 }, { layerId: 2 }] }];
+
+        const html = ReactDOMServer.renderToStaticMarkup(
+            <PrintProofModal
+                isOpen={true}
+                onClose={() => {}}
+                album={album}
+                photos={photos}
+                templates={templates}
+                onExportPrint={() => {}}
+            />
+        );
+
+        check(html.includes("Lab Print Batch is blocked until all slots are assigned"), "Preflight explains Lab Print Batch is blocked");
+        check(html.includes("Spread 1: 1/2 assigned (1 empty)"), "Preflight details exact assigned/total count for Spread 1");
+        // Verify primary button is disabled for incomplete layout
+        check(html.includes("Export Lab Print Batch") && html.includes("disabled"), "Export Lab Print Batch button is disabled");
+    }
+
     console.info(`PASS ALB-090: All assertions passed (${assertions} assertions).`);
 }
 

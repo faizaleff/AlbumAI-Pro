@@ -3,6 +3,7 @@ import assert from "assert";
 import { AppController } from "../src/app/AppController";
 import ProjectEngine from "../src/core/ProjectEngine";
 import {
+    ALBUM_SCHEMA_VERSION,
     AlbumSheetMutationIntent,
     AlbumSheetMutationReason,
     AlbumSheetReason,
@@ -563,6 +564,90 @@ async function run() {
         assert.strictEqual(delegated.runMode, "ALBUM_SHEET_RENDER");
     });
 
+    await test("renders a persisted sheet with valid slot assignments when library selection is empty", async () => {
+        const registry = [{
+            id: "template-22",
+            registrationOrder: 0,
+            validationState: "READY",
+            validationReason: "READY",
+            validationSchemaVersion: 1
+        }];
+        const project = {
+            metadata: {
+                id: "project-rec004",
+                album: {
+                    schemaVersion: 1,
+                    sheets: [{
+                        id: "Spread_1",
+                        templateId: "template-22",
+                        slots: [
+                            { slotId: "slot-1", photoId: "IMG_5733.jpg" },
+                            { slotId: "slot-2", photoId: "IMG_5734.jpg" },
+                            { slotId: "slot-3", photoId: "IMG_5735.jpg" }
+                        ]
+                    }]
+                }
+            }
+        };
+        const controller = Object.create(AppController.prototype);
+        controller.projectBatchRunning = false;
+        controller.currentProjectExecutionSummary = null;
+        controller.currentAlbumSheetRenderRequest = null;
+        controller.project = { getProject: () => project };
+        controller.projectTemplateRegistry = { getAll: () => registry };
+        // Empty library selection (no photos selected)
+        controller.photoWorkspace = {
+            getPhotos: () => [
+                { id: "IMG_5733.jpg", selected: false },
+                { id: "IMG_5734.jpg", selected: false },
+                { id: "IMG_5735.jpg", selected: false }
+            ]
+        };
+        controller.selectedPhotoIds = () => [];
+        controller.revalidateProjectTemplates = async () => ({
+            persisted: true,
+            reason: "ALBUM_SHEET_RENDER_PREFLIGHT",
+            blocking: 0
+        });
+        let delegated = null;
+        controller.executeProject = async (_onUpdate, options) => {
+            delegated = options;
+            return { status: "COMPLETED" };
+        };
+
+        const created = controller.createAlbumSheetRenderRequest("Spread_1");
+        assert.strictEqual(created.accepted, true);
+        assert.deepStrictEqual(created.request.selectedPhotoIds, ["IMG_5733.jpg", "IMG_5734.jpg", "IMG_5735.jpg"]);
+
+        const result = await controller.executeAlbumSheetRenderRequest(created.request);
+        assert.strictEqual(result.status, "COMPLETED");
+        assert.deepStrictEqual(delegated.selectedPhotoIds, ["IMG_5733.jpg", "IMG_5734.jpg", "IMG_5735.jpg"]);
+        assert.strictEqual(delegated.runMode, "ALBUM_SHEET_RENDER");
+    });
+
+    await test("fails safely when referenced slot photos cannot be resolved in photo library", async () => {
+        const controller = new AppController();
+        controller.project = { metadata: { id: "p1" }, getProject: () => ({ metadata: { id: "p1" } }) };
+        controller.photoWorkspace = {
+            getPhotos: () => [
+                { id: "other-photo.jpg", selected: false }
+            ]
+        };
+
+        let threw = false;
+        try {
+            await controller.executeProject(null, {
+                templates: [{ id: "t1" }],
+                selectedPhotoIds: ["missing-photo-1.jpg", "missing-photo-2.jpg"],
+                runMode: "ALBUM_SHEET_RENDER"
+            });
+        } catch (error) {
+            threw = true;
+            assert.strictEqual(error.code, "MISSING_REFERENCED_PHOTOS");
+        }
+        assert(threw, "expected missing referenced photos error");
+    });
+
     await test("uses a one-Sheet queue and detached browser selection in recovery", async () => {
         const controller = Object.create(AppController.prototype);
         controller.photoWorkspace = { getPhotos: () => [{ id: "different", selected: true }] };
@@ -587,6 +672,285 @@ async function run() {
 
         assert.deepStrictEqual(controller.batchRecoverySnapshot.queueOrder, ["template-cover"]);
         assert.deepStrictEqual(controller.batchRecoverySnapshot.selectedPhotoOrder, ["photo-2", "photo-1"]);
+    });
+
+    await test("restores photos, templates, sheets, and slot assignments on project reopen", async () => {
+        const root = new MemoryEntry("ProjectFolder", null, { folder: true });
+        const controller = new AppController();
+        controller.projectService.localFileSystem = {
+            async getFolder() { return root; }
+        };
+
+        const initialAlbum = {
+            schemaVersion: ALBUM_SCHEMA_VERSION,
+            sheets: [
+                {
+                    id: "Spread_1",
+                    templateId: "template-22",
+                    label: "Spread 1",
+                    slots: [{ slotId: "slot-1", photoId: "IMG_5733.jpg" }]
+                },
+                {
+                    id: "Spread_2",
+                    templateId: "template-22",
+                    label: "Spread 2",
+                    slots: [{ slotId: "slot-1", photoId: "IMG_5734.jpg" }]
+                }
+            ]
+        };
+
+        const createdProject = await controller.projectService.createProject({
+            name: "REC004-E2E-ALBUM",
+            parentFolder: root
+        });
+
+        await createdProject.workspace.templates.createFile("22.psd");
+
+        await controller.saveProject({
+            photoSource: { name: "Wedding_Photos", token: "token-wedding" },
+            photoCount: 31,
+            photoDecisions: {
+                "IMG_5733.jpg": { status: "keep", rating: 5 },
+                "IMG_5734.jpg": { status: "keep", rating: 4 }
+            },
+            templateRegistry: [
+                {
+                    id: "template-22",
+                    name: "22.psd",
+                    fileReference: "22.psd",
+                    fileName: "22.psd",
+                    registrationOrder: 0,
+                    validationState: "READY"
+                }
+            ],
+            album: initialAlbum
+        }, { reason: "TEST_INITIAL_SAVE" });
+
+        controller.templateDocumentReader.listTemplates = async () => [{ name: "22.psd", isFile: true }];
+
+        let hydratedPhotos = null;
+        controller.photoWorkspace.resolveSourceFolder = async () => ({ name: "Wedding_Photos" });
+        controller.photoWorkspace.importPhotos = async (folder) => {
+            hydratedPhotos = [
+                { id: "IMG_5733.jpg", name: "IMG_5733.jpg", culling: { status: "keep" }, rating: 5 },
+                { id: "IMG_5734.jpg", name: "IMG_5734.jpg", culling: { status: "keep" }, rating: 4 }
+            ];
+            controller.library.load(hydratedPhotos);
+            return hydratedPhotos;
+        };
+
+        await controller.closeProject();
+
+        const reopened = await controller.openProject(createdProject.folder);
+        assert(reopened, "project reopened");
+        assert.strictEqual(reopened.metadata.name, "REC004-E2E-ALBUM", "name check");
+        assert.strictEqual(reopened.metadata.album.sheets.length, 2, "sheets count check");
+        assert.strictEqual(reopened.metadata.album.sheets[0].slots[0].photoId, "IMG_5733.jpg", "slot photoId check");
+        assert.strictEqual(controller.getRegisteredProjectTemplates().length, 1, "templates count check");
+        assert.strictEqual(controller.getRegisteredProjectTemplates()[0].name, "22.psd", "template name check");
+        assert.strictEqual(controller.getPhotos().length, 2, "photos count check");
+        assert.strictEqual(controller.getPhotos()[0].id, "IMG_5733.jpg", "photo ID check");
+    });
+
+    await test("SmartObjectService rejects empty or failed batchPlay execution results", async () => {
+        const uxp = await import("uxp");
+        const originalLfs = uxp.storage.localFileSystem;
+        uxp.storage.localFileSystem = {
+            ...originalLfs,
+            createSessionToken: async () => "session-token-123"
+        };
+
+        try {
+            const SmartObjectService = (await import("../src/core/album/SmartObjectService")).default;
+            const service = new SmartObjectService({
+                batchPlay: {
+                    execute: async () => []
+                }
+            });
+
+            let threwEmpty = false;
+            try {
+                await service.replaceContentsWithFileEntry({
+                    layer: { id: 2 },
+                    fileEntry: { name: "test.jpg" }
+                });
+            } catch (e) {
+                threwEmpty = true;
+                assert(e.message.includes("returned no results"), "empty results rejected");
+            }
+            assert(threwEmpty, "expected empty results error");
+
+            let capturedDescriptors = null;
+            const validBatchPlayService = new SmartObjectService({
+                batchPlay: {
+                    command: async () => ({ smartObject: { fileReference: "ZSA00166.jpg" } }),
+                    execute: async (desc) => {
+                        capturedDescriptors = desc;
+                        return [{ _obj: "select" }, { _obj: "placedLayerReplaceContents", _isCommand: true }];
+                    }
+                }
+            });
+
+            const success = await validBatchPlayService.replaceContentsWithFileEntry({
+                layer: { id: 2 },
+                fileEntry: { name: "ZSA00166.jpg" }
+            });
+            assert.strictEqual(success, true, "successful replacement returns true");
+            assert(Array.isArray(capturedDescriptors), "descriptors were sent");
+            const selectDesc = capturedDescriptors.find(d => d._obj === "select");
+            assert(selectDesc != null, "select descriptor found");
+            assert.deepStrictEqual(selectDesc._target, [{ _ref: "layer", _id: 2 }], "select targets layer by ID");
+            const replaceDesc = capturedDescriptors.find(d => d._obj === "placedLayerReplaceContents");
+            assert(replaceDesc != null, "placedLayerReplaceContents descriptor found");
+            assert.deepStrictEqual(replaceDesc._target, [{ _ref: "layer", _enum: "ordinal", _value: "targetEnum" }], "targets active layer via targetEnum");
+            assert.strictEqual(replaceDesc._options?.dialogOptions, "dontDisplay", "dialogOptions is dontDisplay");
+
+            // Test false-success detection: when post-replacement file reference did not update
+            let callCount = 0;
+            const unchangedRefService = new SmartObjectService({
+                batchPlay: {
+                    command: async () => {
+                        callCount++;
+                        // Always returns the original template photo reference
+                        return { smartObject: { fileReference: "ZWK02241.jpg" } };
+                    },
+                    execute: async () => [{ _obj: "select" }, { _obj: "placedLayerReplaceContents" }]
+                }
+            });
+
+            let detectedFalseSuccess = false;
+            try {
+                await unchangedRefService.replaceContentsWithFileEntry({
+                    layer: { id: 2 },
+                    fileEntry: { name: "ZSA00166.jpg" }
+                });
+            } catch (e) {
+                detectedFalseSuccess = true;
+                assert(e.message.includes("did not update layer contents"), "detects unchanged smart object content");
+            }
+            assert(detectedFalseSuccess, "expected false success detection error");
+        } finally {
+            uxp.storage.localFileSystem = originalLfs;
+        }
+    });
+
+    await test("ReplacementStepExecutor returns FAILED status and error details on smart object failure", async () => {
+        const ReplacementStepExecutor = (await import("../src/placement/ReplacementStepExecutor")).default;
+        const executor = new ReplacementStepExecutor({
+            documentManager: {
+                activeId: 653,
+                active: { id: 653 },
+                byId: () => ({ id: 653 })
+            },
+            layerManager: {
+                scan: () => {},
+                byId: () => ({ id: 2, kind: "smartObject" })
+            },
+            smartObjectService: {
+                replaceContentsWithFileEntry: async () => {
+                    throw new Error("Photoshop command rejected");
+                }
+            },
+            layerBoundsService: {
+                get: () => ({ width: 1000, height: 1000, centerX: 500, centerY: 500 })
+            }
+        });
+
+        const step = {
+            stepNumber: 1,
+            requestId: "req-1",
+            expectedDocumentId: 653,
+            slotLayerId: 2,
+            photoId: "p1",
+            photoFileReference: "p1.jpg",
+            expectedLayerType: "smartObject"
+        };
+        const photos = [
+            { id: "p1", name: "p1.jpg", file: { name: "p1.jpg", nativePath: "p1.jpg" } }
+        ];
+
+        const result = await executor.execute(step, photos);
+        assert.strictEqual(result.status, "FAILED", "status must be FAILED");
+        assert(result.failedSteps.length > 0, "failedSteps must be populated");
+        assert.strictEqual(result.completedSteps.length, 0, "completedSteps must be empty");
+    });
+
+    await test("ProjectExecutor.isTemplateSuccessful handles skipped outputs vs replacement failures correctly", async () => {
+        const ProjectExecutor = (await import("../src/project/ProjectExecutor")).default;
+        const executor = new ProjectExecutor({
+            templateRegistry: { getAll: () => [] },
+            photoPlacementEngine: {},
+            placementExecutionPlanBuilder: {},
+            replacementBatchExecutor: {}
+        });
+
+        const baseContext = {
+            placementResult: { assignments: [{ slotLayerId: 2, photoId: "p1" }] },
+            executionPlan: { steps: [{ slotLayerId: 2, photoId: "p1" }] },
+            request: { steps: [{ slotLayerId: 2, photoId: "p1" }] },
+            executionSummary: { status: "COMPLETED", completedSteps: 1, failedSteps: 0 }
+        };
+
+        // 1. Replacements completed + Auto Save disabled + Export disabled -> SUCCESS
+        const allDisabled = executor.isTemplateSuccessful({
+            ...baseContext,
+            autoSaveEnabled: false,
+            autoSaveResult: { status: "SKIPPED" },
+            exportEnabled: false,
+            exportResult: { status: "SKIPPED" }
+        });
+        assert.strictEqual(allDisabled, true, "template is successful when replacements complete and outputs are disabled");
+
+        // 2. Replacements completed + Auto Save disabled + Export SKIPPED -> SUCCESS
+        const exportSkipped = executor.isTemplateSuccessful({
+            ...baseContext,
+            autoSaveEnabled: false,
+            autoSaveResult: { status: "SKIPPED" },
+            exportEnabled: true,
+            exportResult: { status: "SKIPPED" }
+        });
+        assert.strictEqual(exportSkipped, true, "template is successful when export is skipped");
+
+        // 3. Replacements completed + Auto Save SAVED + Export SUCCESS -> SUCCESS
+        const allSuccess = executor.isTemplateSuccessful({
+            ...baseContext,
+            autoSaveEnabled: true,
+            autoSaveResult: { status: "SAVED" },
+            exportEnabled: true,
+            exportResult: { status: "SUCCESS" }
+        });
+        assert.strictEqual(allSuccess, true, "template is successful when outputs succeed");
+
+        // 4. Replacement failed -> FAILED
+        const replaceFailed = executor.isTemplateSuccessful({
+            ...baseContext,
+            executionSummary: { status: "FAILED", completedSteps: 0, failedSteps: 1 },
+            autoSaveEnabled: false,
+            autoSaveResult: { status: "SKIPPED" },
+            exportEnabled: false,
+            exportResult: { status: "SKIPPED" }
+        });
+        assert.strictEqual(replaceFailed, false, "template fails when replacement fails");
+
+        // 5. Auto Save failed -> FAILED
+        const autoSaveFailed = executor.isTemplateSuccessful({
+            ...baseContext,
+            autoSaveEnabled: true,
+            autoSaveResult: { status: "FAILED" },
+            exportEnabled: false,
+            exportResult: { status: "SKIPPED" }
+        });
+        assert.strictEqual(autoSaveFailed, false, "template fails when enabled Auto Save fails");
+
+        // 6. Export failed -> FAILED
+        const exportFailed = executor.isTemplateSuccessful({
+            ...baseContext,
+            autoSaveEnabled: false,
+            autoSaveResult: { status: "SKIPPED" },
+            exportEnabled: true,
+            exportResult: { status: "FAILED" }
+        });
+        assert.strictEqual(exportFailed, false, "template fails when enabled Export fails");
     });
 
     console.info(`ALB-080 Slice 1: PASS (${assertions} assertions)`);

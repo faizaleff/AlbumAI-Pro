@@ -40,7 +40,8 @@ export default class TemplateExportService {
             options.template?.document?.id ?? "unknown";
         const templateId = options.descriptor?.id ?? options.template?.id ??
             options.descriptor?.name ?? options.template?.name ?? "unknown";
-        const key = `${documentId}:${templateId}:${options.format || ExportFormat.JPEG}`;
+        const outputName = options.outputBaseName ? String(options.outputBaseName) : "";
+        const key = `${documentId}:${templateId}:${outputName}:${options.format || ExportFormat.JPEG}`;
         if (this.inFlight.has(key)) {
             return this.inFlight.get(key);
         }
@@ -63,7 +64,8 @@ export default class TemplateExportService {
         autoSaveResult,
         enabled = false,
         format = ExportFormat.JPEG,
-        cancellationController = null
+        cancellationController = null,
+        outputBaseName = null
     } = {}) {
 
         const resultData = {
@@ -76,7 +78,7 @@ export default class TemplateExportService {
             return this.skipped(resultData, "Export is disabled.");
         }
 
-        if (autoSaveResult?.status !== AutoSaveStatus.SAVED) {
+        if (autoSaveResult && autoSaveResult.status === AutoSaveStatus.FAILED) {
             return this.skipped(resultData, "Export requires successful Auto Save.");
         }
 
@@ -99,7 +101,7 @@ export default class TemplateExportService {
 
         try {
 
-            return this.exportTransaction({ project, template, descriptor, document, format, resultData, cancellationController });
+            return this.exportTransaction({ project, template, descriptor, document, format, resultData, cancellationController, outputBaseName });
 
         }
 
@@ -117,7 +119,7 @@ export default class TemplateExportService {
 
     }
 
-    async destination(project, template, document, format, descriptor = null) {
+    async destination(project, template, document, format, descriptor = null, outputBaseName = null) {
 
         const output = project?.workspace?.output;
 
@@ -135,7 +137,9 @@ export default class TemplateExportService {
         }
 
         const extension = format === ExportFormat.PSD ? "psd" : "jpg";
-        const baseName = this.baseName(descriptor?.name || template?.name || document?.title || "template");
+        const baseName = outputBaseName
+            ? String(outputBaseName).trim() || "template"
+            : this.baseName(descriptor?.name || template?.name || document?.title || "template");
 
         return Object.freeze({
             folder: exportFolder,
@@ -169,8 +173,8 @@ export default class TemplateExportService {
 
     }
 
-    async exportTransaction({ project, template, descriptor, document, format, resultData, cancellationController }) {
-        const target = await this.destination(project, template, document, format, descriptor);
+    async exportTransaction({ project, template, descriptor, document, format, resultData, cancellationController, outputBaseName = null }) {
+        const target = await this.destination(project, template, document, format, descriptor, outputBaseName);
         const outputKind = format === ExportFormat.PSD
             ? OutputKind.EXPORT_PSD
             : OutputKind.EXPORT_JPEG;

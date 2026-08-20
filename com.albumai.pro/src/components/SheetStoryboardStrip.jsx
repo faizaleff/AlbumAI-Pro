@@ -28,8 +28,11 @@ function StoryboardCard({
     disabled
 }) {
     const assignedSlots = Array.isArray(sheet.slots) ? sheet.slots : [];
-    const totalSlots = template?.smartObjects?.length || assignedSlots.length || 1;
-    const filledCount = assignedSlots.length;
+    const templateSlots = Array.isArray(template?.smartObjects) && template.smartObjects.length > 0
+        ? template.smartObjects.length
+        : (Number.isInteger(template?.slotCount) && template.slotCount > 0 ? template.slotCount : null);
+    const totalSlots = templateSlots || (assignedSlots.length > 0 ? assignedSlots.length : 1);
+    const filledCount = Math.min(assignedSlots.length, totalSlots);
     const isFull = filledCount >= totalSlots && totalSlots > 0;
 
     return (

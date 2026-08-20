@@ -120,6 +120,15 @@ class DocumentManager {
 
         await core.executeAsModal(async () => {
             if (save && !liveDocument.saved) await liveDocument.save();
+            try {
+                const { constants } = require("photoshop");
+                if (constants?.SaveOptions?.DONOTSAVECHANGES) {
+                    await liveDocument.close(save ? constants.SaveOptions.SAVECHANGES : constants.SaveOptions.DONOTSAVECHANGES);
+                    return;
+                }
+            } catch {
+                // Fall back to object parameter
+            }
             await liveDocument.close({ save: false });
         }, { commandName: "Close Album Document" });
 

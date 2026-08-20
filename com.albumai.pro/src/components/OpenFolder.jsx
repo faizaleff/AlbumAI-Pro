@@ -57,6 +57,7 @@ export default function OpenFolder() {
     );
     const [albumHistory, setAlbumHistory] = useState(null);
     const [albumSheetId, setAlbumSheetId] = useState("");
+    const [registeredTemplates, setRegisteredTemplates] = useState(() => App.getRegisteredProjectTemplates?.() || []);
     const [albumTemplateId, setAlbumTemplateId] = useState("");
     const [selectedAlbumSheetId, setSelectedAlbumSheetId] = useState("");
     const [albumSheetLabel, setAlbumSheetLabel] = useState("");
@@ -80,13 +81,18 @@ export default function OpenFolder() {
     const project = App.project.getProject();
     const hasProject = !!project;
     const projectId = project?.metadata?.id || null;
-    const registeredTemplates = App.getRegisteredProjectTemplates();
     const album = albumHistory?.present || project?.metadata?.album || null;
     const albumMutationLocked = App.isAlbumSheetMutationLocked();
     const workspacePhotos = App.getPhotos();
     const activeSheet = album?.sheets?.find(sheet => sheet.id === selectedAlbumSheetId) || album?.sheets?.[0] || null;
     const activeTemplate = registeredTemplates.find(t => t.id === activeSheet?.templateId) || null;
     const activeSelectedPhoto = App.selection.getSelected()[0] || null;
+
+    const refreshRegisteredTemplates = useCallback(() => {
+        const entries = App.getRegisteredProjectTemplates?.() || [];
+        setRegisteredTemplates(entries);
+        return entries;
+    }, []);
 
     const keptPhotoCount = workspacePhotos.filter(p => {
         const decision = App.culling?.getDecision?.(p.id);
@@ -117,12 +123,24 @@ export default function OpenFolder() {
     useEffect(() => {
         setAlbumHistory(createAlbumSheetHistory(project?.metadata?.album));
         setAlbumSheetId("");
-        setAlbumTemplateId("");
         setSelectedAlbumSheetId("");
         setAlbumSheetLabel("");
         setAlbumDuplicateId("");
         setAlbumMutationError(null);
-    }, [projectId]);
+        refreshRegisteredTemplates();
+    }, [projectId, refreshRegisteredTemplates]);
+
+    useEffect(() => {
+        if (registeredTemplates.length > 0) {
+            setAlbumTemplateId(current =>
+                registeredTemplates.some(t => t.id === current)
+                    ? current
+                    : (registeredTemplates[0]?.id || "")
+            );
+        } else {
+            setAlbumTemplateId("");
+        }
+    }, [registeredTemplates]);
 
     const clearPhotoFolderChangeState = useCallback(() => {
         photoFolderChangeAttemptRef.current += 1;
@@ -190,10 +208,17 @@ export default function OpenFolder() {
         }
 
         App.getPhotoFolderStatus()
-            .then(status => {
+            .then(async status => {
                 if (!active) return;
                 if (status.available) {
+                    if (App.getPhotos().length === 0 && project?.metadata?.photoSource) {
+                        try {
+                            await App.refreshPhotos();
+                        } catch (_) {}
+                    }
+                    if (!active) return;
                     setPhotoFolderAvailable(true);
+                    setFolderName(project?.metadata?.photoSource?.name || "");
                     setPhotoFolderMessage(null);
                     return;
                 }
@@ -537,8 +562,16 @@ export default function OpenFolder() {
                 return;
             }
 
+            const currentPhotos = App.getPhotos();
+            if (currentPhotos.length > 0) {
+                setPhotoFolderAvailable(true);
+                setFolderName(opened?.metadata?.photoSource?.name || "");
+                setPhotoFolderMessage(null);
+            }
+
             setWizardStep(1);
             setProjectError(null);
+            refreshRegisteredTemplates();
             forceRefresh(value => value + 1);
 
         }
@@ -838,17 +871,32 @@ export default function OpenFolder() {
         []
     );
     const getRegisteredProjectTemplates = () => App.getRegisteredProjectTemplates();
-    const revalidateProjectTemplates = options => App.revalidateProjectTemplates(options);
+    const revalidateProjectTemplates = async options => {
+        const result = await App.revalidateProjectTemplates(options);
+        refreshRegisteredTemplates();
+        return result;
+    };
     const getTemplateRegistryPreflightState = () => App.getTemplateRegistryPreflightState();
     const getTemplateRegistryRecoveryCompatibility = () =>
         App.getTemplateRegistryRecoveryCompatibility();
 
-    const addCurrentPsdToProject = file => App.addCurrentPsdToProject(file);
+    const addCurrentPsdToProject = async file => {
+        const result = await App.addCurrentPsdToProject(file);
+        refreshRegisteredTemplates();
+        return result;
+    };
+    const getActivePhotoshopDocument = () => App.getActivePhotoshopDocument();
 
-    const removeRegisteredProjectTemplate = id =>
-        App.removeRegisteredProjectTemplate(id);
-    const moveRegisteredProjectTemplate = (id, targetIndex, method) =>
-        App.moveRegisteredProjectTemplate(id, targetIndex, method);
+    const removeRegisteredProjectTemplate = async id => {
+        const result = await App.removeRegisteredProjectTemplate(id);
+        refreshRegisteredTemplates();
+        return result;
+    };
+    const moveRegisteredProjectTemplate = async (id, targetIndex, method) => {
+        const result = await App.moveRegisteredProjectTemplate(id, targetIndex, method);
+        refreshRegisteredTemplates();
+        return result;
+    };
     const requestBatchCancellation = () => App.requestBatchCancellation();
 
     const openTemplate = file =>
@@ -1455,6 +1503,8 @@ export default function OpenFolder() {
                             getTemplateRegistryPreflightState={getTemplateRegistryPreflightState}
                             getTemplateRegistryRecoveryCompatibility={getTemplateRegistryRecoveryCompatibility}
                             addCurrentPsdToProject={addCurrentPsdToProject}
+                            getActivePhotoshopDocument={getActivePhotoshopDocument}
+                            onRegistryChange={refreshRegisteredTemplates}
                             removeRegisteredProjectTemplate={removeRegisteredProjectTemplate}
                             moveRegisteredProjectTemplate={moveRegisteredProjectTemplate}
                             requestBatchCancellation={requestBatchCancellation}

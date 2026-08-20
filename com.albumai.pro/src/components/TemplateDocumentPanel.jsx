@@ -42,6 +42,8 @@ export default function TemplateDocumentPanel({
     getTemplateRegistryPreflightState,
     getTemplateRegistryRecoveryCompatibility,
     addCurrentPsdToProject,
+    getActivePhotoshopDocument,
+    onRegistryChange = null,
     removeRegisteredProjectTemplate,
     moveRegisteredProjectTemplate,
     requestBatchCancellation,
@@ -169,6 +171,10 @@ export default function TemplateDocumentPanel({
         registeredTemplates,
         registryPreflightState
     );
+    const activePhotoshopDocument = getActivePhotoshopDocument?.() || null;
+    const activePsdTarget = (selectedName ? templates.find(item => item.name === selectedName) : null) ||
+        activePhotoshopDocument ||
+        null;
     const recoveryCompatibility = recoverySnapshot
         ? getTemplateRegistryRecoveryCompatibility?.() || ""
         : "";
@@ -214,6 +220,7 @@ export default function TemplateDocumentPanel({
         templateRowRefs.current.clear();
         setDraggedTemplateId(null);
         setDropTarget(null);
+        onRegistryChange?.(empty.registeredTemplates);
     }
 
     function refreshRegisteredTemplates() {
@@ -222,6 +229,7 @@ export default function TemplateDocumentPanel({
         setSelectedRegisteredId(current => entries.some(entry => entry.id === current)
             ? current
             : (entries[0]?.id || ""));
+        onRegistryChange?.(entries);
     }
 
     function refreshRegistryPreflightState() {
@@ -357,10 +365,17 @@ export default function TemplateDocumentPanel({
     }
 
     async function addCurrentPsd() {
-        const file = templates.find(item => item.name === selectedName);
+        const file = (selectedName ? templates.find(item => item.name === selectedName) : null) ||
+            getActivePhotoshopDocument?.() ||
+            null;
         if (!file) return;
         try {
             await addCurrentPsdToProject?.(file);
+            const updatedTemplates = await loadTemplates?.() || [];
+            setTemplates(updatedTemplates);
+            if (updatedTemplates.length && !selectedName) {
+                setSelectedName(file.name || updatedTemplates[0]?.name || "");
+            }
             refreshRegisteredTemplates();
             refreshRegistryPreflightState();
             refreshRecoveryState();
@@ -1009,7 +1024,16 @@ export default function TemplateDocumentPanel({
                     <div className="template-action-group">
                 <button
                     onClick={addCurrentPsd}
-                    disabled={registryLocked || !hasProject || !selectedName}
+                    disabled={registryLocked || !hasProject || !activePsdTarget}
+                    title={
+                        !hasProject
+                            ? "Open a project to register templates"
+                            : registryLocked
+                                ? "Template registry is busy"
+                                : !activePsdTarget
+                                    ? "Open a PSD in Photoshop or select a template to add"
+                                    : `Register "${activePsdTarget.name}" as project template`
+                    }
                 >
                     Add Current PSD
                 </button>

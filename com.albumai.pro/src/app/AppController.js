@@ -175,6 +175,18 @@ export class AppController {
                     persisted: true
                 });
             await this.revalidateProjectTemplates({ reason: "PROJECT_OPEN" });
+
+            // Hydrate photo workspace from persisted photoSource if available
+            try {
+                const sourceFolder = await this.photoWorkspace.resolveSourceFolder();
+                if (sourceFolder) {
+                    await this.photoWorkspace.importPhotos(sourceFolder, {
+                        persistFolderReference: false
+                    });
+                }
+            } catch (photoError) {
+                Logger.warn(`Could not hydrate photo workspace on project open: ${photoError?.message}`);
+            }
         }
 
         return this.project.getProject();
@@ -183,10 +195,14 @@ export class AppController {
 
     saveProject(values, options) {
 
+        if (values?.templateRegistry) {
+            this.projectTemplateRegistry = new ProjectTemplateRegistry(values.templateRegistry);
+        }
+
         return this.projectService.saveProject({
-            ...values,
             templateRegistry: this.projectTemplateRegistry.toJSON(),
-            batchRecovery: this.serializeRecoverySnapshot(this.batchRecoverySnapshot)
+            batchRecovery: this.serializeRecoverySnapshot(this.batchRecoverySnapshot),
+            ...values
         }, options);
 
     }
@@ -525,7 +541,7 @@ export class AppController {
 
     }
 
-    async executeAlbumSheetRenderRequest(request, onUpdate) {
+    async executeAlbumSheetRenderRequest(request, onUpdate, options = {}) {
 
         if (this.isAlbumSheetMutationLocked()) {
             throw new Error("A project batch is running. Sheet rendering is available after it stops safely.");
@@ -565,10 +581,26 @@ export class AppController {
             throw error;
         }
 
+        const sheets = project?.metadata?.album?.sheets || [];
+        const sheetOrder = sheets.findIndex(s => s.id === validation.request.sheet.id);
+        const sheetContext = {
+            sheetId: validation.request.sheet.id,
+            sheetLabel: validation.request.sheet.label || "",
+            sheetOrder: sheetOrder >= 0 ? sheetOrder : 0
+        };
+
+        const exportEnabled = typeof options.exportEnabled === "boolean"
+            ? options.exportEnabled
+            : this.exportEnabled;
+        const exportFormat = options.exportFormat || this.exportFormat || "JPEG";
+
         return this.executeProject(onUpdate, {
             templates: [descriptor],
             selectedPhotoIds: validation.request.selectedPhotoIds,
-            runMode: "ALBUM_SHEET_RENDER"
+            runMode: "ALBUM_SHEET_RENDER",
+            sheetContext,
+            exportEnabled,
+            exportFormat
         });
 
     }
@@ -598,9 +630,14 @@ export class AppController {
         });
 
         if (!batchRequest.accepted) {
-            const error = new Error("Album Batch render request could not be created.");
+            const error = new Error(
+                batchRequest.details?.message ||
+                batchRequest.message ||
+                "Album Batch render request could not be created."
+            );
             error.code = "ALBUM_BATCH_RENDER_REJECTED";
             error.reasonCodes = batchRequest.reasonCodes;
+            error.incompleteSheets = batchRequest.details?.incompleteSheets || [];
             throw error;
         }
 
@@ -627,7 +664,11 @@ export class AppController {
             }
 
             try {
-                const sheetOutcome = await this.executeAlbumSheetRenderRequest(sheetReq, onUpdate);
+                const sheetOutcome = await this.executeAlbumSheetRenderRequest(sheetReq, onUpdate, {
+                    exportEnabled: true,
+                    exportFormat: exportOptions?.format || "JPEG",
+                    exportOptions
+                });
                 successful += 1;
                 results.push({
                     sheetId: sheetReq.sheet.id,
@@ -1025,6 +1066,12 @@ export class AppController {
             throw error;
         }
 
+        if (options.runMode === "ALBUM_SHEET_RENDER" && selectedPhotoIds?.length && !selectedPhotos.length) {
+            const error = new Error("Referenced photos for this album sheet could not be found in the photo library.");
+            error.code = "MISSING_REFERENCED_PHOTOS";
+            throw error;
+        }
+
         this.clearExecutionSummary();
         this.clearBatchProgress();
         this.clearProjectExecutionSummary();
@@ -1105,14 +1152,18 @@ export class AppController {
                     throw error;
                 }
             },
-            releaseTemplate: async () => this.templateDocumentReader.close(),
-            autoSaveEnabled: this.autoSaveEnabled,
-            autoSaveMode: this.autoSaveMode,
+            autoSaveEnabled: typeof options.autoSaveEnabled === "boolean"
+                ? options.autoSaveEnabled
+                : this.autoSaveEnabled,
+            autoSaveMode: options.autoSaveMode || this.autoSaveMode,
             onAutoSaveResult: result => {
                 this.currentAutoSaveResult = result;
             },
-            exportEnabled: this.exportEnabled,
-            exportFormat: this.exportFormat,
+            exportEnabled: typeof options.exportEnabled === "boolean"
+                ? options.exportEnabled
+                : this.exportEnabled,
+            exportFormat: options.exportFormat || this.exportFormat,
+            sheetContext: options.sheetContext || null,
             selectedPhotoIds: this.batchRecoverySnapshot?.selectedPhotoOrder ||
                 selectedPhotoIds || photos.filter(photo => photo?.selected).map(photo => photo.id),
             photoCursor: this.batchRecoverySnapshot?.photoCursor || 0,
@@ -1886,7 +1937,32 @@ export class AppController {
 
     }
 
-    getRegisteredProjectTemplates() { return this.projectTemplateRegistry.getAll(); }
+    getRegisteredProjectTemplates() {
+        const entries = this.projectTemplateRegistry.getAll();
+        const current = this.templateRegistry?.current?.() || null;
+        const docManager = this.replacementStepExecutor?.documentManager;
+        const activeDoc = docManager?.sync?.() || docManager?.active;
+        const layerManager = this.replacementStepExecutor?.layerManager;
+
+        return entries.map(entry => {
+            if (Array.isArray(entry.smartObjects) && entry.smartObjects.length > 0) {
+                return entry;
+            }
+            if (current && (current.name === entry.name || current.id === entry.id || current.name === entry.fileName || current.filePath?.endsWith(entry.fileName)) && Array.isArray(current.smartObjects) && current.smartObjects.length > 0) {
+                return { ...entry, smartObjects: current.smartObjects, slotCount: current.smartObjects.length };
+            }
+            if (activeDoc && (activeDoc.title === entry.fileName || activeDoc.name === entry.fileName || activeDoc.title === entry.name) && layerManager) {
+                try {
+                    layerManager.scan(activeDoc);
+                    const sos = layerManager.smartObjects().map(l => ({ layerId: l.id, layerName: l.name || "" }));
+                    if (Array.isArray(sos) && sos.length > 0) {
+                        return { ...entry, smartObjects: sos, slotCount: sos.length };
+                    }
+                } catch (_) {}
+            }
+            return entry;
+        });
+    }
 
     getTemplateRegistryPreflightState() {
         return this.currentTemplateRegistryPreflightState;
@@ -1916,6 +1992,24 @@ export class AppController {
         });
     }
 
+    getActivePhotoshopDocument() {
+        try {
+            const active = this.replacementStepExecutor?.documentManager?.sync() ||
+                this.replacementStepExecutor?.documentManager?.active;
+            if (!active) return null;
+            const title = active.title || active.name || "";
+            if (!title) return null;
+            return {
+                id: active.id,
+                title,
+                name: title,
+                isFile: true
+            };
+        } catch {
+            return null;
+        }
+    }
+
     async addCurrentPsdToProject(file) {
         if (this.projectBatchRunning || this.registryMutationInProgress) {
             throw new Error("Template registry is currently unavailable.");
@@ -1923,7 +2017,50 @@ export class AppController {
         this.registryMutationInProgress = true;
         const rollback = this.captureTemplateRegistryTransaction();
         try {
-            const descriptor = this.projectTemplateRegistry.add(file);
+            const targetFile = file || this.getActivePhotoshopDocument();
+            if (!targetFile) {
+                throw new Error("No PSD file or active Photoshop document is available to register.");
+            }
+            const docManager = this.replacementStepExecutor?.documentManager;
+            const activeDoc = docManager?.sync?.() || docManager?.active;
+            const layerManager = this.replacementStepExecutor?.layerManager;
+            let detectedSmartObjects = [];
+            if (layerManager && activeDoc && (activeDoc.title === targetFile.name || activeDoc.name === targetFile.name || activeDoc.id === targetFile.id)) {
+                try {
+                    layerManager.scan(activeDoc);
+                    detectedSmartObjects = layerManager.smartObjects().map(l => ({
+                        layerId: l.id,
+                        layerName: l.name || ""
+                    }));
+                } catch (_) {}
+            }
+            const descriptor = this.projectTemplateRegistry.add(targetFile, undefined, {
+                smartObjects: detectedSmartObjects
+            });
+
+            // If the PSD is currently active in Photoshop and not yet in the project's workspace templates folder,
+            // save a copy into the workspace templates folder so preflight and execution have durable access.
+            const project = this.project.getProject();
+            const templatesFolder = project?.workspace?.templates;
+            if (templatesFolder && typeof templatesFolder.getEntries === "function" && typeof templatesFolder.createFile === "function") {
+                try {
+                    const entries = await templatesFolder.getEntries();
+                    const alreadyInWorkspace = entries.some(e => e.name === descriptor.fileName);
+                    if (!alreadyInWorkspace) {
+                        const docManager = this.replacementStepExecutor?.documentManager;
+                        const activeDoc = docManager?.sync() || docManager?.active;
+                        if (activeDoc && (activeDoc.title === descriptor.fileName || activeDoc.name === descriptor.fileName)) {
+                            const targetEntry = await templatesFolder.createFile(descriptor.fileName, { overwrite: true });
+                            if (targetEntry && typeof docManager.save === "function") {
+                                await docManager.save(activeDoc, targetEntry);
+                            }
+                        }
+                    }
+                } catch (copyError) {
+                    Logger.warn(`Could not copy active PSD to project templates: ${copyError?.message}`);
+                }
+            }
+
             const result = await this.validateAndPersistTemplateRegistry({
                 reason: "TEMPLATE_REGISTRY_ADD",
                 rollback

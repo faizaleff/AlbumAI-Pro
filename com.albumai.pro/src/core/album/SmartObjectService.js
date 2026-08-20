@@ -126,17 +126,11 @@ export default class SmartObjectService {
     }
 
     async replaceContentsWithFileEntry({
-
         layer,
-
         fileEntry,
-
         batchPlayOptions = {},
-
         sourcePhotoExists = null
-
     }) {
-
         if (!layer) {
             throw new Error("Smart Object layer is required.");
         }
@@ -151,35 +145,109 @@ export default class SmartObjectService {
 
         const localFileSystem = storage.localFileSystem;
 
-        if (typeof localFileSystem?.createSessionToken !== "function") {
-            throw new Error("This Photoshop UXP runtime cannot create a session token.");
+        let sessionToken = null;
+        if (typeof localFileSystem?.createSessionToken === "function") {
+            try {
+                sessionToken = await localFileSystem.createSessionToken(fileEntry);
+            } catch (tokenError) {
+                Logger.warn(`createSessionToken failed: ${tokenError?.message}`);
+            }
         }
 
-        const sessionToken = await localFileSystem.createSessionToken(fileEntry);
-
-        if (!sessionToken) {
-            throw new Error("Could not create a session token for the replacement source photo.");
+        const tokenPath = sessionToken || fileEntry.nativePath || fileEntry.name;
+        if (!tokenPath) {
+            throw new Error("Could not create a session token or path for the replacement source photo.");
         }
+
+        // Query pre-replacement Smart Object properties to establish ground truth
+        const preMetadata = await this.getSmartObjectProperties(layer.id, batchPlayOptions);
+        const preFileReference = preMetadata?.fileReference || preMetadata?.smartObjectMore?.fileReference || null;
 
         const descriptors = [
             {
                 _obj: "select",
-                _target: [{ _ref: "layer", _id: layer.id }],
-                makeVisible: false
+                _target: [{ _ref: "layer", _id: layer.id }]
             },
             {
                 _obj: "placedLayerReplaceContents",
+                _target: [
+                    {
+                        _ref: "layer",
+                        _enum: "ordinal",
+                        _value: "targetEnum"
+                    }
+                ],
                 null: {
-                    _path: sessionToken,
+                    _path: tokenPath,
                     _kind: "local"
+                },
+                _options: {
+                    dialogOptions: "dontDisplay"
                 }
             }
         ];
 
-        await this.batchPlay.execute(descriptors, batchPlayOptions);
+        const results = await this.batchPlay.execute(descriptors, batchPlayOptions);
+
+        if (!Array.isArray(results) || results.length === 0) {
+            throw new Error("Photoshop replacement operation returned no results.");
+        }
+
+        for (const res of results) {
+            if (res?._obj === "error" || res?.error != null || res?.executionStatus === "failed") {
+                throw new Error(res?.message || res?._message || res?.error || "Photoshop rejected smart object replacement.");
+            }
+        }
+
+        const replaceResult = results.length > 1 ? results[1] : results[0];
+        if (replaceResult?._obj === "error" || replaceResult?.executionStatus === "failed") {
+            throw new Error(replaceResult?.message || "Photoshop rejected placedLayerReplaceContents.");
+        }
+
+        // Post-operation verification: check smart object descriptor facts if host supports it
+        const postMetadata = await this.getSmartObjectProperties(layer.id, batchPlayOptions);
+        const postFileReference = postMetadata?.fileReference || postMetadata?.smartObjectMore?.fileReference || null;
+
+        if (preFileReference && postFileReference && preFileReference === postFileReference) {
+            const photoName = fileEntry.name || "";
+            if (photoName && !postFileReference.includes(photoName)) {
+                throw new Error(`Photoshop smart object replacement did not update layer contents (still linked to '${preFileReference}').`);
+            }
+        }
 
         return true;
+    }
 
+    async getSmartObjectProperties(layerId, batchPlayOptions = {}) {
+        try {
+            const result = await this.batchPlay.command({
+                _obj: "get",
+                _target: [
+                    { _property: "smartObject" },
+                    { _ref: "layer", _id: layerId }
+                ]
+            }, {
+                ...batchPlayOptions,
+                commandName: "Get Smart Object Properties"
+            });
+            if (result?.smartObject) return result.smartObject;
+        } catch (_) {}
+
+        try {
+            const resultMore = await this.batchPlay.command({
+                _obj: "get",
+                _target: [
+                    { _property: "smartObjectMore" },
+                    { _ref: "layer", _id: layerId }
+                ]
+            }, {
+                ...batchPlayOptions,
+                commandName: "Get Smart Object More"
+            });
+            if (resultMore?.smartObjectMore) return resultMore.smartObjectMore;
+        } catch (_) {}
+
+        return null;
     }
 
     async clipToBounds({

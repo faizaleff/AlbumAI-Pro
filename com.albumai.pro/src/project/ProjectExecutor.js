@@ -60,12 +60,18 @@ export default class ProjectExecutor {
         selectedPhotoIds = null
         ,cancellationController = null
         ,resumeState = null
+        ,sheetContext = null
     } = {}) {
 
         const queue = new TemplateQueue(templates || this.templates());
         const selected = this.selectedPhotos(photos, selectedPhotoIds);
 
         if (selected.length === 0) {
+            if (Array.isArray(selectedPhotoIds) && selectedPhotoIds.length > 0) {
+                const error = new Error("Referenced photos for this sheet could not be found in the photo library.");
+                error.code = "MISSING_REFERENCED_PHOTOS";
+                throw error;
+            }
             const error = new Error("Select at least one photo before processing.");
             error.code = "NO_SELECTED_PHOTOS";
             throw error;
@@ -116,7 +122,7 @@ export default class ProjectExecutor {
                     if (afterOpen) return afterOpen;
                     const allocation = this.allocatePhotos(template, distribution);
                     const result = await this.executeTemplate({ project, photos: allocation.photos, template, descriptor, autoSaveEnabled, autoSaveMode,
-                        onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress: emitStage, cancellationController
+                        onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress: emitStage, cancellationController, sheetContext
                     });
                     isCancelledOutcome = result?.status === "CANCELLED";
                     completed = result.status === "COMPLETED";
@@ -234,7 +240,7 @@ export default class ProjectExecutor {
 
     }
 
-    async executeTemplate({ project, photos, template, descriptor = null, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress, cancellationController = null }) {
+    async executeTemplate({ project, photos, template, descriptor = null, autoSaveEnabled, autoSaveMode, onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress, cancellationController = null, sheetContext = null }) {
 
         const context = this.documentContext(template, descriptor);
         Logger.info(`START TEMPLATE: ${context.documentName}`);
@@ -260,10 +266,18 @@ export default class ProjectExecutor {
         Logger.info(`REPLACEMENT_DONE: ${context.documentName}`);
         Logger.info(`TEMPLATE_REPLACEMENT_STATUS: ${executionSummary.status}`);
         Logger.info(`TEMPLATE_REPLACEMENT_COMPLETED: ${executionSummary.status === "COMPLETED"}`);
+
+        // For ALBUM_SHEET_RENDER, derive a unique output base name from the sheet context.
+        // This prevents all spreads that share the same PSD template from producing the
+        // same output filename (e.g. 22.jpg colliding across 16 spreads).
+        const outputBaseName = sheetContext != null
+            ? ProjectExecutor.sheetOutputBaseName(sheetContext)
+            : null;
+
         if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "REPLACING", executionSummary, placementResult, executionPlan, replacementRequest: request };
         await this.activateContext(context, "SAVE");
         onStageProgress?.("SAVING");
-        const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode, cancellationController });
+        const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode, cancellationController, outputBaseName });
         Logger.info(`BATCH_AUTOSAVE_DONE: ${context.documentName} — ${autoSaveResult.status}`);
         Logger.info(`AUTOSAVE_DONE: ${context.documentName} — ${autoSaveResult.status}`);
         Logger.info(`TEMPLATE_AUTOSAVE_STATUS: ${autoSaveResult.status}`);
@@ -271,7 +285,7 @@ export default class ProjectExecutor {
         if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "SAVING", executionSummary, placementResult, executionPlan, replacementRequest: request, autoSaveResult };
         await this.activateContext(context, "EXPORT");
         onStageProgress?.("EXPORTING");
-        const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat, cancellationController });
+        const exportResult = await this.exportTemplate({ project, template, descriptor, documentContext: context, autoSaveResult, enabled: exportEnabled, format: exportFormat, cancellationController, outputBaseName });
         Logger.info(`BATCH_EXPORT_DONE: ${context.documentName} — ${exportResult.status}`);
         Logger.info(`EXPORT_DONE: ${context.documentName} — ${exportResult.status}`);
         Logger.info(`TEMPLATE_EXPORT_STATUS: ${exportResult.status}`);
@@ -369,17 +383,17 @@ export default class ProjectExecutor {
         const replacementSucceeded = executionSummary?.status === "COMPLETED" &&
             executionSummary.completedSteps === request.steps.length &&
             executionSummary.failedSteps === 0;
-        const autoSaveSucceeded = !autoSaveEnabled ||
-            autoSaveResult?.status === AutoSaveStatus.SAVED;
-        const exportSucceeded = !exportEnabled ||
-            exportResult?.status === ExportStatus.SUCCESS;
+        const autoSaveFailed = autoSaveEnabled &&
+            autoSaveResult?.status === AutoSaveStatus.FAILED;
+        const exportFailed = exportEnabled &&
+            exportResult?.status === ExportStatus.FAILED;
 
         return hasPlacement &&
             hasExecutionPlan &&
             hasRequest &&
             replacementSucceeded &&
-            autoSaveSucceeded &&
-            exportSucceeded;
+            !autoSaveFailed &&
+            !exportFailed;
 
     }
 
@@ -572,6 +586,22 @@ export default class ProjectExecutor {
 
         return this.templateExportService.export(options);
 
+    }
+
+    /**
+     * Derives a deterministic, zero-padded output base name for an album sheet.
+     *
+     * Convention: Spread_01, Spread_02 … Spread_16
+     * Uses the 1-based sheetOrder (0-indexed sheetOrder + 1), padded to 2 digits.
+     * The template PSD filename is intentionally excluded from the output name
+     * so that multiple spreads rendered from the same template do not collide.
+     *
+     * @param {{ sheetId: string, sheetLabel: string, sheetOrder: number }} sheetContext
+     * @returns {string}
+     */
+    static sheetOutputBaseName({ sheetOrder = 0, sheetLabel = "" } = {}) {
+        const n = String(sheetOrder + 1).padStart(2, "0");
+        return `Spread_${n}`;
     }
 
 }

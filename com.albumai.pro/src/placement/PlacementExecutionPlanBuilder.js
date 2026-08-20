@@ -70,6 +70,7 @@ export default class PlacementExecutionPlanBuilder {
                 documentId: template.document.id,
                 slotLayerId,
                 slotName: slot.layerName || assignment.layerName || "",
+                slotBounds: slot.bounds || null,
                 photoId,
                 photoName: photo.name || assignment.photoName || "",
                 photoFileReference,

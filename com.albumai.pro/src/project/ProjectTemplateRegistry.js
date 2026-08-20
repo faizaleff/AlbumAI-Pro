@@ -65,13 +65,20 @@ export default class ProjectTemplateRegistry {
                 validationSchemaVersion:
                     Number.isInteger(entry.validationSchemaVersion)
                         ? entry.validationSchemaVersion
-                        : TEMPLATE_REGISTRY_VALIDATION_SCHEMA_VERSION
+                        : TEMPLATE_REGISTRY_VALIDATION_SCHEMA_VERSION,
+                ...(Array.isArray(entry.smartObjects) && entry.smartObjects.length > 0 ? {
+                    smartObjects: Object.freeze(entry.smartObjects.map(slot => Object.freeze({
+                        layerId: slot?.layerId ?? slot?.id,
+                        layerName: slot?.layerName || slot?.name || ""
+                    })))
+                } : {}),
+                ...(Number.isInteger(entry.slotCount) ? { slotCount: entry.slotCount } : (Array.isArray(entry.smartObjects) && entry.smartObjects.length > 0 ? { slotCount: entry.smartObjects.length } : {}))
             }));
             return result;
         }, []).sort((left, right) => left.registrationOrder - right.registrationOrder);
     }
 
-    add(file, validationState = TemplateRegistryValidationState.UNKNOWN) {
+    add(file, validationState = TemplateRegistryValidationState.UNKNOWN, options = {}) {
         // Templates are project-owned files, so their file name is the durable,
         // project-relative reference; native paths are intentionally not persisted.
         const fileReference = String(file?.name || "");
@@ -79,6 +86,12 @@ export default class ProjectTemplateRegistry {
         if (this.entries.some(entry => entry.fileReference === fileReference || entry.fileName === file?.name)) {
             throw new Error("That PSD is already registered with this project.");
         }
+        const smartObjects = Array.isArray(options?.smartObjects) && options.smartObjects.length > 0
+            ? options.smartObjects
+            : (Array.isArray(file?.smartObjects) && file.smartObjects.length > 0 ? file.smartObjects : []);
+        const slotCount = Number.isInteger(options?.slotCount)
+            ? options.slotCount
+            : (smartObjects.length > 0 ? smartObjects.length : undefined);
         const descriptor = Object.freeze({
             id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
             name: file.name || "PSD Template",
@@ -89,7 +102,14 @@ export default class ProjectTemplateRegistry {
             validationState: normalizeTemplateRegistryValidationState(validationState),
             validationReason: TemplateRegistryValidationReason.NOT_VALIDATED,
             validationObservedAt: null,
-            validationSchemaVersion: TEMPLATE_REGISTRY_VALIDATION_SCHEMA_VERSION
+            validationSchemaVersion: TEMPLATE_REGISTRY_VALIDATION_SCHEMA_VERSION,
+            ...(smartObjects.length > 0 ? {
+                smartObjects: Object.freeze(smartObjects.map(slot => Object.freeze({
+                    layerId: slot?.layerId ?? slot?.id,
+                    layerName: slot?.layerName || slot?.name || ""
+                })))
+            } : {}),
+            ...(slotCount != null ? { slotCount } : {})
         });
         this.entries = [...this.entries, descriptor];
         return descriptor;

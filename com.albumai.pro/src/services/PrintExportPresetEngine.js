@@ -135,6 +135,8 @@ export function preflightAlbumForPrint({
                 sheetIndex: i + 1,
                 sheetId: sheet.id,
                 sheetLabel: sheet.label || sheet.id,
+                assignedCount: sheetSlots.length,
+                totalCount: expectedSlotCount,
                 missingCount: expectedSlotCount - sheetSlots.length
             });
         }

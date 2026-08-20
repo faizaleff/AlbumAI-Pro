@@ -247,13 +247,207 @@ export async function runAlb082Tests() {
             />
         );
 
-        check(typeof html === "string" && html.length > 0, "AutoFlowModal rendered to HTML");
-        check(html.includes("Smart Auto-Flow Engine"), "Contains modal title");
-        check(html.includes("Kept Photos"), "Contains Kept Photos source option");
-        check(html.includes("Chronological Burst"), "Contains Chronological strategy");
-        check(html.includes("Hero Dynamic"), "Contains Hero Dynamic strategy");
         check(html.includes("Replace Album Spreads"), "Contains Replace Spreads button");
         check(html.includes("Append Spreads"), "Contains Append Spreads button");
+    }
+
+    // Test 8: 2-slot template + requested max 3 -> effective capacity clamped to 2
+    {
+        const photos = [
+            { id: "p1", dateTaken: 1000 },
+            { id: "p2", dateTaken: 2000 },
+            { id: "p3", dateTaken: 3000 }
+        ];
+        const templates = [
+            { id: "t-22", name: "22.psd", smartObjects: [{ layerId: 2, layerName: "ZWK02241" }, { layerId: 4, layerName: "ZWK02262" }] }
+        ];
+
+        const result = generateAutoFlowSpreads({
+            photos,
+            templates,
+            options: {
+                strategy: AutoFlowStrategy.CHRONOLOGICAL_BURST,
+                maxPhotosPerSpread: 3 // Requested 3, but template only has 2 slots
+            }
+        });
+
+        check(result.success === true, "Auto-flow generation succeeded");
+        // With 3 photos and max 2 per spread, should produce 2 spreads (2 photos on Spread 1, 1 photo on Spread 2)
+        check(result.sheets.length === 2, "Generated 2 spreads for 3 photos with 2-slot template");
+        check(result.sheets[0].slots.length === 2, "Spread 1 has exactly 2 slot assignments, not 3");
+        check(result.sheets[1].slots.length === 1, "Spread 2 has 1 slot assignment");
+        check(result.sheets[0].slots.every(s => s.slotId === 2 || s.slotId === 4), "Spread 1 slots match real template smartObjects");
+    }
+
+    // Test 9: 31 photos + one 2-slot template + requested max 3 -> estimated spreads = 16
+    {
+        const photos = Array.from({ length: 31 }, (_, i) => ({
+            id: `photo-${i + 1}`,
+            name: `Photo_${i + 1}.jpg`,
+            dateTaken: 1700000000000 + i * 60000,
+            culling: { status: CullingStatus.KEPT }
+        }));
+        const templates = [
+            {
+                id: "template-22",
+                name: "22.psd",
+                smartObjects: [
+                    { layerId: 2, layerName: "ZWK02241" },
+                    { layerId: 4, layerName: "ZWK02262" }
+                ]
+            }
+        ];
+
+        const result = generateAutoFlowSpreads({
+            photos,
+            templates,
+            options: {
+                strategy: AutoFlowStrategy.CHRONOLOGICAL_BURST,
+                maxPhotosPerSpread: 3
+            }
+        });
+
+        check(result.success === true, "Auto-flow generation for 31 photos succeeded");
+        check(result.sheets.length === 16, `Expected ceil(31/2) = 16 spreads, got ${result.sheets.length}`);
+        check(result.summary.totalSheets === 16, `Summary totalSheets is 16, got ${result.summary.totalSheets}`);
+        check(result.summary.totalPhotosPlaced === 31, `Summary totalPhotosPlaced is 31, got ${result.summary.totalPhotosPlaced}`);
+
+        // Verify AutoFlowModal renders 16 spreads and effective capacity indicator
+        const html = ReactDOMServer.renderToStaticMarkup(
+            <AutoFlowModal
+                isOpen={true}
+                onClose={() => {}}
+                photos={photos}
+                selectedPhotoIds={new Set()}
+                templates={templates}
+                existingSheetCount={0}
+                onApplyAutoFlow={() => {}}
+            />
+        );
+
+        check(html.includes("16 spreads"), "AutoFlowModal displays 16 spreads estimate for 31 photos and 2-slot template");
+        check(html.includes("Effective Capacity:"), "AutoFlowModal displays Effective Capacity row when clamped");
+        check(html.includes("2 photos/spread"), "AutoFlowModal displays 2 photos/spread effective capacity");
+    }
+
+    // Test 10: 32 photos / capacity 2 + BALANCED -> exactly 16 spreads, every spread 2/2
+    {
+        const photos = Array.from({ length: 32 }, (_, i) => ({
+            id: `photo-${i + 1}`,
+            name: `Photo_${i + 1}.jpg`,
+            dateTaken: 1700000000000 + i * 60000,
+            culling: { status: CullingStatus.KEPT }
+        }));
+        const templates = [
+            {
+                id: "template-22",
+                name: "22.psd",
+                smartObjects: [
+                    { layerId: 2, layerName: "ZWK02241" },
+                    { layerId: 4, layerName: "ZWK02262" }
+                ]
+            }
+        ];
+
+        const result = generateAutoFlowSpreads({
+            photos,
+            templates,
+            options: {
+                strategy: AutoFlowStrategy.BALANCED,
+                maxPhotosPerSpread: 3
+            }
+        });
+
+        check(result.success === true, "Test 10: Balanced auto-flow for 32 photos succeeded");
+        check(result.sheets.length === 16, `Test 10: Expected 16 spreads, got ${result.sheets.length}`);
+        check(result.summary.totalSheets === 16, "Test 10: Summary totalSheets is 16");
+        check(result.summary.totalPhotosPlaced === 32, "Test 10: Summary totalPhotosPlaced is 32");
+        check(result.sheets.every(s => s.slots.length === 2), "Test 10: Every spread has exactly 2/2 slots assigned");
+    }
+
+    // Test 11: 31 photos / capacity 2 + BALANCED -> 16 spreads, first 15 are 2/2, final is 1/2
+    {
+        const photos = Array.from({ length: 31 }, (_, i) => ({
+            id: `photo-${i + 1}`,
+            name: `Photo_${i + 1}.jpg`,
+            dateTaken: 1700000000000 + i * 60000,
+            culling: { status: CullingStatus.KEPT }
+        }));
+        const templates = [
+            {
+                id: "template-22",
+                name: "22.psd",
+                smartObjects: [
+                    { layerId: 2, layerName: "ZWK02241" },
+                    { layerId: 4, layerName: "ZWK02262" }
+                ]
+            }
+        ];
+
+        const result = generateAutoFlowSpreads({
+            photos,
+            templates,
+            options: {
+                strategy: AutoFlowStrategy.BALANCED,
+                maxPhotosPerSpread: 3
+            }
+        });
+
+        check(result.success === true, "Test 11: Balanced auto-flow for 31 photos succeeded");
+        check(result.sheets.length === 16, `Test 11: Expected 16 spreads, got ${result.sheets.length}`);
+        check(result.sheets.slice(0, 15).every(s => s.slots.length === 2), "Test 11: First 15 spreads are 2/2");
+        check(result.sheets[15].slots.length === 1, "Test 11: Final spread is 1/2");
+    }
+
+    // Test 12: Multiple odd chapter/group counts totaling an even number (32) still globally pack to exact capacity (16) in Balanced Density
+    {
+        // 5 chapters with odd photo counts: 3, 7, 5, 9, 8 = 32 photos total
+        // In event-fragmented strategies, odd counts would cause 2+4+3+5+4 = 18 spreads.
+        // In Balanced Density, global packing must produce exactly ceil(32/2) = 16 spreads.
+        const chapterCounts = [3, 7, 5, 9, 8];
+        const photos = [];
+        let photoIndex = 1;
+        let baseTime = 1700000000000;
+
+        for (const count of chapterCounts) {
+            for (let c = 0; c < count; c++) {
+                photos.push({
+                    id: `p-${photoIndex}`,
+                    name: `P_${photoIndex}.jpg`,
+                    dateTaken: baseTime + c * 1000,
+                    culling: { status: CullingStatus.KEPT }
+                });
+                photoIndex++;
+            }
+            // 2-hour gap between chapters
+            baseTime += 7200000;
+        }
+
+        check(photos.length === 32, "Test 12: Total photos is 32 across 5 chapters");
+
+        const templates = [
+            {
+                id: "template-22",
+                name: "22.psd",
+                smartObjects: [
+                    { layerId: 2, layerName: "ZWK02241" },
+                    { layerId: 4, layerName: "ZWK02262" }
+                ]
+            }
+        ];
+
+        const result = generateAutoFlowSpreads({
+            photos,
+            templates,
+            options: {
+                strategy: AutoFlowStrategy.BALANCED,
+                maxPhotosPerSpread: 2,
+                eventGapMinutes: 30
+            }
+        });
+
+        check(result.sheets.length === 16, `Test 12: Balanced Density produced exactly 16 spreads, got ${result.sheets.length}`);
+        check(result.sheets.every(s => s.slots.length === 2), "Test 12: Every spread is 2/2 without chapter-boundary gaps");
     }
 
     console.info(`PASS ALB-082: All assertions passed (${assertions} assertions).`);

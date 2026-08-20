@@ -355,6 +355,31 @@ async function run() {
         equal(failure.reason, "PROJECT_OPEN_PERSISTENCE_FAILED", "failure reason");
     });
 
+    await test("addCurrentPsdToProject falls back to active Photoshop document", async () => {
+        const setup = fixture({ descriptors: [], entries: [] });
+        await setup.controller.openProject();
+        setup.templates.entries = [entry("22.psd")];
+        // Simulate active document in Photoshop
+        setup.controller.replacementStepExecutor.documentManager.activeDocumentId = 22;
+        Object.defineProperty(setup.controller.replacementStepExecutor.documentManager, "active", {
+            get() { return { id: 22, title: "22.psd", name: "22.psd" }; },
+            configurable: true
+        });
+
+        const activeDoc = setup.controller.getActivePhotoshopDocument();
+        equal(activeDoc?.name, "22.psd", "active photoshop document name");
+
+        // Calling without arguments should auto-detect the active PSD
+        const added = await setup.controller.addCurrentPsdToProject();
+        equal(added.name, "22.psd", "added template name");
+        equal(setup.controller.getRegisteredProjectTemplates().length, 1, "registered count");
+        equal(
+            setup.controller.getRegisteredProjectTemplates()[0].validationState,
+            State.READY,
+            "registered state"
+        );
+    });
+
     console.log(`ALB-044 controller tests passed: ${count}`);
 }
 

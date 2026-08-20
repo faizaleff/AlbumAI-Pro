@@ -149,7 +149,11 @@ export default class TemplateDocumentReader {
         const existing = this.findOpenDocument(file);
 
         if (existing) {
-            return existing;
+            try {
+                await this.documentManager.close(existing, { save: false });
+            } catch {
+                // Best effort close
+            }
         }
 
         // The reader owns only one temporary PSD at a time. Releasing the

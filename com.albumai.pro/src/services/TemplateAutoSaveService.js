@@ -64,7 +64,8 @@ export default class TemplateAutoSaveService {
         executionSummary,
         enabled = false,
         mode = AutoSaveMode.SAVE_COPY,
-        cancellationController = null
+        cancellationController = null,
+        outputBaseName = null
     } = {}) {
 
         const resultData = {
@@ -135,7 +136,7 @@ export default class TemplateAutoSaveService {
                     resultData.sourcePath || document.title || "", outputTransaction);
             }
 
-            return this.saveCopy({ project, template, descriptor, document, resultData, cancellationController });
+            return this.saveCopy({ project, template, descriptor, document, resultData, cancellationController, outputBaseName });
 
         }
 
@@ -176,7 +177,7 @@ export default class TemplateAutoSaveService {
 
     }
 
-    async copyDestination(project, template, document, descriptor = null) {
+    async copyDestination(project, template, document, descriptor = null, outputBaseName = null) {
 
         const output = project?.workspace?.output;
 
@@ -193,7 +194,9 @@ export default class TemplateAutoSaveService {
             processed = await output.createFolder("Processed");
         }
 
-        const baseName = this.baseName(descriptor?.name || template?.name || document?.title || "template");
+        const baseName = outputBaseName
+            ? String(outputBaseName).trim() || "template"
+            : this.baseName(descriptor?.name || template?.name || document?.title || "template");
 
         return Object.freeze({
             folder: processed,
@@ -219,8 +222,8 @@ export default class TemplateAutoSaveService {
 
     }
 
-    async saveCopy({ project, template, descriptor, document, resultData, cancellationController }) {
-        const target = await this.copyDestination(project, template, document, descriptor);
+    async saveCopy({ project, template, descriptor, document, resultData, cancellationController, outputBaseName = null }) {
+        const target = await this.copyDestination(project, template, document, descriptor, outputBaseName);
         const adapter = this.fileAdapterFactory({
             folder: target.folder,
             // The locked host characterization found binary ArrayBuffer reads

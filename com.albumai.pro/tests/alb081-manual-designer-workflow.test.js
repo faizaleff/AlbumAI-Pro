@@ -662,12 +662,61 @@ export async function runAlb081Tests() {
                 check(executionDetailsSource.includes("export function summaryText"), "summaryText export preserved");
                 check(executionDetailsSource.includes("export function debugText"), "debugText export preserved");
             }
+
+            // 7. Verify TemplateDocumentPanel active PSD enablement & registration
+            const templatePanelPath = path.join(projectRoot, "src/components/TemplateDocumentPanel.jsx");
+            if (fs.existsSync(templatePanelPath)) {
+                const templatePanelSource = fs.readFileSync(templatePanelPath, "utf8");
+                check(templatePanelSource.includes("getActivePhotoshopDocument"), "TemplateDocumentPanel accepts getActivePhotoshopDocument prop");
+                check(templatePanelSource.includes("activePsdTarget"), "TemplateDocumentPanel computes activePsdTarget for Add Current PSD button");
+                check(templatePanelSource.includes("disabled={registryLocked || !hasProject || !activePsdTarget}"), "Add Current PSD is enabled when active Photoshop PSD is open");
+            }
+
+            // 8. Verify OpenFolder registeredTemplates state synchronization & auto-selection
+            const openFolderPath = path.join(projectRoot, "src/components/OpenFolder.jsx");
+            if (fs.existsSync(openFolderPath)) {
+                const openFolderSource = fs.readFileSync(openFolderPath, "utf8");
+                check(openFolderSource.includes("const [registeredTemplates, setRegisteredTemplates] = useState"), "OpenFolder manages registeredTemplates in state");
+                check(openFolderSource.includes("onRegistryChange={refreshRegisteredTemplates}"), "OpenFolder passes onRegistryChange to TemplateDocumentPanel");
+                check(openFolderSource.includes("setAlbumTemplateId(current =>"), "OpenFolder auto-selects template when registeredTemplates updates");
+            }
         } else {
             // In temp execution directories, verify source module exists via dynamic string path
             const previewRel = "../src/components/PreviewPanel.jsx";
             const previewAbs = path.resolve(__dirname, previewRel);
             check(fs.existsSync(previewAbs) || Boolean(typeof require !== "undefined"), "PreviewPanel component file is reachable");
         }
+    }
+
+    // Test 11: StoryboardCard canonical slot capacity
+    {
+        const sheet = {
+            id: "Spread_1",
+            templateId: "template-22",
+            slots: [
+                { slotId: 2, photoId: "photo-1" },
+                { slotId: 4, photoId: "photo-2" }
+            ]
+        };
+        const template = {
+            id: "template-22",
+            name: "22.psd",
+            smartObjects: [{ layerId: 2, layerName: "ZWK02241" }, { layerId: 4, layerName: "ZWK02262" }]
+        };
+
+        const html = ReactDOMServer.renderToStaticMarkup(
+            <SheetStoryboardStrip
+                sheets={[sheet]}
+                templates={[template]}
+                selectedSheetId="Spread_1"
+                onSelectSheet={() => {}}
+                onMoveSheet={() => {}}
+                onDuplicateSheet={() => {}}
+                onRemoveSheet={() => {}}
+            />
+        );
+
+        check(html.includes("2/2"), "StoryboardCard displays canonical 2/2 fill count for 2-slot template");
     }
 
     console.info(`PASS ALB-081: All assertions passed (${assertions} assertions).`);

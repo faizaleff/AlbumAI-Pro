@@ -140,7 +140,9 @@ export default class BatchExecutionService {
                     templateResults.splice(index, 1, this.templateResult(template, outcome, {
                         ...result,
                         error: failed
-                            ? result?.error || "Template execution did not report successful replacement."
+                            ? result?.error || (result?.executionSummary?.status !== "COMPLETED"
+                                ? "Template execution did not report successful replacement."
+                                : (result?.autoSaveResult?.error || result?.exportResult?.error || "Template execution failed."))
                             : null,
                         startedAt: running.startedAt
                     }));

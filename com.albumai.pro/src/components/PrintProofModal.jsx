@@ -66,6 +66,14 @@ export default function PrintProofModal({
                 }
                 setExportMessage(`✓ PDF Proof Manifest generated for ${manifest.totalPages} spreads.`);
             } else {
+                if (preflight && !preflight.isReadyForPrint) {
+                    const spreadDetails = (preflight.unfilledSlotDetails || [])
+                        .map(d => `${d.sheetLabel}: ${d.assignedCount ?? 0}/${d.totalCount ?? (d.assignedCount + d.missingCount)} assigned`)
+                        .join(", ");
+                    const errorMsg = `Lab Print Batch blocked: ${preflight.unfilledSlots} empty slot(s) across ${preflight.unfilledSlotDetails.length} incomplete spread(s). (${spreadDetails})`;
+                    setExportMessage(`Error: ${errorMsg}`);
+                    return;
+                }
                 if (onExportPrint) {
                     await onExportPrint({
                         type: "LAB_PRINT",
@@ -265,7 +273,14 @@ export default function PrintProofModal({
 
                         {preflight?.unfilledSlots > 0 && (
                             <div className="preflight-alert">
-                                ⚠ {preflight.unfilledSlots} slots are currently empty across {preflight.unfilledSlotDetails.length} spreads.
+                                ⛔ {preflight.unfilledSlots} empty slot(s) across {preflight.unfilledSlotDetails.length} spread(s). Lab Print Batch is blocked until all slots are assigned:
+                                <div style={{ marginTop: "4px", fontSize: "0.85em" }}>
+                                    {preflight.unfilledSlotDetails.map(d => (
+                                        <div key={d.sheetId || d.sheetIndex}>
+                                            • {d.sheetLabel}: {d.assignedCount ?? 0}/{d.totalCount ?? 0} assigned ({d.missingCount} empty)
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
@@ -307,8 +322,8 @@ export default function PrintProofModal({
                         type="button"
                         className="print-proof-action-btn primary"
                         onClick={() => handleExport("PRINT")}
-                        disabled={isExporting || disabled || !album?.sheets?.length}
-                        title="Export 300 DPI Print Spreads Batch"
+                        disabled={isExporting || disabled || !album?.sheets?.length || (preflight && !preflight.isReadyForPrint)}
+                        title={preflight && !preflight.isReadyForPrint ? "Fill all empty slots before exporting Lab Print Batch" : "Export 300 DPI Print Spreads Batch"}
                     >
                         {isExporting ? "Exporting…" : "⚡ Export Lab Print Batch"}
                     </button>

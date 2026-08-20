@@ -87,6 +87,25 @@ async function run() {
         assert.strictEqual(duringHostWriteResult.outputTransaction.commitState, State.CLEANED);
         assert.strictEqual(duringHostWriteResult.outputTransaction.cancellationState, "EFFECTIVE_AFTER_CLEANUP");
     });
+
+    await test("export succeeds when Auto Save is disabled/skipped and skips when Auto Save failed", async () => {
+        const skippedAutoSave = fixture();
+        const skippedResult = await skippedAutoSave.service.export({
+            ...skippedAutoSave.request,
+            autoSaveResult: { status: AutoSaveStatus.SKIPPED },
+            format: ExportFormat.JPEG
+        });
+        assert.strictEqual(skippedResult.status, ExportStatus.SUCCESS, "export succeeds when Auto Save is skipped");
+
+        const failedAutoSave = fixture();
+        const failedResult = await failedAutoSave.service.export({
+            ...failedAutoSave.request,
+            autoSaveResult: { status: AutoSaveStatus.FAILED },
+            format: ExportFormat.JPEG
+        });
+        assert.strictEqual(failedResult.status, ExportStatus.SKIPPED, "export is skipped when Auto Save failed");
+        assert(failedResult.warnings.includes("Export requires successful Auto Save."), "preserves warning");
+    });
     console.info("ALB-045 Slice 4 transactional export tests complete.");
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

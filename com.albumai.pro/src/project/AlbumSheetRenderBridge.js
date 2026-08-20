@@ -19,7 +19,8 @@ export const AlbumSheetRenderReason = Object.freeze({
     SHEET_STALE: "SHEET_STALE",
     TEMPLATE_REGISTRY_STALE: "TEMPLATE_REGISTRY_STALE",
     PHOTO_SELECTION_STALE: "PHOTO_SELECTION_STALE",
-    NO_RENDERABLE_SHEETS: "NO_RENDERABLE_SHEETS"
+    NO_RENDERABLE_SHEETS: "NO_RENDERABLE_SHEETS",
+    INCOMPLETE_SPREADS: "INCOMPLETE_SPREADS"
 });
 
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
@@ -44,6 +45,39 @@ export function createAlbumBatchRenderRequest({
     const sheets = inspected.album.sheets || [];
     if (sheets.length === 0) {
         return rejected([AlbumSheetRenderReason.NO_RENDERABLE_SHEETS]);
+    }
+
+    // Safety Gate: Block Lab Print if any spread is incomplete
+    const requireComplete = options?.type === "LAB_PRINT" || options?.requireCompleteSpreads === true;
+    const incompleteSheets = [];
+
+    for (const sheet of sheets) {
+        const template = Array.isArray(registry) ? registry.find(candidate => candidate.id === sheet.templateId) : null;
+        const templateSlotCount = (Array.isArray(template?.smartObjects) && template.smartObjects.length > 0)
+            ? template.smartObjects.length
+            : (Number.isInteger(template?.slotCount) ? template.slotCount : 0);
+        const assignedSlotsCount = (Array.isArray(sheet.slots) ? sheet.slots.filter(s => s && s.photoId) : []).length;
+
+        if (templateSlotCount > 0 && assignedSlotsCount < templateSlotCount) {
+            incompleteSheets.push({
+                sheetId: sheet.id,
+                sheetLabel: sheet.label || sheet.id,
+                assignedCount: assignedSlotsCount,
+                totalCount: templateSlotCount,
+                missingCount: templateSlotCount - assignedSlotsCount
+            });
+        }
+    }
+
+    if (requireComplete && incompleteSheets.length > 0) {
+        const totalMissing = incompleteSheets.reduce((sum, item) => sum + item.missingCount, 0);
+        const sheetDetails = incompleteSheets.map(d => `${d.sheetLabel} (${d.assignedCount}/${d.totalCount})`).join(", ");
+        return rejected([AlbumSheetRenderReason.INCOMPLETE_SPREADS], {
+            incompleteSheets: Object.freeze(incompleteSheets),
+            totalIncomplete: incompleteSheets.length,
+            totalMissing,
+            message: `Lab Print Batch blocked: ${incompleteSheets.length} incomplete spread(s) with ${totalMissing} empty slot(s). Affected: ${sheetDetails}`
+        });
     }
 
     const sheetRequests = [];
@@ -137,11 +171,6 @@ export function createAlbumSheetRenderRequest({
         reasonCodes.push(AlbumSheetRenderReason.INVALID_SHEET_ID);
     }
 
-    const selected = inspectSelectedPhotoIds(selectedPhotoIds);
-    if (!selected.valid) {
-        reasonCodes.push(selected.reasonCode);
-    }
-
     const inspected = inspectAlbum(album);
     if (!inspected.valid) {
         return rejected([...reasonCodes, ...inspected.reasonCodes]);
@@ -160,23 +189,38 @@ export function createAlbumSheetRenderRequest({
         ]);
     }
 
-        const assignedPhotoIds = Array.isArray(sheet.slots) && sheet.slots.length > 0
-            ? sheet.slots.map(s => s.photoId)
-            : null;
+    const assignedPhotoIds = Array.isArray(sheet.slots) && sheet.slots.length > 0
+        ? sheet.slots.map(s => s.photoId).filter(Boolean)
+        : [];
 
-        return accepted({
-            schemaVersion: ALBUM_SHEET_RENDER_REQUEST_SCHEMA_VERSION,
-            projectId,
-            sheet: Object.freeze({
-                id: sheet.id,
-                templateId: sheet.templateId,
-                label: sheet.label || "",
-                slots: Array.isArray(sheet.slots) ? Object.freeze([...sheet.slots]) : Object.freeze([])
-            }),
-            template: templateSnapshot(resolved, registry),
-            selectedPhotoIds: assignedPhotoIds && assignedPhotoIds.length > 0 ? assignedPhotoIds : selected.photoIds
-        });
+    let photoIdsToUse;
+    if (assignedPhotoIds.length > 0) {
+        const inspectedAssigned = inspectSelectedPhotoIds(assignedPhotoIds);
+        if (!inspectedAssigned.valid) {
+            return rejected([inspectedAssigned.reasonCode]);
+        }
+        photoIdsToUse = inspectedAssigned.photoIds;
+    } else {
+        const selected = inspectSelectedPhotoIds(selectedPhotoIds);
+        if (!selected.valid) {
+            return rejected([selected.reasonCode]);
+        }
+        photoIdsToUse = selected.photoIds;
     }
+
+    return accepted({
+        schemaVersion: ALBUM_SHEET_RENDER_REQUEST_SCHEMA_VERSION,
+        projectId,
+        sheet: Object.freeze({
+            id: sheet.id,
+            templateId: sheet.templateId,
+            label: sheet.label || "",
+            slots: Array.isArray(sheet.slots) ? Object.freeze([...sheet.slots]) : Object.freeze([])
+        }),
+        template: templateSnapshot(resolved, registry),
+        selectedPhotoIds: photoIdsToUse
+    });
+}
 
 /**
  * Rebuild the detached request from current canonical facts.  Execution must
@@ -297,11 +341,13 @@ function accepted(request) {
     });
 }
 
-function rejected(reasonCodes) {
+function rejected(reasonCodes, details = null) {
     return Object.freeze({
         accepted: false,
         reasonCodes: Object.freeze([...new Set(reasonCodes)]),
-        request: null
+        request: null,
+        details: details ? Object.freeze({ ...details }) : null,
+        message: details?.message || null
     });
 }
 

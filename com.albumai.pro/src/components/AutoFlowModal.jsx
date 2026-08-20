@@ -3,7 +3,8 @@ import {
     AutoFlowStrategy,
     PhotoSourceMode,
     filterPhotosForAutoFlow,
-    generateAutoFlowSpreads
+    generateAutoFlowSpreads,
+    getTemplateSlotCapacity
 } from "../services/PhotoAutoFlowEngine";
 import { CullingStatus } from "../services/PhotoCullingService";
 
@@ -37,6 +38,11 @@ export default function AutoFlowModal({
         filterPhotosForAutoFlow(photos, sourceMode, selectedPhotoIds),
         [photos, sourceMode, selectedPhotoIds]
     );
+
+    const maxAvailableSlots = useMemo(() => {
+        const capacities = (templates || []).map(getTemplateSlotCapacity);
+        return capacities.length > 0 ? Math.max(...capacities, 0) : 0;
+    }, [templates]);
 
     const estimatedResult = useMemo(() => {
         if (!isOpen || filteredPhotos.length === 0 || templates.length === 0) {
@@ -99,8 +105,8 @@ export default function AutoFlowModal({
         <div className="autoflow-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
             <div className="autoflow-modal-container" onClick={e => e.stopPropagation()}>
                 <div className="autoflow-modal-header">
-                    <div className="autoflow-modal-title-group">
-                        <span className="autoflow-modal-icon">⚡</span>
+                    <div className="autoflow-modal-title">
+                        <span className="autoflow-icon">⚡</span>
                         <h3>Smart Auto-Flow Engine</h3>
                     </div>
                     <button
@@ -108,67 +114,50 @@ export default function AutoFlowModal({
                         className="autoflow-close-btn"
                         onClick={onClose}
                         disabled={isBusy}
-                        aria-label="Close"
+                        aria-label="Close Auto-Flow"
                     >
                         ✕
                     </button>
                 </div>
 
                 <div className="autoflow-modal-body">
-                    {/* Source Selection */}
+                    {/* Source mode selector */}
                     <div className="autoflow-section">
-                        <label className="autoflow-section-label">Photo Source</label>
-                        <div className="autoflow-radio-group">
-                            <label className={`autoflow-radio-card${sourceMode === PhotoSourceMode.KEPT_ONLY ? " is-active" : ""}`}>
-                                <input
-                                    type="radio"
-                                    name="photoSource"
-                                    value={PhotoSourceMode.KEPT_ONLY}
-                                    checked={sourceMode === PhotoSourceMode.KEPT_ONLY}
-                                    onChange={() => setSourceMode(PhotoSourceMode.KEPT_ONLY)}
-                                    disabled={isBusy}
-                                />
-                                <div className="autoflow-radio-content">
-                                    <span className="autoflow-radio-title">✓ Kept Photos</span>
-                                    <span className="autoflow-radio-badge">{keptCount > 0 ? `${keptCount} photos` : "All non-rejected"}</span>
-                                </div>
-                            </label>
-
-                            <label className={`autoflow-radio-card${sourceMode === PhotoSourceMode.SELECTED_ONLY ? " is-active" : ""}`}>
-                                <input
-                                    type="radio"
-                                    name="photoSource"
-                                    value={PhotoSourceMode.SELECTED_ONLY}
-                                    checked={sourceMode === PhotoSourceMode.SELECTED_ONLY}
-                                    onChange={() => setSourceMode(PhotoSourceMode.SELECTED_ONLY)}
-                                    disabled={isBusy || selectedCount === 0}
-                                />
-                                <div className="autoflow-radio-content">
-                                    <span className="autoflow-radio-title">Selected in Browser</span>
-                                    <span className="autoflow-radio-badge">{selectedCount} photos</span>
-                                </div>
-                            </label>
-
-                            <label className={`autoflow-radio-card${sourceMode === PhotoSourceMode.ALL_PHOTOS ? " is-active" : ""}`}>
-                                <input
-                                    type="radio"
-                                    name="photoSource"
-                                    value={PhotoSourceMode.ALL_PHOTOS}
-                                    checked={sourceMode === PhotoSourceMode.ALL_PHOTOS}
-                                    onChange={() => setSourceMode(PhotoSourceMode.ALL_PHOTOS)}
-                                    disabled={isBusy}
-                                />
-                                <div className="autoflow-radio-content">
-                                    <span className="autoflow-radio-title">All Non-Rejected</span>
-                                    <span className="autoflow-radio-badge">{nonRejectedCount} photos</span>
-                                </div>
-                            </label>
+                        <label className="autoflow-section-label">Source Photos</label>
+                        <div className="autoflow-pill-group" role="radiogroup" aria-label="Photo source mode">
+                            <button
+                                type="button"
+                                className={`autoflow-pill-btn${sourceMode === PhotoSourceMode.KEPT_ONLY ? " is-active" : ""}`}
+                                onClick={() => setSourceMode(PhotoSourceMode.KEPT_ONLY)}
+                                disabled={isBusy}
+                            >
+                                <span className="pill-icon">⭐</span>
+                                <span>Kept Photos ({keptCount})</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={`autoflow-pill-btn${sourceMode === PhotoSourceMode.SELECTED_ONLY ? " is-active" : ""}`}
+                                onClick={() => setSourceMode(PhotoSourceMode.SELECTED_ONLY)}
+                                disabled={isBusy || selectedCount === 0}
+                            >
+                                <span className="pill-icon">☑</span>
+                                <span>Selection ({selectedCount})</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={`autoflow-pill-btn${sourceMode === PhotoSourceMode.ALL_PHOTOS ? " is-active" : ""}`}
+                                onClick={() => setSourceMode(PhotoSourceMode.ALL_PHOTOS)}
+                                disabled={isBusy}
+                            >
+                                <span className="pill-icon">📁</span>
+                                <span>All Non-Rejected ({nonRejectedCount})</span>
+                            </button>
                         </div>
                     </div>
 
-                    {/* Layout Strategy */}
+                    {/* Flow Strategy */}
                     <div className="autoflow-section">
-                        <label className="autoflow-section-label">Flow Strategy</label>
+                        <label className="autoflow-section-label">Layout Strategy</label>
                         <div className="autoflow-strategy-grid">
                             <button
                                 type="button"
@@ -176,27 +165,25 @@ export default function AutoFlowModal({
                                 onClick={() => setStrategy(AutoFlowStrategy.CHRONOLOGICAL_BURST)}
                                 disabled={isBusy}
                             >
-                                <span className="strategy-name">⏱ Chronological Burst</span>
-                                <span className="strategy-desc">Maintains capture sequence & keeps burst shots together</span>
+                                <strong className="strategy-title">Chronological Burst</strong>
+                                <span className="strategy-desc">Groups photo bursts into cohesive spreads by timeline</span>
                             </button>
-
                             <button
                                 type="button"
                                 className={`autoflow-strategy-btn${strategy === AutoFlowStrategy.HERO_DYNAMIC ? " is-active" : ""}`}
                                 onClick={() => setStrategy(AutoFlowStrategy.HERO_DYNAMIC)}
                                 disabled={isBusy}
                             >
-                                <span className="strategy-name">🌟 Hero Dynamic</span>
-                                <span className="strategy-desc">Dedicates single spreads to standout portrait/wide shots</span>
+                                <strong className="strategy-title">Hero Dynamic</strong>
+                                <span className="strategy-desc">Awards highest-rated 5-star photos full hero single spreads</span>
                             </button>
-
                             <button
                                 type="button"
                                 className={`autoflow-strategy-btn${strategy === AutoFlowStrategy.BALANCED ? " is-active" : ""}`}
                                 onClick={() => setStrategy(AutoFlowStrategy.BALANCED)}
                                 disabled={isBusy}
                             >
-                                <span className="strategy-name">📐 Balanced Grids</span>
+                                <strong className="strategy-title">Balanced Density</strong>
                                 <span className="strategy-desc">Distributes photos evenly across template layouts</span>
                             </button>
                         </div>
@@ -234,6 +221,14 @@ export default function AutoFlowModal({
                             <span className="summary-label">Registered Templates:</span>
                             <strong className="summary-value">{templates.length}</strong>
                         </div>
+                        {maxAvailableSlots > 0 && maxPhotosPerSpread > maxAvailableSlots && (
+                            <div className="summary-stat-row">
+                                <span className="summary-label">Effective Capacity:</span>
+                                <strong className="summary-value highlight" style={{ color: "#e3b341" }}>
+                                    {maxAvailableSlots} photos/spread
+                                </strong>
+                            </div>
+                        )}
                         <div className="summary-stat-row">
                             <span className="summary-label">Estimated Spreads:</span>
                             <strong className="summary-value highlight">

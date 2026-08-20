@@ -92,6 +92,20 @@ export function filterPhotosForAutoFlow(photos = [], mode = PhotoSourceMode.KEPT
 }
 
 /**
+ * Compute the actual usable smart object slot capacity for a template
+ */
+export function getTemplateSlotCapacity(template) {
+    if (!template) return 0;
+    if (Array.isArray(template.smartObjects) && template.smartObjects.length > 0) {
+        return template.smartObjects.filter(slot => slot && (slot.layerId != null || slot.id != null)).length;
+    }
+    if (Number.isInteger(template.slotCount) && template.slotCount > 0) {
+        return template.slotCount;
+    }
+    return 0;
+}
+
+/**
  * Select best available template matching target slot count with visual diversity
  */
 export function selectBestTemplate(templates = [], targetSlotCount = 2, previousTemplateId = null) {
@@ -101,13 +115,8 @@ export function selectBestTemplate(templates = [], targetSlotCount = 2, previous
     const valid = templates.filter(t => t && t.id);
     if (valid.length === 0) return null;
 
-    // Categorize templates by slot count
-    const getSlotCount = (t) => Array.isArray(t.smartObjects) && t.smartObjects.length > 0
-        ? t.smartObjects.length
-        : 2; // default assumption
-
     // Exact matches
-    const exactMatches = valid.filter(t => getSlotCount(t) === targetSlotCount);
+    const exactMatches = valid.filter(t => getTemplateSlotCapacity(t) === targetSlotCount);
     if (exactMatches.length > 0) {
         if (exactMatches.length === 1 || !previousTemplateId) {
             return exactMatches[0];
@@ -119,10 +128,10 @@ export function selectBestTemplate(templates = [], targetSlotCount = 2, previous
 
     // Closest match
     let closest = valid[0];
-    let minDiff = Math.abs(getSlotCount(closest) - targetSlotCount);
+    let minDiff = Math.abs(getTemplateSlotCapacity(closest) - targetSlotCount);
 
     for (let i = 1; i < valid.length; i++) {
-        const diff = Math.abs(getSlotCount(valid[i]) - targetSlotCount);
+        const diff = Math.abs(getTemplateSlotCapacity(valid[i]) - targetSlotCount);
         if (diff < minDiff) {
             minDiff = diff;
             closest = valid[i];
@@ -141,8 +150,12 @@ export function assignPhotosToTemplateSlots(photos = [], template = null) {
     }
 
     const smartObjects = Array.isArray(template.smartObjects) && template.smartObjects.length > 0
-        ? template.smartObjects
-        : photos.map((_, i) => ({ layerId: i + 1, layerName: `Slot ${i + 1}` }));
+        ? template.smartObjects.filter(slot => slot && (slot.layerId != null || slot.id != null))
+        : [];
+
+    if (smartObjects.length === 0) {
+        return [];
+    }
 
     // Sort photos: prioritize highest quality photo for the first/hero slot
     const sortedPhotos = [...photos].sort((a, b) => getPhotoQualityScore(b) - getPhotoQualityScore(a));
@@ -209,6 +222,11 @@ export function generateAutoFlowSpreads({
         });
     }
 
+    const maxTemplateCapacity = Math.max(...templates.map(getTemplateSlotCapacity), 0);
+    const effectiveMaxPhotos = maxTemplateCapacity > 0
+        ? Math.max(1, Math.min(maxPhotosPerSpread, maxTemplateCapacity))
+        : Math.max(1, maxPhotosPerSpread);
+
     // Sort photos chronologically
     const chronologicalPhotos = [...photos].sort((a, b) => {
         const tA = getPhotoTimestamp(a);
@@ -216,6 +234,49 @@ export function generateAutoFlowSpreads({
         if (tA > 0 && tB > 0) return tA - tB;
         return 0;
     });
+
+    // BALANCED DENSITY: Global balanced packing across available template capacity
+    // Packs all source photos continuously into chunks of effectiveMaxPhotos without event boundary fragmentation
+    if (strategy === AutoFlowStrategy.BALANCED) {
+        const generatedSheets = [];
+        let sheetNumber = startIndex;
+        let previousTemplateId = null;
+        let totalPhotosPlaced = 0;
+
+        for (let i = 0; i < chronologicalPhotos.length; i += effectiveMaxPhotos) {
+            const chunk = chronologicalPhotos.slice(i, i + effectiveMaxPhotos);
+            if (chunk.length === 0) continue;
+
+            const template = selectBestTemplate(templates, chunk.length, previousTemplateId);
+            if (!template) continue;
+
+            previousTemplateId = template.id;
+            const slots = assignPhotosToTemplateSlots(chunk, template);
+            totalPhotosPlaced += slots.length;
+
+            const sheetId = `${sheetPrefix}_${sheetNumber}`.replace(/[^A-Za-z0-9_-]/g, "_");
+
+            generatedSheets.push(Object.freeze({
+                id: sheetId,
+                templateId: template.id,
+                label: `Spread ${sheetNumber}`,
+                slots
+            }));
+
+            sheetNumber += 1;
+        }
+
+        return Object.freeze({
+            success: true,
+            sheets: Object.freeze(generatedSheets),
+            summary: Object.freeze({
+                totalSheets: generatedSheets.length,
+                totalPhotosPlaced,
+                eventCount: 1,
+                strategy
+            })
+        });
+    }
 
     const eventGapMs = eventGapMinutes * 60 * 1000;
     const events = groupPhotosByEvent(chronologicalPhotos, eventGapMs);
@@ -252,7 +313,7 @@ export function generateAutoFlowSpreads({
                     chunks.push([photo]);
                 } else {
                     currentChunk.push(photo);
-                    if (currentChunk.length >= maxPhotosPerSpread) {
+                    if (currentChunk.length >= effectiveMaxPhotos) {
                         chunks.push(currentChunk);
                         currentChunk = [];
                     }
@@ -278,7 +339,7 @@ export function generateAutoFlowSpreads({
                 const photo = eventPhotos[i];
                 const burstPhotoIds = burstMap.get(String(photo.id));
 
-                if (burstPhotoIds && burstPhotoIds.length > 1 && burstPhotoIds.length <= maxPhotosPerSpread) {
+                if (burstPhotoIds && burstPhotoIds.length > 1 && burstPhotoIds.length <= effectiveMaxPhotos) {
                     // Try to place entire burst in one spread if fits
                     if (currentChunk.length > 0) {
                         chunks.push(currentChunk);
@@ -291,7 +352,7 @@ export function generateAutoFlowSpreads({
                     i += burstPhotos.length;
                 } else {
                     currentChunk.push(photo);
-                    if (currentChunk.length >= maxPhotosPerSpread) {
+                    if (currentChunk.length >= effectiveMaxPhotos) {
                         chunks.push(currentChunk);
                         currentChunk = [];
                     }

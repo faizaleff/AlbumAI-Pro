@@ -6,6 +6,7 @@ import LayerTransformService from "../core/album/LayerTransformService";
 import ExecuteModal from "../core/photoshop/ExecuteModal";
 import Logger from "../core/photoshop/Logger";
 import ReplacementResult from "./ReplacementResult";
+import { getPhotoFileEntry } from "../services/PhotoFileEntry";
 
 export default class ReplacementStepExecutor {
 
@@ -32,18 +33,25 @@ export default class ReplacementStepExecutor {
         try {
 
             await this.recoverParentDocument(step);
-            Logger.info("Smart Object replacement started.");
-            const { document, layer, photo } = this.validate(step, photos);
-            const originalBounds = this.positiveBounds(layer);
+            const { document, layer, photo, fileEntry } = this.validate(step, photos);
+            const photoName = photo?.name || step?.photoName || photo?.file?.name || "Photo";
+            const layerName = layer?.name || step?.slotName || `Layer ${layer?.id}`;
+
+            const originalBounds = (step.slotBounds && step.slotBounds.width > 0 && step.slotBounds.height > 0)
+                ? step.slotBounds
+                : this.positiveBounds(layer);
 
             await ExecuteModal.run(async () => {
 
-                await this.smartObjectService.replaceContentsWithFileEntry({
+                const replaced = await this.smartObjectService.replaceContentsWithFileEntry({
                     layer,
-                    fileEntry: photo.file,
+                    fileEntry,
                     batchPlayOptions: { alreadyInModal: true },
                     sourcePhotoExists: photos.some(item => item?.id === photo.id)
                 });
+                if (!replaced) {
+                    throw new Error("Smart Object replacement operation failed in Photoshop.");
+                }
                 await this.restorePlaceholderGeometry({
                     document,
                     slotLayerId: step.slotLayerId,
@@ -58,7 +66,7 @@ export default class ReplacementStepExecutor {
             if (this.documentManager.activeId !== document.id) {
                 throw new Error("Template document is not active.");
             }
-            Logger.info("Smart Object replacement completed.");
+            Logger.info(`[AlbumAI:placement] STEP_SUCCESS doc=${document.id} layer=${layer.id} (${layerName}) photo=${photoName}`);
 
             return this.result({
                 requestId: step.requestId,
@@ -72,7 +80,7 @@ export default class ReplacementStepExecutor {
         catch (error) {
 
             const message = this.userError(error);
-            Logger.warn("Smart Object replacement failed.");
+            Logger.warn(`[AlbumAI:placement] STEP_FAILED doc=${step?.expectedDocumentId || step?.documentId} layer=${step?.slotLayerId} error=${message}`);
 
             return this.result({
                 requestId: step?.requestId ?? null,
@@ -147,12 +155,13 @@ export default class ReplacementStepExecutor {
             item?.id === step.photoId
         );
 
-        if (!photo?.file) throw new Error("Source photo is unavailable.");
+        const fileEntry = getPhotoFileEntry(photo) || photo?.file;
+        if (!fileEntry) throw new Error("Source photo is unavailable.");
         if (this.photoFileReference(photo) !== step.photoFileReference) {
             throw new Error("Source photo is unavailable.");
         }
 
-        return { document, layer, photo };
+        return { document, layer, photo, fileEntry };
 
     }
 
@@ -274,7 +283,8 @@ export default class ReplacementStepExecutor {
 
     photoFileReference(photo) {
 
-        return photo.file?.nativePath || photo.file?.name || null;
+        const entry = getPhotoFileEntry(photo);
+        return entry?.nativePath || entry?.name || photo?.file?.nativePath || photo?.file?.name || photo?.name || null;
 
     }
 
@@ -308,6 +318,13 @@ export default class ReplacementStepExecutor {
             message.includes("source photo") ||
             message.includes("session token")) {
             return "Source photo is unavailable.";
+        }
+
+        if (message.includes("did not update") ||
+            message.includes("rejected smart object") ||
+            message.includes("rejected placedLayerReplaceContents") ||
+            message.includes("not replaced")) {
+            return message;
         }
 
         return "Replacement failed.";

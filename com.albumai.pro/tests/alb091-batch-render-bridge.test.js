@@ -133,6 +133,125 @@ export async function runAlb091Tests() {
         check(invalidProject.accepted === false, "Fails validation when projectId differs");
     }
 
+    // Test 4: Batch request preserves Lab Print options across multiple sheets
+    {
+        const album = {
+            schemaVersion: 1,
+            id: "album-1",
+            sheets: [
+                { id: "s1", templateId: "t-1", label: "Spread 1", slots: [{ slotId: 1, photoId: "p1" }] },
+                { id: "s2", templateId: "t-2", label: "Spread 2", slots: [{ slotId: 1, photoId: "p2" }, { slotId: 2, photoId: "p3" }] }
+            ]
+        };
+        const exportOptions = {
+            type: "LAB_PRINT",
+            presetType: "LAB_300_DPI_FLUSHMOUNT",
+            bleedInches: 0.125,
+            format: "JPEG"
+        };
+        const result = createAlbumBatchRenderRequest({
+            projectId: "proj-1",
+            album,
+            registry: templateRegistry,
+            selectedPhotoIds: ["p1", "p2", "p3"],
+            options: exportOptions
+        });
+        check(result.accepted === true, "Lab Print batch request accepted");
+        check(result.request.sheetRequests.length === 2, "2 sheet requests in Lab Print batch");
+        check(result.request.options.type === "LAB_PRINT", "Preserves LAB_PRINT type in batch options");
+        check(result.request.options.format === "JPEG", "Preserves format JPEG in batch options");
+    }
+
+    // Test 5: Fully assigned album -> LAB_PRINT batch request accepted
+    {
+        const album = {
+            schemaVersion: 1,
+            id: "album-1",
+            sheets: [
+                { id: "s1", templateId: "t-1", label: "Spread 1", slots: [{ slotId: 1, photoId: "p1" }] },
+                { id: "s2", templateId: "t-2", label: "Spread 2", slots: [{ slotId: 1, photoId: "p2" }, { slotId: 2, photoId: "p3" }] }
+            ]
+        };
+        const result = createAlbumBatchRenderRequest({
+            projectId: "proj-1",
+            album,
+            registry: templateRegistry,
+            selectedPhotoIds: ["p1", "p2", "p3"],
+            options: { type: "LAB_PRINT", format: "JPEG" }
+        });
+        check(result.accepted === true, "Test 5: Fully assigned album accepted for LAB_PRINT");
+        check(result.request.sheetRequests.length === 2, "Test 5: 2 sheet requests generated");
+    }
+
+    // Test 6: One incomplete spread -> LAB_PRINT batch request blocked with INCOMPLETE_SPREADS
+    {
+        const album = {
+            schemaVersion: 1,
+            id: "album-1",
+            sheets: [
+                { id: "s1", templateId: "t-1", label: "Spread 1", slots: [{ slotId: 1, photoId: "p1" }] }, // 1/1 complete
+                { id: "s2", templateId: "t-2", label: "Spread 2", slots: [{ slotId: 1, photoId: "p2" }] }  // 1/2 INCOMPLETE
+            ]
+        };
+        const result = createAlbumBatchRenderRequest({
+            projectId: "proj-1",
+            album,
+            registry: templateRegistry,
+            selectedPhotoIds: ["p1", "p2"],
+            options: { type: "LAB_PRINT", format: "JPEG" }
+        });
+        check(result.accepted === false, "Test 6: Incomplete album rejected for LAB_PRINT");
+        check(result.reasonCodes.includes(AlbumSheetRenderReason.INCOMPLETE_SPREADS), "Test 6: Reason is INCOMPLETE_SPREADS");
+        check(result.details.totalIncomplete === 1, "Test 6: 1 incomplete spread reported");
+        check(result.details.totalMissing === 1, "Test 6: 1 missing slot reported");
+        check(result.details.incompleteSheets[0].sheetId === "s2", "Test 6: Identified s2 as incomplete");
+        check(result.details.incompleteSheets[0].assignedCount === 1, "Test 6: s2 has 1 assigned");
+        check(result.details.incompleteSheets[0].totalCount === 2, "Test 6: s2 has 2 total");
+        check(result.details.message.includes("Spread 2 (1/2)"), "Test 6: Message details affected spread");
+    }
+
+    // Test 7: Multiple incomplete spreads -> deterministic preflight details
+    {
+        const album = {
+            schemaVersion: 1,
+            id: "album-1",
+            sheets: [
+                { id: "s1", templateId: "t-2", label: "Spread 1", slots: [{ slotId: 1, photoId: "p1" }] }, // 1/2 INCOMPLETE
+                { id: "s2", templateId: "t-2", label: "Spread 2", slots: [] }                               // 0/2 INCOMPLETE
+            ]
+        };
+        const result = createAlbumBatchRenderRequest({
+            projectId: "proj-1",
+            album,
+            registry: templateRegistry,
+            selectedPhotoIds: ["p1"],
+            options: { type: "LAB_PRINT", format: "JPEG" }
+        });
+        check(result.accepted === false, "Test 7: Multi-incomplete album rejected");
+        check(result.details.totalIncomplete === 2, "Test 7: 2 incomplete spreads reported");
+        check(result.details.totalMissing === 3, "Test 7: 3 missing slots reported (1 + 2)");
+        check(result.details.incompleteSheets.length === 2, "Test 7: 2 incomplete sheet entries");
+    }
+
+    // Test 8: Non-LAB_PRINT (e.g. proof draft) allows incomplete spreads (warning-only separation)
+    {
+        const album = {
+            schemaVersion: 1,
+            id: "album-1",
+            sheets: [
+                { id: "s1", templateId: "t-2", label: "Spread 1", slots: [{ slotId: 1, photoId: "p1" }] } // 1/2 partial
+            ]
+        };
+        const result = createAlbumBatchRenderRequest({
+            projectId: "proj-1",
+            album,
+            registry: templateRegistry,
+            selectedPhotoIds: ["p1"],
+            options: { type: "PDF_PROOF" }
+        });
+        check(result.accepted === true, "Test 8: PDF_PROOF allows partial layout as warning-only");
+    }
+
     console.info(`PASS ALB-091: All assertions passed (${assertions} assertions).`);
 }
 
