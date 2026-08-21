@@ -36,7 +36,7 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-096 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-097 suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |
 | `npm run build:dev` | Create a development bundle with source mapping |
@@ -46,6 +46,7 @@ dependency graph recorded in `package-lock.json`.
 | `npm run audit:prod` | Require a zero-advisory production dependency tree |
 | `npm run deps:check` | Validate the installed dependency graph |
 | `npm run verify:ci` | Run tests, strict build, audits, graph validation, and generated-output cleanliness |
+| `npm run distribution:verify` | Verify direct CCX packaging readiness or an actual UDT-generated CCX |
 
 ## Continuous integration
 
@@ -65,6 +66,15 @@ the committed `dist/` bundle is reproducible.
 
 The `uxp:load`, `uxp:reload`, `uxp:watch`, and `uxp:debug` scripts are
 available when the UXP command-line tool is installed and configured.
+
+## End-user installation
+
+Adobe UXP plugins use `.ccx` packages for direct installation through Creative
+Cloud Desktop. The current GitHub ZIP remains the reproducible development
+bundle; ALB-097 qualified a UXP Developer Tool-generated CCX for direct local
+installation of version `1.1.0`. See `ALB-097_DIRECT_CCX_DISTRIBUTION.md` at the
+repository root for the locked filename, checksums, install evidence, and
+first-launch folder reauthorization note.
 
 ## Repository layout
 
@@ -103,3 +113,8 @@ The release ZIP has no enclosing folder. Its root contains only
 license notices, and the four required icons. Run `npm run package:verify` to
 create two disposable packages and require byte-identical ZIPs, inventories,
 and checksums.
+
+Run `npm run distribution:verify` before using Adobe UXP Developer Tool's
+**Package** action. After UDT creates a `.ccx`, pass its absolute path with
+`npm run distribution:verify -- --ccx /path/to/AlbumAI-Pro.ccx` before any
+installation or distribution test.
