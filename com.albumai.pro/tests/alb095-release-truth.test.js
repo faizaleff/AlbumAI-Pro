@@ -7,7 +7,7 @@ const path = require("path");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const REPOSITORY_ROOT = path.resolve(PROJECT_ROOT, "..");
-const EXPECTED_VERSION = "1.1.0";
+const PUBLISHED_VERSION = "1.1.0";
 const EXPECTED_PACKAGE_SHA256 =
     "52eb9d8afe903a546ba65ab11a0a53dbdbeee763c423b431db12bd67b1f0a0dc";
 
@@ -34,11 +34,14 @@ try {
     const sourceManifest = readJson("plugin/manifest.json");
     const builtManifest = readJson("dist/manifest.json");
 
-    check(packageJson.version === EXPECTED_VERSION, "package.json release version differs");
-    check(packageLock.version === EXPECTED_VERSION, "package-lock release version differs");
-    check(packageLock.packages?.[""]?.version === EXPECTED_VERSION, "lockfile root version differs");
-    check(sourceManifest.version === EXPECTED_VERSION, "source manifest version differs");
-    check(builtManifest.version === EXPECTED_VERSION, "built manifest version differs");
+    check(packageLock.version === packageJson.version, "package-lock version differs from package.json");
+    check(packageLock.packages?.[""]?.version === packageJson.version, "lockfile root version differs");
+    check(sourceManifest.version === packageJson.version, "source manifest version differs");
+    check(builtManifest.version === packageJson.version, "built manifest version differs");
+    check(
+        Number(packageJson.version.split(".").join("")) >= Number(PUBLISHED_VERSION.split(".").join("")),
+        "current version regressed below the published v1.1.0 baseline"
+    );
     check(sourceManifest.id === "com.albumai.pro", "source manifest plugin id differs");
     check(builtManifest.id === sourceManifest.id, "built manifest plugin id differs");
 

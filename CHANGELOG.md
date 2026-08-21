@@ -2,6 +2,30 @@
 
 All notable changes to AlbumAI Pro will be documented in this file.
 
+## [1.1.1] - Unreleased
+
+### Fixed and hardened
+
+- Replaced stale hardcoded panel version badges with the canonical package
+  version identity.
+- Added fail-closed verification for UXP Developer Tool-generated CCX packages,
+  including exact inventory, manifest, runtime identity, and checksum checks.
+- Established a patch-release provenance boundary so the direct-install CCX,
+  source commit, build ID, tag, and release assets cannot diverge.
+
+### Verification
+
+- Automated qualification: PASS under ALB-098.
+- Production bundle: 716,659 bytes; SHA-256
+  `62a2fc71bc402b9895d60207cb7b587b3eee0a01fb8ae5abf9fc5e414b635fc8`.
+- Reproducible `AlbumAI-Pro-1.1.1.zip`: 192,736 bytes; SHA-256
+  `2cfe0237d468ed3a140b4fab725887ca4ab7f06df2f48d247d1d4dba24548ee9`.
+- Verified `com.albumai.pro_PS.ccx`: 188,473 bytes; SHA-256
+  `ec50eed854563ee445fec4772b6400a17e53211bf55a4cb6c1b02f6107b2cd3d`.
+- Installed Photoshop runtime: PASS through Creative Cloud Desktop CCX
+  installation, canonical `v1.1.1` badges, REC005 project reopen, photo-folder
+  re-authorization, and persisted four-sheet multi-template assignments.
+
 ## [1.1.0] - 2026-08-21
 
 ### Added

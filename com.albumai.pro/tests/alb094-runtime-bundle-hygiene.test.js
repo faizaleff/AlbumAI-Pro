@@ -7,7 +7,7 @@ const path = require("path");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const PLUGIN_ROOT = path.join(PROJECT_ROOT, "plugin");
-const EXPECTED_BUILD_ID = "ALB-094-bundle-v1";
+const EXPECTED_BUILD_ID = "ALB-098-v1.1.1-patch-v1";
 const RETIRED_BUILD_ID = "ALB-030.3-scroll-commit-timing-v1";
 
 let assertions = 0;
@@ -64,7 +64,7 @@ try {
     );
     check(
         identitySource.includes(`"${EXPECTED_BUILD_ID}"`),
-        "Source must expose the current ALB-094 runtime identity"
+        "Source must expose the current runtime identity"
     );
     check(
         !identitySource.includes(RETIRED_BUILD_ID),

@@ -7,6 +7,10 @@
 The verified package, checksum, inventory, and release notes are published at
 [`v1.1.0`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.0).
 
+**1.1.1 patch qualification is in progress (ALB-098).** It aligns the
+direct-install CCX with an exact source commit, runtime identity, tag, and
+release asset set without changing the qualified album workflow.
+
 The product currently has one canonical Photoshop/UXP runtime and a verified
 project workflow from photo import through multi-template album render and
 transactional JPEG output.
