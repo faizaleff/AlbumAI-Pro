@@ -9,6 +9,11 @@ The current stable release is **1.1.0**, published as
 qualified for exact manual slot assignment, multi-template A-B-A-B album
 rendering, and reproducible output.
 
+The `1.1.1` patch line is under ALB-098 qualification so the direct-install
+CCX, source commit, runtime identity, package version, tag, and release assets
+share one exact provenance boundary. The published `v1.1.0` assets remain
+immutable.
+
 ## Requirements
 
 - Adobe Photoshop 27.4.0 or newer
@@ -36,7 +41,7 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-097 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-098 suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |
 | `npm run build:dev` | Create a development bundle with source mapping |
@@ -72,9 +77,10 @@ available when the UXP command-line tool is installed and configured.
 Adobe UXP plugins use `.ccx` packages for direct installation through Creative
 Cloud Desktop. The current GitHub ZIP remains the reproducible development
 bundle; ALB-097 qualified a UXP Developer Tool-generated CCX for direct local
-installation of version `1.1.0`. See `ALB-097_DIRECT_CCX_DISTRIBUTION.md` at the
-repository root for the locked filename, checksums, install evidence, and
-first-launch folder reauthorization note.
+installation. ALB-098 moves that qualified distribution path onto the exact
+`1.1.1` patch provenance. See `ALB-097_DIRECT_CCX_DISTRIBUTION.md` for the
+original gate and `ALB-098_V1.1.1_PATCH_RELEASE_QUALIFICATION.md` for the patch
+release evidence.
 
 ## Repository layout
 

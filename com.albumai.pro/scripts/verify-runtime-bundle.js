@@ -9,7 +9,7 @@ const path = require("path");
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const PLUGIN_ROOT = path.join(PROJECT_ROOT, "plugin");
 const DIST_ROOT = path.join(PROJECT_ROOT, "dist");
-const EXPECTED_BUILD_ID = "ALB-094-bundle-v1";
+const EXPECTED_BUILD_ID = "ALB-098-v1.1.1-patch-v1";
 const RETIRED_BUILD_ID = "ALB-030.3-scroll-commit-timing-v1";
 const STATIC_FILES = Object.freeze([
     "icons/icon_D.png",
