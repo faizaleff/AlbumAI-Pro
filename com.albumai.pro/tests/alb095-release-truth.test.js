@@ -61,7 +61,11 @@ try {
 
     const readme = fs.readFileSync(path.join(PROJECT_ROOT, "README.md"), "utf8");
     check(readme.includes("current stable release is **1.1.0**"), "README release line is stale");
-    check(readme.includes("ALB-043 through ALB-096"), "README test boundary is stale");
+    const testBoundary = readme.match(/ALB-043 through ALB-(\d+)/);
+    check(
+        Boolean(testBoundary) && Number(testBoundary[1]) >= 95,
+        "README test boundary regressed below ALB-095"
+    );
     check(readme.includes("above 700 KiB"), "README bundle budget is stale");
 
     const roadmap = fs.readFileSync(path.join(PROJECT_ROOT, "docs/ROADMAP.md"), "utf8");

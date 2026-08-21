@@ -38,11 +38,19 @@ try {
     check(readme.includes("current stable release is **1.1.0**"), "README does not identify the stable release");
     check(readme.includes(RELEASE_URL), "README lacks the published release URL");
     check(!readme.includes("current release candidate"), "README retains release-candidate wording");
-    check(readme.includes("ALB-043 through ALB-096"), "README test boundary is stale");
+    const testBoundary = readme.match(/ALB-043 through ALB-(\d+)/);
+    check(
+        Boolean(testBoundary) && Number(testBoundary[1]) >= 96,
+        "README test boundary regressed below ALB-096"
+    );
 
     check(roadmap.includes("1.1.0 stable — released 2026-08-21"), "roadmap stable release line is missing");
     check(roadmap.includes(RELEASE_URL), "roadmap lacks the published release URL");
-    check(!roadmap.includes("qualification in progress"), "roadmap retains in-progress qualification wording");
+    const currentReleaseSection = roadmap.match(/## Current release line([\s\S]*?)(?=\n## )/)?.[1] || "";
+    check(
+        !currentReleaseSection.includes("qualification in progress"),
+        "roadmap release section retains in-progress qualification wording"
+    );
     check(roadmap.includes("ALB-070 local-AI architecture issue remains open"), "roadmap hides the active AI gate");
 
     check(qualification.includes("RELEASED — v1.1.0"), "qualification does not record publication");

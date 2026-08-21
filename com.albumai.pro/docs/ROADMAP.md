@@ -63,7 +63,9 @@ runtime qualification before they may be presented as product behavior.
 
 ### Distribution and collaboration
 
-- Marketplace-ready signing and installation flow
+- Direct `.ccx` packaging and Creative Cloud Desktop installation — ALB-097
+  delivered and runtime-qualified
+- Marketplace listing identity and Adobe review after the direct-package gate
 - Cloud sync and team collaboration
 - Mobile/client proof review
 

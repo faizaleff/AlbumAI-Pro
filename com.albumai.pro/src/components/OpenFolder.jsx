@@ -39,6 +39,7 @@ import {
     resolveWizardNavigation,
     workspaceModeForWizardStep
 } from "../services/PhotoGroupingEngine";
+import { ALBUMAI_VERSION } from "../config/buildIdentity";
 
 export default function OpenFolder() {
 
@@ -1058,7 +1059,7 @@ export default function OpenFolder() {
                         <span>✨ AlbumAI Pro</span>
                     </span>
                     <span className={`workspace-project-badge ${hasProject ? "active" : ""}`}>
-                        {hasProject ? `📁 ${project.metadata.name}` : "v1.0.1"}
+                        {hasProject ? `📁 ${project.metadata.name}` : `v${ALBUMAI_VERSION}`}
                     </span>
                 </div>
 
@@ -1158,7 +1159,7 @@ export default function OpenFolder() {
                         </h1>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
                             <span style={{ fontSize: 11, background: "#1f6feb22", color: "#58a6ff", border: "1px solid #388bfd44", padding: "2px 8px", borderRadius: 12, fontWeight: 600 }}>
-                                v1.0.1
+                                v{ALBUMAI_VERSION}
                             </span>
                             <span style={{ fontSize: 12, color: "#8b949e" }}>
                                 Smart Wedding & Event Album Designer
