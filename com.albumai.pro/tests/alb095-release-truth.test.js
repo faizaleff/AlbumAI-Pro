@@ -57,15 +57,15 @@ try {
     check(qualification.includes(EXPECTED_PACKAGE_SHA256), "qualification checksum differs");
     check(qualification.includes("exactly nine allowlisted runtime files"), "qualification inventory boundary missing");
     check(qualification.includes("ALBUMAI_BUILD_ID ALB-094-bundle-v1"), "runtime evidence is missing");
-    check(qualification.includes("RELEASE CANDIDATE QUALIFIED — READY FOR REVIEW AND COMMIT"), "qualification result is stale");
+    check(qualification.includes("RELEASED — v1.1.0"), "qualification result is stale");
 
     const readme = fs.readFileSync(path.join(PROJECT_ROOT, "README.md"), "utf8");
-    check(readme.includes("current release candidate is **1.1.0**"), "README release line is stale");
-    check(readme.includes("ALB-043 through ALB-095"), "README test boundary is stale");
+    check(readme.includes("current stable release is **1.1.0**"), "README release line is stale");
+    check(readme.includes("ALB-043 through ALB-096"), "README test boundary is stale");
     check(readme.includes("above 700 KiB"), "README bundle budget is stale");
 
     const roadmap = fs.readFileSync(path.join(PROJECT_ROOT, "docs/ROADMAP.md"), "utf8");
-    check(roadmap.includes("1.1.0 release candidate — ALB-095"), "roadmap release line is stale");
+    check(roadmap.includes("1.1.0 stable — released 2026-08-21"), "roadmap release line is stale");
     check(roadmap.includes("Roadmap items are not shipped claims"), "roadmap claims boundary is missing");
 
     console.info(`PASS ALB-095: ${assertions} release truth assertions`);

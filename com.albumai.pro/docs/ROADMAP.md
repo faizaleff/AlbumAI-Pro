@@ -2,7 +2,10 @@
 
 ## Current release line
 
-**1.1.0 release candidate — ALB-095 qualification in progress**
+**1.1.0 stable — released 2026-08-21**
+
+The verified package, checksum, inventory, and release notes are published at
+[`v1.1.0`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.0).
 
 The product currently has one canonical Photoshop/UXP runtime and a verified
 project workflow from photo import through multi-template album render and
@@ -36,6 +39,11 @@ transactional JPEG output.
 - Reproducible allowlisted release packaging and canonical UXP bundle identity.
 
 ## Planned product phases
+
+The ALB-070 local-AI architecture issue remains open because production model
+licensing, representative package/latency/memory budgets, and complete host
+evidence are not yet qualified. The shipped fallback remains deterministic
+local signals plus manual culling.
 
 ### AI editing
 
