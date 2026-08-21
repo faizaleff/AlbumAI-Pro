@@ -4,6 +4,9 @@ AlbumAI Pro is a Photoshop UXP plugin for project-based album production. The
 current workflow manages ordered PSD templates, photo selection and placement,
 transactional PSD/JPEG output, cancellation, recovery, resume, and safe retry.
 
+The current release candidate is **1.1.0**, qualified for exact manual slot
+assignment, multi-template A-B-A-B album rendering, and reproducible output.
+
 ## Requirements
 
 - Adobe Photoshop 27.4.0 or newer
@@ -31,7 +34,7 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run all deterministic ALB-043 through ALB-045 harness suites |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-095 suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |
 | `npm run build:dev` | Create a development bundle with source mapping |
@@ -47,7 +50,7 @@ dependency graph recorded in `package-lock.json`.
 GitHub Actions runs on every pull request and every push to `main` using the
 toolchain pinned by `.nvmrc`. CI performs a clean lockfile install, checks
 committed diff whitespace, runs all deterministic tests, rejects webpack
-warnings or a production entrypoint above 525 KiB, audits both the complete and
+warnings or a production entrypoint above 700 KiB, audits both the complete and
 production dependency trees, validates the installed graph, and confirms that
 the committed `dist/` bundle is reproducible.
 
