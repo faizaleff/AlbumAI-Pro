@@ -4,8 +4,8 @@ AlbumAI Pro is a Photoshop UXP plugin for project-based album production. The
 current workflow manages ordered PSD templates, photo selection and placement,
 transactional PSD/JPEG output, cancellation, recovery, resume, and safe retry.
 
-The current stable release is **1.1.0**, published as
-[`v1.1.0`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.0) and
+The current stable release is **1.1.1**, published as
+[`v1.1.1`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.1) and
 qualified for exact manual slot assignment, multi-template A-B-A-B album
 rendering, and reproducible output.
 
