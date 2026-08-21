@@ -2,6 +2,43 @@
 
 All notable changes to AlbumAI Pro will be documented in this file.
 
+## [1.1.0] - 2026-08-21
+
+### Added
+
+- **Multi-Template Album Qualification (ALB-092)**: Registered `01.psd` and
+  `02.psd` templates can be mapped A-B-A-B across an ordered four-spread album.
+- **Exact Manual Slot Assignment (ALB-092)**: A selected Library photo can be
+  assigned to stable Smart Object layer IDs, reused across slots, persisted,
+  saved, and restored after project reopen.
+- **Full Album Batch Render (ALB-093)**: Four ordered spreads execute six exact
+  Smart Object replacements and produce deterministic `Spread_01.jpg` through
+  `Spread_04.jpg` transactional outputs.
+- **Runtime Bundle Verification (ALB-094)**: Production builds and release
+  packages verify the running identity and reject competing static JavaScript
+  bundle inputs.
+
+### Fixed and hardened
+
+- Preserved explicit Sheet slot bindings through placement planning instead of
+  reallocating repeated photo selections.
+- Normalized layer targeting across consecutive replacements in a two-slot PSD.
+- Removed stale `plugin/index.js`; Webpack is now the only producer of
+  `dist/index.js`.
+- Replaced the obsolete runtime identity with `ALB-094-bundle-v1` and added
+  deterministic source/bundle hygiene checks.
+
+### Verification
+
+- Architecture verification: PASS — 239 assertions, 115 reachable source files.
+- Regression verification: PASS — 964 assertions, 115/115 active files reached.
+- Hardening verification: PASS — 89 assertions.
+- Production bundle: PASS — 716,650 bytes, zero warnings.
+- Reproducible package: `AlbumAI-Pro-1.1.0.zip` — 192,731 bytes.
+- Package SHA-256: `52eb9d8afe903a546ba65ab11a0a53dbdbeee763c423b431db12bd67b1f0a0dc`.
+- Photoshop runtime: PASS — two-slot `01.psd`, single-slot `02.psd`, full
+  A-B-A-B batch, six replacements, four JPEG outputs, and current bundle ID.
+
 ## [1.0.1] - 2026-08-18
 
 ### Added

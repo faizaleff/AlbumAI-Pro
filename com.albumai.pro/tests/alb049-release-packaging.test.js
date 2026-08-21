@@ -16,6 +16,12 @@ const {
     sha256,
     validateReleaseInputs
 } = require("../scripts/release-package");
+const { version: currentVersion } = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "../package.json"), "utf8")
+);
+
+const currentArchiveName = `AlbumAI-Pro-${currentVersion}.zip`;
+const escapedArchiveName = currentArchiveName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 let assertionCount = 0;
 function test(name, callback) {
@@ -106,19 +112,19 @@ try {
     test("keeps package and manifest identity aligned", () => {
         assert.strictEqual(first.inventory.packageVersion, first.inventory.pluginVersion);
         assert.strictEqual(first.inventory.pluginId, "com.albumai.pro");
-        assert.strictEqual(first.inventory.archive.file, "AlbumAI-Pro-1.0.1.zip");
+        assert.strictEqual(first.inventory.archive.file, currentArchiveName);
     });
 
     test("refuses to overwrite an existing release archive and leaves original intact", () => {
         const overwriteDir = path.join(testRoot, "overwrite-zip-test");
         fs.mkdirSync(overwriteDir, { recursive: true });
-        const existingArchive = path.join(overwriteDir, "AlbumAI-Pro-1.0.1.zip");
+        const existingArchive = path.join(overwriteDir, currentArchiveName);
         const sentinelContent = Buffer.from("SENTINEL_ZIP_DO_NOT_OVERWRITE", "utf8");
         fs.writeFileSync(existingArchive, sentinelContent);
 
         assert.throws(
             () => packageRelease({ outputDir: overwriteDir }),
-            /Refusing to overwrite existing release artifact.*AlbumAI-Pro-1\.0\.1\.zip/
+            new RegExp(`Refusing to overwrite existing release artifact.*${escapedArchiveName}`)
         );
 
         assert.strictEqual(fs.readFileSync(existingArchive).toString("utf8"), "SENTINEL_ZIP_DO_NOT_OVERWRITE");
@@ -127,12 +133,12 @@ try {
     test("refuses to overwrite when checksum sidecar exists even if ZIP is absent", () => {
         const sidecarDir = path.join(testRoot, "sidecar-test");
         fs.mkdirSync(sidecarDir, { recursive: true });
-        const existingSha = path.join(sidecarDir, "AlbumAI-Pro-1.0.1.zip.sha256");
+        const existingSha = path.join(sidecarDir, `${currentArchiveName}.sha256`);
         fs.writeFileSync(existingSha, "SENTINEL_SHA_DO_NOT_OVERWRITE");
 
         assert.throws(
             () => packageRelease({ outputDir: sidecarDir }),
-            /Refusing to overwrite existing release artifact.*AlbumAI-Pro-1\.0\.1\.zip\.sha256/
+            new RegExp(`Refusing to overwrite existing release artifact.*${escapedArchiveName}\\.sha256`)
         );
 
         assert.strictEqual(fs.readFileSync(existingSha).toString("utf8"), "SENTINEL_SHA_DO_NOT_OVERWRITE");
@@ -141,25 +147,28 @@ try {
     test("refuses to overwrite when inventory JSON exists even if ZIP is absent", () => {
         const inventoryDir = path.join(testRoot, "inventory-test");
         fs.mkdirSync(inventoryDir, { recursive: true });
-        const existingInventory = path.join(inventoryDir, "AlbumAI-Pro-1.0.1.zip.inventory.json");
+        const existingInventory = path.join(inventoryDir, `${currentArchiveName}.inventory.json`);
         fs.writeFileSync(existingInventory, "SENTINEL_INVENTORY_DO_NOT_OVERWRITE");
 
         assert.throws(
             () => packageRelease({ outputDir: inventoryDir }),
-            /Refusing to overwrite existing release artifact.*AlbumAI-Pro-1\.0\.1\.zip\.inventory\.json/
+            new RegExp(`Refusing to overwrite existing release artifact.*${escapedArchiveName}\\.inventory\\.json`)
         );
 
         assert.strictEqual(fs.readFileSync(existingInventory).toString("utf8"), "SENTINEL_INVENTORY_DO_NOT_OVERWRITE");
     });
 
     test("enforces Git release tag protection on canonical default destination without bypass", () => {
-        const defaultDest = path.join(testRoot, "release", "1.0.1");
+        const defaultDest = path.join(testRoot, "release", currentVersion);
         assert.throws(
-            () => checkReleaseDestinationSafety(defaultDest, "AlbumAI-Pro-1.0.1.zip", "1.0.1", {
+            () => checkReleaseDestinationSafety(defaultDest, currentArchiveName, currentVersion, {
                 isDefaultReleaseTarget: true,
-                gitTagReader: () => new Set(["v1.0.1"])
+                gitTagReader: () => new Set([`v${currentVersion}`])
             }),
-            /Refusing to generate release package for version 1\.0\.1.*Git release tag 'v1\.0\.1' already exists/
+            new RegExp(
+                `Refusing to generate release package for version ${currentVersion.replace(/\./g, "\\.")}.*` +
+                `Git release tag 'v${currentVersion.replace(/\./g, "\\.")}' already exists`
+            )
         );
     });
 
