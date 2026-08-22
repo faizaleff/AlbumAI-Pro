@@ -9,10 +9,10 @@ The current stable release is **1.1.1**, published as
 qualified for exact manual slot assignment, multi-template A-B-A-B album
 rendering, and reproducible output.
 
-The `1.1.1` patch line is under ALB-098 qualification so the direct-install
-CCX, source commit, runtime identity, package version, tag, and release assets
-share one exact provenance boundary. The published `v1.1.0` assets remain
-immutable.
+The `1.1.1` patch passed ALB-098 qualification and ALB-099 release closeout.
+Its direct-install CCX, source commit, runtime identity, package version, tag,
+and release assets share one exact provenance boundary. Published release
+assets remain immutable.
 
 ## Requirements
 
@@ -41,7 +41,7 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-098 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-099 suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |
 | `npm run build:dev` | Create a development bundle with source mapping |
@@ -79,8 +79,8 @@ Cloud Desktop. The current GitHub ZIP remains the reproducible development
 bundle; ALB-097 qualified a UXP Developer Tool-generated CCX for direct local
 installation. ALB-098 moves that qualified distribution path onto the exact
 `1.1.1` patch provenance. See `ALB-097_DIRECT_CCX_DISTRIBUTION.md` for the
-original gate and `ALB-098_V1.1.1_PATCH_RELEASE_QUALIFICATION.md` for the patch
-release evidence.
+original gate, `ALB-098_V1.1.1_PATCH_RELEASE_QUALIFICATION.md` for qualification,
+and `docs/ALB-099_V1.1.1_RELEASE_CLOSEOUT.md` for publication evidence.
 
 ## Repository layout
 

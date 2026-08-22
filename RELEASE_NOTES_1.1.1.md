@@ -1,10 +1,12 @@
 # AlbumAI Pro 1.1.1
 
-- Status: release candidate
+- Status: released 2026-08-21
 - Version: 1.1.1
 - Runtime identity: `ALB-098-v1.1.1-patch-v1`
 - Release package: `AlbumAI-Pro-1.1.1.zip`
 - Direct installer: `com.albumai.pro_PS.ccx`
+- Release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.1
+- Tag target: `2fb03a453575b2d91a76d2ae7fefa488b8500816`
 
 ## What changed
 
@@ -47,5 +49,6 @@ the CCX installer.
 - Full album rerender: not required because the patch changes release and
   display identity only.
 
-Final release links will be recorded only after the approval-gated tag and
-release are created.
+The approval-gated `v1.1.1` tag and GitHub release were published on
+2026-08-21. The four published assets and their exact checksums are recorded in
+`com.albumai.pro/docs/ALB-099_V1.1.1_RELEASE_CLOSEOUT.md`.

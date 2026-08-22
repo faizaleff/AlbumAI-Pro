@@ -17,6 +17,8 @@ const PATCH_CCX_SHA256 =
     "ec50eed854563ee445fec4772b6400a17e53211bf55a4cb6c1b02f6107b2cd3d";
 const PUBLISHED_V110_SHA256 =
     "52eb9d8afe903a546ba65ab11a0a53dbdbeee763c423b431db12bd67b1f0a0dc";
+const PATCH_RELEASE_URL = "https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.1";
+const PATCH_TAG_TARGET = "2fb03a453575b2d91a76d2ae7fefa488b8500816";
 
 let assertions = 0;
 
@@ -83,19 +85,22 @@ try {
     check(qualification.includes("Do not tag, publish, overwrite release assets"), "release approval gate is missing");
     check(releaseNotes.includes(`Version: ${PATCH_VERSION}`), "release notes version differs");
     check(releaseNotes.includes("com.albumai.pro_PS.ccx"), "release notes omit the end-user artifact");
-    check(releaseNotes.includes("release candidate"), "release notes overclaim publication");
+    check(releaseNotes.includes("Status: released 2026-08-21"), "release notes publication status is stale");
+    check(releaseNotes.includes(PATCH_RELEASE_URL), "release notes omit the published release URL");
+    check(releaseNotes.includes(PATCH_TAG_TARGET), "release notes tag target differs");
     check(releaseNotes.includes(PATCH_ZIP_SHA256), "release notes ZIP checksum differs");
     check(releaseNotes.includes(PATCH_CCX_SHA256), "release notes CCX checksum differs");
     check(releaseNotes.includes("installed Photoshop startup: PASS"), "release notes runtime result is missing");
     check(releaseNotes.includes("persisted assignments: PASS"), "release notes persistence result is missing");
-    check(changelog.includes("## [1.1.1] - Unreleased"), "changelog patch entry is missing");
+    check(changelog.includes("## [1.1.1] - 2026-08-21"), "changelog published patch entry is missing");
 
     const readme = readProjectFile("README.md");
     const roadmap = readProjectFile("docs/ROADMAP.md");
-    check(readme.includes("current stable release is **1.1.0**"), "published stable line changed prematurely");
-    check(readme.includes("1.1.1` patch line is under ALB-098 qualification"), "README patch status missing");
-    check(readme.includes("ALB-043 through ALB-098"), "README test boundary is stale");
-    check(roadmap.includes("1.1.1 patch qualification is in progress"), "roadmap patch status missing");
+    check(readme.includes("current stable release is **1.1.1**"), "README stable patch line is stale");
+    check(readme.includes("passed ALB-098 qualification and ALB-099 release closeout"), "README closeout status missing");
+    check(readme.includes("ALB-043 through ALB-099"), "README test boundary is stale");
+    check(roadmap.includes("1.1.1 stable — released 2026-08-21"), "roadmap patch release status missing");
+    check(!roadmap.includes("qualification is in progress"), "roadmap retains stale qualification wording");
 
     const v110Notes = readRepositoryFile("RELEASE_NOTES_1.1.0.md");
     const v110Qualification = readRepositoryFile("ALB-095_V1.1.0_RELEASE_QUALIFICATION.md");

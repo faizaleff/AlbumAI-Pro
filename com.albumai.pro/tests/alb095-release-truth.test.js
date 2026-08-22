@@ -63,7 +63,11 @@ try {
     check(qualification.includes("RELEASED — v1.1.0"), "qualification result is stale");
 
     const readme = fs.readFileSync(path.join(PROJECT_ROOT, "README.md"), "utf8");
-    check(readme.includes("current stable release is **1.1.0**"), "README release line is stale");
+    const stableVersion = readme.match(/current stable release is \*\*(\d+\.\d+\.\d+)\*\*/)?.[1];
+    check(
+        Boolean(stableVersion) && Number(stableVersion.split(".").join("")) >= Number(PUBLISHED_VERSION.split(".").join("")),
+        "README stable release regressed below v1.1.0"
+    );
     const testBoundary = readme.match(/ALB-043 through ALB-(\d+)/);
     check(
         Boolean(testBoundary) && Number(testBoundary[1]) >= 95,
@@ -72,7 +76,7 @@ try {
     check(readme.includes("above 700 KiB"), "README bundle budget is stale");
 
     const roadmap = fs.readFileSync(path.join(PROJECT_ROOT, "docs/ROADMAP.md"), "utf8");
-    check(roadmap.includes("1.1.0 stable — released 2026-08-21"), "roadmap release line is stale");
+    check(roadmap.includes("1.1.1 stable — released 2026-08-21"), "roadmap current release line is stale");
     check(roadmap.includes("Roadmap items are not shipped claims"), "roadmap claims boundary is missing");
 
     console.info(`PASS ALB-095: ${assertions} release truth assertions`);
