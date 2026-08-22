@@ -1,5 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
+import {
+    ALBUMAI_BUILD_ID,
+    ALBUMAI_PLUGIN_ID,
+    ALBUMAI_RELEASE_URL,
+    ALBUMAI_SUPPORT_ID,
+    ALBUMAI_VERSION
+} from "../config/buildIdentity";
+
+const NETWORK_ACCESS_STATUS = "Not requested (offline by default)";
+
+export function runtimeIdentityLines() {
+    return [
+        "Runtime Identity",
+        "Product: AlbumAI Pro",
+        `Plugin ID: ${ALBUMAI_PLUGIN_ID}`,
+        `Version: ${ALBUMAI_VERSION}`,
+        `Build ID: ${ALBUMAI_BUILD_ID}`,
+        `Support ID: ${ALBUMAI_SUPPORT_ID}`,
+        `Release: ${ALBUMAI_RELEASE_URL}`,
+        `Network Access: ${NETWORK_ACCESS_STATUS}`,
+        ""
+    ];
+}
 
 function LayerTree({ layers = [], depth = 0 }) {
     return (
@@ -131,6 +154,7 @@ export function summaryText({
         "AlbumAI Summary",
         `Generated: ${new Date().toISOString()}`,
         "",
+        ...runtimeIdentityLines(),
         "Project",
         `Status: ${hasProject ? "READY" : "MISSING"}`,
         `ID: ${textValue(projectId)}`,
@@ -294,6 +318,7 @@ export function debugText({
         "AlbumAI Debug Log",
         `Generated: ${new Date().toISOString()}`,
         "",
+        ...runtimeIdentityLines(),
         "Project",
         `ID: ${textValue(projectId)}`,
         `Name: ${textValue(projectName)}`,
@@ -698,6 +723,9 @@ export function ExecutionDetails({
 
             <div style={sectionStyle}>
                 <h4 style={titleStyle}>Project Health</h4>
+                <Row label="Runtime" value={`${ALBUMAI_PLUGIN_ID} v${ALBUMAI_VERSION}`} />
+                <Row label="Build ID" value={ALBUMAI_BUILD_ID} />
+                <Row label="Support ID" value={ALBUMAI_SUPPORT_ID} />
                 <Row label="Project" value={hasProject ? "READY" : "MISSING"} />
                 <Row label="Photos" value={healthPhotos.length} />
                 <Row label="Template" value={healthTemplate ? "READY" : "MISSING"} />
