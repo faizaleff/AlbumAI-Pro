@@ -2,7 +2,7 @@
 
 All notable changes to AlbumAI Pro will be documented in this file.
 
-## [1.1.1] - Unreleased
+## [1.1.1] - 2026-08-21
 
 ### Fixed and hardened
 
@@ -25,6 +25,8 @@ All notable changes to AlbumAI Pro will be documented in this file.
 - Installed Photoshop runtime: PASS through Creative Cloud Desktop CCX
   installation, canonical `v1.1.1` badges, REC005 project reopen, photo-folder
   re-authorization, and persisted four-sheet multi-template assignments.
+- Published release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.1
+- Direct installer: `com.albumai.pro_PS.ccx`.
 
 ## [1.1.0] - 2026-08-21
 

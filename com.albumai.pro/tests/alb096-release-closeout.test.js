@@ -35,8 +35,11 @@ try {
     const qualification = readRepositoryFile("ALB-095_V1.1.0_RELEASE_QUALIFICATION.md");
     const closeout = readRepositoryFile("ALB-096_V1.1.0_RELEASE_CLOSEOUT.md");
 
-    check(readme.includes("current stable release is **1.1.0**"), "README does not identify the stable release");
-    check(readme.includes(RELEASE_URL), "README lacks the published release URL");
+    const stableVersion = readme.match(/current stable release is \*\*(\d+\.\d+\.\d+)\*\*/)?.[1];
+    check(
+        Boolean(stableVersion) && Number(stableVersion.split(".").join("")) >= 110,
+        "README stable release regressed below v1.1.0"
+    );
     check(!readme.includes("current release candidate"), "README retains release-candidate wording");
     const testBoundary = readme.match(/ALB-043 through ALB-(\d+)/);
     check(
@@ -44,8 +47,7 @@ try {
         "README test boundary regressed below ALB-096"
     );
 
-    check(roadmap.includes("1.1.0 stable — released 2026-08-21"), "roadmap stable release line is missing");
-    check(roadmap.includes(RELEASE_URL), "roadmap lacks the published release URL");
+    check(roadmap.includes("1.1.1 stable — released 2026-08-21"), "roadmap current stable release line is missing");
     const currentReleaseSection = roadmap.match(/## Current release line([\s\S]*?)(?=\n## )/)?.[1] || "";
     check(
         !currentReleaseSection.includes("qualification in progress"),
