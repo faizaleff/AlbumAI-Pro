@@ -85,6 +85,14 @@ non-publishable report, and imports neither UXP storage nor Photoshop APIs.
 Its optional 20-run series aggregates only bounded timings, counts, and the
 maximum reported WASM page size; it returns no inputs and makes no
 host-process memory or reclamation claim.
+
+The ALB-112 engineering-only runtime compatibility gate binds loader evidence
+to the exact ALB-111 RUNTIME artifact digest. Both supported hosts must prove
+local-byte synchronous `WebAssembly.Module` and `WebAssembly.Instance`
+construction with no required async instantiation, fetch, worker, or
+cross-origin-isolation path. Missing or mismatched evidence blocks technical
+evaluation; an incompatible loader rejects it. The gate remains outside the
+runtime source graph and grants no product integration authority.
 Host runtime results remain evidence for the later ALB-070 ADR; they do not
 select a model or enable AI culling.
 

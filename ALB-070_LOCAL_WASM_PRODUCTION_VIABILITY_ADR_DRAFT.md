@@ -14,7 +14,8 @@ must be exactly one of `PASS`, `LIMITATION`, or `FAIL`. This draft remains
 representative package measurement, and licensing gate are not closed. ALB-110
 has approved the bounded concurrency policy and evaluation budgets. ALB-111
 machine-enforces the candidate inventory and recorded human-review evidence,
-but no real candidate has yet supplied the evidence required to pass them.
+and ALB-112 machine-enforces digest-bound runtime loader compatibility, but no
+real candidate has yet supplied the evidence required to pass them.
 
 Automated Node execution, browser WebAssembly support, or a simulated host
 cannot substitute for real Photoshop/UXP evidence. A successful bounded probe
@@ -61,6 +62,7 @@ evidence into a project.
 | Synthetic latency | 3 ms preprocessing, 1 ms cold instantiation, 0 ms first/warm inference on the recorded macOS run | Feasibility characterization only; not representative model performance |
 | Synthetic WASM memory | One fixed 65,536-byte page per run | Fixture invariant only; not a production model or host-process memory claim |
 | Model inventory and licensing | ALB-111 evidence contract implemented; no real candidates evaluated | Blocks any model integration or redistribution claim |
+| Runtime loader compatibility | ALB-112 exact-runtime evidence contract implemented; no real runtime evaluated | Blocks incompatible loader assumptions |
 
 The detailed evidence and the exact macOS limitation are recorded in
 `ALB-070_WASM_FEASIBILITY_REPORT.md` and are not reinterpreted here.
@@ -70,7 +72,7 @@ The detailed evidence and the exact macOS limitation are recorded in
 | Dimension | Required evidence or rule | Current state | Gate |
 | --- | --- | --- | --- |
 | Supported hosts | The production build executes the bounded probe on real supported macOS and Windows Photoshop/UXP hosts | Bounded execution recorded on both hosts; quantitative Windows evidence incomplete | BLOCKED |
-| WASM API compatibility | The chosen runtime path must work with UXP's synchronous `WebAssembly.Module` and `WebAssembly.Instance` constructors; async byte instantiation is not assumed | Synchronous path executed on both hosts | PASS |
+| WASM API compatibility | The exact reviewed runtime path must work with UXP's synchronous `WebAssembly.Module` and `WebAssembly.Instance` constructors; async byte instantiation, fetch, workers, and cross-origin isolation are not assumed | Synthetic synchronous path executed on both hosts; ALB-112 implemented, but no real digest-pinned runtime evaluated | BLOCKED |
 | Safety and privacy | Local-only execution, no new network domain, no Photoshop documents opened, bounded safe reports, and no sensitive values retained or logged | Contract and both host probes pass | PASS |
 | Cancellation and fallback | Cancellation is checked between bounded phases; unsupported, cancelled, stale, or invalid work produces non-publishable unavailable evidence | Contract and both host probes pass; production-provider design pending | BLOCKED |
 | Concurrency | One explicit upper bound, queue/duplicate-request behavior, cancellation ownership, and stale-publication rejection are documented and testable | ALB-110 approves one active project, model instance, and inference, with a 128-photo queue, duplicate reuse, cancellation, and stale-publication guards | PASS |
@@ -144,6 +146,10 @@ or bounded-concurrency requirement.
       ALB-110.
 - [x] Candidate source, artifact, digest, license, disclosure, obligations,
       notices, and recorded human-review evidence fail closed under ALB-111.
+- [x] Exact-runtime loader evidence fails closed under ALB-112 and is bound to
+      the reviewed RUNTIME digest.
+- [ ] At least one real runtime passes ALB-112 on both supported hosts without
+      async instantiation, fetch, workers, or cross-origin isolation.
 - [ ] At least one representative runtime/model package is measured against
       the technical budgets without being selected for product use.
 - [ ] Each evaluated candidate has a complete model and licensing inventory.

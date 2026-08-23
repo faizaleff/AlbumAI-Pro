@@ -3,6 +3,7 @@ import {
 } from "../../scripts/PhotoAiCandidateInventory";
 
 export const PHOTO_AI_FIXTURE_DIGEST = `sha256:${"a".repeat(64)}`;
+export const PHOTO_AI_FIXTURE_RUNTIME_DIGEST = `sha256:${"b".repeat(64)}`;
 
 export function completePhotoAiCandidateInventory(overrides = {}) {
     const base = {
@@ -26,7 +27,7 @@ export function completePhotoAiCandidateInventory(overrides = {}) {
                 kind: "RUNTIME",
                 artifactId: "fixture-runtime",
                 sourceUrl: "https://example.com/runtime",
-                digest: `sha256:${"b".repeat(64)}`,
+                digest: PHOTO_AI_FIXTURE_RUNTIME_DIGEST,
                 bytes: 2 * 1024 * 1024
             },
             {

@@ -2,6 +2,10 @@ import {
     PhotoAiCandidateReviewStatus,
     evaluatePhotoAiCandidateInventory
 } from "./PhotoAiCandidateInventory";
+import {
+    PhotoAiRuntimeCompatibilityStatus,
+    evaluatePhotoAiRuntimeCompatibility
+} from "./PhotoAiRuntimeCompatibility";
 
 function objectValue(value) {
     return value && typeof value === "object" && !Array.isArray(value)
@@ -22,6 +26,9 @@ export const PhotoAiProductionGateReason = Object.freeze({
     UNKNOWN_SCHEMA: "UNKNOWN_SCHEMA",
     LICENSING_GATE_INCOMPLETE: "LICENSING_GATE_INCOMPLETE",
     LICENSING_GATE_REJECTED: "LICENSING_GATE_REJECTED",
+    RUNTIME_COMPATIBILITY_INCOMPLETE: "RUNTIME_COMPATIBILITY_INCOMPLETE",
+    RUNTIME_COMPATIBILITY_REJECTED: "RUNTIME_COMPATIBILITY_REJECTED",
+    RUNTIME_ARTIFACT_MISMATCH: "RUNTIME_ARTIFACT_MISMATCH",
     PRIVACY_BOUNDARY_UNVERIFIED: "PRIVACY_BOUNDARY_UNVERIFIED",
     NETWORK_BOUNDARY_UNVERIFIED: "NETWORK_BOUNDARY_UNVERIFIED",
     NETWORK_DEPENDENCY_REQUIRED: "NETWORK_DEPENDENCY_REQUIRED",
@@ -186,6 +193,28 @@ export function evaluatePhotoAiProductionGate(value = {}) {
         PhotoAiCandidateReviewStatus.ELIGIBLE_FOR_TECHNICAL_EVALUATION) {
         reasons.add(PhotoAiProductionGateReason.LICENSING_GATE_INCOMPLETE);
     }
+    const runtimeCompatibility = evaluatePhotoAiRuntimeCompatibility(
+        source.runtimeCompatibility
+    );
+    if (runtimeCompatibility.status ===
+        PhotoAiRuntimeCompatibilityStatus.REJECTED) {
+        rejectedReasons.add(
+            PhotoAiProductionGateReason.RUNTIME_COMPATIBILITY_REJECTED
+        );
+    } else if (runtimeCompatibility.status !==
+        PhotoAiRuntimeCompatibilityStatus
+            .ELIGIBLE_FOR_TECHNICAL_EVALUATION) {
+        reasons.add(
+            PhotoAiProductionGateReason.RUNTIME_COMPATIBILITY_INCOMPLETE
+        );
+    }
+    const reviewedRuntime = candidateReview.artifacts.find(
+        artifact => artifact?.kind === "RUNTIME"
+    );
+    if (reviewedRuntime?.digest && runtimeCompatibility.runtime.runtimeDigest &&
+        reviewedRuntime.digest !== runtimeCompatibility.runtime.runtimeDigest) {
+        reasons.add(PhotoAiProductionGateReason.RUNTIME_ARTIFACT_MISMATCH);
+    }
     if (source.privacyBoundaryPassed !== true) {
         reasons.add(PhotoAiProductionGateReason.PRIVACY_BOUNDARY_UNVERIFIED);
     }
@@ -268,6 +297,7 @@ export function evaluatePhotoAiProductionGate(value = {}) {
         budgets: PHOTO_AI_PRODUCTION_BUDGETS,
         concurrency: PHOTO_AI_PRODUCTION_CONCURRENCY,
         candidateReview,
+        runtimeCompatibility,
         package: packageEvidence,
         hosts: Object.freeze(PRODUCTION_HOSTS.map(platform =>
             hostsByPlatform.get(platform) || null

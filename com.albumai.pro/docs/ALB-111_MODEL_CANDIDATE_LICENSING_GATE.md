@@ -48,6 +48,10 @@ evidence is derived from the reviewed MODEL, RUNTIME, GLUE, and NOTICES
 artifacts, preventing an unrelated caller-supplied package total from passing
 the 32 MiB budget.
 
+ALB-112 separately binds supported-host loader evidence to the digest of the
+reviewed RUNTIME artifact. Licensing eligibility alone cannot authorize a
+technically incompatible runtime.
+
 ## Runtime impact
 
 - No UI changes.

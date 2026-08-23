@@ -8,8 +8,13 @@ import {
     evaluatePhotoAiProductionGate
 } from "../scripts/PhotoAiProductionGate";
 import {
+    PHOTO_AI_FIXTURE_RUNTIME_DIGEST,
     completePhotoAiCandidateInventory
 } from "./fixtures/PhotoAiCandidateFixture";
+import {
+    completePhotoAiRuntimeCompatibility,
+    photoAiRuntimeCompatibilityHost
+} from "./fixtures/PhotoAiRuntimeCompatibilityFixture";
 
 function host(platform, overrides = {}) {
     return {
@@ -38,6 +43,7 @@ function eligibleEvidence(overrides = {}) {
     return {
         schemaVersion: PHOTO_AI_PRODUCTION_GATE_SCHEMA,
         candidateInventory: completePhotoAiCandidateInventory(),
+        runtimeCompatibility: completePhotoAiRuntimeCompatibility(),
         privacyBoundaryPassed: true,
         networkRequired: false,
         cancellationPassed: true,
@@ -46,6 +52,64 @@ function eligibleEvidence(overrides = {}) {
         hosts: [host("MACOS"), host("WINDOWS")],
         ...overrides
     };
+}
+
+{
+    const result = evaluatePhotoAiProductionGate(eligibleEvidence({
+        runtimeCompatibility: undefined
+    }));
+    assert.strictEqual(result.status, PhotoAiProductionGateStatus.BLOCKED);
+    assert(result.reasonCodes.includes(
+        PhotoAiProductionGateReason.RUNTIME_COMPATIBILITY_INCOMPLETE
+    ));
+}
+
+{
+    const result = evaluatePhotoAiProductionGate(eligibleEvidence({
+        runtimeCompatibilityState: "ELIGIBLE_FOR_TECHNICAL_EVALUATION",
+        runtimeCompatibility: undefined
+    }));
+    assert.strictEqual(result.status, PhotoAiProductionGateStatus.BLOCKED);
+    assert(result.reasonCodes.includes(
+        PhotoAiProductionGateReason.RUNTIME_COMPATIBILITY_INCOMPLETE
+    ));
+}
+
+{
+    const result = evaluatePhotoAiProductionGate(eligibleEvidence({
+        runtimeCompatibility: completePhotoAiRuntimeCompatibility({
+            hosts: [
+                photoAiRuntimeCompatibilityHost("MACOS", {
+                    fetchRequired: true
+                }),
+                photoAiRuntimeCompatibilityHost("WINDOWS")
+            ]
+        })
+    }));
+    assert.strictEqual(result.status, PhotoAiProductionGateStatus.REJECTED);
+    assert(result.reasonCodes.includes(
+        PhotoAiProductionGateReason.RUNTIME_COMPATIBILITY_REJECTED
+    ));
+}
+
+{
+    const result = evaluatePhotoAiProductionGate(eligibleEvidence({
+        runtimeCompatibility: completePhotoAiRuntimeCompatibility({
+            runtime: {
+                runtimeDigest: `sha256:${"e".repeat(64)}`
+            }
+        })
+    }));
+    assert.strictEqual(result.status, PhotoAiProductionGateStatus.BLOCKED);
+    assert(result.reasonCodes.includes(
+        PhotoAiProductionGateReason.RUNTIME_ARTIFACT_MISMATCH
+    ));
+    assert.strictEqual(
+        result.candidateReview.artifacts.find(
+            artifact => artifact?.kind === "RUNTIME"
+        ).digest,
+        PHOTO_AI_FIXTURE_RUNTIME_DIGEST
+    );
 }
 
 {
