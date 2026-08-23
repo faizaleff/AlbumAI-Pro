@@ -84,6 +84,13 @@ export default class BatchRecoverySnapshot {
             if (data[field].some(id => typeof id !== "string" || !id)) {
                 reasons.push(`${field} contains an invalid id.`);
             }
+        });
+        const uniqueIdArrayFields = [
+            "queueOrder", "completedTemplateIds", "successfulTemplateIds",
+            "failedTemplateIds", "pendingTemplateIds"
+        ];
+        uniqueIdArrayFields.forEach(field => {
+            if (!Array.isArray(data[field])) return;
             if (new Set(data[field]).size !== data[field].length) {
                 reasons.push(`${field} contains duplicate ids.`);
             }
