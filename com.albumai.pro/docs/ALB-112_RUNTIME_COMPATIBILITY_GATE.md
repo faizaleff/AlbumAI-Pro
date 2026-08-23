@@ -43,6 +43,9 @@ ALB-111. A missing compatibility record blocks evaluation, an incompatible
 record rejects the candidate, and a digest mismatch blocks the inconsistent
 evidence. A caller-provided compatibility status cannot bypass these checks.
 
+For a real candidate, ALB-113 computes that `RUNTIME` artifact digest directly
+from the exact local runtime file before ALB-111 and ALB-112 evaluate it.
+
 ## Runtime impact
 
 - No UI changes.
