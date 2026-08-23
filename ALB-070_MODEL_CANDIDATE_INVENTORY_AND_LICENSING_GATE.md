@@ -182,7 +182,9 @@ errors.
 
 ## Review sequence
 
-1. Pin the exact candidate source, version, files, sizes, and SHA-256 digests.
+1. Use the ALB-113 offline evidence builder to pin the exact candidate source,
+   version, files, measured sizes, and SHA-256 digests. Do not transcribe real
+   artifact sizes or digests manually.
 2. Complete the separate weights, runtime/code, preprocessing, dependency, and
    training-data fields.
 3. Apply every hard licensing and provenance rejection rule before executing
@@ -201,3 +203,6 @@ errors.
 
 No model or runtime candidate has been evaluated, rejected, selected, bundled,
 or approved by this preparatory slice.
+
+ALB-113 now provides the fail-closed local measurement tool required by step 1.
+That implementation does not change the empty current inventory above.

@@ -61,7 +61,7 @@ evidence into a project.
 | Synthetic package increment | 6,470-byte bundle increase and 1,665-byte release-ZIP increase on current `main` | Diagnostic cost only; not a production runtime/model budget result |
 | Synthetic latency | 3 ms preprocessing, 1 ms cold instantiation, 0 ms first/warm inference on the recorded macOS run | Feasibility characterization only; not representative model performance |
 | Synthetic WASM memory | One fixed 65,536-byte page per run | Fixture invariant only; not a production model or host-process memory claim |
-| Model inventory and licensing | ALB-111 evidence contract implemented; no real candidates evaluated | Blocks any model integration or redistribution claim |
+| Model inventory and licensing | ALB-111 evidence contract and ALB-113 exact-file evidence builder implemented; no real candidates evaluated | Blocks any model integration or redistribution claim |
 | Runtime loader compatibility | ALB-112 exact-runtime evidence contract implemented; no real runtime evaluated | Blocks incompatible loader assumptions |
 
 The detailed evidence and the exact macOS limitation are recorded in
@@ -76,7 +76,7 @@ The detailed evidence and the exact macOS limitation are recorded in
 | Safety and privacy | Local-only execution, no new network domain, no Photoshop documents opened, bounded safe reports, and no sensitive values retained or logged | Contract and both host probes pass | PASS |
 | Cancellation and fallback | Cancellation is checked between bounded phases; unsupported, cancelled, stale, or invalid work produces non-publishable unavailable evidence | Contract and both host probes pass; production-provider design pending | BLOCKED |
 | Concurrency | One explicit upper bound, queue/duplicate-request behavior, cancellation ownership, and stale-publication rejection are documented and testable | ALB-110 approves one active project, model instance, and inference, with a 128-photo queue, duplicate reuse, cancellation, and stale-publication guards | PASS |
-| Package budget | Runtime, model, notices, and glue costs are measured separately and together against an approved production-package ceiling | ALB-110 ceiling is 32 MiB; candidate costs remain unmeasured | BLOCKED |
+| Package budget | Runtime, model, notices, and glue costs are measured separately and together against an approved production-package ceiling | ALB-110 ceiling is 32 MiB and ALB-113 can compute exact artifact costs; no real candidate has been measured | BLOCKED |
 | Latency budget | Representative preprocessing, cold start, first inference, warm inference, and bounded-batch measurements pass an approved budget on every supported host | ALB-110 budgets approved; Windows timing values and representative candidate measurements remain missing | BLOCKED |
 | Memory budget | WASM allocation, retained references, repeated-run host observation, and recovery after cancellation/failure pass an approved budget on every supported host | ALB-110 budgets approved; macOS reclamation remains inconclusive and Windows host-process observations are missing | BLOCKED |
 | Licensing and redistribution | A complete candidate inventory passes every hard rejection rule with exact artifact and license evidence | ALB-111 enforces completeness, internal digest consistency, and recorded human review; no real candidates evaluated | BLOCKED |
@@ -148,6 +148,8 @@ or bounded-concurrency requirement.
       notices, and recorded human-review evidence fail closed under ALB-111.
 - [x] Exact-runtime loader evidence fails closed under ALB-112 and is bound to
       the reviewed RUNTIME digest.
+- [x] Exact candidate artifact sizes and SHA-256 digests can be generated from
+      local files without paths or contents under ALB-113.
 - [ ] At least one real runtime passes ALB-112 on both supported hosts without
       async instantiation, fetch, workers, or cross-origin isolation.
 - [ ] At least one representative runtime/model package is measured against

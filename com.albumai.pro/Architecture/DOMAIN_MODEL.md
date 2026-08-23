@@ -96,6 +96,13 @@ runtime source graph and grants no product integration authority.
 Host runtime results remain evidence for the later ALB-070 ADR; they do not
 select a model or enable AI culling.
 
+The ALB-113 engineering-only evidence builder creates the ALB-111 artifact
+inventory from exact local MODEL, RUNTIME, GLUE, and NOTICES files. It computes
+streamed byte counts and SHA-256 digests, rejects links or files that change
+during verification, omits local paths, and will not overwrite prior evidence.
+It remains outside the runtime source graph and grants no licensing,
+compatibility, selection, integration, or redistribution authority.
+
 The deleted inactive source contained competing project models, album engines,
 template registries, generation contexts, workflow jobs, export managers,
 bootstrap containers, and UI state stores. None is part of the product after

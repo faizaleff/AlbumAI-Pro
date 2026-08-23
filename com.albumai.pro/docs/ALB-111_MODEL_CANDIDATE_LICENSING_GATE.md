@@ -11,6 +11,11 @@ disclosure, redistribution decision, notices, obligations, or recorded human
 review. Package measurements were also caller-supplied and were not bound to
 the reviewed artifacts.
 
+ALB-113 now supplies the missing measurement boundary: its engineering-only
+builder computes artifact sizes and SHA-256 digests from the exact local files.
+Real candidate evaluation must use that generated inventory rather than
+self-declared artifact measurements.
+
 ## Decision
 
 `scripts/PhotoAiCandidateInventory.js` is the engineering-only, fail-closed
@@ -51,6 +56,10 @@ the 32 MiB budget.
 ALB-112 separately binds supported-host loader evidence to the digest of the
 reviewed RUNTIME artifact. Licensing eligibility alone cannot authorize a
 technically incompatible runtime.
+
+ALB-113 generates that reviewed artifact inventory. ALB-111 remains the owner
+of licensing and human-review classification; verified file hashes alone never
+make a candidate eligible.
 
 ## Runtime impact
 
