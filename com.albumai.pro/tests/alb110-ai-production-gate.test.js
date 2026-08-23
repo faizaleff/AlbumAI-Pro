@@ -7,6 +7,9 @@ import {
     PhotoAiProductionGateStatus,
     evaluatePhotoAiProductionGate
 } from "../scripts/PhotoAiProductionGate";
+import {
+    completePhotoAiCandidateInventory
+} from "./fixtures/PhotoAiCandidateFixture";
 
 function host(platform, overrides = {}) {
     return {
@@ -34,18 +37,12 @@ function host(platform, overrides = {}) {
 function eligibleEvidence(overrides = {}) {
     return {
         schemaVersion: PHOTO_AI_PRODUCTION_GATE_SCHEMA,
-        candidateReviewState: "ELIGIBLE_FOR_TECHNICAL_EVALUATION",
+        candidateInventory: completePhotoAiCandidateInventory(),
         privacyBoundaryPassed: true,
         networkRequired: false,
         cancellationPassed: true,
         stalePublicationPassed: true,
         concurrency: { ...PHOTO_AI_PRODUCTION_CONCURRENCY },
-        package: {
-            runtimeBytes: 2 * 1024 * 1024,
-            modelBytes: 12 * 1024 * 1024,
-            noticesBytes: 32 * 1024,
-            glueBytes: 128 * 1024
-        },
         hosts: [host("MACOS"), host("WINDOWS")],
         ...overrides
     };
@@ -69,6 +66,11 @@ function eligibleEvidence(overrides = {}) {
     );
     assert.deepStrictEqual(result.reasonCodes, []);
     assert.strictEqual(result.hosts.length, 2);
+    assert.strictEqual(
+        result.candidateReview.status,
+        "ELIGIBLE_FOR_TECHNICAL_EVALUATION"
+    );
+    assert.strictEqual(result.package.modelBytes, 12 * 1024 * 1024);
 }
 
 {
@@ -113,7 +115,8 @@ function eligibleEvidence(overrides = {}) {
 
 {
     const result = evaluatePhotoAiProductionGate(eligibleEvidence({
-        candidateReviewState: "PENDING"
+        candidateReviewState: "ELIGIBLE_FOR_TECHNICAL_EVALUATION",
+        candidateInventory: undefined
     }));
     assert.strictEqual(result.status, PhotoAiProductionGateStatus.BLOCKED);
     assert(result.reasonCodes.includes(
@@ -124,11 +127,34 @@ function eligibleEvidence(overrides = {}) {
 {
     const result = evaluatePhotoAiProductionGate(eligibleEvidence({
         package: {
-            runtimeBytes: PHOTO_AI_PRODUCTION_BUDGETS.maximumPackageDeltaBytes,
-            modelBytes: 1,
+            runtimeBytes: 0,
+            modelBytes: 0,
             noticesBytes: 0,
             glueBytes: 0
-        }
+        },
+        candidateInventory: completePhotoAiCandidateInventory({
+            licensing: { researchOnly: true }
+        })
+    }));
+    assert.strictEqual(result.status, PhotoAiProductionGateStatus.REJECTED);
+    assert(result.reasonCodes.includes(
+        PhotoAiProductionGateReason.LICENSING_GATE_REJECTED
+    ));
+}
+
+{
+    const result = evaluatePhotoAiProductionGate(eligibleEvidence({
+        candidateInventory: completePhotoAiCandidateInventory({
+            artifacts: completePhotoAiCandidateInventory().artifacts.map(
+                artifact => artifact.kind === "MODEL"
+                    ? {
+                        ...artifact,
+                        bytes: PHOTO_AI_PRODUCTION_BUDGETS
+                            .maximumPackageDeltaBytes
+                    }
+                    : artifact
+            )
+        })
     }));
     assert.strictEqual(result.status, PhotoAiProductionGateStatus.REJECTED);
     assert(result.reasonCodes.includes(
@@ -167,7 +193,9 @@ function eligibleEvidence(overrides = {}) {
 
 {
     const result = evaluatePhotoAiProductionGate(eligibleEvidence({
-        package: { runtimeBytes: -1 },
+        candidateInventory: completePhotoAiCandidateInventory({
+            artifacts: []
+        }),
         hosts: [{ platform: "MACOS" }, { platform: "WINDOWS" }]
     }));
     assert.strictEqual(result.status, PhotoAiProductionGateStatus.BLOCKED);

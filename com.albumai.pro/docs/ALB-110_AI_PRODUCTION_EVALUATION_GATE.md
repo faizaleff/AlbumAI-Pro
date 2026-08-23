@@ -42,7 +42,10 @@ are mandatory. Increasing any limit requires a new architecture review.
 Exact macOS and Windows evidence is required. Missing measurements block the
 candidate; exceeding a budget rejects it. A network dependency is a hard
 rejection. Incomplete licensing, privacy, cancellation, concurrency, package,
-or host evidence is blocking and cannot be interpreted as success.
+or host evidence is blocking and cannot be interpreted as success. ALB-111
+replaces the former self-declared licensing state with a digest-pinned
+artifact, licensing, disclosure, obligations, notices, and human-review
+inventory. The package total is derived from that reviewed inventory.
 
 ## Current project state
 
