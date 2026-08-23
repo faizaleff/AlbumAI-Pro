@@ -160,6 +160,11 @@ errors.
 - `HOST_MATRIX_INCOMPLETE`
 - `UXP_RUNTIME_UNSUPPORTED`
 - `SYNC_WASM_PATH_UNSUPPORTED`
+- `ASYNC_INSTANTIATION_REQUIRED`
+- `FETCH_REQUIRED`
+- `WORKER_REQUIRED`
+- `CROSS_ORIGIN_ISOLATION_REQUIRED`
+- `RUNTIME_ARTIFACT_MISMATCH`
 - `NETWORK_DEPENDENCY_REQUIRED`
 - `PACKAGE_BUDGET_UNAPPROVED`
 - `PACKAGE_BUDGET_EXCEEDED`
@@ -186,8 +191,10 @@ errors.
    photos, no project mutation, no network, and no Photoshop document access.
 5. Approve quantitative package, latency, memory, and concurrency thresholds
    before scoring the candidate.
-6. Record separate real macOS and Windows Photoshop/UXP evidence.
-7. Mark the candidate `ELIGIBLE_FOR_SEPARATE_SELECTION_REVIEW` only when all
+6. Bind the loader record to the reviewed RUNTIME digest and pass ALB-112 on
+   separate real macOS and Windows Photoshop/UXP hosts.
+7. Record separate real macOS and Windows quantitative evidence.
+8. Mark the candidate `ELIGIBLE_FOR_SEPARATE_SELECTION_REVIEW` only when all
    required evidence and approved technical gates pass.
 
 ## Current inventory

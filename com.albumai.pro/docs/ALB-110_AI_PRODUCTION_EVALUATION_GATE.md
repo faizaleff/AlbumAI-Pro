@@ -46,10 +46,16 @@ or host evidence is blocking and cannot be interpreted as success. ALB-111
 replaces the former self-declared licensing state with a digest-pinned
 artifact, licensing, disclosure, obligations, notices, and human-review
 inventory. The package total is derived from that reviewed inventory.
+ALB-112 also requires a digest-bound runtime compatibility record for the
+exact reviewed RUNTIME artifact. Both supported hosts must prove local-byte
+synchronous module and instance construction without async instantiation,
+fetch, workers, or cross-origin isolation. Missing or mismatched compatibility
+evidence blocks evaluation; an incompatible loader is a hard rejection.
 
 ## Current project state
 
 The synthetic WASM feasibility probe remains useful evidence, but it is not a
-model evaluation. No commercial candidate has completed licensing review, and
-Windows timing and memory evidence is incomplete. Therefore ALB-070 remains
-blocked from model selection and production integration.
+model evaluation. No commercial candidate has completed licensing or runtime
+compatibility review, and Windows timing and memory evidence is incomplete.
+Therefore ALB-070 remains blocked from model selection and production
+integration.
