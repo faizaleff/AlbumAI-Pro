@@ -61,7 +61,7 @@ export default function UxpDropdown({
     ]);
 
     return (
-        <sp-dropdown
+        <sp-picker
             ref={dropdownRef}
             id={id}
             className={className}
@@ -80,7 +80,7 @@ export default function UxpDropdown({
                     </sp-menu-item>
                 ))}
             </sp-menu>
-        </sp-dropdown>
+        </sp-picker>
     );
 
 }

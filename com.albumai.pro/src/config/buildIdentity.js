@@ -16,4 +16,4 @@ export const ALBUMAI_SUPPORT_ID =
 // The release build ID above is immutable published provenance. This revision
 // identifies the current post-release runtime without rewriting release truth.
 export const ALBUMAI_RUNTIME_REVISION_ID =
-    "ALB-106-runtime-provenance-v1";
+    "ALB-107-picker-deprecation-migration-v1";

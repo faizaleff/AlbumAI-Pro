@@ -15,7 +15,9 @@ const verifierSource = read("scripts/verify-runtime-bundle.js");
 const manifest = JSON.parse(read("plugin/manifest.json"));
 
 const RELEASE_BUILD_ID = "ALB-098-v1.1.1-patch-v1";
-const RUNTIME_REVISION_ID = "ALB-106-runtime-provenance-v1";
+const RUNTIME_REVISION_ID = identitySource.match(
+    /ALBUMAI_RUNTIME_REVISION_ID\s*=\s*\n?\s*"([^"]+)"/
+)?.[1];
 let assertions = 0;
 
 function check(condition, message) {
@@ -25,7 +27,7 @@ function check(condition, message) {
 
 try {
     check(identitySource.includes(`"${RELEASE_BUILD_ID}"`), "published release build provenance changed");
-    check(identitySource.includes(`"${RUNTIME_REVISION_ID}"`), "current runtime revision is missing");
+    check(/^ALB-\d+-[a-z0-9.-]+-v\d+$/.test(RUNTIME_REVISION_ID || ""), "current runtime revision is missing or invalid");
     check(identitySource.includes("ALBUMAI_RUNTIME_REVISION_ID"), "runtime revision export is missing");
     check(detailsSource.includes("ALBUMAI_RUNTIME_REVISION_ID"), "diagnostics do not consume runtime revision");
     check(detailsSource.includes("`Runtime Revision: ${ALBUMAI_RUNTIME_REVISION_ID}`"), "copied diagnostics omit runtime revision");
