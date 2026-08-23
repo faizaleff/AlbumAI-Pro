@@ -1,0 +1,60 @@
+const { app } = require("photoshop");
+const { storage } = require("uxp");
+const os = require("os");
+const {
+    PhotoAiRuntimeHostEvidenceError,
+    RuntimeHostEvidenceError,
+    recordPhotoAiRuntimeHostEvidence
+} = require("./PhotoAiRuntimeHostEvidenceCore.js");
+
+async function selectJsonFile() {
+    return storage.localFileSystem.getFileForOpening({ types: ["json"] });
+}
+
+async function run() {
+    console.log("ALB-114: select the runtime recorder manifest JSON.");
+    const recorderManifestFile = await selectJsonFile();
+    if (!recorderManifestFile) return;
+    console.log("ALB-114: select the ALB-113 verified candidate evidence JSON.");
+    const verifiedEvidenceFile = await selectJsonFile();
+    if (!verifiedEvidenceFile) return;
+    console.log("ALB-114: select the exact verified RUNTIME WASM artifact.");
+    const runtimeFile = await storage.localFileSystem.getFileForOpening();
+    if (!runtimeFile) return;
+
+    const recorderManifest = JSON.parse(await recorderManifestFile.read());
+    const verifiedCandidateEvidence = JSON.parse(
+        await verifiedEvidenceFile.read()
+    );
+    const documentCountBefore = app.documents.length;
+    const runtimeBytes = await runtimeFile.read({
+        format: storage.formats.binary
+    });
+    const documentCountAfter = app.documents.length;
+    const evidence = recordPhotoAiRuntimeHostEvidence({
+        recorderManifest,
+        verifiedCandidateEvidence,
+        runtimeBytes,
+        platform: os.platform(),
+        documentCountBefore,
+        documentCountAfter
+    });
+
+    console.log("ALB-114: select a folder for the new host evidence file.");
+    const outputFolder = await storage.localFileSystem.getFolder();
+    if (!outputFolder) return;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const outputName = `albumai-runtime-host-${evidence.host.platform.toLowerCase()}-${timestamp}.json`;
+    const outputFile = await outputFolder.createFile(outputName, {
+        overwrite: false
+    });
+    await outputFile.write(`${JSON.stringify(evidence, null, 2)}\n`);
+    console.log(`ALB-114_RUNTIME_HOST_EVIDENCE_RECORDED ${evidence.host.platform}`);
+}
+
+run().catch(error => {
+    const code = error instanceof RuntimeHostEvidenceError
+        ? error.code
+        : PhotoAiRuntimeHostEvidenceError.HOST_RECORD_INVALID;
+    console.error(`ALB-114_RUNTIME_HOST_EVIDENCE_FAILED ${code}`);
+});
