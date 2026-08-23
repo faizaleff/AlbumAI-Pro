@@ -4,6 +4,7 @@ import {
     ALBUMAI_BUILD_ID,
     ALBUMAI_PLUGIN_ID,
     ALBUMAI_RELEASE_URL,
+    ALBUMAI_RUNTIME_REVISION_ID,
     ALBUMAI_SUPPORT_ID,
     ALBUMAI_VERSION
 } from "../config/buildIdentity";
@@ -17,6 +18,7 @@ export function runtimeIdentityLines() {
         `Plugin ID: ${ALBUMAI_PLUGIN_ID}`,
         `Version: ${ALBUMAI_VERSION}`,
         `Build ID: ${ALBUMAI_BUILD_ID}`,
+        `Runtime Revision: ${ALBUMAI_RUNTIME_REVISION_ID}`,
         `Support ID: ${ALBUMAI_SUPPORT_ID}`,
         `Release: ${ALBUMAI_RELEASE_URL}`,
         `Network Access: ${NETWORK_ACCESS_STATUS}`,
@@ -725,6 +727,7 @@ export function ExecutionDetails({
                 <h4 style={titleStyle}>Project Health</h4>
                 <Row label="Runtime" value={`${ALBUMAI_PLUGIN_ID} v${ALBUMAI_VERSION}`} />
                 <Row label="Build ID" value={ALBUMAI_BUILD_ID} />
+                <Row label="Runtime Revision" value={ALBUMAI_RUNTIME_REVISION_ID} />
                 <Row label="Support ID" value={ALBUMAI_SUPPORT_ID} />
                 <Row label="Project" value={hasProject ? "READY" : "MISSING"} />
                 <Row label="Photos" value={healthPhotos.length} />

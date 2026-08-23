@@ -7,7 +7,10 @@ import { AlbumBrowser } from "./panels/AlbumBrowser.jsx.jsx";
 
 import { entrypoints, storage } from "uxp";
 import { selectAllBrowserPhotos } from "./services/PhotoBrowserSelection";
-import { ALBUMAI_BUILD_ID } from "./config/buildIdentity";
+import {
+    ALBUMAI_BUILD_ID,
+    ALBUMAI_RUNTIME_REVISION_ID
+} from "./config/buildIdentity";
 import { characterizeOutputStorage } from "./project/OutputStorageCapabilityCharacterization";
 import {
     runPhotoAiWasmFeasibilityProbe,
@@ -84,6 +87,7 @@ entrypoints.setup({
 
         create(plugin) {
             console.log("ALBUMAI_BUILD_ID", ALBUMAI_BUILD_ID);
+            console.log("ALBUMAI_RUNTIME_REVISION_ID", ALBUMAI_RUNTIME_REVISION_ID);
             console.log("AlbumAI Started", plugin);
         },
 
