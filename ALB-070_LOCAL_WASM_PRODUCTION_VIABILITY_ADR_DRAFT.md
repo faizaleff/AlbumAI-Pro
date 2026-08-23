@@ -10,9 +10,10 @@ Evidence dependency: **`ALB-070_WASM_FEASIBILITY_REPORT.md`**
 
 No production-viability decision has been made. The eventual recorded outcome
 must be exactly one of `PASS`, `LIMITATION`, or `FAIL`. This draft remains
-`PENDING` while the Windows timing and host-process memory observations and the
-concurrency, production package, latency, memory, and licensing gates are not
-closed.
+`PENDING` while the Windows timing and host-process memory observations,
+representative package measurement, and licensing gate are not closed. ALB-110
+has approved the bounded concurrency policy and evaluation budgets, but no
+candidate has yet supplied the evidence required to pass them.
 
 Automated Node execution, browser WebAssembly support, or a simulated host
 cannot substitute for real Photoshop/UXP evidence. A successful bounded probe
@@ -71,16 +72,16 @@ The detailed evidence and the exact macOS limitation are recorded in
 | WASM API compatibility | The chosen runtime path must work with UXP's synchronous `WebAssembly.Module` and `WebAssembly.Instance` constructors; async byte instantiation is not assumed | Synchronous path executed on both hosts | PASS |
 | Safety and privacy | Local-only execution, no new network domain, no Photoshop documents opened, bounded safe reports, and no sensitive values retained or logged | Contract and both host probes pass | PASS |
 | Cancellation and fallback | Cancellation is checked between bounded phases; unsupported, cancelled, stale, or invalid work produces non-publishable unavailable evidence | Contract and both host probes pass; production-provider design pending | BLOCKED |
-| Concurrency | One explicit upper bound, queue/duplicate-request behavior, cancellation ownership, and stale-publication rejection are documented and testable | No production inference concurrency policy approved | BLOCKED |
-| Package budget | Runtime, model, notices, and glue costs are measured separately and together against an approved production-package ceiling | Synthetic diagnostic only; production ceiling and candidate costs pending | BLOCKED |
-| Latency budget | Representative preprocessing, cold start, first inference, warm inference, and bounded-batch measurements pass an approved budget on every supported host | Synthetic macOS result recorded; Windows timing values and representative thresholds pending | BLOCKED |
-| Memory budget | WASM allocation, retained references, repeated-run host observation, and recovery after cancellation/failure pass an approved budget on every supported host | Synthetic page known on both hosts; macOS reclamation inconclusive; Windows host-process observations missing | BLOCKED |
+| Concurrency | One explicit upper bound, queue/duplicate-request behavior, cancellation ownership, and stale-publication rejection are documented and testable | ALB-110 approves one active project, model instance, and inference, with a 128-photo queue, duplicate reuse, cancellation, and stale-publication guards | PASS |
+| Package budget | Runtime, model, notices, and glue costs are measured separately and together against an approved production-package ceiling | ALB-110 ceiling is 32 MiB; candidate costs remain unmeasured | BLOCKED |
+| Latency budget | Representative preprocessing, cold start, first inference, warm inference, and bounded-batch measurements pass an approved budget on every supported host | ALB-110 budgets approved; Windows timing values and representative candidate measurements remain missing | BLOCKED |
+| Memory budget | WASM allocation, retained references, repeated-run host observation, and recovery after cancellation/failure pass an approved budget on every supported host | ALB-110 budgets approved; macOS reclamation remains inconclusive and Windows host-process observations are missing | BLOCKED |
 | Licensing and redistribution | A complete candidate inventory passes every hard rejection rule with exact artifact and license evidence | No candidates evaluated | BLOCKED |
 | Model quality | Quality metrics and product thresholds are defined and evaluated under ALB-071 or a later approved task | Outside this ADR | NOT_SCORED |
 
-Quantitative production package, latency, and memory thresholds must be
-approved before a representative candidate is scored. Synthetic-fixture values
-must not be promoted into those thresholds merely because they are small.
+ALB-110 records the quantitative production package, latency, and memory
+thresholds and the deterministic classification policy. Synthetic-fixture
+values must not be treated as candidate evidence merely because they are small.
 
 ## Concurrency decision inputs
 
@@ -95,8 +96,10 @@ Slice 3 must record all of the following before choosing a concurrency limit:
 6. cleanup behavior after success, cancellation, unsupported capability, and
    failure.
 
-Until that decision is recorded, production inference concurrency is not
-approved.
+ALB-110 records this decision: `PhotoWorkspaceService` owns a single active
+project queue, one model instance, one concurrent inference, and at most 128
+queued photos. Duplicate requests reuse work; cancellation and stale-publication
+guards are mandatory. Higher limits require a new architecture review.
 
 ## Outcome rules
 
@@ -135,8 +138,9 @@ or bounded-concurrency requirement.
       observations are recorded without claiming reclamation from reference
       release alone.
 - [ ] macOS and Windows evidence remain distinct from automated harness results.
-- [ ] A bounded production concurrency policy is approved.
-- [ ] Production package, latency, and memory thresholds are approved.
+- [x] A bounded production concurrency policy is approved by ALB-110.
+- [x] Production package, latency, and memory thresholds are approved by
+      ALB-110.
 - [ ] At least one representative runtime/model package is measured against
       the technical budgets without being selected for product use.
 - [ ] Each evaluated candidate has a complete model and licensing inventory.
