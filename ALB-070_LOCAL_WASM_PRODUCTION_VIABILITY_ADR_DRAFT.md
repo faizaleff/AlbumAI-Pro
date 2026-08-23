@@ -12,8 +12,9 @@ No production-viability decision has been made. The eventual recorded outcome
 must be exactly one of `PASS`, `LIMITATION`, or `FAIL`. This draft remains
 `PENDING` while the Windows timing and host-process memory observations,
 representative package measurement, and licensing gate are not closed. ALB-110
-has approved the bounded concurrency policy and evaluation budgets, but no
-candidate has yet supplied the evidence required to pass them.
+has approved the bounded concurrency policy and evaluation budgets. ALB-111
+machine-enforces the candidate inventory and recorded human-review evidence,
+but no real candidate has yet supplied the evidence required to pass them.
 
 Automated Node execution, browser WebAssembly support, or a simulated host
 cannot substitute for real Photoshop/UXP evidence. A successful bounded probe
@@ -59,7 +60,7 @@ evidence into a project.
 | Synthetic package increment | 6,470-byte bundle increase and 1,665-byte release-ZIP increase on current `main` | Diagnostic cost only; not a production runtime/model budget result |
 | Synthetic latency | 3 ms preprocessing, 1 ms cold instantiation, 0 ms first/warm inference on the recorded macOS run | Feasibility characterization only; not representative model performance |
 | Synthetic WASM memory | One fixed 65,536-byte page per run | Fixture invariant only; not a production model or host-process memory claim |
-| Model inventory and licensing | No candidates evaluated | Blocks any model integration or redistribution claim |
+| Model inventory and licensing | ALB-111 evidence contract implemented; no real candidates evaluated | Blocks any model integration or redistribution claim |
 
 The detailed evidence and the exact macOS limitation are recorded in
 `ALB-070_WASM_FEASIBILITY_REPORT.md` and are not reinterpreted here.
@@ -76,7 +77,7 @@ The detailed evidence and the exact macOS limitation are recorded in
 | Package budget | Runtime, model, notices, and glue costs are measured separately and together against an approved production-package ceiling | ALB-110 ceiling is 32 MiB; candidate costs remain unmeasured | BLOCKED |
 | Latency budget | Representative preprocessing, cold start, first inference, warm inference, and bounded-batch measurements pass an approved budget on every supported host | ALB-110 budgets approved; Windows timing values and representative candidate measurements remain missing | BLOCKED |
 | Memory budget | WASM allocation, retained references, repeated-run host observation, and recovery after cancellation/failure pass an approved budget on every supported host | ALB-110 budgets approved; macOS reclamation remains inconclusive and Windows host-process observations are missing | BLOCKED |
-| Licensing and redistribution | A complete candidate inventory passes every hard rejection rule with exact artifact and license evidence | No candidates evaluated | BLOCKED |
+| Licensing and redistribution | A complete candidate inventory passes every hard rejection rule with exact artifact and license evidence | ALB-111 enforces completeness, internal digest consistency, and recorded human review; no real candidates evaluated | BLOCKED |
 | Model quality | Quality metrics and product thresholds are defined and evaluated under ALB-071 or a later approved task | Outside this ADR | NOT_SCORED |
 
 ALB-110 records the quantitative production package, latency, and memory
@@ -141,6 +142,8 @@ or bounded-concurrency requirement.
 - [x] A bounded production concurrency policy is approved by ALB-110.
 - [x] Production package, latency, and memory thresholds are approved by
       ALB-110.
+- [x] Candidate source, artifact, digest, license, disclosure, obligations,
+      notices, and recorded human-review evidence fail closed under ALB-111.
 - [ ] At least one representative runtime/model package is measured against
       the technical budgets without being selected for product use.
 - [ ] Each evaluated candidate has a complete model and licensing inventory.

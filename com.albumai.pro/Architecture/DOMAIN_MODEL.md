@@ -72,6 +72,12 @@ single-model, single-inference policy. Missing evidence blocks evaluation;
 budget overruns or any network dependency reject the candidate. Eligibility
 does not authorize runtime integration, model selection, UI, or publication.
 
+The ALB-111 engineering-only candidate inventory gate validates digest-pinned
+MODEL, RUNTIME, GLUE, and NOTICES artifacts plus exact source, license,
+training-data disclosure, obligations, notices, and recorded human-review
+evidence. ALB-110 derives package cost from this reviewed inventory; a
+self-declared eligibility string cannot authorize evaluation.
+
 `PhotoAiWasmFeasibilityProbe` is a production-reachable developer diagnostic,
 not a Photo owner or inference product. It runs only an embedded synthetic
 68-byte WASM module over generated 16×16 RGBA pixels, returns a bounded

@@ -1,3 +1,8 @@
+import {
+    PhotoAiCandidateReviewStatus,
+    evaluatePhotoAiCandidateInventory
+} from "./PhotoAiCandidateInventory";
+
 function objectValue(value) {
     return value && typeof value === "object" && !Array.isArray(value)
         ? value
@@ -16,6 +21,7 @@ export const PhotoAiProductionGateStatus = Object.freeze({
 export const PhotoAiProductionGateReason = Object.freeze({
     UNKNOWN_SCHEMA: "UNKNOWN_SCHEMA",
     LICENSING_GATE_INCOMPLETE: "LICENSING_GATE_INCOMPLETE",
+    LICENSING_GATE_REJECTED: "LICENSING_GATE_REJECTED",
     PRIVACY_BOUNDARY_UNVERIFIED: "PRIVACY_BOUNDARY_UNVERIFIED",
     NETWORK_BOUNDARY_UNVERIFIED: "NETWORK_BOUNDARY_UNVERIFIED",
     NETWORK_DEPENDENCY_REQUIRED: "NETWORK_DEPENDENCY_REQUIRED",
@@ -78,6 +84,21 @@ function normalizeProductionPackage(value) {
             totalBytes
         })
         : null;
+}
+
+function packageFromCandidateReview(candidateReview) {
+    const artifacts = Array.isArray(candidateReview?.artifacts)
+        ? candidateReview.artifacts
+        : [];
+    const byKind = new Map(artifacts
+        .filter(Boolean)
+        .map(artifact => [artifact.kind, artifact]));
+    return normalizeProductionPackage({
+        runtimeBytes: byKind.get("RUNTIME")?.bytes,
+        modelBytes: byKind.get("MODEL")?.bytes,
+        noticesBytes: byKind.get("NOTICES")?.bytes,
+        glueBytes: byKind.get("GLUE")?.bytes
+    });
 }
 
 function normalizeProductionHost(value) {
@@ -154,8 +175,15 @@ export function evaluatePhotoAiProductionGate(value = {}) {
     if (source.schemaVersion !== PHOTO_AI_PRODUCTION_GATE_SCHEMA) {
         reasons.add(PhotoAiProductionGateReason.UNKNOWN_SCHEMA);
     }
-    if (source.candidateReviewState !==
-        "ELIGIBLE_FOR_TECHNICAL_EVALUATION") {
+    const candidateReview = evaluatePhotoAiCandidateInventory(
+        source.candidateInventory
+    );
+    if (candidateReview.status === PhotoAiCandidateReviewStatus.REJECTED) {
+        rejectedReasons.add(
+            PhotoAiProductionGateReason.LICENSING_GATE_REJECTED
+        );
+    } else if (candidateReview.status !==
+        PhotoAiCandidateReviewStatus.ELIGIBLE_FOR_TECHNICAL_EVALUATION) {
         reasons.add(PhotoAiProductionGateReason.LICENSING_GATE_INCOMPLETE);
     }
     if (source.privacyBoundaryPassed !== true) {
@@ -178,7 +206,7 @@ export function evaluatePhotoAiProductionGate(value = {}) {
         reasons.add(PhotoAiProductionGateReason.CONCURRENCY_POLICY_INVALID);
     }
 
-    const packageEvidence = normalizeProductionPackage(source.package);
+    const packageEvidence = packageFromCandidateReview(candidateReview);
     if (!packageEvidence) {
         reasons.add(PhotoAiProductionGateReason.PACKAGE_EVIDENCE_INCOMPLETE);
     } else if (packageEvidence.totalBytes >
@@ -239,6 +267,7 @@ export function evaluatePhotoAiProductionGate(value = {}) {
         reasonCodes: Object.freeze(allReasons),
         budgets: PHOTO_AI_PRODUCTION_BUDGETS,
         concurrency: PHOTO_AI_PRODUCTION_CONCURRENCY,
+        candidateReview,
         package: packageEvidence,
         hosts: Object.freeze(PRODUCTION_HOSTS.map(platform =>
             hostsByPlatform.get(platform) || null
