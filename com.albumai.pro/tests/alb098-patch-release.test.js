@@ -92,11 +92,20 @@ try {
 
     const readme = readProjectFile("README.md");
     const roadmap = readProjectFile("docs/ROADMAP.md");
-    check(readme.includes("current stable release is **1.1.1**"), "README stable patch line is stale");
-    check(readme.includes("passed ALB-098 qualification and ALB-099 release closeout"), "README closeout status missing");
+    const stableVersion = readme.match(/current stable release is \*\*(\d+\.\d+\.\d+)\*\*/)?.[1];
+    check(
+        Boolean(stableVersion) && Number(stableVersion.split(".").join("")) >= 111,
+        "README stable release regressed below v1.1.1"
+    );
+    const v111Closeout = readProjectFile("docs/ALB-099_V1.1.1_RELEASE_CLOSEOUT.md");
+    check(v111Closeout.includes("ALB-098 automated, CCX, and installed Photoshop runtime qualification: **PASS**"), "v1.1.1 closeout status missing");
     const testBoundary = readme.match(/ALB-043 through ALB-(\d+)/);
     check(Boolean(testBoundary) && Number(testBoundary[1]) >= 99, "README test boundary regressed below ALB-099");
-    check(roadmap.includes("1.1.1 stable — released 2026-08-21"), "roadmap patch release status missing");
+    const roadmapVersion = roadmap.match(/\*\*(\d+\.\d+\.\d+) stable — released/)?.[1];
+    check(
+        Boolean(roadmapVersion) && Number(roadmapVersion.split(".").join("")) >= 111,
+        "roadmap stable release regressed below v1.1.1"
+    );
     check(!roadmap.includes("qualification is in progress"), "roadmap retains stale qualification wording");
 
     const v110Notes = readRepositoryFile("RELEASE_NOTES_1.1.0.md");

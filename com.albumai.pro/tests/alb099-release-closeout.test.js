@@ -44,8 +44,16 @@ try {
     check(closeout.includes("no additional Photoshop runtime retest is required"), "closeout runtime boundary is missing");
     check(closeout.includes("GitHub issue #14"), "closeout loses active AI gate truth");
     check(closeout.includes("PR #19 is a conflicting historical ALB-081 branch"), "closeout loses stale PR truth");
-    check(readme.includes("current stable release is **1.1.1**"), "README stable version differs");
-    check(roadmap.includes("1.1.1 stable — released 2026-08-21"), "roadmap release date differs");
+    const stableVersion = readme.match(/current stable release is \*\*(\d+\.\d+\.\d+)\*\*/)?.[1];
+    check(
+        Boolean(stableVersion) && Number(stableVersion.split(".").join("")) >= 111,
+        "README stable release regressed below v1.1.1"
+    );
+    const roadmapVersion = roadmap.match(/\*\*(\d+\.\d+\.\d+) stable — released/)?.[1];
+    check(
+        Boolean(roadmapVersion) && Number(roadmapVersion.split(".").join("")) >= 111,
+        "roadmap stable release regressed below v1.1.1"
+    );
     check(!roadmap.includes("qualification is in progress"), "roadmap retains stale qualification wording");
     check(changelog.includes("## [1.1.1] - 2026-08-21"), "canonical changelog release date differs");
     check(releaseNotes.includes("Status: released 2026-08-21"), "release notes status differs");

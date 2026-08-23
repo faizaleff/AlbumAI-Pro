@@ -4,19 +4,15 @@ AlbumAI Pro is a Photoshop UXP plugin for project-based album production. The
 current workflow manages ordered PSD templates, photo selection and placement,
 transactional PSD/JPEG output, cancellation, recovery, resume, and safe retry.
 
-The current stable release is **1.1.1**, published as
-[`v1.1.1`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.1) and
+The current stable release is **1.1.2**, published as
+[`v1.1.2`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.2) and
 qualified for exact manual slot assignment, multi-template A-B-A-B album
 rendering, and reproducible output.
 
-The `1.1.1` patch passed ALB-098 qualification and ALB-099 release closeout.
+The `1.1.2` patch passed ALB-108 qualification and ALB-109 release closeout.
 Its direct-install CCX, source commit, runtime identity, package version, tag,
 and release assets share one exact provenance boundary. Published release
 assets remain immutable.
-
-Development on `main` is preparing the **1.1.2** patch candidate under ALB-108.
-Until its automated, CCX, installed-runtime, approval, tag, and publication
-gates pass, **1.1.1 remains the current stable release**.
 
 ## Requirements
 
@@ -45,7 +41,7 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-108 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-109 suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |
 | `npm run build:dev` | Create a development bundle with source mapping |
@@ -81,10 +77,10 @@ available when the UXP command-line tool is installed and configured.
 Adobe UXP plugins use `.ccx` packages for direct installation through Creative
 Cloud Desktop. The current GitHub ZIP remains the reproducible development
 bundle; ALB-097 qualified a UXP Developer Tool-generated CCX for direct local
-installation. ALB-098 moves that qualified distribution path onto the exact
-`1.1.1` patch provenance. See `ALB-097_DIRECT_CCX_DISTRIBUTION.md` for the
-original gate, `ALB-098_V1.1.1_PATCH_RELEASE_QUALIFICATION.md` for qualification,
-and `docs/ALB-099_V1.1.1_RELEASE_CLOSEOUT.md` for publication evidence.
+installation. ALB-108 moves that qualified distribution path onto the exact
+`1.1.2` patch provenance. See `ALB-097_DIRECT_CCX_DISTRIBUTION.md` for the
+original gate, `ALB-108_V1.1.2_PATCH_RELEASE_QUALIFICATION.md` for qualification,
+and `docs/ALB-109_V1.1.2_RELEASE_CLOSEOUT.md` for publication evidence.
 
 ## Repository layout
 
