@@ -65,6 +65,13 @@ source or host references, and machine evidence cannot mutate ratings,
 favourites, or future keep/reject decisions. Model execution remains gated on
 the ALB-070 UXP WebAssembly feasibility and commercial-licensing decision.
 
+The ALB-110 production-evaluation gate is engineering verification outside the
+runtime source graph. A candidate must provide bounded package, macOS, and
+Windows timing/memory evidence under the approved single-project,
+single-model, single-inference policy. Missing evidence blocks evaluation;
+budget overruns or any network dependency reject the candidate. Eligibility
+does not authorize runtime integration, model selection, UI, or publication.
+
 `PhotoAiWasmFeasibilityProbe` is a production-reachable developer diagnostic,
 not a Photo owner or inference product. It runs only an embedded synthetic
 68-byte WASM module over generated 16×16 RGBA pixels, returns a bounded
