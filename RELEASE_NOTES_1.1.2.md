@@ -1,9 +1,11 @@
 # AlbumAI Pro 1.1.2
 
-- Status: release candidate — not published
+- Status: released 2026-08-23
 - Version: 1.1.2
 - Build ID: `ALB-108-v1.1.2-patch-v1`
 - Runtime revision: `ALB-108-v1.1.2-release-candidate-v1`
+- Release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.2
+- Tag target: `549c76482867bbf8e46af1609dfca866e8c1a598`
 - Release package: `AlbumAI-Pro-1.1.2.zip`
 - Direct installer: `com.albumai.pro_PS.ccx`
 
@@ -42,4 +44,5 @@ installed plugin package.
   PASS. Both visible badges reported `v1.1.2`; runtime identity matched the
   candidate; REC005 restored its A-B-A-B sheets and persisted assignments;
   inspector scrolling and supported selector interaction passed.
-- Git tag and GitHub release: not created; explicit approval required.
+- Git tag and GitHub release: published from the exact qualified merge commit.
+- Published assets match the qualified ZIP and CCX checksums above.

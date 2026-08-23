@@ -65,14 +65,14 @@ try {
     check(qualification.includes("Installed runtime result: **PASS**"), "installed runtime qualification status is stale");
     check(qualification.includes("`2/2`, `1/1`, `2/2`, `1/1`"), "installed assignment evidence is missing");
     check(qualification.includes("Do not commit, push, tag, publish"), "approval gate is missing");
-    check(releaseNotes.includes("release candidate — not published"), "release notes claim premature publication");
+    check(releaseNotes.includes("Status: released 2026-08-23"), "release notes publication status differs");
     check(releaseNotes.includes(BUILD_ID), "release notes build ID differs");
     check(releaseNotes.includes(RUNTIME_REVISION_ID), "release notes runtime revision differs");
     check(releaseNotes.includes(BUNDLE_SHA256), "release notes bundle checksum differs");
     check(releaseNotes.includes(ZIP_SHA256), "release notes ZIP checksum differs");
     check(releaseNotes.includes(CCX_SHA256), "release notes CCX checksum differs");
     check(releaseNotes.includes("installed Photoshop runtime qualification:\n  PASS"), "release notes installed-runtime status is stale");
-    check(changelog.includes("## [1.1.2] - Unreleased"), "unreleased changelog entry is missing");
+    check(changelog.includes("## [1.1.2] - 2026-08-23"), "changelog release date differs");
     check(historicalCloseout.includes("v1.1.1"), "historical v1.1.1 closeout was lost");
     check(historicalCloseout.includes("2fb03a453575b2d91a76d2ae7fefa488b8500816"), "historical tag target changed");
     check(packageJson.scripts.test.includes("alb108-v1.1.2-patch-release.test.js"), "ALB-108 test is absent from npm test");

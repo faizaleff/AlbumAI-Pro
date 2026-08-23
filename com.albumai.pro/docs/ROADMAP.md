@@ -2,12 +2,12 @@
 
 ## Current release line
 
-**1.1.1 stable — released 2026-08-21**
+**1.1.2 stable — released 2026-08-23**
 
 The verified package, checksum, inventory, and release notes are published at
-[`v1.1.1`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.1).
+[`v1.1.2`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.2).
 
-ALB-098 qualified the patch and installed Photoshop runtime. ALB-099 closed the
+ALB-108 qualified the patch and installed Photoshop runtime. ALB-109 closed the
 published release against the exact source commit, runtime identity, tag, and
 release asset set without changing the qualified album workflow.
 

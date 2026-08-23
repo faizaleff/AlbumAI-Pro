@@ -47,7 +47,11 @@ try {
         "README test boundary regressed below ALB-096"
     );
 
-    check(roadmap.includes("1.1.1 stable — released 2026-08-21"), "roadmap current stable release line is missing");
+    const roadmapVersion = roadmap.match(/\*\*(\d+\.\d+\.\d+) stable — released/)?.[1];
+    check(
+        Boolean(roadmapVersion) && Number(roadmapVersion.split(".").join("")) >= 110,
+        "roadmap stable release regressed below v1.1.0"
+    );
     const currentReleaseSection = roadmap.match(/## Current release line([\s\S]*?)(?=\n## )/)?.[1] || "";
     check(
         !currentReleaseSection.includes("qualification in progress"),

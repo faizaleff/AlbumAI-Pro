@@ -2,7 +2,7 @@
 
 All notable changes to AlbumAI Pro will be documented in this file.
 
-## [1.1.2] - Unreleased
+## [1.1.2] - 2026-08-23
 
 ### Fixed and hardened
 
@@ -17,7 +17,9 @@ All notable changes to AlbumAI Pro will be documented in this file.
 
 ### Verification
 
-- ALB-108 automated, CCX, and installed Photoshop qualification: pending.
+- ALB-108 automated, CCX, and installed Photoshop qualification: PASS.
+- Published release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.2
+- Direct installer: `com.albumai.pro_PS.ccx`.
 - Historical `v1.1.1` tag, assets, checksums, and release records remain
   immutable.
 
