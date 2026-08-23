@@ -14,6 +14,10 @@ Its direct-install CCX, source commit, runtime identity, package version, tag,
 and release assets share one exact provenance boundary. Published release
 assets remain immutable.
 
+Development on `main` is preparing the **1.1.2** patch candidate under ALB-108.
+Until its automated, CCX, installed-runtime, approval, tag, and publication
+gates pass, **1.1.1 remains the current stable release**.
+
 ## Requirements
 
 - Adobe Photoshop 27.4.0 or newer
@@ -41,7 +45,7 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-099 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-108 suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |
 | `npm run build:dev` | Create a development bundle with source mapping |

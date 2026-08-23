@@ -2,6 +2,25 @@
 
 All notable changes to AlbumAI Pro will be documented in this file.
 
+## [1.1.2] - Unreleased
+
+### Fixed and hardened
+
+- Preserved valid completed recovery snapshots when the same selected photo is
+  intentionally reused across multiple Smart Object slots.
+- Restored independent vertical scrolling in the execution inspector while
+  retaining the fixed photo-library workspace layout.
+- Added an explicit runtime revision alongside the immutable release build ID
+  so installed bundles can be identified without rewriting published history.
+- Migrated the shared UXP selector adapter from deprecated `sp-dropdown`
+  elements to built-in `sp-picker` elements without changing caller behavior.
+
+### Verification
+
+- ALB-108 automated, CCX, and installed Photoshop qualification: pending.
+- Historical `v1.1.1` tag, assets, checksums, and release records remain
+  immutable.
+
 ## [1.1.1] - 2026-08-21
 
 ### Fixed and hardened
