@@ -2471,11 +2471,19 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 
 .album-preview-panel {
     flex: 0 0 280px;
+    display: flex;
+    flex-direction: column;
     width: 280px;
     min-width: 0;
     max-width: 320px;
     min-height: 0;
+    overflow: hidden;
     box-sizing: border-box;
+}
+
+.album-preview-panel [data-execution-log-viewport="true"] {
+    scrollbar-color: #686868 #252525;
+    scrollbar-width: auto;
 }
 
 /* Narrow & Medium Dock Layout (<= 720px): Vertical Stack (Photo Library Top, Inspector Bottom) */
