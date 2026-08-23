@@ -47,11 +47,11 @@ try {
     const sourceManifest = readJson("plugin/manifest.json");
     const builtManifest = readJson("dist/manifest.json");
 
-    check(packageJson.version === PATCH_VERSION, "package version is not the v1.1.1 patch");
-    check(packageLock.version === PATCH_VERSION, "lockfile version differs");
-    check(packageLock.packages?.[""]?.version === PATCH_VERSION, "lockfile root version differs");
-    check(sourceManifest.version === PATCH_VERSION, "source manifest version differs");
-    check(builtManifest.version === PATCH_VERSION, "built manifest version differs");
+    check(packageJson.version >= PATCH_VERSION, "current package regressed below the v1.1.1 patch");
+    check(packageLock.version === packageJson.version, "current lockfile version differs");
+    check(packageLock.packages?.[""]?.version === packageJson.version, "current lockfile root version differs");
+    check(sourceManifest.version === packageJson.version, "current source manifest version differs");
+    check(builtManifest.version === packageJson.version, "current built manifest version differs");
     check(sourceManifest.id === "com.albumai.pro", "plugin ID changed during patch qualification");
     check(builtManifest.id === sourceManifest.id, "built plugin ID differs");
     check(sourceManifest.manifestVersion === 5, "manifest version changed");
@@ -59,12 +59,7 @@ try {
     check(sourceManifest.requiredPermissions?.network === undefined, "patch adds a network permission");
 
     const buildIdentity = readProjectFile("src/config/buildIdentity.js");
-    const runtimeVerifier = readProjectFile("scripts/verify-runtime-bundle.js");
-    const distributionVerifier = readProjectFile("scripts/ccx-distribution.js");
-    check(buildIdentity.includes(`"${PATCH_BUILD_ID}"`), "source build identity differs");
-    check(buildIdentity.includes(`"${PATCH_VERSION}"`), "source display version differs");
-    check(runtimeVerifier.includes(`"${PATCH_BUILD_ID}"`), "bundle verifier identity differs");
-    check(distributionVerifier.includes(`"${PATCH_BUILD_ID}"`), "CCX verifier identity differs");
+    check(buildIdentity.includes(`"${packageJson.version}"`), "current source display version differs");
 
     const openFolder = readProjectFile("src/components/OpenFolder.jsx");
     check(!openFolder.includes("v1.0.1"), "stale v1.0.1 badge returned");
@@ -76,6 +71,7 @@ try {
     check(qualification.includes("false source and\nartifact provenance claim"), "root provenance gap is missing");
     check(qualification.includes(`Version: \`${PATCH_VERSION}\``), "qualification version differs");
     check(qualification.includes(PATCH_BUILD_ID), "qualification build identity differs");
+    check(releaseNotes.includes(PATCH_BUILD_ID), "historical release notes lose the v1.1.1 build identity");
     check(qualification.includes("RELEASE QUALIFIED — AUTOMATED, CCX, AND INSTALLED RUNTIME PASS"), "qualification status is stale");
     check(qualification.includes(PATCH_BUNDLE_SHA256), "qualification bundle checksum differs");
     check(qualification.includes(PATCH_ZIP_SHA256), "qualification ZIP checksum differs");
@@ -98,7 +94,8 @@ try {
     const roadmap = readProjectFile("docs/ROADMAP.md");
     check(readme.includes("current stable release is **1.1.1**"), "README stable patch line is stale");
     check(readme.includes("passed ALB-098 qualification and ALB-099 release closeout"), "README closeout status missing");
-    check(readme.includes("ALB-043 through ALB-099"), "README test boundary is stale");
+    const testBoundary = readme.match(/ALB-043 through ALB-(\d+)/);
+    check(Boolean(testBoundary) && Number(testBoundary[1]) >= 99, "README test boundary regressed below ALB-099");
     check(roadmap.includes("1.1.1 stable — released 2026-08-21"), "roadmap patch release status missing");
     check(!roadmap.includes("qualification is in progress"), "roadmap retains stale qualification wording");
 

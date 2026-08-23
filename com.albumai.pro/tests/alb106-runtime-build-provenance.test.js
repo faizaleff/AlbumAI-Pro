@@ -14,7 +14,12 @@ const entrySource = read("src/index.jsx");
 const verifierSource = read("scripts/verify-runtime-bundle.js");
 const manifest = JSON.parse(read("plugin/manifest.json"));
 
-const RELEASE_BUILD_ID = "ALB-098-v1.1.1-patch-v1";
+const RELEASE_BUILD_ID = identitySource.match(
+    /ALBUMAI_BUILD_ID\s*=\s*\n?\s*"([^"]+)"/
+)?.[1];
+const RELEASE_VERSION = identitySource.match(
+    /ALBUMAI_VERSION\s*=\s*\n?\s*"([^"]+)"/
+)?.[1];
 const RUNTIME_REVISION_ID = identitySource.match(
     /ALBUMAI_RUNTIME_REVISION_ID\s*=\s*\n?\s*"([^"]+)"/
 )?.[1];
@@ -26,7 +31,7 @@ function check(condition, message) {
 }
 
 try {
-    check(identitySource.includes(`"${RELEASE_BUILD_ID}"`), "published release build provenance changed");
+    check(/^ALB-\d+-v\d+\.\d+\.\d+-[a-z0-9.-]+-v\d+$/.test(RELEASE_BUILD_ID || ""), "current release build provenance is missing or invalid");
     check(/^ALB-\d+-[a-z0-9.-]+-v\d+$/.test(RUNTIME_REVISION_ID || ""), "current runtime revision is missing or invalid");
     check(identitySource.includes("ALBUMAI_RUNTIME_REVISION_ID"), "runtime revision export is missing");
     check(detailsSource.includes("ALBUMAI_RUNTIME_REVISION_ID"), "diagnostics do not consume runtime revision");
@@ -34,7 +39,7 @@ try {
     check(detailsSource.includes('label="Runtime Revision" value={ALBUMAI_RUNTIME_REVISION_ID}'), "visible diagnostics omit runtime revision");
     check(entrySource.includes('console.log("ALBUMAI_RUNTIME_REVISION_ID", ALBUMAI_RUNTIME_REVISION_ID)'), "startup console omits runtime revision");
     check(verifierSource.includes(`"${RUNTIME_REVISION_ID}"`), "bundle verification omits runtime revision");
-    check(manifest.version === "1.1.1", "ALB-106 must not create an unapproved release version");
+    check(manifest.version === RELEASE_VERSION, "manifest and runtime release versions differ");
     check(!manifest.requiredPermissions?.network, "ALB-106 must remain offline by default");
     check(!manifest.requiredPermissions?.launchProcess, "ALB-106 must not add external-launch permission");
 

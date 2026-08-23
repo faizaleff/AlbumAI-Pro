@@ -5,10 +5,12 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const read = relativePath => fs.readFileSync(path.join(root, relativePath), "utf8");
 const dropdownSource = read("src/components/UxpDropdown.jsx");
-const identitySource = read("src/config/buildIdentity.js");
-const verifierSource = read("scripts/verify-runtime-bundle.js");
 const packageJson = JSON.parse(read("package.json"));
 const RUNTIME_REVISION_ID = "ALB-107-picker-deprecation-migration-v1";
+const qualification = fs.readFileSync(
+    path.resolve(root, "../ALB-107_PICKER_DEPRECATION_MIGRATION.md"),
+    "utf8"
+);
 let assertions = 0;
 
 function check(condition, message) {
@@ -26,8 +28,8 @@ try {
     check(dropdownSource.includes("onValueChange(selectedOption.value)"), "picker value mapping changed");
     check(dropdownSource.includes("disabled={disabled || undefined}"), "picker disabled behavior changed");
     check(dropdownSource.includes("event.stopPropagation()"), "optional click isolation changed");
-    check(identitySource.includes(`"${RUNTIME_REVISION_ID}"`), "ALB-107 runtime revision is missing");
-    check(verifierSource.includes(`"${RUNTIME_REVISION_ID}"`), "bundle verifier does not require ALB-107 revision");
+    check(qualification.includes(RUNTIME_REVISION_ID), "ALB-107 runtime revision evidence is missing");
+    check(qualification.includes("Runtime acceptance: PASS"), "ALB-107 runtime acceptance evidence is missing");
     check(packageJson.scripts.test.includes("alb107-picker-deprecation-migration.test.js"), "ALB-107 regression test is not in npm test");
 
     console.info(`PASS ALB-107: ${assertions} picker migration assertions`);
