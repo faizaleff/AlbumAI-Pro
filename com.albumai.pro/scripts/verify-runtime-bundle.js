@@ -10,6 +10,7 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const PLUGIN_ROOT = path.join(PROJECT_ROOT, "plugin");
 const DIST_ROOT = path.join(PROJECT_ROOT, "dist");
 const EXPECTED_BUILD_ID = "ALB-098-v1.1.1-patch-v1";
+const EXPECTED_RUNTIME_REVISION_ID = "ALB-106-runtime-provenance-v1";
 const RETIRED_BUILD_ID = "ALB-030.3-scroll-commit-timing-v1";
 const STATIC_FILES = Object.freeze([
     "icons/icon_D.png",
@@ -46,6 +47,10 @@ try {
         `dist/index.js does not contain ${EXPECTED_BUILD_ID}`
     );
     assert(
+        bundleText.includes(EXPECTED_RUNTIME_REVISION_ID),
+        `dist/index.js does not contain ${EXPECTED_RUNTIME_REVISION_ID}`
+    );
+    assert(
         !bundleText.includes(RETIRED_BUILD_ID),
         `dist/index.js still contains retired identity ${RETIRED_BUILD_ID}`
     );
@@ -60,7 +65,7 @@ try {
     }
 
     console.info(
-        `PASS ALB-094 bundle: ${EXPECTED_BUILD_ID} ` +
+        `PASS ALB-106 bundle: ${EXPECTED_BUILD_ID} ${EXPECTED_RUNTIME_REVISION_ID} ` +
         `${bundle.length} bytes sha256=${sha256(bundle)}`
     );
 } catch (error) {

@@ -12,3 +12,8 @@ export const ALBUMAI_RELEASE_URL =
 
 export const ALBUMAI_SUPPORT_ID =
     "ALB-103-runtime-identity-support-v1";
+
+// The release build ID above is immutable published provenance. This revision
+// identifies the current post-release runtime without rewriting release truth.
+export const ALBUMAI_RUNTIME_REVISION_ID =
+    "ALB-106-runtime-provenance-v1";
