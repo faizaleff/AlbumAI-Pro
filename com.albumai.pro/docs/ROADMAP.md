@@ -61,6 +61,8 @@ runtime qualification before they may be presented as product behavior.
 
 ### Smart typography
 
+- Canonical text-layer inventory and deterministic typography planning contract
+  — ALB-118 foundation delivered (no user-facing text replacement yet)
 - Quotes and caption placement
 - Font and style presets
 - Local text suggestions

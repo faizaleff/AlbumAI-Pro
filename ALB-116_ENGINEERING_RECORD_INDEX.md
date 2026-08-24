@@ -63,6 +63,7 @@ mean that a file is missing.
 | ALB-113 | [Verified Candidate Evidence](com.albumai.pro/docs/ALB-113_VERIFIED_CANDIDATE_EVIDENCE.md) | Plugin docs |
 | ALB-114 | [Runtime Host Evidence Recorder](com.albumai.pro/docs/ALB-114_RUNTIME_HOST_EVIDENCE_RECORDER.md) | Plugin docs |
 | ALB-115 | [Production Evaluation Evidence Packet](com.albumai.pro/docs/ALB-115_PRODUCTION_EVIDENCE_PACKET.md) | Plugin docs |
+| ALB-118 | [Smart Typography Foundation](com.albumai.pro/docs/ALB-118_SMART_TYPOGRAPHY_FOUNDATION.md) | Plugin docs |
 
 ## Verification
 
