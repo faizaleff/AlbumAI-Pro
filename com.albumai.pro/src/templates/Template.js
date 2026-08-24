@@ -1,3 +1,5 @@
+import { createTypographyInventory } from "../typography/TypographyPlan";
+
 const VALIDATION_STATE_UNKNOWN = "UNKNOWN";
 
 export default class Template {
@@ -7,6 +9,7 @@ export default class Template {
         const layerTree = analysis.layerTree || [];
         const smartObjects = analysis.smartObjects || [];
         const textLayers = analysis.textLayers || [];
+        const typography = createTypographyInventory(textLayers);
         const document = {
             id: analysis.documentId ?? null,
             width: analysis.width ?? null,
@@ -24,6 +27,7 @@ export default class Template {
             layerTree,
             smartObjects,
             textLayers,
+            typography,
             statistics: Template.statistics(
                 layerTree,
                 smartObjects,
