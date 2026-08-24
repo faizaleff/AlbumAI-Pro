@@ -122,6 +122,7 @@
     "src/services/ThumbnailService.js",
     "src/styles.css",
     "src/templates/Template.js",
+    "src/typography/PhotoshopTypographyAdapter.js",
     "src/typography/TypographyPlan.js",
     "src/utils/FileUtils.js",
     "src/utils/JpegBuffer.js"
@@ -489,6 +490,7 @@
     "src/core/album/LayerBoundsService.js",
     "src/core/album/LayerTransformService.js",
     "src/core/photoshop/ExecuteModal.js",
-    "src/core/photoshop/BatchPlay.js"
+    "src/core/photoshop/BatchPlay.js",
+    "src/typography/PhotoshopTypographyAdapter.js"
   ]
 }

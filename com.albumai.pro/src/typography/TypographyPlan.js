@@ -1,5 +1,7 @@
 export const TYPOGRAPHY_SCHEMA_VERSION = 1;
 
+export { default as PhotoshopTypographyAdapter } from "./PhotoshopTypographyAdapter";
+
 export const TypographyState = Object.freeze({
     READY: "READY",
     BLOCKED: "BLOCKED"

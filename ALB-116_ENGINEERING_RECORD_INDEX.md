@@ -64,6 +64,7 @@ mean that a file is missing.
 | ALB-114 | [Runtime Host Evidence Recorder](com.albumai.pro/docs/ALB-114_RUNTIME_HOST_EVIDENCE_RECORDER.md) | Plugin docs |
 | ALB-115 | [Production Evaluation Evidence Packet](com.albumai.pro/docs/ALB-115_PRODUCTION_EVIDENCE_PACKET.md) | Plugin docs |
 | ALB-118 | [Smart Typography Foundation](com.albumai.pro/docs/ALB-118_SMART_TYPOGRAPHY_FOUNDATION.md) | Plugin docs |
+| ALB-119 | [Photoshop Typography Adapter](com.albumai.pro/docs/ALB-119_PHOTOSHOP_TYPOGRAPHY_ADAPTER.md) | Plugin docs |
 
 ## Verification
 
