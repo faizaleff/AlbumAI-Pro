@@ -70,7 +70,12 @@ runtime qualification before they may be presented as product behavior.
   qualification passed
 - Manual workflow in the existing Template panel with explicit roles,
   style-preserving text edits, exact-document safety, and grouped Undo —
-  ALB-121 engineering complete; Photoshop runtime acceptance pending
+  ALB-121 delivered and runtime-qualified with a two-layer Photoshop fixture
+  and grouped Undo evidence
+- Template-local style reuse, allowing an operator to copy an existing text
+  layer's font, size, color, and alignment into another explicit assignment —
+  ALB-122 delivered and runtime-qualified with cross-layer style reuse and
+  grouped Undo evidence
 - Quotes and caption placement
 - Font and style presets
 - Local text suggestions
