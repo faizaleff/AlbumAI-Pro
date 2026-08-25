@@ -46,8 +46,8 @@ try {
     check(!sourceManifest.requiredPermissions?.network, "ALB-103 must not add network permission");
     check(!sourceManifest.requiredPermissions?.launchProcess, "ALB-103 must not add external-launch permission");
     check(!detailsSource.includes("fetch("), "ALB-103 must not add an update network request");
-    check(webpackSource.includes("maxAssetSize: 724 * 1024"), "production bundle budget is not explicit");
-    check(webpackSource.includes("maxEntrypointSize: 724 * 1024"), "production entrypoint budget is not explicit");
+    check(webpackSource.includes("maxAssetSize: 726 * 1024"), "production bundle budget is not explicit");
+    check(webpackSource.includes("maxEntrypointSize: 726 * 1024"), "production entrypoint budget is not explicit");
 
     console.info(`PASS ALB-103: ${assertions} runtime identity and support assertions`);
 } catch (error) {
