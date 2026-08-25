@@ -1,8 +1,7 @@
-import { app } from "photoshop";
+import { app, constants } from "photoshop";
 
 import DocumentManager from "../core/document/DocumentManager";
 import LayerManager from "../core/layers/LayerManager";
-import BatchPlay from "../core/photoshop/BatchPlay";
 import ExecuteModal from "../core/photoshop/ExecuteModal";
 import Logger from "../core/photoshop/Logger";
 
@@ -21,13 +20,6 @@ export const TypographyExecutionReason = Object.freeze({
     HISTORY_UNAVAILABLE: "HISTORY_UNAVAILABLE",
     PHOTOSHOP_REJECTED: "PHOTOSHOP_REJECTED",
     VERIFICATION_FAILED: "VERIFICATION_FAILED"
-});
-
-const ALIGNMENT_VALUES = Object.freeze({
-    left: "left",
-    center: "center",
-    right: "right",
-    justify: "justifyAll"
 });
 
 class PhotoshopFontCatalog {
@@ -66,16 +58,18 @@ export default class PhotoshopTypographyAdapter {
     constructor({
         documentManager = new DocumentManager(),
         layerManager = new LayerManager(),
-        batchPlay = BatchPlay,
         executeModal = ExecuteModal,
-        fontCatalog = new PhotoshopFontCatalog()
+        fontCatalog = new PhotoshopFontCatalog(),
+        photoshopApp = app,
+        photoshopConstants = constants
     } = {}) {
 
         this.documentManager = documentManager;
         this.layerManager = layerManager;
-        this.batchPlay = batchPlay;
         this.executeModal = executeModal;
         this.fontCatalog = fontCatalog;
+        this.photoshopApp = photoshopApp;
+        this.photoshopConstants = photoshopConstants;
 
     }
 
@@ -162,6 +156,9 @@ export default class PhotoshopTypographyAdapter {
             if (layer.kind !== "textLayer") {
                 throw this.failure(TypographyExecutionReason.TARGET_NOT_TEXT_LAYER, step.layerId);
             }
+            if (!layer.photoshopLayer?.textItem) {
+                throw this.failure(TypographyExecutionReason.TARGET_NOT_TEXT_LAYER, step.layerId);
+            }
             if (layer.visible === false || layer.locked === true) {
                 throw this.failure(TypographyExecutionReason.TARGET_NOT_EDITABLE, step.layerId);
             }
@@ -196,20 +193,16 @@ export default class PhotoshopTypographyAdapter {
             try {
                 for (const step of context.steps) {
                     stepStarted(step.layerId);
-                    await this.batchPlay.execute([
-                        this.setTextDescriptor(step)
-                    ], {
-                        commandName: `Set Typography Layer ${step.layerId}`,
-                        alreadyInModal: true
-                    });
-                    const verified = await this.batchPlay.command(
-                        this.getTextDescriptor(step.layerId),
-                        {
-                            commandName: `Verify Typography Layer ${step.layerId}`,
-                            alreadyInModal: true
-                        }
-                    );
-                    if (verified?.textKey !== step.text) {
+                    try {
+                        this.applyTextStep(step);
+                    } catch (error) {
+                        Logger.warn(
+                            `[AlbumAI:typography] STEP_REJECTED doc=${context.expectedDocumentId} ` +
+                            `layer=${step.layerId} error=${this.describeError(error)}`
+                        );
+                        throw error;
+                    }
+                    if (step.layer.photoshopLayer.textItem.contents !== step.text) {
                         throw this.failure(
                             TypographyExecutionReason.VERIFICATION_FAILED,
                             step.layerId
@@ -221,77 +214,88 @@ export default class PhotoshopTypographyAdapter {
                 await hostControl.resumeHistory(suspensionId, true);
                 return completedLayerIds;
             } catch (error) {
-                await hostControl.resumeHistory(suspensionId, false);
+                try {
+                    await hostControl.resumeHistory(suspensionId, false);
+                } catch (rollbackError) {
+                    Logger.error(
+                        `[AlbumAI:typography] ROLLBACK_FAILED doc=${context.expectedDocumentId} ` +
+                        `error=${this.describeError(rollbackError)}`
+                    );
+                }
                 throw error;
             }
         }, { commandName: "Apply Album Typography" });
 
     }
 
-    setTextDescriptor(step) {
+    applyTextStep(step) {
 
-        const to = {
-            _obj: "textLayer",
-            textKey: step.text
-        };
+        const textItem = step.layer.photoshopLayer.textItem;
         const preset = step.preset;
 
-        if (preset) {
-            const textStyle = { _obj: "textStyle" };
+        textItem.contents = step.text;
 
-            if (preset.fontFamily) textStyle.fontPostScriptName = preset.fontFamily;
-            if (preset.fontSize != null) {
-                textStyle.size = { _unit: "pointsUnit", _value: preset.fontSize };
-            }
-            if (preset.color) {
-                textStyle.color = {
-                    _obj: "RGBColor",
-                    red: preset.color.red,
-                    grain: preset.color.green,
-                    blue: preset.color.blue
-                };
-            }
-            if (Object.keys(textStyle).length > 1) {
-                to.textStyleRange = [{
-                    _obj: "textStyleRange",
-                    from: 0,
-                    to: step.text.length,
-                    textStyle
-                }];
-            }
-            if (preset.alignment) {
-                to.paragraphStyleRange = [{
-                    _obj: "paragraphStyleRange",
-                    from: 0,
-                    to: step.text.length,
-                    paragraphStyle: {
-                        _obj: "paragraphStyle",
-                        align: {
-                            _enum: "alignmentType",
-                            _value: ALIGNMENT_VALUES[preset.alignment] || preset.alignment
-                        }
-                    }
-                }];
-            }
+        if (!preset) return;
+
+        if (preset.fontFamily) {
+            textItem.characterStyle.font = preset.fontFamily;
         }
+        if (preset.fontSize != null) {
+            textItem.characterStyle.size = preset.fontSize;
+        }
+        if (preset.color) {
+            const SolidColor = this.photoshopApp?.SolidColor;
 
-        return {
-            _obj: "set",
-            _target: [{ _ref: "textLayer", _id: step.layerId }],
-            to
-        };
+            if (typeof SolidColor !== "function") {
+                throw this.failure(TypographyExecutionReason.PHOTOSHOP_REJECTED, step.layerId);
+            }
+
+            const color = new SolidColor();
+            color.rgb.red = preset.color.red;
+            color.rgb.green = preset.color.green;
+            color.rgb.blue = preset.color.blue;
+            textItem.characterStyle.color = color;
+        }
+        if (preset.alignment) {
+            textItem.paragraphStyle.justification = this.justification(
+                preset.alignment,
+                step.layerId
+            );
+        }
 
     }
 
-    getTextDescriptor(layerId) {
+    justification(alignment, layerId) {
 
-        return {
-            _obj: "get",
-            _target: [
-                { _property: "textKey" },
-                { _ref: "textLayer", _id: layerId }
-            ]
+        const values = this.photoshopConstants?.Justification;
+        const mapping = {
+            left: values?.LEFT,
+            center: values?.CENTER,
+            right: values?.RIGHT,
+            justify: values?.FULLYJUSTIFIED
         };
+        const value = mapping[alignment];
+
+        if (value == null) {
+            throw this.failure(TypographyExecutionReason.PHOTOSHOP_REJECTED, layerId);
+        }
+
+        return value;
+
+    }
+
+    describeError(error) {
+
+        if (error instanceof Error) {
+            return `${error.name || "Error"}:${error.message || "unknown"}`;
+        }
+        if (typeof error === "string") return error;
+
+        try {
+            return JSON.stringify(error) || "unknown";
+        } catch {
+            return "unserializable";
+        }
 
     }
 

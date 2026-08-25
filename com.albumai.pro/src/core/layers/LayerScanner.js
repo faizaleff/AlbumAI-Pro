@@ -65,7 +65,9 @@ class LayerScanner {
 
             name: layer.name,
 
-            kind: layer.kind,
+            // Photoshop UXP exposes constants.LayerKind.TEXT as "text".
+            // AlbumAI's canonical layer schema uses "textLayer".
+            kind: this.normalizeKind(layer.kind),
 
             visible: layer.visible,
 
@@ -88,6 +90,17 @@ class LayerScanner {
             photoshopLayer: layer
 
         };
+
+    }
+
+    /**
+     * Normalize host layer kinds at the Photoshop boundary.
+     */
+    normalizeKind(kind) {
+
+        return kind === "text"
+            ? "textLayer"
+            : kind;
 
     }
 

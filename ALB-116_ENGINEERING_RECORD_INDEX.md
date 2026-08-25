@@ -65,6 +65,7 @@ mean that a file is missing.
 | ALB-115 | [Production Evaluation Evidence Packet](com.albumai.pro/docs/ALB-115_PRODUCTION_EVIDENCE_PACKET.md) | Plugin docs |
 | ALB-118 | [Smart Typography Foundation](com.albumai.pro/docs/ALB-118_SMART_TYPOGRAPHY_FOUNDATION.md) | Plugin docs |
 | ALB-119 | [Photoshop Typography Adapter](com.albumai.pro/docs/ALB-119_PHOTOSHOP_TYPOGRAPHY_ADAPTER.md) | Plugin docs |
+| ALB-120 | [Typography Runtime Qualification](com.albumai.pro/docs/ALB-120_TYPOGRAPHY_RUNTIME_QUALIFICATION.md) | Plugin docs |
 
 ## Verification
 
