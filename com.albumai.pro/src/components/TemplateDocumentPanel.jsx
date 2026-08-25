@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import BatchProgressPanel from "./BatchProgressPanel";
 import UxpDropdown from "./UxpDropdown";
+import ManualTypographyPanel, {
+    applyTypographyResultToDocument
+} from "./ManualTypographyPanel";
 import {
     readCurrentRecoveryState,
     recoveryPanelStateKey
@@ -69,6 +72,7 @@ export default function TemplateDocumentPanel({
     getCurrentProjectExecutionSummary,
     getPhotos,
     getCurrentTemplate,
+    applyManualTypography,
     setAutoSaveEnabled,
     getAutoSaveEnabled,
     setAutoSaveMode,
@@ -108,6 +112,8 @@ export default function TemplateDocumentPanel({
     const revalidationRequestRef = useRef(0);
     const revalidationProjectIdRef = useRef(projectId);
     const [document, setDocument] = useState(null);
+    const [templateOpenBusy, setTemplateOpenBusy] = useState(false);
+    const [templateOpenError, setTemplateOpenError] = useState("");
     const [, setPlacementVersion] = useState(0);
     const [placementError, setPlacementError] = useState(null);
     const [replacementResult, setReplacementResult] = useState(null);
@@ -152,8 +158,6 @@ export default function TemplateDocumentPanel({
     const placementPlan = getCurrentPlacementPlan?.() || null;
     const executionPlan = getCurrentPlacementExecutionPlan?.() || null;
     const replacementRequest = getCurrentReplacementRequest?.() || null;
-    const healthPhotos = getPhotos?.() || [];
-    const healthTemplate = getCurrentTemplate?.() || null;
     const autoSaveEnabled = getAutoSaveEnabled?.() || false;
     const autoSaveMode = getAutoSaveMode?.() || "SAVE_COPY";
     const exportEnabled = getExportEnabled?.() || false;
@@ -684,18 +688,34 @@ export default function TemplateDocumentPanel({
             return;
         }
 
-        const result = await openTemplate(file);
+        setTemplateOpenBusy(true);
+        setTemplateOpenError("");
 
-        setDocument(result);
-        setPlacementError(null);
-        setReplacementResult(null);
-        setExecutionSummary(null);
-        setBatchProgress(getCurrentBatchProgress?.() || null);
-        setExecutionLifecycle(getCurrentExecutionLifecycle?.() || null);
-        setProjectExecutionSummary(null);
-        setAutoSaveResult(null);
-        setExportResult(null);
-        setPlacementVersion(value => value + 1);
+        try {
+            const result = await openTemplate(file);
+
+            setDocument(result);
+            setPlacementError(null);
+            setReplacementResult(null);
+            setExecutionSummary(null);
+            setBatchProgress(getCurrentBatchProgress?.() || null);
+            setExecutionLifecycle(getCurrentExecutionLifecycle?.() || null);
+            setProjectExecutionSummary(null);
+            setAutoSaveResult(null);
+            setExportResult(null);
+            setPlacementVersion(value => value + 1);
+        }
+
+        catch (error) {
+            setDocument(null);
+            setTemplateOpenError(
+                error?.message || "The PSD template could not be opened."
+            );
+        }
+
+        finally {
+            setTemplateOpenBusy(false);
+        }
 
     }
 
@@ -1008,9 +1028,9 @@ export default function TemplateDocumentPanel({
 
                 <button
                     onClick={open}
-                    disabled={isExecuting || !hasProject || !selectedName}
+                    disabled={isExecuting || templateOpenBusy || !hasProject || !selectedName}
                 >
-                    Open PSD
+                    {templateOpenBusy ? "Opening…" : "Open PSD"}
                 </button>
                     </div>
                     <div className="template-action-group">
@@ -1054,6 +1074,27 @@ export default function TemplateDocumentPanel({
                 </button>
                     </div>
                 </div>
+
+                {templateOpenError && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: "#ff9999" }}>
+                        Template Open: {templateOpenError}
+                    </div>
+                )}
+
+                {document && (
+                    <div className="template-document-details" style={{ marginTop: 10, fontSize: 12 }}>
+                        <div>Template Name: {document.name}</div>
+                        <div>Width × Height: {document.document.width} × {document.document.height}</div>
+                        <div>Text Layers: {document.statistics.totalTextLayers}</div>
+                        <ManualTypographyPanel
+                            document={document}
+                            applyTypography={applyManualTypography}
+                            onApplied={(drafts, result) => setDocument(current =>
+                                applyTypographyResultToDocument(current, drafts, result)
+                            )}
+                        />
+                    </div>
+                )}
 
                 <div style={{ fontSize: 12, color: registryBlocked ? "#ffcc88" : "#9ee6a5" }}>
                     Ready: {registrySummary.ready} · Blocking: {registrySummary.blocking}
@@ -1274,179 +1315,6 @@ export default function TemplateDocumentPanel({
                     </div>
                 </div>
             </div>
-
-            {false && <>
-            <div style={{ marginTop: 10, fontSize: 12 }}>
-                <div>Project Health</div>
-                <div>Project: {hasProject ? "READY" : "MISSING"}</div>
-                <div>Photos: {healthPhotos.length}</div>
-                <div>Template: {healthTemplate ? "READY" : "MISSING"}</div>
-                <div>Smart Objects: {healthTemplate?.smartObjects?.length || 0}</div>
-                <div>Placement: {placementPlan ? "READY" : "NOT READY"}</div>
-                <div>Execution Plan: {executionPlan?.status === "READY" ? "READY" : "NOT READY"}</div>
-                <div>Replacement Request: {replacementRequest ? "READY" : "NOT READY"}</div>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 12 }}>
-                <div>Auto Save: {autoSaveEnabled ? "ON" : "OFF"}</div>
-                <div>Mode: {autoSaveMode === "SAVE_COPY" ? "Save Copy" : "Overwrite Original"}</div>
-                {autoSaveMode === "OVERWRITE_ORIGINAL" && (
-                    <div style={{ color: "#ffcc99" }}>
-                        Warning: Overwrite Original is destructive.
-                    </div>
-                )}
-                {autoSaveResult && (
-                    <>
-                        <div>Auto Save: {autoSaveResult.status}</div>
-                        {!!autoSaveResult.outputPath && (
-                            <div>Output: {autoSaveResult.outputPath}</div>
-                        )}
-                        {!!autoSaveResult.warnings?.length && (
-                            <div>Warning: {autoSaveResult.warnings.join(" ")}</div>
-                        )}
-                        {autoSaveResult.error && (
-                            <div>Warning: {autoSaveResult.error}</div>
-                        )}
-                    </>
-                )}
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 12 }}>
-                <div>Export: {exportEnabled ? "ON" : "OFF"}</div>
-                <div>Format: {exportFormat}</div>
-                {exportResult && (
-                    <>
-                        <div>Last Export: {exportResult.status}</div>
-                        {!!exportResult.outputPath && (
-                            <div>Output: {exportResult.outputPath}</div>
-                        )}
-                        {!!exportResult.warnings?.length && (
-                            <div>Warning: {exportResult.warnings.join(" ")}</div>
-                        )}
-                        {exportResult.error && (
-                            <div>Warning: {exportResult.error}</div>
-                        )}
-                    </>
-                )}
-            </div>
-
-            {document && (
-
-                <div style={{ marginTop: 10, fontSize: 12 }}>
-                    <div>Template Name: {document.name}</div>
-                    <div>Width × Height: {document.document.width} × {document.document.height}</div>
-                    <div>Resolution: {document.document.resolution}</div>
-                    <div>Layer Count: {document.statistics.totalLayers}</div>
-                    <div>
-                        Smart Objects: {document.statistics.totalSmartObjects}
-                    </div>
-                    {!!document.smartObjects?.length && (
-                        <div>
-                            Smart Object Names: {document.smartObjects
-                                .map(layer => layer.layerName)
-                                .join(", ")}
-                        </div>
-                    )}
-                    <div>
-                        Text Layers: {document.statistics.totalTextLayers}
-                    </div>
-                    {!!document.textLayers?.length && (
-                        <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
-                            {document.textLayers.map(layer => (
-                                <li key={layer.layerId}>
-                                    {layer.layerName}: {textPreview(layer.textContent)}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-
-            )}
-
-            {document?.layerTree && (
-
-                <div style={{ marginTop: 10, fontSize: 12 }}>
-                    <LayerTree layers={document.layerTree} />
-                </div>
-
-            )}
-
-            {placementPlan && (
-
-                <div style={{ marginTop: 10, fontSize: 12 }}>
-                    <div>Assigned Slots: {placementPlan.statistics.assignedSlots}</div>
-                    <div>Empty Slots: {placementPlan.statistics.emptySlots}</div>
-                    <div>Unassigned Photos: {placementPlan.statistics.unassignedPhotos}</div>
-                    <div>Warnings: {placementPlan.warnings.length}</div>
-                </div>
-
-            )}
-
-            {placementError && (
-
-                <div style={{ marginTop: 10, fontSize: 12, color: "#ff9999" }}>
-                    Placement Plan: {placementError}
-                </div>
-
-            )}
-
-            {executionPlan && (
-
-                <div style={{ marginTop: 10, fontSize: 12 }}>
-                    <div>Ready Steps: {executionPlan.statistics.readySteps}</div>
-                    <div>Warnings: {executionPlan.statistics.warningCount}</div>
-                    <div>Status: {executionPlan.status}</div>
-                </div>
-
-            )}
-
-            {replacementResult && (
-
-                <div style={{ marginTop: 10, fontSize: 12 }}>
-                    <div>Replacement: {replacementResult.status}</div>
-                    {!!replacementResult.errors?.length && (
-                        <div>{replacementResult.errors.join(" ")}</div>
-                    )}
-                </div>
-
-            )}
-
-            {executionSummary && (
-
-                <div style={{ marginTop: 10, fontSize: 12 }}>
-                    <div>Completed</div>
-                    <div>Success: {executionSummary.completedSteps}</div>
-                    <div>Failed: {executionSummary.failedSteps}</div>
-                </div>
-
-            )}
-
-            {batchProgress && (
-
-                <div style={{ marginTop: 10, fontSize: 12 }}>
-                    <div>Batch Progress</div>
-                    <div>Status: {batchProgress.status}</div>
-                    <div>Current Photo: {batchProgress.currentPhotoName || "—"}</div>
-                    <div>Current Slot: {batchProgress.currentSlotName || "—"}</div>
-                    <div>Completed: {batchProgress.completedSteps} / {batchProgress.totalSteps}</div>
-                    <div>Success: {batchProgress.successCount}</div>
-                    <div>Failed: {batchProgress.failedCount}</div>
-                </div>
-
-            )}
-
-            {projectExecutionSummary && (
-
-                <div style={{ marginTop: 10, fontSize: 12 }}>
-                    <div>Project Execution</div>
-                    <div>Templates</div>
-                    <div>Completed : {projectExecutionSummary.completedTemplates}</div>
-                    <div>Failed : {projectExecutionSummary.failedTemplates}</div>
-                    <div>Status : {projectExecutionSummary.status}</div>
-                </div>
-
-            )}
-            </>}
 
         </section>
 

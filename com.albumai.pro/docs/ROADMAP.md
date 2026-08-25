@@ -66,9 +66,11 @@ runtime qualification before they may be presented as product behavior.
 - Exact Photoshop text-layer adapter with whole-plan preflight, grouped undo,
   rollback, and verification — ALB-119 engineering foundation
 - Developer-console runtime qualification harness for exact two-layer plans,
-  fail-closed fixture confirmation, and Undo evidence — ALB-120 engineering
-  foundation (Photoshop runtime evidence pending; no user-facing text
-  replacement yet)
+  fail-closed fixture confirmation, and Undo evidence — ALB-120 runtime
+  qualification passed
+- Manual workflow in the existing Template panel with explicit roles,
+  style-preserving text edits, exact-document safety, and grouped Undo —
+  ALB-121 engineering complete; Photoshop runtime acceptance pending
 - Quotes and caption placement
 - Font and style presets
 - Local text suggestions

@@ -1007,6 +1007,9 @@ export default function OpenFolder() {
     const getCurrentTemplate = () =>
         App.getCurrentTemplate();
 
+    const applyManualTypography = request =>
+        App.applyManualTypography(request);
+
     const setAutoSaveEnabled = enabled =>
         App.setAutoSaveEnabled(enabled);
 
@@ -1581,6 +1584,7 @@ export default function OpenFolder() {
                             getCurrentProjectExecutionSummary={getCurrentProjectExecutionSummary}
                             getPhotos={getPhotos}
                             getCurrentTemplate={getCurrentTemplate}
+                            applyManualTypography={applyManualTypography}
                             setAutoSaveEnabled={setAutoSaveEnabled}
                             getAutoSaveEnabled={getAutoSaveEnabled}
                             setAutoSaveMode={setAutoSaveMode}
