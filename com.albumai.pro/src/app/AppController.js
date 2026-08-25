@@ -49,6 +49,8 @@ import {
     createAlbumBatchRenderRequest,
     validateAlbumBatchRenderRequest
 } from "../project/AlbumSheetRenderBridge";
+import PhotoshopTypographyAdapter from "../typography/PhotoshopTypographyAdapter";
+import ManualTypographyWorkflow from "../typography/ManualTypographyWorkflow";
 
 export const ExecutionLifecycleStatus = Object.freeze({
     IDLE: "IDLE",
@@ -86,6 +88,12 @@ export class AppController {
             projectEngine: this.project
         });
         this.templateRegistry = new TemplateRegistry();
+        this.manualTypographyWorkflow = new ManualTypographyWorkflow({
+            adapter: new PhotoshopTypographyAdapter({
+                documentManager: this.templateDocumentReader.documentManager,
+                layerManager: this.templateDocumentReader.layerTreeReader.layerManager
+            })
+        });
         this.projectTemplateRegistry = new ProjectTemplateRegistry();
         this.templateRegistryPreflightService = new TemplateRegistryPreflightService();
         this.currentTemplateRegistryPreflightState = this.emptyTemplateRegistryPreflightState();
@@ -2385,6 +2393,14 @@ export class AppController {
 
         return this.templateRegistry.current();
 
+    }
+
+    async applyManualTypography({ expectedDocumentId, assignments } = {}) {
+        return this.manualTypographyWorkflow.execute({
+            template: this.getCurrentTemplate(),
+            expectedDocumentId,
+            assignments
+        });
     }
 
     async closeTemplateDocument() {

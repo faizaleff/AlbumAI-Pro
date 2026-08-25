@@ -72,9 +72,10 @@ module.exports = (_env, argv = {}) => {
         // live spread canvas, sheet storyboard strip, smart auto-flow, print proofing, and wedding wizard intelligence.
         // ALB-103 adds in-product runtime identity diagnostics; ALB-118 adds the canonical
         // typography inventory and plan boundary; ALB-120 adds the guarded real-host
-        // qualification harness. Keep only about 1 KiB of explicit headroom.
-        maxAssetSize: 717 * 1024,
-        maxEntrypointSize: 717 * 1024
+        // qualification harness; ALB-121 adds the manual typography workflow and
+        // existing-panel controls. Keep only about 1 KiB of explicit headroom.
+        maxAssetSize: 724 * 1024,
+        maxEntrypointSize: 724 * 1024
     }
     };
 };
