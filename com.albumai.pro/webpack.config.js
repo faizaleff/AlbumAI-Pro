@@ -71,9 +71,10 @@ module.exports = (_env, argv = {}) => {
         // ALB-071, ALB-072, ALB-081, ALB-082, ALB-090, and ALB-100 incorporate local AI signals, culling modal,
         // live spread canvas, sheet storyboard strip, smart auto-flow, print proofing, and wedding wizard intelligence.
         // ALB-103 adds in-product runtime identity diagnostics; ALB-118 adds the canonical
-        // typography inventory and plan boundary. Keep only about 1 KiB of explicit headroom.
-        maxAssetSize: 705 * 1024,
-        maxEntrypointSize: 705 * 1024
+        // typography inventory and plan boundary; ALB-120 adds the guarded real-host
+        // qualification harness. Keep only about 1 KiB of explicit headroom.
+        maxAssetSize: 717 * 1024,
+        maxEntrypointSize: 717 * 1024
     }
     };
 };

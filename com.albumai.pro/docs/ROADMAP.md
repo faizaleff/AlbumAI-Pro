@@ -64,8 +64,11 @@ runtime qualification before they may be presented as product behavior.
 - Canonical text-layer inventory and deterministic typography planning contract
   — ALB-118 foundation delivered (no user-facing text replacement yet)
 - Exact Photoshop text-layer adapter with whole-plan preflight, grouped undo,
-  rollback, and verification — ALB-119 engineering foundation (runtime
-  qualification pending; no user-facing text replacement yet)
+  rollback, and verification — ALB-119 engineering foundation
+- Developer-console runtime qualification harness for exact two-layer plans,
+  fail-closed fixture confirmation, and Undo evidence — ALB-120 engineering
+  foundation (Photoshop runtime evidence pending; no user-facing text
+  replacement yet)
 - Quotes and caption placement
 - Font and style presets
 - Local text suggestions

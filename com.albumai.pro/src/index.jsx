@@ -16,6 +16,7 @@ import {
     runPhotoAiWasmFeasibilityProbe,
     runPhotoAiWasmFeasibilitySeries
 } from "./services/PhotoAiWasmFeasibilityProbe";
+import TypographyRuntimeQualification from "./typography/TypographyRuntimeQualification";
 
 // Developer-console diagnostic only. It prompts for a parent folder and uses
 // a newly-created AlbumAI-owned disposable child folder; it never opens PSDs.
@@ -56,6 +57,21 @@ globalThis.__ALBUMAI_ALB070_RUN_WASM_SERIES__ = async (options = {}) => {
             : undefined
     });
     console.info("ALB_070_WASM_SERIES", JSON.stringify(report));
+    return report;
+};
+
+// Developer-console diagnostic only. Inspection is read-only. Execution is
+// restricted to a caller-confirmed disposable PSD, exact active document id,
+// and exactly two explicit text-layer assignments. It never saves or exports.
+const typographyRuntimeQualification = new TypographyRuntimeQualification();
+globalThis.__ALBUMAI_ALB120_INSPECT_TYPOGRAPHY__ = () => {
+    const report = typographyRuntimeQualification.inspect();
+    console.info("ALB_120_TYPOGRAPHY_INSPECTION", JSON.stringify(report));
+    return report;
+};
+globalThis.__ALBUMAI_ALB120_QUALIFY_TYPOGRAPHY__ = async (options = {}) => {
+    const report = await typographyRuntimeQualification.execute(options);
+    console.info("ALB_120_TYPOGRAPHY_RUNTIME_QUALIFICATION", JSON.stringify(report));
     return report;
 };
 

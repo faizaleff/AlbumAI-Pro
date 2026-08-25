@@ -33,19 +33,47 @@ function layer(id, overrides = {}) {
     };
 }
 
-function setup({ layers = [layer(7)], fonts = [], batchFailureAt = null,
-    verificationText = null, activeDocumentId = 41, history = true } = {}) {
+function setup({ layers = [layer(7)], fonts = [], writeFailureAt = null,
+    verificationText = null, activeDocumentId = 41, history = true,
+    rollbackFailure = false } = {}) {
     const document = { id: 41, layers: [] };
     const state = {
         activeDocumentId,
         activated: 0,
         scanned: 0,
         modalCalls: 0,
-        commands: [],
+        writes: [],
         suspended: [],
         resumed: []
     };
-    const byId = new Map(layers.map(item => [item.id, item]));
+    const runtimeLayers = layers.map(item => {
+        if (item.photoshopLayer) return item;
+
+        let contents = `Original ${item.id}`;
+        const textItem = {
+            characterStyle: {},
+            paragraphStyle: {}
+        };
+        Object.defineProperty(textItem, "contents", {
+            get() {
+                return verificationText ?? contents;
+            },
+            set(value) {
+                state.writes.push({ layerId: item.id, value });
+                if (item.id === writeFailureAt) {
+                    throw new Error("Photoshop rejected text contents");
+                }
+                contents = value;
+            }
+        });
+
+        return {
+            ...item,
+            photoshopLayer: { textItem }
+        };
+    });
+    state.runtimeLayers = runtimeLayers;
+    const byId = new Map(runtimeLayers.map(item => [item.id, item]));
     const documentManager = {
         byId(id) { return id === 41 ? document : null; },
         get activeId() { return state.activeDocumentId; },
@@ -61,24 +89,6 @@ function setup({ layers = [layer(7)], fonts = [], batchFailureAt = null,
         },
         byId(id) { return byId.get(id) || null; }
     };
-    const batchPlay = {
-        async execute(commands) {
-            const descriptor = commands[0];
-            state.commands.push(descriptor);
-            if (descriptor?._target?.[0]?._id === batchFailureAt) {
-                throw new Error("Photoshop rejected command");
-            }
-            return [{}];
-        },
-        async command(descriptor) {
-            state.commands.push(descriptor);
-            const id = descriptor._target[1]._id;
-            const set = [...state.commands].reverse().find(command =>
-                command._obj === "set" && command._target[0]._id === id
-            );
-            return { textKey: verificationText ?? set?.to?.textKey };
-        }
-    };
     const hostControl = history ? {
         async suspendHistory(options) {
             state.suspended.push(options);
@@ -86,6 +96,7 @@ function setup({ layers = [layer(7)], fonts = [], batchFailureAt = null,
         },
         async resumeHistory(id, commit) {
             state.resumed.push({ id, commit });
+            if (!commit && rollbackFailure) throw new Error("Rollback rejected");
         }
     } : {};
     const executeModal = {
@@ -104,9 +115,23 @@ function setup({ layers = [layer(7)], fonts = [], batchFailureAt = null,
         adapter: new PhotoshopTypographyAdapter({
             documentManager,
             layerManager,
-            batchPlay,
             executeModal,
-            fontCatalog
+            fontCatalog,
+            photoshopApp: {
+                SolidColor: class SolidColor {
+                    constructor() {
+                        this.rgb = {};
+                    }
+                }
+            },
+            photoshopConstants: {
+                Justification: {
+                    LEFT: "left",
+                    CENTER: "center",
+                    RIGHT: "right",
+                    FULLYJUSTIFIED: "justifyAll"
+                }
+            }
         })
     };
 }
@@ -138,7 +163,7 @@ async function run() {
 
         assert.strictEqual(result.reasonCode, TypographyExecutionReason.TARGET_NOT_FOUND);
         assert.strictEqual(state.modalCalls, 0);
-        assert.deepStrictEqual(state.commands, []);
+        assert.deepStrictEqual(state.writes, []);
     });
 
     await test("activates the expected document and fails closed for unavailable fonts", async () => {
@@ -190,26 +215,25 @@ async function run() {
         }]);
         assert.deepStrictEqual(state.resumed, [{ id: "history-1", commit: true }]);
 
-        const sets = state.commands.filter(command => command._obj === "set");
-        assert.deepStrictEqual(sets.map(command => command._target[0]), [
-            { _ref: "textLayer", _id: 7 },
-            { _ref: "textLayer", _id: 8 }
+        assert.deepStrictEqual(state.writes, [
+            { layerId: 7, value: "Album Title" },
+            { layerId: 8, value: "Caption" }
         ]);
-        assert.strictEqual(sets[0].to.textKey, "Album Title");
-        assert.strictEqual(
-            sets[0].to.textStyleRange[0].textStyle.fontPostScriptName,
-            "AvailablePS"
-        );
-        assert.strictEqual(
-            sets[0].to.paragraphStyleRange[0].paragraphStyle.align._value,
-            "center"
-        );
+        const title = layersById(state, 7);
+        assert.strictEqual(title.textItem.characterStyle.font, "AvailablePS");
+        assert.strictEqual(title.textItem.characterStyle.size, 36);
+        assert.deepStrictEqual(title.textItem.characterStyle.color.rgb, {
+            red: 10,
+            green: 20,
+            blue: 30
+        });
+        assert.strictEqual(title.textItem.paragraphStyle.justification, "center");
     });
 
     await test("rolls back the whole history group at the first failed layer", async () => {
         const { adapter, state } = setup({
             layers: [layer(7), layer(8)],
-            batchFailureAt: 8
+            writeFailureAt: 8
         });
         const result = await adapter.execute({
             plan: plan([
@@ -234,7 +258,7 @@ async function run() {
         });
 
         assert.strictEqual(result.reasonCode, TypographyExecutionReason.HISTORY_UNAVAILABLE);
-        assert.deepStrictEqual(state.commands, []);
+        assert.deepStrictEqual(state.writes, []);
     });
 
     await test("rolls back when post-write text verification disagrees", async () => {
@@ -249,7 +273,24 @@ async function run() {
         assert.deepStrictEqual(state.resumed, [{ id: "history-1", commit: false }]);
     });
 
+    await test("preserves the original Photoshop rejection when rollback also fails", async () => {
+        const { adapter } = setup({ writeFailureAt: 7, rollbackFailure: true });
+        const result = await adapter.execute({
+            plan: plan([{ layerId: 7, role: "TITLE", text: "Title", preset: null }]),
+            expectedDocumentId: 41
+        });
+
+        assert.strictEqual(result.reasonCode, TypographyExecutionReason.PHOTOSHOP_REJECTED);
+        assert.strictEqual(result.failedLayerId, 7);
+    });
+
     console.info(`ALB-119 Photoshop Typography Adapter: PASS (${assertions} tests)`);
+}
+
+function layersById(state, id) {
+    const write = state.writes.find(item => item.layerId === id);
+    assert(write);
+    return state.runtimeLayers.find(item => item.id === id).photoshopLayer;
 }
 
 run().catch(error => {

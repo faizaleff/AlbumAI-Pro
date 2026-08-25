@@ -24,6 +24,7 @@ unavailable font, or report success without verifying Photoshop state.
   available by exact PostScript name;
 - performs all layer updates inside one Photoshop modal history transaction;
 - targets layers by exact numeric layer ID;
+- writes through Photoshop's supported live `Layer.textItem` DOM boundary;
 - verifies the written text after every update;
 - commits one undo step only after all steps verify; and
 - rolls back the complete history transaction on the first rejection or
@@ -42,7 +43,8 @@ ALB-119 covers:
 4. two-layer execution in one committed undo transaction;
 5. complete rollback when the second layer fails;
 6. fail-closed behavior when grouped history is unavailable; and
-7. rollback after a post-write verification mismatch.
+7. rollback after a post-write verification mismatch; and
+8. original-error preservation if Photoshop also rejects rollback.
 
 ## Photoshop runtime qualification
 
