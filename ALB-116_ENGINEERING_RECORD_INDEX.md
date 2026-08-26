@@ -70,6 +70,7 @@ mean that a file is missing.
 | ALB-122 | [Template-local Typography Style Presets](com.albumai.pro/docs/ALB-122_TEMPLATE_TYPOGRAPHY_STYLE_PRESETS.md) | Plugin docs |
 | ALB-123 | [Quote and Caption Placement](com.albumai.pro/docs/ALB-123_QUOTE_CAPTION_PLACEMENT.md) | Plugin docs |
 | ALB-124 | [Font and Style Presets](com.albumai.pro/docs/ALB-124_FONT_STYLE_PRESETS.md) | Plugin docs |
+| ALB-125 | [Local Text Suggestions](com.albumai.pro/docs/ALB-125_LOCAL_TEXT_SUGGESTIONS.md) | Plugin docs |
 
 ## Verification
 
