@@ -68,6 +68,7 @@ mean that a file is missing.
 | ALB-120 | [Typography Runtime Qualification](com.albumai.pro/docs/ALB-120_TYPOGRAPHY_RUNTIME_QUALIFICATION.md) | Plugin docs |
 | ALB-121 | [Manual Smart Typography](com.albumai.pro/docs/ALB-121_MANUAL_SMART_TYPOGRAPHY.md) | Plugin docs |
 | ALB-122 | [Template-local Typography Style Presets](com.albumai.pro/docs/ALB-122_TEMPLATE_TYPOGRAPHY_STYLE_PRESETS.md) | Plugin docs |
+| ALB-123 | [Quote and Caption Placement](com.albumai.pro/docs/ALB-123_QUOTE_CAPTION_PLACEMENT.md) | Plugin docs |
 
 ## Verification
 

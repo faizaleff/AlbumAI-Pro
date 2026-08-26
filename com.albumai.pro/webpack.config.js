@@ -73,10 +73,11 @@ module.exports = (_env, argv = {}) => {
         // ALB-103 adds in-product runtime identity diagnostics; ALB-118 adds the canonical
         // typography inventory and plan boundary; ALB-120 adds the guarded real-host
         // qualification harness; ALB-121 adds the manual typography workflow and
-        // ALB-122 adds template-local style choices. Keep a tight 726 KiB ceiling
-        // rather than silently accepting unbounded runtime growth.
-        maxAssetSize: 726 * 1024,
-        maxEntrypointSize: 726 * 1024
+        // ALB-122 adds template-local style choices; ALB-123 adds guarded text
+        // placement. Keep a tight 729 KiB ceiling rather than silently accepting
+        // unbounded runtime growth.
+        maxAssetSize: 729 * 1024,
+        maxEntrypointSize: 729 * 1024
     }
     };
 };
