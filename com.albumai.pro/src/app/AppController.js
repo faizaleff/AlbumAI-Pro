@@ -132,6 +132,7 @@ export class AppController {
             photoPlacementEngine: this.photoPlacementEngine,
             placementExecutionPlanBuilder: this.placementExecutionPlanBuilder,
             replacementBatchExecutor: this.replacementBatchExecutor,
+            manualTypographyWorkflow: this.manualTypographyWorkflow,
             templateAutoSaveService: this.templateAutoSaveService,
             templateExportService: this.templateExportService
         });
@@ -595,7 +596,8 @@ export class AppController {
             sheetId: validation.request.sheet.id,
             sheetLabel: validation.request.sheet.label || "",
             sheetOrder: sheetOrder >= 0 ? sheetOrder : 0,
-            slots: validation.request.sheet.slots.map(slot => ({ ...slot }))
+            slots: validation.request.sheet.slots.map(slot => ({ ...slot })),
+            typographyAssignments: validation.request.sheet.typographyAssignments.map(assignment => ({ ...assignment }))
         };
 
         const exportEnabled = typeof options.exportEnabled === "boolean"

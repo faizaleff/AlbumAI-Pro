@@ -41,6 +41,7 @@ export const AlbumSheetMutationIntent = Object.freeze({
     UNASSIGN_SLOT: "UNASSIGN_SLOT",
     SWAP_SLOTS: "SWAP_SLOTS",
     SET_SLOT_CROP: "SET_SLOT_CROP",
+    SET_TYPOGRAPHY: "SET_TYPOGRAPHY",
     SET_SHEETS: "SET_SHEETS"
 });
 
@@ -60,7 +61,7 @@ const MAX_IDENTIFIER_LENGTH = 120;
 const MAX_LABEL_LENGTH = 160;
 const MAX_HISTORY_SNAPSHOTS = 20;
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
-const SHEET_FIELDS = new Set(["id", "templateId", "label", "slots"]);
+const SHEET_FIELDS = new Set(["id", "templateId", "label", "slots", "typographyAssignments"]);
 
 export function createEmptyAlbum() {
 
@@ -421,6 +422,22 @@ export function applyAlbumSheetMutation(album, mutation, options = {}) {
             break;
         }
 
+        case AlbumSheetMutationIntent.SET_TYPOGRAPHY: {
+            if (sheetIndex < 0) {
+                return mutationRejected([AlbumSheetMutationReason.SHEET_NOT_FOUND], inspected.album);
+            }
+            const targetSheet = sheets[sheetIndex];
+            const candidate = inspectSheet({
+                ...targetSheet,
+                typographyAssignments: mutation.assignments
+            }, new Set());
+            if (!candidate.valid) {
+                return mutationRejected(candidate.reasonCodes, inspected.album);
+            }
+            nextSheets = sheets.map((sheet, index) => index === sheetIndex ? candidate.sheet : sheet);
+            break;
+        }
+
         case AlbumSheetMutationIntent.SET_SHEETS: {
             if (!Array.isArray(mutation.sheets)) {
                 return mutationRejected([AlbumSheetMutationReason.INVALID_MUTATION], inspected.album);
@@ -625,6 +642,16 @@ function inspectSheet(sheet, ids) {
         }
     }
 
+    if (Array.isArray(sheet.typographyAssignments)) {
+        const assignments = sheet.typographyAssignments.map(assignment => cloneTypographyAssignment(assignment));
+        if (assignments.some(assignment => !assignment)) {
+            return invalid(AlbumSheetReason.INVALID_SHEET);
+        }
+        if (assignments.length > 0) {
+            normalized.typographyAssignments = Object.freeze(assignments);
+        }
+    }
+
     return Object.freeze({
         valid: true,
         reasonCodes: Object.freeze([]),
@@ -658,6 +685,32 @@ function slotsEqual(left = [], right = []) {
     );
 }
 
+function cloneTypographyAssignment(assignment) {
+    if (!isObject(assignment) || assignment.layerId == null ||
+        !["TITLE", "CAPTION", "QUOTE"].includes(assignment.role) ||
+        typeof assignment.text !== "string" || !assignment.text.trim()) {
+        return null;
+    }
+    return Object.freeze({
+        layerId: typeof assignment.layerId === "number" ? assignment.layerId : String(assignment.layerId),
+        role: assignment.role,
+        text: assignment.text,
+        preset: assignment.preset == null ? null : Object.freeze({
+            ...assignment.preset,
+            ...(assignment.preset.color ? { color: Object.freeze({ ...assignment.preset.color }) } : {})
+        }),
+        placement: assignment.placement?.anchor
+            ? Object.freeze({ anchor: assignment.placement.anchor })
+            : null
+    });
+}
+
+function typographyEqual(left = [], right = []) {
+    const l = Array.isArray(left) ? left : [];
+    const r = Array.isArray(right) ? right : [];
+    return JSON.stringify(l) === JSON.stringify(r);
+}
+
 function albumsEqual(left, right) {
 
     return left.schemaVersion === right.schemaVersion &&
@@ -666,7 +719,8 @@ function albumsEqual(left, right) {
             sheet.id === right.sheets[index].id &&
             sheet.templateId === right.sheets[index].templateId &&
             sheet.label === right.sheets[index].label &&
-            slotsEqual(sheet.slots, right.sheets[index].slots)
+            slotsEqual(sheet.slots, right.sheets[index].slots) &&
+            typographyEqual(sheet.typographyAssignments, right.sheets[index].typographyAssignments)
         );
 
 }
