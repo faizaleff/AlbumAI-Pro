@@ -76,7 +76,9 @@ runtime qualification before they may be presented as product behavior.
   layer's font, size, color, and alignment into another explicit assignment —
   ALB-122 delivered and runtime-qualified with cross-layer style reuse and
   grouped Undo evidence
-- Quotes and caption placement
+- Explicit quote and caption placement choices for existing template text
+  layers, with document-safe inset anchors and grouped Undo — ALB-123
+  engineering complete; Photoshop runtime acceptance pending
 - Font and style presets
 - Local text suggestions
 

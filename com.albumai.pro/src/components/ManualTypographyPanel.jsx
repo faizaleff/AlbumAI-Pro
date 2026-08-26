@@ -8,6 +8,16 @@ const ROLE_OPTIONS = Object.freeze([
     Object.freeze({ value: "QUOTE", label: "Quote" })
 ]);
 
+const PLACEMENT_OPTIONS = Object.freeze([
+    Object.freeze({ value: "", label: "Keep position" }),
+    Object.freeze({ value: "TOP_LEFT", label: "Top left" }),
+    Object.freeze({ value: "TOP_CENTER", label: "Top center" }),
+    Object.freeze({ value: "TOP_RIGHT", label: "Top right" }),
+    Object.freeze({ value: "BOTTOM_LEFT", label: "Bottom left" }),
+    Object.freeze({ value: "BOTTOM_CENTER", label: "Bottom center" }),
+    Object.freeze({ value: "BOTTOM_RIGHT", label: "Bottom right" })
+]);
+
 const PRESERVE_STYLE_OPTION = Object.freeze({
     value: "",
     label: "Preserve current style",
@@ -92,6 +102,7 @@ export function createManualTypographyDrafts(textLayers = []) {
         text: typeof layer.textContent === "string" ? layer.textContent : "",
         presetId: "",
         preset: null,
+        placementAnchor: "",
         editable: layer.visible !== false && layer.locked !== true
     }));
 }
@@ -103,7 +114,10 @@ export function buildManualTypographyAssignments(drafts = []) {
             layerId: draft.layerId,
             role: draft.role,
             text: draft.text,
-            preset: cloneTypographyPreset(draft.preset)
+            preset: cloneTypographyPreset(draft.preset),
+            ...(draft.placementAnchor ? {
+                placement: { anchor: draft.placementAnchor }
+            } : {})
         }));
 }
 
@@ -188,7 +202,7 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
         <section style={{ marginTop: 12, padding: 10, border: "1px solid #454545", borderRadius: 5 }}>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Typography</div>
             <div style={{ color: "#aaa", marginBottom: 8 }}>
-                Choose a role, edit the text, and optionally reuse a style already present in this template.
+                Choose a role, edit the text, optionally reuse a style already present in this template, and place it explicitly.
             </div>
             {drafts.map(draft => (
                 <div key={draft.layerId} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
@@ -206,6 +220,14 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
                         onValueChange={value => updatePreset(draft.layerId, value)}
                         ariaLabel={`Style for ${draft.layerName}`}
                         title={`Style for ${draft.layerName}`}
+                        disabled={!draft.editable || busy}
+                    />
+                    <UxpDropdown
+                        value={draft.placementAnchor}
+                        options={PLACEMENT_OPTIONS}
+                        onValueChange={value => update(draft.layerId, "placementAnchor", value)}
+                        ariaLabel={`Position for ${draft.layerName}`}
+                        title={`Position for ${draft.layerName}`}
                         disabled={!draft.editable || busy}
                     />
                     <input

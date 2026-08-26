@@ -13,6 +13,15 @@ export const TypographyRole = Object.freeze({
     QUOTE: "QUOTE"
 });
 
+export const TypographyPlacementAnchor = Object.freeze({
+    TOP_LEFT: "TOP_LEFT",
+    TOP_CENTER: "TOP_CENTER",
+    TOP_RIGHT: "TOP_RIGHT",
+    BOTTOM_LEFT: "BOTTOM_LEFT",
+    BOTTOM_CENTER: "BOTTOM_CENTER",
+    BOTTOM_RIGHT: "BOTTOM_RIGHT"
+});
+
 export const TypographyReason = Object.freeze({
     INVALID_TEXT_LAYERS: "INVALID_TEXT_LAYERS",
     TOO_MANY_TEXT_LAYERS: "TOO_MANY_TEXT_LAYERS",
@@ -32,7 +41,8 @@ export const TypographyReason = Object.freeze({
     DUPLICATE_TARGET: "DUPLICATE_TARGET",
     UNSUPPORTED_ROLE: "UNSUPPORTED_ROLE",
     INVALID_TEXT: "INVALID_TEXT",
-    INVALID_PRESET: "INVALID_PRESET"
+    INVALID_PRESET: "INVALID_PRESET",
+    INVALID_PLACEMENT: "INVALID_PLACEMENT"
 });
 
 const MAX_TEXT_LAYERS = 500;
@@ -57,9 +67,11 @@ const TEXT_LAYER_FIELDS = new Set([
     "locked",
     "bounds"
 ]);
-const ASSIGNMENT_FIELDS = new Set(["layerId", "role", "text", "preset"]);
+const ASSIGNMENT_FIELDS = new Set(["layerId", "role", "text", "preset", "placement"]);
 const PRESET_FIELDS = new Set(["fontFamily", "fontSize", "color", "alignment"]);
+const PLACEMENT_FIELDS = new Set(["anchor"]);
 const ROLES = new Set(Object.values(TypographyRole));
+const PLACEMENT_ANCHORS = new Set(Object.values(TypographyPlacementAnchor));
 
 /**
  * Convert TemplateLayerTreeReader text descriptors into a detached inventory.
@@ -231,15 +243,38 @@ function inspectAssignment(assignment, slots, targets) {
         return invalid(TypographyReason.INVALID_PRESET);
     }
 
+    const placement = normalizePlacement(assignment.placement);
+
+    if (assignment.placement != null && !placement) {
+        return invalid(TypographyReason.INVALID_PLACEMENT);
+    }
+
     return {
         valid: true,
         step: freeze({
             layerId: assignment.layerId,
             role: assignment.role,
             text: assignment.text,
-            preset
+            preset,
+            placement
         })
     };
+
+}
+
+function normalizePlacement(placement) {
+
+    if (placement == null) {
+        return null;
+    }
+
+    if (!isPlainObject(placement) ||
+        Object.keys(placement).some(field => !PLACEMENT_FIELDS.has(field)) ||
+        !PLACEMENT_ANCHORS.has(placement.anchor)) {
+        return null;
+    }
+
+    return freeze({ anchor: placement.anchor });
 
 }
 
