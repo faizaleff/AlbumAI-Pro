@@ -1585,6 +1585,15 @@ export default function OpenFolder() {
                             getPhotos={getPhotos}
                             getCurrentTemplate={getCurrentTemplate}
                             applyManualTypography={applyManualTypography}
+                            customTextPresets={project?.metadata?.typographyTextPresets || null}
+                            saveCustomTextPresets={async catalog => {
+                                const saved = await App.saveProject(
+                                    { typographyTextPresets: catalog },
+                                    { reason: "ALB126_CUSTOM_TEXT_PRESETS" }
+                                );
+                                forceRefresh(value => value + 1);
+                                return saved?.metadata?.typographyTextPresets || catalog;
+                            }}
                             setAutoSaveEnabled={setAutoSaveEnabled}
                             getAutoSaveEnabled={getAutoSaveEnabled}
                             setAutoSaveMode={setAutoSaveMode}

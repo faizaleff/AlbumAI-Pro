@@ -73,6 +73,8 @@ export default function TemplateDocumentPanel({
     getPhotos,
     getCurrentTemplate,
     applyManualTypography,
+    customTextPresets = null,
+    saveCustomTextPresets = null,
     setAutoSaveEnabled,
     getAutoSaveEnabled,
     setAutoSaveMode,
@@ -1089,6 +1091,8 @@ export default function TemplateDocumentPanel({
                         <ManualTypographyPanel
                             document={document}
                             applyTypography={applyManualTypography}
+                            customTextPresets={customTextPresets}
+                            saveCustomTextPresets={saveCustomTextPresets}
                             onApplied={(drafts, result) => setDocument(current =>
                                 applyTypographyResultToDocument(current, drafts, result)
                             )}
