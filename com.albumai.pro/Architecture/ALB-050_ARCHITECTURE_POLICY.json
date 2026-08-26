@@ -123,6 +123,7 @@
     "src/services/ThumbnailService.js",
     "src/styles.css",
     "src/templates/Template.js",
+    "src/typography/LocalTextPresetCatalog.js",
     "src/typography/ManualTypographyWorkflow.js",
     "src/typography/PhotoshopTypographyAdapter.js",
     "src/typography/TypographyRuntimeQualification.js",

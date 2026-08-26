@@ -75,10 +75,12 @@ module.exports = (_env, argv = {}) => {
         // qualification harness; ALB-121 adds the manual typography workflow and
         // ALB-122 adds template-local style choices; ALB-123 adds guarded text
         // placement; ALB-124 adds independent template-local font and style
-        // presets. Keep a tight 732 KiB ceiling rather than silently accepting
+        // presets; ALB-125 adds offline suggestions and ALB-126 adds the
+        // project-local custom preset catalog and management UI. Keep a tight
+        // 740 KiB ceiling rather than silently accepting
         // unbounded runtime growth.
-        maxAssetSize: 732 * 1024,
-        maxEntrypointSize: 732 * 1024
+        maxAssetSize: 740 * 1024,
+        maxEntrypointSize: 740 * 1024
     }
     };
 };

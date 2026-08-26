@@ -85,7 +85,7 @@ async function run() {
             path.join(process.cwd(), "src/components/ManualTypographyPanel.jsx"),
             "utf8"
         );
-        assert(source.includes("createLocalTextSuggestionOptions(draft.role)"));
+        assert(source.includes("createLocalTextSuggestionOptions(draft.role, customCatalog)"));
         assert(source.includes("Suggestion for ${draft.layerName}"));
         assert(source.includes("disabled={!draft.editable || busy || !draft.role}"));
     });

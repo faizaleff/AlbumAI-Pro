@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import UxpDropdown from "./UxpDropdown";
+import {
+    deleteLocalTextPreset,
+    localTextPresetsForRole,
+    normalizeLocalTextPresetCatalog,
+    saveLocalTextPreset
+} from "../typography/LocalTextPresetCatalog";
 
 const ROLE_OPTIONS = Object.freeze([
     Object.freeze({ value: "", label: "Choose role" }),
@@ -54,12 +60,17 @@ const LOCAL_TEXT_SUGGESTIONS = Object.freeze({
     ])
 });
 
-export function createLocalTextSuggestionOptions(role) {
-    return [NO_SUGGESTION_OPTION, ...(LOCAL_TEXT_SUGGESTIONS[role] || [])];
+export function createLocalTextSuggestionOptions(role, customCatalog = null) {
+    const custom = localTextPresetsForRole(customCatalog, role).map(preset => Object.freeze({
+        value: `custom:${preset.id}`,
+        label: `Saved: ${preset.name}`,
+        text: preset.text
+    }));
+    return [NO_SUGGESTION_OPTION, ...(LOCAL_TEXT_SUGGESTIONS[role] || []), ...custom];
 }
 
-export function applyLocalTextSuggestion(draft, suggestionId) {
-    const option = createLocalTextSuggestionOptions(draft?.role)
+export function applyLocalTextSuggestion(draft, suggestionId, customCatalog = null) {
+    const option = createLocalTextSuggestionOptions(draft?.role, customCatalog)
         .find(candidate => candidate.value === suggestionId);
     if (!option?.text) return { ...draft, suggestionId: "" };
     return { ...draft, suggestionId: option.value, text: option.text };
@@ -242,12 +253,25 @@ export function applyTypographyResultToDocument(document, drafts, result) {
     };
 }
 
-export default function ManualTypographyPanel({ document, applyTypography, onApplied }) {
+export default function ManualTypographyPanel({
+    document,
+    applyTypography,
+    onApplied,
+    customTextPresets = null,
+    saveCustomTextPresets = null
+}) {
     const [drafts, setDrafts] = useState(() =>
         createManualTypographyDrafts(document?.textLayers)
     );
     const [busy, setBusy] = useState(false);
+    const [presetBusy, setPresetBusy] = useState(false);
     const [message, setMessage] = useState("");
+    const [presetMessage, setPresetMessage] = useState("");
+    const [customCatalog, setCustomCatalog] = useState(() =>
+        normalizeLocalTextPresetCatalog(customTextPresets)
+    );
+    const [newPreset, setNewPreset] = useState({ role: "", name: "", text: "" });
+    const [presetEdits, setPresetEdits] = useState({});
     const assignments = useMemo(
         () => buildManualTypographyAssignments(drafts),
         [drafts]
@@ -266,6 +290,16 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
         setMessage("");
     }, [document?.document?.id]);
 
+    useEffect(() => {
+        const normalized = normalizeLocalTextPresetCatalog(customTextPresets);
+        setCustomCatalog(normalized);
+        setPresetEdits(Object.fromEntries(normalized.presets.map(preset => [
+            preset.id,
+            { name: preset.name, text: preset.text }
+        ])));
+        setPresetMessage("");
+    }, [customTextPresets]);
+
     if (!document?.textLayers?.length) return null;
 
     const update = (layerId, field, value) => setDrafts(current => current.map(
@@ -280,9 +314,64 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
 
     const updateSuggestion = (layerId, suggestionId) => setDrafts(current => current.map(
         draft => draft.layerId === layerId
-            ? applyLocalTextSuggestion(draft, suggestionId)
+            ? applyLocalTextSuggestion(draft, suggestionId, customCatalog)
             : draft
     ));
+
+    const persistCustomCatalog = async (nextCatalog, successMessage) => {
+        if (typeof saveCustomTextPresets !== "function" || presetBusy) return;
+        setPresetBusy(true);
+        setPresetMessage("");
+        try {
+            const saved = normalizeLocalTextPresetCatalog(
+                await saveCustomTextPresets(nextCatalog)
+            );
+            setCustomCatalog(saved);
+            setPresetEdits(Object.fromEntries(saved.presets.map(preset => [
+                preset.id,
+                { name: preset.name, text: preset.text }
+            ])));
+            setPresetMessage(successMessage);
+        } catch (error) {
+            setPresetMessage(`Preset not saved: ${error?.message || "UNKNOWN"}`);
+        } finally {
+            setPresetBusy(false);
+        }
+    };
+
+    const createCustomPreset = async () => {
+        const result = saveLocalTextPreset(customCatalog, {
+            id: `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+            ...newPreset
+        });
+        if (!result.accepted) {
+            setPresetMessage(`Preset not saved: ${result.reasonCode}`);
+            return;
+        }
+        await persistCustomCatalog(result.catalog, "Custom text preset saved.");
+        setNewPreset({ role: "", name: "", text: "" });
+    };
+
+    const updateCustomPreset = async preset => {
+        const edit = presetEdits[preset.id] || {};
+        const result = saveLocalTextPreset(customCatalog, { ...preset, ...edit });
+        if (!result.accepted) {
+            setPresetMessage(`Preset not saved: ${result.reasonCode}`);
+            return;
+        }
+        await persistCustomCatalog(result.catalog, "Custom text preset updated.");
+    };
+
+    const removeCustomPreset = async presetId => {
+        const result = deleteLocalTextPreset(customCatalog, presetId);
+        if (!result.accepted) return;
+        setDrafts(current => current.map(draft =>
+            draft.suggestionId === `custom:${presetId}`
+                ? { ...draft, suggestionId: "" }
+                : draft
+        ));
+        await persistCustomCatalog(result.catalog, "Custom text preset deleted.");
+    };
 
     const updatePreset = (layerId, presetId, idField, presetField, options) => {
         const option = options.find(candidate => candidate.value === presetId);
@@ -321,7 +410,7 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
         <section style={{ marginTop: 12, padding: 10, border: "1px solid #454545", borderRadius: 5 }}>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Typography</div>
             <div style={{ color: "#aaa", marginBottom: 8 }}>
-                Choose a role, optionally use an offline local text suggestion, edit the text, optionally reuse a style already present in this template, independently reuse a font and style already present in this template, and place it explicitly.
+                Choose a role, optionally use an offline local text suggestion or a project-saved preset, edit the text, optionally reuse a style already present in this template, independently reuse a font and style already present in this template, and place it explicitly.
             </div>
             {drafts.map(draft => (
                 <div key={draft.layerId} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
@@ -335,7 +424,7 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
                     />
                     <UxpDropdown
                         value={draft.suggestionId}
-                        options={createLocalTextSuggestionOptions(draft.role)}
+                        options={createLocalTextSuggestionOptions(draft.role, customCatalog)}
                         onValueChange={value => updateSuggestion(draft.layerId, value)}
                         ariaLabel={`Suggestion for ${draft.layerName}`}
                         title={`Suggestion for ${draft.layerName}`}
@@ -391,6 +480,82 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
                 {busy ? "Applying…" : `Apply Typography (${assignments.length})`}
             </button>
             {!!message && <div style={{ marginTop: 7 }}>{message}</div>}
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid #454545" }}>
+                <div style={{ fontWeight: 600, marginBottom: 7 }}>Custom text presets</div>
+                <div style={{ color: "#aaa", marginBottom: 8 }}>
+                    Saved only in this project. No network or AI is used.
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                    <UxpDropdown
+                        value={newPreset.role}
+                        options={ROLE_OPTIONS}
+                        onValueChange={role => setNewPreset(current => ({ ...current, role }))}
+                        ariaLabel="Role for new custom text preset"
+                        title="Role for new custom text preset"
+                        disabled={presetBusy}
+                    />
+                    <input
+                        value={newPreset.name}
+                        onChange={event => {
+                            const value = event.target.value;
+                            setNewPreset(current => ({ ...current, name: value }));
+                        }}
+                        placeholder="Preset name"
+                        aria-label="Custom text preset name"
+                        disabled={presetBusy}
+                    />
+                    <input
+                        style={{ flex: "1 1 220px", minWidth: 0 }}
+                        value={newPreset.text}
+                        onChange={event => {
+                            const value = event.target.value;
+                            setNewPreset(current => ({ ...current, text: value }));
+                        }}
+                        placeholder="Preset text"
+                        aria-label="Custom text preset text"
+                        disabled={presetBusy}
+                    />
+                    <button
+                        onClick={createCustomPreset}
+                        disabled={presetBusy || !newPreset.role || !newPreset.name.trim() || !newPreset.text.trim()}
+                    >
+                        Save preset
+                    </button>
+                </div>
+                {customCatalog.presets.map(preset => (
+                    <div key={preset.id} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+                        <span style={{ minWidth: 62 }}>{preset.role.charAt(0) + preset.role.slice(1).toLowerCase()}</span>
+                        <input
+                            value={presetEdits[preset.id]?.name ?? preset.name}
+                            onChange={event => {
+                                const value = event.target.value;
+                                setPresetEdits(current => ({
+                                    ...current,
+                                    [preset.id]: { ...(current[preset.id] || preset), name: value }
+                                }));
+                            }}
+                            aria-label={`Name for ${preset.name}`}
+                            disabled={presetBusy}
+                        />
+                        <input
+                            style={{ flex: "1 1 220px", minWidth: 0 }}
+                            value={presetEdits[preset.id]?.text ?? preset.text}
+                            onChange={event => {
+                                const value = event.target.value;
+                                setPresetEdits(current => ({
+                                    ...current,
+                                    [preset.id]: { ...(current[preset.id] || preset), text: value }
+                                }));
+                            }}
+                            aria-label={`Text for ${preset.name}`}
+                            disabled={presetBusy}
+                        />
+                        <button onClick={() => updateCustomPreset(preset)} disabled={presetBusy}>Update</button>
+                        <button onClick={() => removeCustomPreset(preset.id)} disabled={presetBusy}>Delete</button>
+                    </div>
+                ))}
+                {!!presetMessage && <div style={{ marginTop: 7 }}>{presetMessage}</div>}
+            </div>
         </section>
     );
 }

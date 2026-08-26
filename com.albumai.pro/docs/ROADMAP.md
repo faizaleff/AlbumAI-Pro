@@ -87,6 +87,10 @@ runtime qualification before they may be presented as product behavior.
 - Offline role-aware local text suggestions with explicit opt-in and no silent
   replacement — ALB-125 delivered and runtime-qualified with two-layer product
   UI application and grouped Undo evidence
+- Project-local custom Title, Caption, and Quote text presets with explicit
+  save, update, delete, and reuse controls — ALB-126 delivered and
+  runtime-qualified with persistence, explicit application, grouped Undo,
+  update, and delete evidence
 
 ### Distribution and collaboration
 
