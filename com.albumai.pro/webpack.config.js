@@ -74,10 +74,11 @@ module.exports = (_env, argv = {}) => {
         // typography inventory and plan boundary; ALB-120 adds the guarded real-host
         // qualification harness; ALB-121 adds the manual typography workflow and
         // ALB-122 adds template-local style choices; ALB-123 adds guarded text
-        // placement. Keep a tight 729 KiB ceiling rather than silently accepting
+        // placement; ALB-124 adds independent template-local font and style
+        // presets. Keep a tight 732 KiB ceiling rather than silently accepting
         // unbounded runtime growth.
-        maxAssetSize: 729 * 1024,
-        maxEntrypointSize: 729 * 1024
+        maxAssetSize: 732 * 1024,
+        maxEntrypointSize: 732 * 1024
     }
     };
 };

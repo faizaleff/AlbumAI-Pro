@@ -24,6 +24,12 @@ const PRESERVE_STYLE_OPTION = Object.freeze({
     preset: null
 });
 
+const PRESERVE_FONT_OPTION = Object.freeze({
+    value: "",
+    label: "Preserve current font",
+    preset: null
+});
+
 const ALIGNMENT_ALIASES = Object.freeze({
     left: "left",
     leftJustified: "left",
@@ -46,6 +52,21 @@ function cloneTypographyPreset(preset) {
         ...preset,
         ...(preset.color ? { color: { ...preset.color } } : {})
     };
+}
+
+export function mergeTypographyPresets(...presets) {
+    const merged = {};
+    presets.filter(Boolean).forEach(preset => {
+        if (typeof preset.fontFamily === "string" && preset.fontFamily.trim()) {
+            merged.fontFamily = preset.fontFamily.trim();
+        }
+        if (Number.isFinite(preset.fontSize) && preset.fontSize > 0) {
+            merged.fontSize = preset.fontSize;
+        }
+        if (preset.color) merged.color = { ...preset.color };
+        if (preset.alignment) merged.alignment = preset.alignment;
+    });
+    return Object.keys(merged).length ? merged : null;
 }
 
 function createTemplateTypographyPreset(style = {}) {
@@ -94,6 +115,39 @@ export function createTemplateTypographyPresetOptions(textLayers = []) {
     return options;
 }
 
+export function createTemplateTypographyFontOptions(textLayers = []) {
+    const options = [PRESERVE_FONT_OPTION];
+    const seen = new Set();
+    textLayers.forEach(layer => {
+        const { fontFamily } = readTemplateTypographyStyle(layer);
+        const normalized = typeof fontFamily === "string" ? fontFamily.trim() : "";
+        if (!normalized || seen.has(normalized)) return;
+        seen.add(normalized);
+        options.push(Object.freeze({
+            value: normalized,
+            label: `Font: ${normalized}`,
+            preset: Object.freeze({ fontFamily: normalized })
+        }));
+    });
+    return options;
+}
+
+export function createTemplateTypographyStyleOptions(textLayers = []) {
+    const options = [PRESERVE_STYLE_OPTION];
+    textLayers.forEach(layer => {
+        const preset = createTemplateTypographyPreset(readTemplateTypographyStyle(layer));
+        if (!preset) return;
+        const { fontFamily: _fontFamily, ...stylePreset } = preset;
+        if (!Object.keys(stylePreset).length) return;
+        options.push(Object.freeze({
+            value: String(layer.layerId),
+            label: `Style: ${layer.layerName || `Layer ${layer.layerId}`}`,
+            preset: Object.freeze(stylePreset)
+        }));
+    });
+    return options;
+}
+
 export function createManualTypographyDrafts(textLayers = []) {
     return textLayers.map(layer => ({
         layerId: layer.layerId,
@@ -102,6 +156,10 @@ export function createManualTypographyDrafts(textLayers = []) {
         text: typeof layer.textContent === "string" ? layer.textContent : "",
         presetId: "",
         preset: null,
+        fontPresetId: "",
+        fontPreset: null,
+        stylePresetId: "",
+        stylePreset: null,
         placementAnchor: "",
         editable: layer.visible !== false && layer.locked !== true
     }));
@@ -114,7 +172,11 @@ export function buildManualTypographyAssignments(drafts = []) {
             layerId: draft.layerId,
             role: draft.role,
             text: draft.text,
-            preset: cloneTypographyPreset(draft.preset),
+            preset: mergeTypographyPresets(
+                draft.preset,
+                draft.fontPreset,
+                draft.stylePreset
+            ),
             ...(draft.placementAnchor ? {
                 placement: { anchor: draft.placementAnchor }
             } : {})
@@ -130,10 +192,15 @@ export function applyTypographyResultToDocument(document, drafts, result) {
         textLayers: document.textLayers.map(layer => {
             if (!completed.has(layer.layerId)) return layer;
             const draft = draftById.get(layer.layerId);
+            const preset = mergeTypographyPresets(
+                draft?.preset,
+                draft?.fontPreset,
+                draft?.stylePreset
+            );
             return {
                 ...layer,
                 textContent: draft?.text,
-                ...(draft?.preset ? cloneTypographyPreset(draft.preset) : {})
+                ...(preset ? cloneTypographyPreset(preset) : {})
             };
         })
     };
@@ -149,8 +216,12 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
         () => buildManualTypographyAssignments(drafts),
         [drafts]
     );
-    const presetOptions = useMemo(
-        () => createTemplateTypographyPresetOptions(document?.textLayers),
+    const fontOptions = useMemo(
+        () => createTemplateTypographyFontOptions(document?.textLayers),
+        [document?.textLayers]
+    );
+    const styleOptions = useMemo(
+        () => createTemplateTypographyStyleOptions(document?.textLayers),
         [document?.textLayers]
     );
 
@@ -165,13 +236,13 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
         draft => draft.layerId === layerId ? { ...draft, [field]: value } : draft
     ));
 
-    const updatePreset = (layerId, presetId) => {
-        const option = presetOptions.find(candidate => candidate.value === presetId);
+    const updatePreset = (layerId, presetId, idField, presetField, options) => {
+        const option = options.find(candidate => candidate.value === presetId);
         setDrafts(current => current.map(draft => draft.layerId === layerId
             ? {
                 ...draft,
-                presetId,
-                preset: cloneTypographyPreset(option?.preset)
+                [idField]: presetId,
+                [presetField]: cloneTypographyPreset(option?.preset)
             }
             : draft));
     };
@@ -202,7 +273,7 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
         <section style={{ marginTop: 12, padding: 10, border: "1px solid #454545", borderRadius: 5 }}>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Typography</div>
             <div style={{ color: "#aaa", marginBottom: 8 }}>
-                Choose a role, edit the text, optionally reuse a style already present in this template, and place it explicitly.
+                Choose a role, edit the text, optionally reuse a style already present in this template; independently reuse a font and style already present in this template, and place it explicitly.
             </div>
             {drafts.map(draft => (
                 <div key={draft.layerId} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
@@ -215,9 +286,29 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
                         disabled={!draft.editable || busy}
                     />
                     <UxpDropdown
-                        value={draft.presetId}
-                        options={presetOptions}
-                        onValueChange={value => updatePreset(draft.layerId, value)}
+                        value={draft.fontPresetId}
+                        options={fontOptions}
+                        onValueChange={value => updatePreset(
+                            draft.layerId,
+                            value,
+                            "fontPresetId",
+                            "fontPreset",
+                            fontOptions
+                        )}
+                        ariaLabel={`Font for ${draft.layerName}`}
+                        title={`Font for ${draft.layerName}`}
+                        disabled={!draft.editable || busy}
+                    />
+                    <UxpDropdown
+                        value={draft.stylePresetId}
+                        options={styleOptions}
+                        onValueChange={value => updatePreset(
+                            draft.layerId,
+                            value,
+                            "stylePresetId",
+                            "stylePreset",
+                            styleOptions
+                        )}
                         ariaLabel={`Style for ${draft.layerName}`}
                         title={`Style for ${draft.layerName}`}
                         disabled={!draft.editable || busy}
