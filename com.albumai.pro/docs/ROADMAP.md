@@ -78,8 +78,12 @@ runtime qualification before they may be presented as product behavior.
   grouped Undo evidence
 - Explicit quote and caption placement choices for existing template text
   layers, with document-safe inset anchors and grouped Undo — ALB-123
-  engineering complete; Photoshop runtime acceptance pending
-- Font and style presets
+  delivered and runtime-qualified with visibly distinct anchors and grouped
+  Undo evidence
+- Independent template-local font and style presets, allowing safe one-click
+  combinations without downloading or guessing fonts — ALB-124 delivered and
+  runtime-qualified with cross-layer font/style composition and grouped Undo
+  evidence
 - Local text suggestions
 
 ### Distribution and collaboration
