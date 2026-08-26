@@ -84,7 +84,9 @@ runtime qualification before they may be presented as product behavior.
   combinations without downloading or guessing fonts — ALB-124 delivered and
   runtime-qualified with cross-layer font/style composition and grouped Undo
   evidence
-- Local text suggestions
+- Offline role-aware local text suggestions with explicit opt-in and no silent
+  replacement — ALB-125 delivered and runtime-qualified with two-layer product
+  UI application and grouped Undo evidence
 
 ### Distribution and collaboration
 

@@ -30,6 +30,41 @@ const PRESERVE_FONT_OPTION = Object.freeze({
     preset: null
 });
 
+const NO_SUGGESTION_OPTION = Object.freeze({
+    value: "",
+    label: "No suggestion",
+    text: null
+});
+
+const LOCAL_TEXT_SUGGESTIONS = Object.freeze({
+    TITLE: Object.freeze([
+        Object.freeze({ value: "title-our-story", label: "Our Story", text: "Our Story" }),
+        Object.freeze({ value: "title-together", label: "Together", text: "Together" }),
+        Object.freeze({ value: "title-day-to-remember", label: "A Day to Remember", text: "A Day to Remember" })
+    ]),
+    CAPTION: Object.freeze([
+        Object.freeze({ value: "caption-moment", label: "A moment to remember", text: "A moment to remember" }),
+        Object.freeze({ value: "caption-made-with-love", label: "Made with love", text: "Made with love" }),
+        Object.freeze({ value: "caption-forever-starts", label: "Forever starts here", text: "Forever starts here" })
+    ]),
+    QUOTE: Object.freeze([
+        Object.freeze({ value: "quote-every-chapter", label: "Every chapter begins with a moment", text: "Every chapter begins with a moment" }),
+        Object.freeze({ value: "quote-best-days", label: "The best days are shared", text: "The best days are shared" }),
+        Object.freeze({ value: "quote-here-together", label: "Here, together, always", text: "Here, together, always" })
+    ])
+});
+
+export function createLocalTextSuggestionOptions(role) {
+    return [NO_SUGGESTION_OPTION, ...(LOCAL_TEXT_SUGGESTIONS[role] || [])];
+}
+
+export function applyLocalTextSuggestion(draft, suggestionId) {
+    const option = createLocalTextSuggestionOptions(draft?.role)
+        .find(candidate => candidate.value === suggestionId);
+    if (!option?.text) return { ...draft, suggestionId: "" };
+    return { ...draft, suggestionId: option.value, text: option.text };
+}
+
 const ALIGNMENT_ALIASES = Object.freeze({
     left: "left",
     leftJustified: "left",
@@ -160,6 +195,7 @@ export function createManualTypographyDrafts(textLayers = []) {
         fontPreset: null,
         stylePresetId: "",
         stylePreset: null,
+        suggestionId: "",
         placementAnchor: "",
         editable: layer.visible !== false && layer.locked !== true
     }));
@@ -236,6 +272,18 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
         draft => draft.layerId === layerId ? { ...draft, [field]: value } : draft
     ));
 
+    const updateRole = (layerId, role) => setDrafts(current => current.map(
+        draft => draft.layerId === layerId
+            ? { ...draft, role, suggestionId: "" }
+            : draft
+    ));
+
+    const updateSuggestion = (layerId, suggestionId) => setDrafts(current => current.map(
+        draft => draft.layerId === layerId
+            ? applyLocalTextSuggestion(draft, suggestionId)
+            : draft
+    ));
+
     const updatePreset = (layerId, presetId, idField, presetField, options) => {
         const option = options.find(candidate => candidate.value === presetId);
         setDrafts(current => current.map(draft => draft.layerId === layerId
@@ -273,17 +321,25 @@ export default function ManualTypographyPanel({ document, applyTypography, onApp
         <section style={{ marginTop: 12, padding: 10, border: "1px solid #454545", borderRadius: 5 }}>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Typography</div>
             <div style={{ color: "#aaa", marginBottom: 8 }}>
-                Choose a role, edit the text, optionally reuse a style already present in this template; independently reuse a font and style already present in this template, and place it explicitly.
+                Choose a role, optionally use an offline local text suggestion, edit the text, optionally reuse a style already present in this template, independently reuse a font and style already present in this template, and place it explicitly.
             </div>
             {drafts.map(draft => (
                 <div key={draft.layerId} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
                     <UxpDropdown
                         value={draft.role}
                         options={ROLE_OPTIONS}
-                        onValueChange={value => update(draft.layerId, "role", value)}
+                        onValueChange={value => updateRole(draft.layerId, value)}
                         ariaLabel={`Role for ${draft.layerName}`}
                         title={`Role for ${draft.layerName}`}
                         disabled={!draft.editable || busy}
+                    />
+                    <UxpDropdown
+                        value={draft.suggestionId}
+                        options={createLocalTextSuggestionOptions(draft.role)}
+                        onValueChange={value => updateSuggestion(draft.layerId, value)}
+                        ariaLabel={`Suggestion for ${draft.layerName}`}
+                        title={`Suggestion for ${draft.layerName}`}
+                        disabled={!draft.editable || busy || !draft.role}
                     />
                     <UxpDropdown
                         value={draft.fontPresetId}

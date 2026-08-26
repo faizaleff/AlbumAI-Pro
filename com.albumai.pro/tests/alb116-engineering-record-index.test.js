@@ -40,7 +40,7 @@ try {
     check(records.length >= 52, "canonical engineering record inventory regressed");
     check(result.recordCount === records.length, "verified record count differs");
     check(indexedPaths.length === records.length, "index link count differs");
-    [109, 110, 111, 112, 113, 114, 115, 118, 119, 120, 121, 122, 123, 124].forEach((number) => {
+    [109, 110, 111, 112, 113, 114, 115, 118, 119, 120, 121, 122, 123, 124, 125].forEach((number) => {
         check(
             indexedPaths.some((record) => record.includes(`ALB-${number}`)),
             `ALB-${number} is not discoverable from the root index`
