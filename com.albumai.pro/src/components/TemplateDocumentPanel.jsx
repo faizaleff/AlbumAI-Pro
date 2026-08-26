@@ -73,6 +73,7 @@ export default function TemplateDocumentPanel({
     getPhotos,
     getCurrentTemplate,
     applyManualTypography,
+    onTypographyAssignmentsApplied = null,
     customTextPresets = null,
     saveCustomTextPresets = null,
     setAutoSaveEnabled,
@@ -1096,6 +1097,9 @@ export default function TemplateDocumentPanel({
                             onApplied={(drafts, result) => setDocument(current =>
                                 applyTypographyResultToDocument(current, drafts, result)
                             )}
+                            onAssignmentsApplied={(assignments, result) =>
+                                onTypographyAssignmentsApplied?.({ assignments, result, document })
+                            }
                         />
                     </div>
                 )}

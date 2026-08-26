@@ -244,7 +244,10 @@ export function createAlbumSheetRenderRequest({
             id: sheet.id,
             templateId: sheet.templateId,
             label: sheet.label || "",
-            slots: Array.isArray(sheet.slots) ? Object.freeze([...sheet.slots]) : Object.freeze([])
+            slots: Array.isArray(sheet.slots) ? Object.freeze([...sheet.slots]) : Object.freeze([]),
+            typographyAssignments: Array.isArray(sheet.typographyAssignments)
+                ? Object.freeze(sheet.typographyAssignments.map(assignment => Object.freeze({ ...assignment })))
+                : Object.freeze([])
         }),
         template: templateSnapshot(resolved, registry),
         selectedPhotoIds: photoIdsToUse

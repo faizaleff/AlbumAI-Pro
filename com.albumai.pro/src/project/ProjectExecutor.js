@@ -21,6 +21,7 @@ export default class ProjectExecutor {
         photoPlacementEngine,
         placementExecutionPlanBuilder,
         replacementBatchExecutor,
+        manualTypographyWorkflow = null,
         templateAutoSaveService,
         templateExportService,
         batchExecutionService = new BatchExecutionService()
@@ -35,6 +36,7 @@ export default class ProjectExecutor {
         this.photoPlacementEngine = photoPlacementEngine;
         this.placementExecutionPlanBuilder = placementExecutionPlanBuilder;
         this.replacementBatchExecutor = replacementBatchExecutor;
+        this.manualTypographyWorkflow = manualTypographyWorkflow;
         this.templateAutoSaveService = templateAutoSaveService;
         this.templateExportService = templateExportService;
         this.batchExecutionService = batchExecutionService;
@@ -277,6 +279,28 @@ export default class ProjectExecutor {
         Logger.info(`TEMPLATE_REPLACEMENT_STATUS: ${executionSummary.status}`);
         Logger.info(`TEMPLATE_REPLACEMENT_COMPLETED: ${executionSummary.status === "COMPLETED"}`);
 
+        const typographyAssignments = Array.isArray(sheetContext?.typographyAssignments)
+            ? sheetContext.typographyAssignments
+            : [];
+        let typographyResult = null;
+        if (typographyAssignments.length > 0) {
+            if (!this.manualTypographyWorkflow) {
+                throw new Error("Typography workflow is unavailable for this album sheet.");
+            }
+            await this.activateContext(context, "TYPOGRAPHY");
+            onStageProgress?.("TYPOGRAPHY");
+            typographyResult = await this.manualTypographyWorkflow.execute({
+                template,
+                expectedDocumentId: context.documentId,
+                assignments: typographyAssignments
+            });
+            if (typographyResult?.status !== "SUCCESS") {
+                const error = new Error(`Album Sheet typography failed: ${typographyResult?.reasonCode || "UNKNOWN"}`);
+                error.code = "ALBUM_SHEET_TYPOGRAPHY_FAILED";
+                throw error;
+            }
+        }
+
         // For ALBUM_SHEET_RENDER, derive a unique output base name from the sheet context.
         // This prevents all spreads that share the same PSD template from producing the
         // same output filename (e.g. 22.jpg colliding across 16 spreads).
@@ -307,6 +331,7 @@ export default class ProjectExecutor {
             executionPlan,
             request,
             executionSummary,
+            typographyResult,
             autoSaveResult,
             exportResult,
             autoSaveEnabled,

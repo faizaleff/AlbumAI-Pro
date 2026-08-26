@@ -59,6 +59,11 @@ function StoryboardCard({
                 <span className="storyboard-template-name" title={template?.name || sheet.templateId}>
                     {template?.name || sheet.templateId}
                 </span>
+                {Array.isArray(sheet.typographyAssignments) && sheet.typographyAssignments.length > 0 && (
+                    <span className="storyboard-template-name" title="Typography assignments saved for this sheet">
+                        Typography: {sheet.typographyAssignments.length}
+                    </span>
+                )}
             </div>
 
             <div className="storyboard-card-actions" onClick={e => e.stopPropagation()}>

@@ -91,6 +91,10 @@ runtime qualification before they may be presented as product behavior.
   save, update, delete, and reuse controls — ALB-126 delivered and
   runtime-qualified with persistence, explicit application, grouped Undo,
   update, and delete evidence
+- Per-storyboard-sheet typography assignment with exact template matching and
+  Typography-before-output batch execution — ALB-127 delivered and
+  runtime-qualified with two Smart Object replacements, two persisted text
+  assignments, grouped Undo, and completed single-sheet render evidence
 
 ### Distribution and collaboration
 

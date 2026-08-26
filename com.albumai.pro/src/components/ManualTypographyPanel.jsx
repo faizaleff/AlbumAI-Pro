@@ -257,6 +257,7 @@ export default function ManualTypographyPanel({
     document,
     applyTypography,
     onApplied,
+    onAssignmentsApplied,
     customTextPresets = null,
     saveCustomTextPresets = null
 }) {
@@ -399,6 +400,7 @@ export default function ManualTypographyPanel({
             }
             setMessage(`Applied ${result.completedLayerIds.length} text layer(s). Cmd+Z to undo.`);
             onApplied?.(drafts, result);
+            await onAssignmentsApplied?.(assignments, result);
         } catch (error) {
             setMessage(`Typography not applied: ${error?.message || "UNKNOWN"}`);
         } finally {

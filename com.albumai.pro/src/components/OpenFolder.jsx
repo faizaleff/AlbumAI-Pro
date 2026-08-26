@@ -831,6 +831,21 @@ export default function OpenFolder() {
         });
     }
 
+    async function setAlbumSheetTypography(assignments, document) {
+        if (!activeSheet?.id || !activeTemplate) return;
+        const documentName = document?.name || "";
+        const templateName = activeTemplate.fileName || activeTemplate.name || "";
+        if (documentName !== templateName) {
+            setAlbumMutationError("Open the selected sheet's PSD before assigning typography.");
+            return;
+        }
+        await mutateAlbum({
+            intent: AlbumSheetMutationIntent.SET_TYPOGRAPHY,
+            sheetId: activeSheet.id,
+            assignments
+        });
+    }
+
     async function renderAlbumSheet(sheetId) {
         if (!sheetId || albumSheetRenderBusy) return;
         setAlbumSheetRenderBusy(true);
@@ -1585,6 +1600,9 @@ export default function OpenFolder() {
                             getPhotos={getPhotos}
                             getCurrentTemplate={getCurrentTemplate}
                             applyManualTypography={applyManualTypography}
+                            onTypographyAssignmentsApplied={({ assignments, document }) =>
+                                setAlbumSheetTypography(assignments, document)
+                            }
                             customTextPresets={project?.metadata?.typographyTextPresets || null}
                             saveCustomTextPresets={async catalog => {
                                 const saved = await App.saveProject(
