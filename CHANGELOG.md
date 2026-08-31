@@ -22,9 +22,13 @@ All notable changes to AlbumAI Pro will be documented in this file.
 
 ### Verification
 
-- Automated candidate qualification is in progress under ALB-130.
-- Publication remains blocked until package/distribution verification and the
-  installed Photoshop startup/workflow smoke test pass.
+- ALB-130 candidate qualification, verified CCX installation, installed
+  identity, bounded typography application, and grouped Undo: PASS.
+- ALB-131 final public-artifact qualification, reproducible ZIP, verified CCX,
+  Creative Cloud installation, installed identity, bounded typography
+  application, and grouped Undo: PASS.
+- Publication remains blocked on explicit push, review, merge, tag, and release
+  approval; no push, tag, or GitHub release has been performed.
 
 ## [1.1.2] - 2026-08-23
 

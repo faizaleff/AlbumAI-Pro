@@ -76,6 +76,7 @@ mean that a file is missing.
 | ALB-128 | [Typography and Multi-Sheet Stabilization](com.albumai.pro/docs/ALB-128_TYPOGRAPHY_MULTISHEET_STABILIZATION.md) | Plugin docs |
 | ALB-129 | [Smart Typography Release Readiness](com.albumai.pro/docs/ALB-129_SMART_TYPOGRAPHY_RELEASE_READINESS.md) | Plugin docs |
 | ALB-130 | [v1.2.0 Release Candidate](com.albumai.pro/docs/ALB-130_V1.2.0_RELEASE_CANDIDATE.md) | Plugin docs |
+| ALB-131 | [v1.2.0 Publication Readiness](com.albumai.pro/docs/ALB-131_V1.2.0_PUBLICATION_READINESS.md) | Plugin docs |
 
 ## Verification
 

@@ -19,6 +19,11 @@ under ALB-130. Candidate diagnostics deliberately show `Not published
 (candidate)` until package, distribution, and installed Photoshop checks pass
 and a separate publication decision is approved.
 
+ALB-130 qualification passed. ALB-131 now prepares the final public artifact
+identity, release notes, and exact ZIP/CCX provenance. The stable release stays
+at **1.1.2** until the separately approval-gated push, merge, tag, and GitHub
+publication steps are complete.
+
 ## Requirements
 
 - Adobe Photoshop 27.4.0 or newer
@@ -46,7 +51,7 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-130 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-131 suite |
 | `npm run test:smart-typography` | Run the canonical ALB-118 through ALB-128 Smart Typography suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |

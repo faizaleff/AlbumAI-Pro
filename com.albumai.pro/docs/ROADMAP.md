@@ -102,9 +102,13 @@ runtime qualification before they may be presented as product behavior.
 - Smart Typography release readiness — ALB-129 delivered; the consolidated
   ALB-118 through ALB-128 test/evidence gate selected the safe next release
   action while preserving the immutable `v1.1.2` publication boundary
-- v1.2.0 release candidate — ALB-130 in qualification; candidate identity and
-  production CSS bundle headroom are implemented, while package/distribution
-  and installed Photoshop smoke evidence remain required before publication
+- v1.2.0 release candidate — ALB-130 delivered and qualified with candidate
+  identity, production CSS bundle headroom, reproducible ZIP, verified CCX,
+  Creative Cloud installation, bounded Photoshop smoke, and grouped Undo
+- v1.2.0 publication readiness — ALB-131 locally qualified with final public
+  identity, release notes, deterministic artifacts, verified Creative Cloud
+  installation, installed Photoshop smoke, and an explicit
+  push/merge/tag/publication approval boundary
 
 ### Distribution and collaboration
 
