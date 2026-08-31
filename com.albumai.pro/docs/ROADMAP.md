@@ -2,14 +2,15 @@
 
 ## Current release line
 
-**1.1.2 stable — released 2026-08-23**
+**1.2.0 stable — released 2026-08-31**
 
 The verified package, checksum, inventory, and release notes are published at
-[`v1.1.2`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.2).
+[`v1.2.0`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.2.0).
 
-ALB-108 qualified the patch and installed Photoshop runtime. ALB-109 closed the
-published release against the exact source commit, runtime identity, tag, and
-release asset set without changing the qualified album workflow.
+ALB-130 qualified the candidate, ALB-131 qualified the exact public artifact,
+and ALB-132 closed the published release against the source commit, runtime
+identity, tag, and release assets. ALB-133 selected the next actionable
+post-release milestone without changing the qualified runtime.
 
 The product currently has one canonical Photoshop/UXP runtime and a verified
 project workflow from photo import through multi-template album render and
@@ -117,7 +118,9 @@ runtime qualification before they may be presented as product behavior.
 
 - Direct `.ccx` packaging and Creative Cloud Desktop installation — ALB-097
   delivered and runtime-qualified
-- Marketplace listing identity and Adobe review after the direct-package gate
+- Marketplace readiness — selected by ALB-133 as the next actionable milestone;
+  ALB-134 will define listing, package, version, validation, and submission
+  approval boundaries before any Adobe upload
 - Cloud sync and team collaboration
 - Mobile/client proof review
 

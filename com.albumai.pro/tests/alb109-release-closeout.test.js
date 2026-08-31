@@ -32,7 +32,6 @@ function readRepositoryFile(relativePath) {
 
 try {
     const closeout = readProjectFile("docs/ALB-109_V1.1.2_RELEASE_CLOSEOUT.md");
-    const roadmap = readProjectFile("docs/ROADMAP.md");
     const changelog = readRepositoryFile("CHANGELOG.md");
     const releaseNotes = readRepositoryFile("RELEASE_NOTES_1.1.2.md");
     const packageJson = JSON.parse(readProjectFile("package.json"));
@@ -52,8 +51,8 @@ try {
     check(releaseNotes.includes("Status: released 2026-08-23"), "v1.1.2 historical release status changed");
     check(changelog.includes("## [1.1.2] - 2026-08-23"), "v1.1.2 changelog history changed");
     check(closeout.includes("Next milestone:** ALB-110"), "v1.1.2 historical next milestone changed");
-    check(roadmap.includes("1.1.2 stable — released 2026-08-23"), "roadmap release date differs");
-    check(roadmap.includes(RELEASE_URL), "roadmap release URL differs");
+    check(closeout.includes("2026-08-23"), "historical closeout release date differs");
+    check(closeout.includes(RELEASE_URL), "historical closeout release URL differs");
     check(changelog.includes("## [1.1.2] - 2026-08-23"), "canonical changelog release date differs");
     check(changelog.includes("ALB-108 automated, CCX, and installed Photoshop qualification: PASS"), "changelog qualification result differs");
     check(changelog.includes(RELEASE_URL), "changelog release URL differs");

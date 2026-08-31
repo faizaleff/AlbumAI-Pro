@@ -104,7 +104,7 @@ try {
     const readme = fs.readFileSync(path.join(PROJECT_ROOT, "README.md"), "utf8");
     const testBoundary = readme.match(/ALB-043 through ALB-(\d+)/);
     check(Boolean(testBoundary) && Number(testBoundary[1]) >= 97, "README test boundary regressed below ALB-097");
-    check(readme.includes("ALB-097 qualified a UXP Developer Tool-generated CCX"), "README distribution status is stale");
+    check(readme.includes("ALB-097 qualified the direct-install path"), "README distribution history is missing");
 
     const roadmap = fs.readFileSync(path.join(PROJECT_ROOT, "docs/ROADMAP.md"), "utf8");
     check(roadmap.includes("delivered and runtime-qualified"), "roadmap distribution status is stale");
