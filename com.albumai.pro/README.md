@@ -4,25 +4,17 @@ AlbumAI Pro is a Photoshop UXP plugin for project-based album production. The
 current workflow manages ordered PSD templates, photo selection and placement,
 transactional PSD/JPEG output, cancellation, recovery, resume, and safe retry.
 
-The current stable release is **1.1.2**, published as
-[`v1.1.2`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.2) and
-qualified for exact manual slot assignment, multi-template A-B-A-B album
-rendering, and reproducible output.
+The current stable release is **1.2.0**, published as
+[`v1.2.0`](https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.2.0).
+It adds the complete Smart Typography workflow, per-storyboard-sheet text
+assignments, guarded Typography-before-output execution, and multi-sheet
+stabilization while remaining offline by default.
 
-The `1.1.2` patch passed ALB-108 qualification and ALB-109 release closeout.
-Its direct-install CCX, source commit, runtime identity, package version, tag,
-and release assets share one exact provenance boundary. Published release
-assets remain immutable.
-
-The next release is being qualified as the unpublished **1.2.0 candidate**
-under ALB-130. Candidate diagnostics deliberately show `Not published
-(candidate)` until package, distribution, and installed Photoshop checks pass
-and a separate publication decision is approved.
-
-ALB-130 qualification passed. ALB-131 now prepares the final public artifact
-identity, release notes, and exact ZIP/CCX provenance. The stable release stays
-at **1.1.2** until the separately approval-gated push, merge, tag, and GitHub
-publication steps are complete.
+ALB-130 qualified the candidate, ALB-131 qualified the exact public artifact,
+and ALB-132 closed the release after verifying the immutable tag target,
+published asset sizes and digests, and fresh-download checksums. The direct
+installer, source commit, runtime identity, package version, tag, and release
+assets share one exact provenance boundary. Published assets remain immutable.
 
 ## Requirements
 
@@ -51,7 +43,7 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-131 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-132 suite |
 | `npm run test:smart-typography` | Run the canonical ALB-118 through ALB-128 Smart Typography suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |

@@ -105,10 +105,13 @@ runtime qualification before they may be presented as product behavior.
 - v1.2.0 release candidate — ALB-130 delivered and qualified with candidate
   identity, production CSS bundle headroom, reproducible ZIP, verified CCX,
   Creative Cloud installation, bounded Photoshop smoke, and grouped Undo
-- v1.2.0 publication readiness — ALB-131 locally qualified with final public
-  identity, release notes, deterministic artifacts, verified Creative Cloud
-  installation, installed Photoshop smoke, and an explicit
-  push/merge/tag/publication approval boundary
+- v1.2.0 publication readiness — ALB-131 delivered with final public identity,
+  release notes, deterministic artifacts, verified Creative Cloud installation,
+  installed Photoshop smoke, and explicit publication approval boundaries
+- v1.2.0 stable — released 2026-08-31 at
+  https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.2.0; ALB-132 release closeout
+  verified the immutable tag target, release flags, published asset sizes and
+  digests, and fresh-download checksums
 
 ### Distribution and collaboration
 

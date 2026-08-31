@@ -1,11 +1,11 @@
 # AlbumAI Pro 1.2.0
 
-- Status: publication-ready; not yet published
+- Status: released 2026-08-31
 - Version: 1.2.0
 - Build ID: `ALB-131-v1.2.0-release-v1`
 - Runtime revision: `ALB-131-v1.2.0-publication-ready-v1`
-- Intended release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.2.0
-- Tag target: pending explicit publication approval
+- Release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.2.0
+- Tag target: `5027adc97d0f208e84fa92404615556c4ffd5a5c`
 - Release package: `AlbumAI-Pro-1.2.0.zip`
 - Direct installer: `com.albumai.pro_PS.ccx`
 
@@ -51,9 +51,10 @@ tokens are scoped to the installed package.
 - ALB-131 production bundle, deterministic suite, reproducible ZIP, verified
   CCX, Creative Cloud installation, installed identity, bounded Smart
   Typography application, and grouped Undo: PASS.
-- Prepared ZIP SHA-256:
+- Published ZIP: 201,617 bytes; SHA-256:
   `6fbd51bbee87df3f3c3c0072425384b93e085f91ba0f4bf22f8ffa8389b5292e`.
-- Prepared CCX SHA-256:
+- Published CCX: 197,299 bytes; SHA-256:
   `9c4c22a737b51d9a961a9a9bb9272fe4aa041933332416100d21914bf4db7b47`.
-- Git push, pull request, merge, `v1.2.0` tag, and GitHub release: not performed;
-  explicit publication approval is required.
+- ALB-132 remote tag, release flags, GitHub asset digests and sizes, and
+  fresh-download checksums: PASS. Published 2026-08-31T21:10:05Z.
+- The published tag and assets are immutable.

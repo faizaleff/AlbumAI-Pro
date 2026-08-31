@@ -37,17 +37,23 @@ const clone = input => ({
 });
 
 const live = inspectSmartTypographyReleaseReadiness();
-check(live.status === "READY_FOR_RELEASE_CANDIDATE", "v1.2.0 must be ready for release-candidate packaging");
+check(live.status === "READY_FOR_VERSION_BUMP", "published v1.2.0 must require a new version");
 check(live.smartTypographyRange === "ALB-118..ALB-128", "typography range differs");
 check(live.suiteCount === 11, "typography suite count differs");
 check(live.evidenceFileCount === 13, "runtime evidence count differs");
-check(live.publishedVersionImmutable === false, "candidate version must not be treated as already published");
-check(live.nextAction === "BUILD_AND_PACKAGE_RELEASE_CANDIDATE", "next action differs");
+check(live.publishedVersionImmutable === true, "published version must be immutable");
+check(live.nextAction === "SELECT_AND_APPLY_A_NEW_VERSION_BEFORE_PACKAGING", "next action differs");
 check(live.bundleBytes <= MAX_BUNDLE_BYTES, "bundle exceeds the release ceiling");
 check(live.bundleHeadroomBytes >= 0, "bundle headroom is negative");
 check(live.networkPermission === false, "release gate introduced network access");
 
 const current = readCurrentReadinessInputs();
+
+const historicalCandidate = clone(current);
+historicalCandidate.gitTags = historicalCandidate.gitTags.filter(tag => tag !== "v1.2.0");
+const candidateResult = evaluateSmartTypographyReadiness(historicalCandidate);
+check(candidateResult.status === "READY_FOR_RELEASE_CANDIDATE", "prepublication candidate state changed");
+check(candidateResult.publishedVersionImmutable === false, "prepublication candidate is incorrectly immutable");
 
 const network = clone(current);
 network.sourceManifest.requiredPermissions.network = { domains: ["https://example.com"] };

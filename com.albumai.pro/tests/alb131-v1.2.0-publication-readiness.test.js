@@ -3,7 +3,6 @@
 "use strict";
 
 const assert = require("assert");
-const childProcess = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -49,10 +48,6 @@ try {
     const appliedScreenshot = path.join(PROJECT_ROOT, "docs/evidence/alb-131/installed-typography-applied.jpeg");
     const restoredScreenshot = path.join(PROJECT_ROOT, "docs/evidence/alb-131/installed-typography-restored.jpeg");
     const bundle = fs.readFileSync(path.join(PROJECT_ROOT, "dist/index.js"));
-    const tags = childProcess.execFileSync("git", ["tag", "--list", "v1.2.0"], {
-        cwd: PROJECT_ROOT,
-        encoding: "utf8"
-    }).trim();
 
     check(packageJson.version === VERSION, "package version differs from v1.2.0");
     check(packageLock.version === VERSION && packageLock.packages?.[""]?.version === VERSION, "lockfile version differs");
@@ -70,9 +65,9 @@ try {
     check(bundleVerifier.includes(`"${BUILD_ID}"`) && bundleVerifier.includes(`"${RUNTIME_REVISION_ID}"`), "bundle verifier identity differs");
     check(distributionVerifier.includes(`"${BUILD_ID}"`), "distribution verifier identity differs");
     check(record.includes("Status: local qualification complete"), "publication-readiness record status differs");
-    check(releaseNotes.includes("Status: publication-ready; not yet published"), "release notes make a false publication claim");
+    check(releaseNotes.includes("Status: released 2026-08-31"), "release notes published status differs");
     check(releaseNotes.includes("Smart Typography"), "release notes omit Smart Typography");
-    check(tags === "", "v1.2.0 tag already exists before publication approval");
+    check(record.includes("No external publication has been performed"), "historical publication boundary changed");
     check(candidateRecord.includes("Status: release candidate qualified"), "ALB-130 candidate history changed");
     check(candidateSummary.includes("Release: Not published (candidate)"), "ALB-130 candidate truth changed");
     check(packageJson.scripts.test.includes("npm run test:alb131"), "ALB-131 is absent from npm test");

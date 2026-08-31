@@ -2,7 +2,7 @@
 
 All notable changes to AlbumAI Pro will be documented in this file.
 
-## [1.2.0] - Unreleased
+## [1.2.0] - 2026-08-31
 
 ### Added
 
@@ -27,8 +27,9 @@ All notable changes to AlbumAI Pro will be documented in this file.
 - ALB-131 final public-artifact qualification, reproducible ZIP, verified CCX,
   Creative Cloud installation, installed identity, bounded typography
   application, and grouped Undo: PASS.
-- Publication remains blocked on explicit push, review, merge, tag, and release
-  approval; no push, tag, or GitHub release has been performed.
+- ALB-132 release closeout verified the immutable tag target, release flags,
+  asset sizes, GitHub digests, and fresh-download checksums.
+- Published release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.2.0
 
 ## [1.1.2] - 2026-08-23
 
