@@ -99,6 +99,9 @@ runtime qualification before they may be presented as product behavior.
   runtime-qualified with repeated-template sheet isolation, stale-request
   rejection, locked/hidden/missing-font safeguards, cancellation boundaries,
   save/reopen and grouped Undo, plus fail-closed output recovery evidence
+- Smart Typography release readiness — ALB-129 delivered; the consolidated
+  ALB-118 through ALB-128 test/evidence gate reports `READY_FOR_VERSION_BUMP`
+  while preserving the immutable `v1.1.2` publication boundary
 
 ### Distribution and collaboration
 

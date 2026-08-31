@@ -126,6 +126,7 @@
     "src/typography/LocalTextPresetCatalog.js",
     "src/typography/ManualTypographyWorkflow.js",
     "src/typography/PhotoshopTypographyAdapter.js",
+    "src/typography/TypographyAssignmentIntent.js",
     "src/typography/TypographyRuntimeQualification.js",
     "src/typography/TypographyPlan.js",
     "src/utils/FileUtils.js",

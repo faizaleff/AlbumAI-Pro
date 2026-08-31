@@ -268,7 +268,8 @@ async function run() {
         assert(openFolder.includes("hasProject || Boolean(projectAction)"));
         assert(openFolder.includes("!hasProject || Boolean(projectAction)"));
         assert(templatePanel.includes('["STALE", "INCOMPATIBLE", "INVALID"]'));
-        assert(templatePanel.includes("Automatic resume and retry are blocked"));
+        assert(templatePanel.includes("Recovery is invalid. Clear it before a new batch."));
+        assert(templatePanel.includes("One or more output commits are unknown. Automatic retry is blocked."));
     });
 
     console.info(`ALB-052 product hardening complete: ${count} scenarios passed.`);

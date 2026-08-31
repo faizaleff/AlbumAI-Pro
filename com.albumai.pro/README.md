@@ -41,7 +41,8 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-109 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-129 suite |
+| `npm run test:smart-typography` | Run the canonical ALB-118 through ALB-128 Smart Typography suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |
 | `npm run build:dev` | Create a development bundle with source mapping |
@@ -52,6 +53,7 @@ dependency graph recorded in `package-lock.json`.
 | `npm run deps:check` | Validate the installed dependency graph |
 | `npm run verify:ci` | Run tests, strict build, audits, graph validation, and generated-output cleanliness |
 | `npm run distribution:verify` | Verify direct CCX packaging readiness or an actual UDT-generated CCX |
+| `npm run smart-typography:release:verify` | Require complete Smart Typography evidence and report the safe next release action |
 
 ## Continuous integration
 

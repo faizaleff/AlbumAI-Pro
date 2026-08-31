@@ -124,9 +124,10 @@ async function run() {
         );
         assert(source.includes("createTemplateTypographyFontOptions"));
         assert(source.includes("createTemplateTypographyStyleOptions"));
+        assert(source.includes("options={fontOptions}"));
+        assert(source.includes("options={styleOptions}"));
         assert(source.includes("Font for ${draft.layerName}"));
         assert(source.includes("Style for ${draft.layerName}"));
-        assert(source.includes("independently reuse a font and style already present"));
     });
 
     console.info(`ALB-124 Font and Style Presets: PASS (${assertions} tests)`);
