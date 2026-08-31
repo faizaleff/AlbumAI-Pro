@@ -1,0 +1,120 @@
+AlbumAI Debug Log
+Generated: 2026-08-31T19:47:03.957Z
+
+Runtime Identity
+Product: AlbumAI Pro
+Plugin ID: com.albumai.pro
+Version: 1.1.2
+Build ID: ALB-108-v1.1.2-patch-v1
+Runtime Revision: ALB-108-v1.1.2-release-candidate-v1
+Support ID: ALB-103-runtime-identity-support-v1
+Release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.2
+Network Access: Not requested (offline by default)
+
+Project
+ID: c494e726-c022-4b31-a5aa-000229262b9a
+Name: REC005-MULTI-TEMPLATE-2
+
+Template
+ID: 192
+Document ID: 192
+Name: ALB-127-Storyboard-Typography-Test.psd
+
+Selected Photos
+None
+
+Smart Object Slots
+- 4 — 02
+- 2 — 01
+
+Placement Assignments
+- photo=ZSA00181.jpg, slot=2, fit=fill
+- photo=ZSA00181.jpg, slot=4, fit=fill
+
+Execution Plan Steps
+- #1 photo=ZSA00181.jpg, slot=2 (01)
+- #2 photo=ZSA00181.jpg, slot=4 (02)
+
+Replacement Request Steps
+- #1 photo=ZSA00181.jpg, slot=2 (01)
+- #2 photo=ZSA00181.jpg, slot=4 (02)
+
+Batch Progress
+Status: COMPLETED_WITH_ERRORS
+Completed: 1 / 1
+Success: 0
+Failed: 1
+
+Execution Summary
+Status: COMPLETED
+Completed: 2
+Failed: 0
+Lifecycle: IDLE
+Lifecycle Error: None
+
+Auto Save Result
+Status: SKIPPED
+Output Path: None
+Warnings: Auto Save is disabled.
+Error: None
+
+Export Result
+Status: FAILED
+Output Path: None
+Warnings: None
+Error: Template export failed.
+
+Project Execution Summary
+Status: FAILED
+Registered Templates: 4
+Completed Templates: 1
+Successful Templates: 0
+Failed Templates: 1
+Skipped Templates: 0
+Batch Status: COMPLETED_WITH_ERRORS
+Current Template: —
+Batch Warning: Auto Save is disabled.
+Batch Fatal Error: None
+Batch Lifecycle: COMPLETED_WITH_ERRORS
+Current Stage: COMPLETED
+Template Progress: —
+Remaining Templates: 0
+Progress: 100%
+Registry Validation: None
+
+Project Template Registry
+1. 470e5d68-9bf4-4482-a4d7-4182e530afa8 — 02.psd: READY
+2. 487957f5-4fff-4f5c-9d28-da4c5b3e21f5 — 01.psd: READY
+3. 7b34ea65-6738-4826-a12b-fbfa94cc6fa1 — ALB-121-Typography-Test.psd: READY
+4. 664ab3c7-03e4-4160-abf6-710a4093e052 — ALB-127-Storyboard-Typography-Test.psd: READY
+
+Template Results
+664ab3c7-03e4-4160-abf6-710a4093e052 — ALB-127-Storyboard-Typography-Test.psd [document=192]: FAILED [photos 1-2, assigned=2, remaining=0] (Template export failed.)
+
+Errors & Warnings
+Registry: None
+Placement: None
+Replacement: None
+Batch Errors: None
+
+Recovery Diagnostics
+Available: Yes
+Classification: INTERRUPTED
+Batch ID: ea8510bc-f06f-4b3b-a0c9-7900e4b5de05
+Status: COMPLETED_WITH_ERRORS
+Run Mode: ALBUM_SHEET_RENDER
+Completed/Success/Failed/Skipped/Pending: 1/0/1/0/0
+Last Template: ALB-127-Storyboard-Typography-Test.psd
+Last Stage: IDLE
+Output States (Committed/Safe Retry/Commit Unknown/Cleanup Required): 0/0/0/1
+Automatic Retry Templates: 0
+Blocked Templates: 0
+Remediation Templates: 1
+Warnings: Auto Save is disabled. | Template failed; selected photos were not consumed.
+Fatal Error: None
+
+Recovery Template Outcomes
+664ab3c7-03e4-4160-abf6-710a4093e052 — ALB-127-Storyboard-Typography-Test.psd: FAILED [photos 1-2, assigned=2, remaining=0] (Template export failed.)
+
+Output Recovery States
+ALB-127-Storyboard-Typography-Test.psd — Export: Cleanup required (CLEANUP_FAILED)
