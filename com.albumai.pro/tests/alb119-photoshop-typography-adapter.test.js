@@ -1,6 +1,7 @@
 import assert from "assert";
 
 import PhotoshopTypographyAdapter, {
+    normalizePhotoshopText,
     TypographyExecutionReason,
     TypographyExecutionStatus
 } from "../src/typography/PhotoshopTypographyAdapter";
@@ -137,6 +138,20 @@ function setup({ layers = [layer(7)], fonts = [], writeFailureAt = null,
 }
 
 async function run() {
+    await test("normalizes multiline text to Photoshop paragraph breaks", async () => {
+        assert.strictEqual(normalizePhotoshopText("First\nSecond"), "First\rSecond");
+        assert.strictEqual(normalizePhotoshopText("First\r\nSecond"), "First\rSecond");
+
+        const { adapter, state } = setup();
+        const result = await adapter.execute({
+            plan: plan([{ layerId: 7, role: "CAPTION", text: "First\nSecond", preset: null }]),
+            expectedDocumentId: 41
+        });
+
+        assert.strictEqual(result.status, TypographyExecutionStatus.SUCCESS);
+        assert.deepStrictEqual(state.writes, [{ layerId: 7, value: "First\rSecond" }]);
+    });
+
     await test("rejects a non-ready plan before touching Photoshop", async () => {
         const { adapter, state } = setup();
         const result = await adapter.execute({

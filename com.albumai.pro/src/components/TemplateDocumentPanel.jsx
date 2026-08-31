@@ -344,6 +344,7 @@ export default function TemplateDocumentPanel({
             })) return;
             refreshRegisteredTemplates();
             refreshRegistryPreflightState();
+            if (result?.document) setDocument(result.document);
             setRevalidationMessage(revalidationFeedback(result));
         } catch (_) {
             if (!isCurrentTemplateRegistryRequest({
@@ -1090,8 +1091,10 @@ export default function TemplateDocumentPanel({
                         <div>Width × Height: {document.document.width} × {document.document.height}</div>
                         <div>Text Layers: {document.statistics.totalTextLayers}</div>
                         <ManualTypographyPanel
+                            key={albumSheetForRender?.id}
                             document={document}
                             applyTypography={applyManualTypography}
+                            initialAssignments={albumSheetForRender?.typographyAssignments || null}
                             customTextPresets={customTextPresets}
                             saveCustomTextPresets={saveCustomTextPresets}
                             onApplied={(drafts, result) => setDocument(current =>

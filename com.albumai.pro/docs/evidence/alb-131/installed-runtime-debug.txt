@@ -1,0 +1,24 @@
+AlbumAI Debug Log evidence
+Generated: 2026-08-31T20:44:10.762Z
+
+Product: AlbumAI Pro
+Plugin ID: com.albumai.pro
+Version: 1.2.0
+Build ID: ALB-131-v1.2.0-release-v1
+Runtime Revision: ALB-131-v1.2.0-publication-ready-v1
+Release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.2.0
+Network Access: Not requested (offline by default)
+
+Template ID: 217
+Document ID: 217
+Template: ALB-127-Storyboard-Typography-Test.psd
+Batch Status: IDLE
+Lifecycle: IDLE
+Lifecycle Error: None
+Registry Errors: None
+Placement Errors: None
+Replacement Errors: None
+Batch Errors: None
+
+The preserved CLEANUP_FAILED recovery record predates ALB-131 and was left
+untouched during this bounded typography smoke.

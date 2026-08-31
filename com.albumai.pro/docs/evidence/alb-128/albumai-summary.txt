@@ -1,0 +1,86 @@
+AlbumAI Summary
+Generated: 2026-08-31T19:46:36.856Z
+
+Runtime Identity
+Product: AlbumAI Pro
+Plugin ID: com.albumai.pro
+Version: 1.1.2
+Build ID: ALB-108-v1.1.2-patch-v1
+Runtime Revision: ALB-108-v1.1.2-release-candidate-v1
+Support ID: ALB-103-runtime-identity-support-v1
+Release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.1.2
+Network Access: Not requested (offline by default)
+
+Project
+Status: READY
+ID: c494e726-c022-4b31-a5aa-000229262b9a
+Name: REC005-MULTI-TEMPLATE-2
+Photos: 6
+Selected: 0
+
+Template
+Name: All Templates Completed
+Smart Objects: 2
+
+Project Template Registry
+Registered Templates: 4
+Registry Order:
+1. 02.psd
+2. 01.psd
+3. ALB-121-Typography-Test.psd
+4. ALB-127-Storyboard-Typography-Test.psd
+
+Placement
+Assigned: 2
+Empty: 0
+Unassigned: 0
+
+Execution
+Plan Status: READY
+Ready Steps: 2
+Completed: 1 / 1
+Success: 0
+Failed: 1
+Lifecycle: COMPLETED_WITH_ERRORS
+
+Auto Save
+Enabled: OFF
+Mode: Save Copy
+Result: SKIPPED
+Output: —
+
+Export
+Enabled: ON
+Format: JPEG
+Result: FAILED
+Output: —
+
+Project Execution
+Status: FAILED
+Registered Templates: 4
+Batch Status: COMPLETED_WITH_ERRORS
+Current Stage: COMPLETED
+Template: —
+Remaining Templates: 0
+Progress: 100%
+Completed Templates: 1
+Successful Templates: 0
+Failed Templates: 1
+Skipped Templates: 0
+
+Recovery
+Recovery Available: Yes
+Recovery State: INTERRUPTED
+Previous Batch ID: ea8510bc-f06f-4b3b-a0c9-7900e4b5de05
+Previous Batch Status: COMPLETED_WITH_ERRORS
+Completed: 1
+Successful: 0
+Failed: 1
+Pending: 0
+Committed Outputs: 0
+Safe Retry Outputs: 0
+Commit Unknown: 0
+Cleanup Required: 1
+Last Template: ALB-127-Storyboard-Typography-Test.psd
+Last Stage: IDLE
+Resume/Retry Result: ALBUM_SHEET_RENDER

@@ -1,0 +1,18 @@
+AlbumAI Summary evidence
+Generated: 2026-08-31T20:42:12.362Z
+
+Product: AlbumAI Pro
+Plugin ID: com.albumai.pro
+Version: 1.2.0
+Build ID: ALB-131-v1.2.0-release-v1
+Runtime Revision: ALB-131-v1.2.0-publication-ready-v1
+Release: https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.2.0
+Network Access: Not requested (offline by default)
+
+Project: REC005-MULTI-TEMPLATE-2
+Template: ALB-127-Storyboard-Typography-Test.psd
+Registered Templates: 4
+
+The recovery warning shown in this summary belongs to the preserved
+ALB-127 v1.1.2 export-failure fixture. It was not created or modified by the
+ALB-131 installed-runtime smoke.

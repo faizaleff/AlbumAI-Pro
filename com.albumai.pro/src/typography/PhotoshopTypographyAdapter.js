@@ -14,6 +14,10 @@ const PLACEMENT_ANCHORS = new Set([
     "BOTTOM_RIGHT"
 ]);
 
+export function normalizePhotoshopText(value) {
+    return String(value ?? "").replace(/\r\n?|\n/g, "\r");
+}
+
 export const TypographyExecutionStatus = Object.freeze({
     SUCCESS: "SUCCESS",
     FAILED: "FAILED"
@@ -113,6 +117,7 @@ export default class PhotoshopTypographyAdapter {
                 startedAt
             });
         } catch (error) {
+            failedLayerId ??= error?.layerId ?? null;
             const reasonCode = this.reason(error);
             Logger.warn(
                 `[AlbumAI:typography] EXECUTION_FAILED doc=${expectedDocumentId ?? "none"} ` +
@@ -258,7 +263,8 @@ export default class PhotoshopTypographyAdapter {
         const textItem = step.layer.photoshopLayer.textItem;
         const preset = step.preset;
 
-        textItem.contents = step.text;
+        const photoshopText = normalizePhotoshopText(step.text);
+        textItem.contents = photoshopText;
 
         if (preset) {
             if (preset.fontFamily) {
@@ -288,7 +294,7 @@ export default class PhotoshopTypographyAdapter {
             }
         }
 
-        if (textItem.contents !== step.text) {
+        if (normalizePhotoshopText(textItem.contents) !== photoshopText) {
             throw this.failure(
                 TypographyExecutionReason.VERIFICATION_FAILED,
                 step.layerId

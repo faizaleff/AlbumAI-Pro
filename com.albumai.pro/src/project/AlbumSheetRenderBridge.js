@@ -245,9 +245,7 @@ export function createAlbumSheetRenderRequest({
             templateId: sheet.templateId,
             label: sheet.label || "",
             slots: Array.isArray(sheet.slots) ? Object.freeze([...sheet.slots]) : Object.freeze([]),
-            typographyAssignments: Array.isArray(sheet.typographyAssignments)
-                ? Object.freeze(sheet.typographyAssignments.map(assignment => Object.freeze({ ...assignment })))
-                : Object.freeze([])
+            typographyAssignments: snapshotTypographyAssignments(sheet.typographyAssignments)
         }),
         template: templateSnapshot(resolved, registry),
         selectedPhotoIds: photoIdsToUse
@@ -351,7 +349,8 @@ function sameSheet(left, right) {
     return left?.id === right?.id &&
         left?.templateId === right?.templateId &&
         left?.label === right?.label &&
-        sameSlots(left?.slots, right?.slots);
+        sameSlots(left?.slots, right?.slots) &&
+        sameTypographyAssignments(left?.typographyAssignments, right?.typographyAssignments);
 }
 
 function sameSlots(left, right) {
@@ -362,6 +361,26 @@ function sameSlots(left, right) {
                 slot?.photoId === candidate?.photoId &&
                 slot?.cropFocus === candidate?.cropFocus;
         });
+}
+
+function snapshotTypographyAssignments(assignments) {
+    if (!Array.isArray(assignments)) return Object.freeze([]);
+    return Object.freeze(assignments.map(assignment => Object.freeze({
+        ...assignment,
+        preset: assignment?.preset == null ? null : Object.freeze({
+            ...assignment.preset,
+            ...(assignment.preset.color
+                ? { color: Object.freeze({ ...assignment.preset.color }) }
+                : {})
+        }),
+        placement: assignment?.placement == null
+            ? null
+            : Object.freeze({ ...assignment.placement })
+    })));
+}
+
+function sameTypographyAssignments(left, right) {
+    return JSON.stringify(left || []) === JSON.stringify(right || []);
 }
 
 function sameTemplate(left, right) {

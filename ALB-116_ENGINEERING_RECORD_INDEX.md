@@ -73,6 +73,10 @@ mean that a file is missing.
 | ALB-125 | [Local Text Suggestions](com.albumai.pro/docs/ALB-125_LOCAL_TEXT_SUGGESTIONS.md) | Plugin docs |
 | ALB-126 | [Custom Project Text Presets](com.albumai.pro/docs/ALB-126_CUSTOM_TEXT_PRESETS.md) | Plugin docs |
 | ALB-127 | [Storyboard Typography Assignment](com.albumai.pro/docs/ALB-127_STORYBOARD_TYPOGRAPHY_ASSIGNMENT.md) | Plugin docs |
+| ALB-128 | [Typography and Multi-Sheet Stabilization](com.albumai.pro/docs/ALB-128_TYPOGRAPHY_MULTISHEET_STABILIZATION.md) | Plugin docs |
+| ALB-129 | [Smart Typography Release Readiness](com.albumai.pro/docs/ALB-129_SMART_TYPOGRAPHY_RELEASE_READINESS.md) | Plugin docs |
+| ALB-130 | [v1.2.0 Release Candidate](com.albumai.pro/docs/ALB-130_V1.2.0_RELEASE_CANDIDATE.md) | Plugin docs |
+| ALB-131 | [v1.2.0 Publication Readiness](com.albumai.pro/docs/ALB-131_V1.2.0_PUBLICATION_READINESS.md) | Plugin docs |
 
 ## Verification
 

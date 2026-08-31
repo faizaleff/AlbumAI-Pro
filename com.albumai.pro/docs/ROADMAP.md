@@ -95,6 +95,20 @@ runtime qualification before they may be presented as product behavior.
   Typography-before-output batch execution — ALB-127 delivered and
   runtime-qualified with two Smart Object replacements, two persisted text
   assignments, grouped Undo, and completed single-sheet render evidence
+- Typography and multi-sheet stabilization — ALB-128 delivered and
+  runtime-qualified with repeated-template sheet isolation, stale-request
+  rejection, locked/hidden/missing-font safeguards, cancellation boundaries,
+  save/reopen and grouped Undo, plus fail-closed output recovery evidence
+- Smart Typography release readiness — ALB-129 delivered; the consolidated
+  ALB-118 through ALB-128 test/evidence gate selected the safe next release
+  action while preserving the immutable `v1.1.2` publication boundary
+- v1.2.0 release candidate — ALB-130 delivered and qualified with candidate
+  identity, production CSS bundle headroom, reproducible ZIP, verified CCX,
+  Creative Cloud installation, bounded Photoshop smoke, and grouped Undo
+- v1.2.0 publication readiness — ALB-131 locally qualified with final public
+  identity, release notes, deterministic artifacts, verified Creative Cloud
+  installation, installed Photoshop smoke, and an explicit
+  push/merge/tag/publication approval boundary
 
 ### Distribution and collaboration
 

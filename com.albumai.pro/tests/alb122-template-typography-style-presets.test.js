@@ -96,9 +96,11 @@ async function run() {
     await test("keeps the selector and safe default connected to the production panel", () => {
         const source = fs.readFileSync(path.join(process.cwd(), "src/components/ManualTypographyPanel.jsx"), "utf8");
         assert(source.includes("Preserve current style"));
-        assert(source.includes("createTemplateTypographyPresetOptions"));
+        assert(source.includes("createTemplateTypographyFontOptions"));
+        assert(source.includes("createTemplateTypographyStyleOptions"));
+        assert(source.includes("options={fontOptions}"));
+        assert(source.includes("options={styleOptions}"));
         assert(source.includes("Style for ${draft.layerName}"));
-        assert(source.includes("optionally reuse a style already present in this template"));
     });
 
     console.info(`ALB-122 Template-local Typography Style Presets: PASS (${assertions} tests)`);

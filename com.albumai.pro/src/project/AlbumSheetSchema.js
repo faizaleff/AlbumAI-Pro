@@ -1,3 +1,5 @@
+import { normalizeTypographyAssignmentIntent } from "../typography/TypographyAssignmentIntent";
+
 export const ALBUM_SCHEMA_VERSION = 1;
 
 export const AlbumSheetReason = Object.freeze({
@@ -60,6 +62,7 @@ const MAX_SHEETS = 500;
 const MAX_IDENTIFIER_LENGTH = 120;
 const MAX_LABEL_LENGTH = 160;
 const MAX_HISTORY_SNAPSHOTS = 20;
+const MAX_TYPOGRAPHY_ASSIGNMENTS = 500;
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 const SHEET_FIELDS = new Set(["id", "templateId", "label", "slots", "typographyAssignments"]);
 
@@ -643,8 +646,8 @@ function inspectSheet(sheet, ids) {
     }
 
     if (Array.isArray(sheet.typographyAssignments)) {
-        const assignments = sheet.typographyAssignments.map(assignment => cloneTypographyAssignment(assignment));
-        if (assignments.some(assignment => !assignment)) {
+        const assignments = cloneTypographyAssignments(sheet.typographyAssignments);
+        if (!assignments) {
             return invalid(AlbumSheetReason.INVALID_SHEET);
         }
         if (assignments.length > 0) {
@@ -685,24 +688,22 @@ function slotsEqual(left = [], right = []) {
     );
 }
 
-function cloneTypographyAssignment(assignment) {
-    if (!isObject(assignment) || assignment.layerId == null ||
-        !["TITLE", "CAPTION", "QUOTE"].includes(assignment.role) ||
-        typeof assignment.text !== "string" || !assignment.text.trim()) {
-        return null;
+function cloneTypographyAssignments(assignments) {
+    if (assignments.length > MAX_TYPOGRAPHY_ASSIGNMENTS) return null;
+    const layerIds = new Set();
+    const cloned = [];
+    for (const assignment of assignments) {
+        const value = cloneTypographyAssignment(assignment);
+        const layerKey = value ? String(value.layerId) : null;
+        if (!value || layerIds.has(layerKey)) return null;
+        layerIds.add(layerKey);
+        cloned.push(value);
     }
-    return Object.freeze({
-        layerId: typeof assignment.layerId === "number" ? assignment.layerId : String(assignment.layerId),
-        role: assignment.role,
-        text: assignment.text,
-        preset: assignment.preset == null ? null : Object.freeze({
-            ...assignment.preset,
-            ...(assignment.preset.color ? { color: Object.freeze({ ...assignment.preset.color }) } : {})
-        }),
-        placement: assignment.placement?.anchor
-            ? Object.freeze({ anchor: assignment.placement.anchor })
-            : null
-    });
+    return cloned;
+}
+
+function cloneTypographyAssignment(assignment) {
+    return normalizeTypographyAssignmentIntent(assignment);
 }
 
 function typographyEqual(left = [], right = []) {

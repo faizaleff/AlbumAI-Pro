@@ -14,6 +14,16 @@ Its direct-install CCX, source commit, runtime identity, package version, tag,
 and release assets share one exact provenance boundary. Published release
 assets remain immutable.
 
+The next release is being qualified as the unpublished **1.2.0 candidate**
+under ALB-130. Candidate diagnostics deliberately show `Not published
+(candidate)` until package, distribution, and installed Photoshop checks pass
+and a separate publication decision is approved.
+
+ALB-130 qualification passed. ALB-131 now prepares the final public artifact
+identity, release notes, and exact ZIP/CCX provenance. The stable release stays
+at **1.1.2** until the separately approval-gated push, merge, tag, and GitHub
+publication steps are complete.
+
 ## Requirements
 
 - Adobe Photoshop 27.4.0 or newer
@@ -41,7 +51,8 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-109 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-131 suite |
+| `npm run test:smart-typography` | Run the canonical ALB-118 through ALB-128 Smart Typography suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |
 | `npm run build:dev` | Create a development bundle with source mapping |
@@ -52,13 +63,14 @@ dependency graph recorded in `package-lock.json`.
 | `npm run deps:check` | Validate the installed dependency graph |
 | `npm run verify:ci` | Run tests, strict build, audits, graph validation, and generated-output cleanliness |
 | `npm run distribution:verify` | Verify direct CCX packaging readiness or an actual UDT-generated CCX |
+| `npm run smart-typography:release:verify` | Require complete Smart Typography evidence and report the safe next release action |
 
 ## Continuous integration
 
 GitHub Actions runs on every pull request and every push to `main` using the
 toolchain pinned by `.nvmrc`. CI performs a clean lockfile install, checks
 committed diff whitespace, runs all deterministic tests, rejects webpack
-warnings or a production entrypoint above 700 KiB, audits both the complete and
+warnings or a production entrypoint above 740 KiB, audits both the complete and
 production dependency trees, validates the installed graph, and confirms that
 the committed `dist/` bundle is reproducible.
 

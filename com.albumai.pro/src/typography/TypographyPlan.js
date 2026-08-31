@@ -1,3 +1,5 @@
+import { inspectTypographyAssignmentIntent } from "./TypographyAssignmentIntent";
+
 export const TYPOGRAPHY_SCHEMA_VERSION = 1;
 
 export { default as PhotoshopTypographyAdapter } from "./PhotoshopTypographyAdapter";
@@ -47,10 +49,7 @@ export const TypographyReason = Object.freeze({
 
 const MAX_TEXT_LAYERS = 500;
 const MAX_ASSIGNMENTS = 500;
-const MAX_TEXT_LENGTH = 2000;
 const MAX_TEMPLATE_ID_LENGTH = 160;
-const MAX_FONT_FAMILY_LENGTH = 160;
-const MAX_FONT_SIZE = 1000;
 const TEXT_LAYER_FIELDS = new Set([
     "documentId",
     "layerId",
@@ -67,11 +66,6 @@ const TEXT_LAYER_FIELDS = new Set([
     "locked",
     "bounds"
 ]);
-const ASSIGNMENT_FIELDS = new Set(["layerId", "role", "text", "preset", "placement"]);
-const PRESET_FIELDS = new Set(["fontFamily", "fontSize", "color", "alignment"]);
-const PLACEMENT_FIELDS = new Set(["anchor"]);
-const ROLES = new Set(Object.values(TypographyRole));
-const PLACEMENT_ANCHORS = new Set(Object.values(TypographyPlacementAnchor));
 
 /**
  * Convert TemplateLayerTreeReader text descriptors into a detached inventory.
@@ -202,14 +196,6 @@ function inspectTextLayer(layer, layerIds) {
 
 function inspectAssignment(assignment, slots, targets) {
 
-    if (!isPlainObject(assignment)) {
-        return invalid(TypographyReason.INVALID_ASSIGNMENT);
-    }
-
-    if (Object.keys(assignment).some(field => !ASSIGNMENT_FIELDS.has(field))) {
-        return invalid(TypographyReason.UNSUPPORTED_ASSIGNMENT_FIELD);
-    }
-
     if (!isLayerId(assignment.layerId)) {
         return invalid(TypographyReason.INVALID_LAYER_ID);
     }
@@ -228,53 +214,10 @@ function inspectAssignment(assignment, slots, targets) {
         return invalid(TypographyReason.TARGET_NOT_EDITABLE);
     }
 
-    if (!ROLES.has(assignment.role)) {
-        return invalid(TypographyReason.UNSUPPORTED_ROLE);
-    }
-
-    if (typeof assignment.text !== "string" ||
-        !assignment.text.trim() || assignment.text.length > MAX_TEXT_LENGTH) {
-        return invalid(TypographyReason.INVALID_TEXT);
-    }
-
-    const preset = normalizePreset(assignment.preset);
-
-    if (assignment.preset != null && !preset) {
-        return invalid(TypographyReason.INVALID_PRESET);
-    }
-
-    const placement = normalizePlacement(assignment.placement);
-
-    if (assignment.placement != null && !placement) {
-        return invalid(TypographyReason.INVALID_PLACEMENT);
-    }
-
-    return {
-        valid: true,
-        step: freeze({
-            layerId: assignment.layerId,
-            role: assignment.role,
-            text: assignment.text,
-            preset,
-            placement
-        })
-    };
-
-}
-
-function normalizePlacement(placement) {
-
-    if (placement == null) {
-        return null;
-    }
-
-    if (!isPlainObject(placement) ||
-        Object.keys(placement).some(field => !PLACEMENT_FIELDS.has(field)) ||
-        !PLACEMENT_ANCHORS.has(placement.anchor)) {
-        return null;
-    }
-
-    return freeze({ anchor: placement.anchor });
+    const inspected = inspectTypographyAssignmentIntent(assignment);
+    return inspected.valid
+        ? { valid: true, step: inspected.assignment }
+        : invalid(inspected.reasonCode);
 
 }
 
@@ -285,46 +228,6 @@ function normalizeStyle(layer) {
         fontSize: finiteNumber(layer.fontSize),
         color: normalizeColor(layer.color),
         alignment: typeof layer.alignment === "string" ? layer.alignment : null
-    });
-
-}
-
-function normalizePreset(preset) {
-
-    if (preset == null) {
-        return null;
-    }
-
-    if (!isPlainObject(preset) ||
-        Object.keys(preset).some(field => !PRESET_FIELDS.has(field))) {
-        return null;
-    }
-
-    if (preset.fontFamily != null &&
-        !isBoundedString(preset.fontFamily, MAX_FONT_FAMILY_LENGTH)) {
-        return null;
-    }
-
-    if (preset.fontSize != null &&
-        (!Number.isFinite(preset.fontSize) || preset.fontSize <= 0 ||
-            preset.fontSize > MAX_FONT_SIZE)) {
-        return null;
-    }
-
-    if (preset.color != null && !normalizeColor(preset.color)) {
-        return null;
-    }
-
-    if (preset.alignment != null &&
-        !isBoundedString(preset.alignment, 80)) {
-        return null;
-    }
-
-    return freeze({
-        fontFamily: preset.fontFamily ?? null,
-        fontSize: preset.fontSize ?? null,
-        color: normalizeColor(preset.color),
-        alignment: preset.alignment ?? null
     });
 
 }

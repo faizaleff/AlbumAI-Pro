@@ -122,6 +122,10 @@ export default class ProjectExecutor {
                     emitStage("VALIDATING");
                     const afterOpen = cancelled("OPENING");
                     if (afterOpen) return afterOpen;
+                    if (!template?.smartObjects?.some(slot => slot?.layerId != null)) {
+                        completed = true;
+                        return this.skippedNoPhotos(descriptor, distribution, "No Smart Object slots; skipped.");
+                    }
                     const allocation = this.allocatePhotos(template, distribution);
                     const result = await this.executeTemplate({ project, photos: allocation.photos, template, descriptor, autoSaveEnabled, autoSaveMode,
                         onAutoSaveResult, exportEnabled, exportFormat, onExportResult, onStageProgress: emitStage, cancellationController, sheetContext
@@ -279,6 +283,17 @@ export default class ProjectExecutor {
         Logger.info(`TEMPLATE_REPLACEMENT_STATUS: ${executionSummary.status}`);
         Logger.info(`TEMPLATE_REPLACEMENT_COMPLETED: ${executionSummary.status === "COMPLETED"}`);
 
+        if (cancellationController?.isCancellationRequested()) {
+            return {
+                status: "CANCELLED",
+                cancelledAtStage: "REPLACING",
+                executionSummary,
+                placementResult,
+                executionPlan,
+                replacementRequest: request
+            };
+        }
+
         const typographyAssignments = Array.isArray(sheetContext?.typographyAssignments)
             ? sheetContext.typographyAssignments
             : [];
@@ -301,6 +316,18 @@ export default class ProjectExecutor {
             }
         }
 
+        if (cancellationController?.isCancellationRequested()) {
+            return {
+                status: "CANCELLED",
+                cancelledAtStage: "TYPOGRAPHY",
+                executionSummary,
+                placementResult,
+                executionPlan,
+                replacementRequest: request,
+                typographyResult
+            };
+        }
+
         // For ALBUM_SHEET_RENDER, derive a unique output base name from the sheet context.
         // This prevents all spreads that share the same PSD template from producing the
         // same output filename (e.g. 22.jpg colliding across 16 spreads).
@@ -308,7 +335,6 @@ export default class ProjectExecutor {
             ? ProjectExecutor.sheetOutputBaseName(sheetContext)
             : null;
 
-        if (cancellationController?.isCancellationRequested()) return { status: "CANCELLED", cancelledAtStage: "REPLACING", executionSummary, placementResult, executionPlan, replacementRequest: request };
         await this.activateContext(context, "SAVE");
         onStageProgress?.("SAVING");
         const autoSaveResult = await this.autoSave({ project, template, descriptor, documentContext: context, executionSummary, enabled: autoSaveEnabled, mode: autoSaveMode, cancellationController, outputBaseName });
@@ -553,12 +579,12 @@ export default class ProjectExecutor {
 
     }
 
-    skippedNoPhotos(descriptor, distribution) {
+    skippedNoPhotos(descriptor, distribution, warning = "No photos remain; template not opened.") {
 
         return {
             status: "SKIPPED_NO_PHOTOS",
             error: null,
-            warnings: ["No selected photos remain; template was not opened."],
+            warnings: [warning],
             photoAllocation: {
                 startCursor: distribution.cursor,
                 endCursor: distribution.cursor,

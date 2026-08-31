@@ -839,10 +839,16 @@ export default function OpenFolder() {
             setAlbumMutationError("Open the selected sheet's PSD before assigning typography.");
             return;
         }
+        const updatedLayerIds = assignments.map(item => String(item.layerId));
         await mutateAlbum({
             intent: AlbumSheetMutationIntent.SET_TYPOGRAPHY,
             sheetId: activeSheet.id,
-            assignments
+            assignments: [
+                ...(activeSheet.typographyAssignments || []).filter(
+                    item => !updatedLayerIds.includes(String(item.layerId))
+                ),
+                ...assignments
+            ]
         });
     }
 
@@ -938,7 +944,7 @@ export default function OpenFolder() {
     const revalidateProjectTemplates = async options => {
         const result = await App.revalidateProjectTemplates(options);
         refreshRegisteredTemplates();
-        return result;
+        return { ...result, document: App.refreshCurrentTemplateDocument() };
     };
     const getTemplateRegistryPreflightState = () => App.getTemplateRegistryPreflightState();
     const getTemplateRegistryRecoveryCompatibility = () =>
@@ -965,7 +971,6 @@ export default function OpenFolder() {
 
     const openTemplate = file =>
         App.openTemplateDocument(file);
-
     const planPhotoPlacement = options =>
         App.planPhotoPlacement(options);
 
@@ -1002,12 +1007,21 @@ export default function OpenFolder() {
         App.createAlbumSheetRenderRequest(sheetId);
     const executeAlbumSheetRenderRequest = (request, onUpdate) =>
         App.executeAlbumSheetRenderRequest(request, onUpdate);
+    const runRecovery = async (action, onUpdate) => {
+        const result = await action(summary => {
+            onUpdate?.(summary);
+            forceRefresh(value => value + 1);
+        });
+        forceRefresh(value => value + 1);
+        return result;
+    };
     const resumeProjectBatch = onUpdate =>
-        App.resumeProjectBatch(onUpdate);
+        runRecovery(update => App.resumeProjectBatch(update), onUpdate);
     const retryFailedTemplates = onUpdate =>
-        App.retryFailedTemplates(onUpdate);
+        runRecovery(update => App.retryFailedTemplates(update), onUpdate);
     const clearRecoveryState = async () => {
         const result = await App.clearRecoveryState();
+        forceRefresh(value => value + 1);
         return result;
     };
     const getBatchRecoveryState = () =>
