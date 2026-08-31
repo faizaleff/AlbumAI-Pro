@@ -32,7 +32,6 @@ function readRepositoryFile(relativePath) {
 
 try {
     const closeout = readProjectFile("docs/ALB-109_V1.1.2_RELEASE_CLOSEOUT.md");
-    const readme = readProjectFile("README.md");
     const roadmap = readProjectFile("docs/ROADMAP.md");
     const changelog = readRepositoryFile("CHANGELOG.md");
     const releaseNotes = readRepositoryFile("RELEASE_NOTES_1.1.2.md");
@@ -49,10 +48,10 @@ try {
     check(closeout.includes(CCX_SHA256), "closeout CCX checksum differs");
     check(closeout.includes("no additional Photoshop runtime retest is\n  required"), "closeout runtime boundary is missing");
     check(closeout.includes("tag and release assets are immutable"), "closeout immutability boundary is missing");
-    check(readme.includes("current stable release is **1.1.2**"), "README stable version differs");
-    check(readme.includes(RELEASE_URL), "README release URL differs");
-    check(!readme.includes("1.1.1 remains the current stable release"), "README retains stale stable-release wording");
-    check(!readme.includes("1.1.2** patch candidate"), "README retains candidate wording");
+    check(closeout.includes("published `v1.1.2` tag and release assets are immutable"), "v1.1.2 immutability record changed");
+    check(releaseNotes.includes("Status: released 2026-08-23"), "v1.1.2 historical release status changed");
+    check(changelog.includes("## [1.1.2] - 2026-08-23"), "v1.1.2 changelog history changed");
+    check(closeout.includes("Next milestone:** ALB-110"), "v1.1.2 historical next milestone changed");
     check(roadmap.includes("1.1.2 stable — released 2026-08-23"), "roadmap release date differs");
     check(roadmap.includes(RELEASE_URL), "roadmap release URL differs");
     check(changelog.includes("## [1.1.2] - 2026-08-23"), "canonical changelog release date differs");
