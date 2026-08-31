@@ -704,7 +704,7 @@ export function ExecutionDetails({
             setClearRecoveryBusy(false);
         }
     };
-    const handleClearRecoveryPointerDown = async () => {
+    const handleClearRecoveryClick = async () => {
         if (effectiveRecoveryBusy) return;
         await runClearRecovery();
     };
@@ -867,7 +867,7 @@ export function ExecutionDetails({
                             (lifecycle === "CANCELLED" && retryRecovery)
                         );
 
-                    let recoveryMessage = "No recovery action is required.";
+                    let recoveryMessage = "No recovery action.";
 
                     if (recoveryBusy) {
                         recoveryMessage = retryRecovery
@@ -875,10 +875,10 @@ export function ExecutionDetails({
                             : "Recovery in progress…";
                     } else if (invalidRecovery) {
                         recoveryMessage = classification === "STALE"
-                            ? "Recovery state no longer matches this project or template registry. Clear it before starting a new batch."
+                            ? "Recovery does not match this project. Clear it before a new batch."
                             : (classification === "INVALID"
-                                ? "Recovery data is invalid. Automatic resume and retry are blocked; clear the recovery state before starting again."
-                                : "Recovery state was created by a newer unsupported version. Update AlbumAI before using this recovery state.");
+                                ? "Recovery is invalid. Clear it before a new batch."
+                                : "Recovery needs a newer AlbumAI version.");
                     } else if (showRetry) {
                         recoveryMessage = `${failedCount} failed template${failedCount === 1 ? "" : "s"} ready to retry.`;
                     } else if (showResume) {
@@ -942,8 +942,7 @@ export function ExecutionDetails({
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
                             {showResume && (
                                 <button
-                                    type="button"
-                                    onClick={onResumeBatch}
+                                    onClick={() => onResumeBatch?.()}
                                     disabled={recoveryBusy}
                                 >
                                     {recoveryBusy ? "Resuming…" : "Resume Safe Templates"}
@@ -952,8 +951,7 @@ export function ExecutionDetails({
 
                             {showRetry && (
                                 <button
-                                    type="button"
-                                    onClick={onRetryFailed}
+                                    onClick={() => onRetryFailed?.()}
                                     disabled={recoveryBusy}
                                 >
                                     {recoveryBusy ? "Retrying…" : "Retry Safe Failed Templates"}
@@ -964,7 +962,7 @@ export function ExecutionDetails({
                                 key="clear-recovery-state"
                                 type="button"
                                 className="clear-recovery-button"
-                                onPointerDown={handleClearRecoveryPointerDown}
+                                onClick={handleClearRecoveryClick}
                                 onKeyDown={handleClearRecoveryKeyDown}
                                 disabled={!canClearRecovery}
                             >

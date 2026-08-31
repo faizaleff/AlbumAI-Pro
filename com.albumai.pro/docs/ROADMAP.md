@@ -95,6 +95,9 @@ runtime qualification before they may be presented as product behavior.
   Typography-before-output batch execution — ALB-127 delivered and
   runtime-qualified with two Smart Object replacements, two persisted text
   assignments, grouped Undo, and completed single-sheet render evidence
+- Typography and multi-sheet stabilization — ALB-128 in progress; the first
+  slice deep-snapshots sheet typography and rejects stale render requests when
+  text, role, layer, preset, color, or placement intent changes
 
 ### Distribution and collaboration
 

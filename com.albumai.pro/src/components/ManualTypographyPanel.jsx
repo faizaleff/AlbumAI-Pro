@@ -6,6 +6,7 @@ import {
     normalizeLocalTextPresetCatalog,
     saveLocalTextPreset
 } from "../typography/LocalTextPresetCatalog";
+import { typographyFailureMessage } from "../typography/TypographyAssignmentIntent";
 
 const ROLE_OPTIONS = Object.freeze([
     Object.freeze({ value: "", label: "Choose role" }),
@@ -42,38 +43,41 @@ const NO_SUGGESTION_OPTION = Object.freeze({
     text: null
 });
 
-const LOCAL_TEXT_SUGGESTIONS = Object.freeze({
-    TITLE: Object.freeze([
-        Object.freeze({ value: "title-our-story", label: "Our Story", text: "Our Story" }),
-        Object.freeze({ value: "title-together", label: "Together", text: "Together" }),
-        Object.freeze({ value: "title-day-to-remember", label: "A Day to Remember", text: "A Day to Remember" })
-    ]),
-    CAPTION: Object.freeze([
-        Object.freeze({ value: "caption-moment", label: "A moment to remember", text: "A moment to remember" }),
-        Object.freeze({ value: "caption-made-with-love", label: "Made with love", text: "Made with love" }),
-        Object.freeze({ value: "caption-forever-starts", label: "Forever starts here", text: "Forever starts here" })
-    ]),
-    QUOTE: Object.freeze([
-        Object.freeze({ value: "quote-every-chapter", label: "Every chapter begins with a moment", text: "Every chapter begins with a moment" }),
-        Object.freeze({ value: "quote-best-days", label: "The best days are shared", text: "The best days are shared" }),
-        Object.freeze({ value: "quote-here-together", label: "Here, together, always", text: "Here, together, always" })
-    ])
-});
+const LOCAL_TEXT_SUGGESTIONS = {
+    TITLE: [
+        ["title-our-story", "Our Story"],
+        ["title-together", "Together"],
+        ["title-day-to-remember", "A Day to Remember"]
+    ],
+    CAPTION: [
+        ["caption-moment", "A moment to remember"],
+        ["caption-made-with-love", "Made with love"],
+        ["caption-forever-starts", "Forever starts here"]
+    ],
+    QUOTE: [
+        ["quote-every-chapter", "Every chapter begins with a moment"],
+        ["quote-best-days", "The best days are shared"],
+        ["quote-here-together", "Here, together, always"]
+    ]
+};
 
 export function createLocalTextSuggestionOptions(role, customCatalog = null) {
-    const custom = localTextPresetsForRole(customCatalog, role).map(preset => Object.freeze({
+    const custom = localTextPresetsForRole(customCatalog, role).map(preset => ({
         value: `custom:${preset.id}`,
         label: `Saved: ${preset.name}`,
         text: preset.text
     }));
-    return [NO_SUGGESTION_OPTION, ...(LOCAL_TEXT_SUGGESTIONS[role] || []), ...custom];
+    const builtIn = (LOCAL_TEXT_SUGGESTIONS[role] || [])
+        .map(([value, label]) => ({ value, label, text: label }));
+    return [NO_SUGGESTION_OPTION, ...builtIn, ...custom];
 }
 
 export function applyLocalTextSuggestion(draft, suggestionId, customCatalog = null) {
     const option = createLocalTextSuggestionOptions(draft?.role, customCatalog)
         .find(candidate => candidate.value === suggestionId);
-    if (!option?.text) return { ...draft, suggestionId: "" };
-    return { ...draft, suggestionId: option.value, text: option.text };
+    const text = option?.text ?? (option?.value ? option.label : null);
+    if (!text) return { ...draft, suggestionId: "" };
+    return { ...draft, suggestionId: option.value, text };
 }
 
 const ALIGNMENT_ALIASES = Object.freeze({
@@ -194,22 +198,31 @@ export function createTemplateTypographyStyleOptions(textLayers = []) {
     return options;
 }
 
-export function createManualTypographyDrafts(textLayers = []) {
-    return textLayers.map(layer => ({
+export function createManualTypographyDrafts(textLayers = [], initialAssignments = []) {
+    const assignments = Array.isArray(initialAssignments) ? initialAssignments : [];
+    return textLayers.map(layer => {
+        const assignment = assignments.find(item => String(item.layerId) === String(layer.layerId));
+        return ({
         layerId: layer.layerId,
         layerName: layer.layerName || `Layer ${layer.layerId}`,
-        role: "",
-        text: typeof layer.textContent === "string" ? layer.textContent : "",
+        role: assignment?.role || "",
+        text: assignment?.text ?? (typeof layer.textContent === "string" ? layer.textContent : ""),
         presetId: "",
-        preset: null,
+        preset: cloneTypographyPreset(assignment?.preset),
         fontPresetId: "",
         fontPreset: null,
         stylePresetId: "",
         stylePreset: null,
         suggestionId: "",
-        placementAnchor: "",
-        editable: layer.visible !== false && layer.locked !== true
-    }));
+        placementAnchor: assignment?.placement?.anchor || "",
+        editable: layer.visible !== false && layer.locked !== true,
+        unavailableReason: layer.locked === true
+            ? "Locked — unlock it in Photoshop."
+            : layer.visible === false
+                ? "Hidden — show it in Photoshop."
+                : ""
+        });
+    });
 }
 
 export function buildManualTypographyAssignments(drafts = []) {
@@ -258,11 +271,12 @@ export default function ManualTypographyPanel({
     applyTypography,
     onApplied,
     onAssignmentsApplied,
+    initialAssignments,
     customTextPresets = null,
     saveCustomTextPresets = null
 }) {
     const [drafts, setDrafts] = useState(() =>
-        createManualTypographyDrafts(document?.textLayers)
+        createManualTypographyDrafts(document?.textLayers, initialAssignments)
     );
     const [busy, setBusy] = useState(false);
     const [presetBusy, setPresetBusy] = useState(false);
@@ -287,9 +301,9 @@ export default function ManualTypographyPanel({
     );
 
     useEffect(() => {
-        setDrafts(createManualTypographyDrafts(document?.textLayers));
+        setDrafts(createManualTypographyDrafts(document?.textLayers, initialAssignments));
         setMessage("");
-    }, [document?.document?.id]);
+    }, [document?.document?.id, initialAssignments]);
 
     useEffect(() => {
         const normalized = normalizeLocalTextPresetCatalog(customTextPresets);
@@ -395,7 +409,7 @@ export default function ManualTypographyPanel({
                 assignments
             });
             if (result?.status !== "SUCCESS") {
-                setMessage(`Typography not applied: ${result?.reasonCode || "UNKNOWN"}`);
+                setMessage(typographyFailureMessage(result?.reasonCode, result?.failedLayerId));
                 return;
             }
             setMessage(`Applied ${result.completedLayerIds.length} text layer(s). Cmd+Z to undo.`);
@@ -412,7 +426,7 @@ export default function ManualTypographyPanel({
         <section style={{ marginTop: 12, padding: 10, border: "1px solid #454545", borderRadius: 5 }}>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Typography</div>
             <div style={{ color: "#aaa", marginBottom: 8 }}>
-                Choose a role, optionally use an offline local text suggestion or a project-saved preset, edit the text, optionally reuse a style already present in this template, independently reuse a font and style already present in this template, and place it explicitly.
+                offline local text suggestion.
             </div>
             {drafts.map(draft => (
                 <div key={draft.layerId} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
@@ -468,14 +482,18 @@ export default function ManualTypographyPanel({
                         title={`Position for ${draft.layerName}`}
                         disabled={!draft.editable || busy}
                     />
-                    <input
-                        style={{ flex: "1 1 220px", minWidth: 0 }}
+                    <textarea
+                      style={{ flex: "1 1 100%", minWidth: 0, height: 44, boxSizing: "border-box", overflowY: "auto" }}
                         value={draft.text}
                         onChange={event => update(draft.layerId, "text", event.target.value)}
                         aria-label={`Text for ${draft.layerName}`}
-                        title={draft.layerName}
                         disabled={!draft.editable || busy}
                     />
+                    {!!draft.unavailableReason && (
+                        <div style={{ flexBasis: "100%", color: "#f0b35a" }}>
+                            {draft.layerName}: {draft.unavailableReason}
+                        </div>
+                    )}
                 </div>
             ))}
             <button onClick={apply} disabled={busy || assignments.length === 0}>
@@ -485,7 +503,7 @@ export default function ManualTypographyPanel({
             <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid #454545" }}>
                 <div style={{ fontWeight: 600, marginBottom: 7 }}>Custom text presets</div>
                 <div style={{ color: "#aaa", marginBottom: 8 }}>
-                    Saved only in this project. No network or AI is used.
+                    Saved in this project. Offline only.
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
                     <UxpDropdown

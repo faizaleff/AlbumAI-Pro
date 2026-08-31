@@ -1105,12 +1105,11 @@ export class AppController {
             ? options.previous
             : null;
         const initialTotalTemplates = resumeSnapshot?.queueOrder?.length || templates.length;
-        const retryingFailed = options.runMode === "RETRY_FAILED";
-        const initialCompletedTemplates = retryingFailed
-            ? (resumeSnapshot?.successfulTemplateIds?.length || 0)
-            : (resumeSnapshot?.completedTemplateIds?.length || 0);
+        // A resumed failed template is pending work again. Seed counters only
+        // with durable successes so its next outcome is accounted exactly once.
+        const initialCompletedTemplates = resumeSnapshot?.successfulTemplateIds?.length || 0;
         const initialSuccessfulTemplates = resumeSnapshot?.successfulTemplateIds?.length || 0;
-        const initialFailedTemplates = retryingFailed ? 0 : (resumeSnapshot?.failedTemplateIds?.length || 0);
+        const initialFailedTemplates = 0;
         const photos = this.photoWorkspace.getPhotos();
         const selectedPhotoIds = Array.isArray(options.selectedPhotoIds)
             ? options.selectedPhotoIds.slice()
@@ -2395,6 +2394,20 @@ export class AppController {
 
         return this.templateRegistry.current();
 
+    }
+
+    refreshCurrentTemplateDocument() {
+        const current = this.getCurrentTemplate(), reader = this.templateDocumentReader.layerTreeReader;
+        const document = this.templateDocumentReader.documentManager.byId(current?.id);
+        if (!document) return current;
+        return this.templateRegistry.register(new Template({
+            ...current,
+            ...current.document,
+            documentId: document.id,
+            layerTree: reader.read(document),
+            smartObjects: reader.smartObjects(),
+            textLayers: reader.textLayers()
+        }));
     }
 
     async applyManualTypography({ expectedDocumentId, assignments } = {}) {

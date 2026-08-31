@@ -124,6 +124,9 @@ test("UI hides automatic actions without safe work and includes operator diagnos
     const executor = fs.readFileSync(path.join(process.cwd(), "src/project/ProjectExecutor.js"), "utf8");
     const projectSummary = fs.readFileSync(path.join(process.cwd(), "src/project/ProjectExecutionSummary.js"), "utf8");
     assert(panel.includes("outputRecovery.automaticRetryTemplates > 0"));
+    assert(panel.includes("onClick={() => onRetryFailed?.()}"));
+    assert(panel.includes("onClick={() => onResumeBatch?.()}"));
+    assert(panel.includes("onClick={handleClearRecoveryClick}"));
     assert(panel.includes("One or more output commits are unknown. Automatic retry is blocked."));
     assert(panel.includes("Cleanup is required before affected templates can be retried."));
     assert(panel.includes("Committed Outputs"));
