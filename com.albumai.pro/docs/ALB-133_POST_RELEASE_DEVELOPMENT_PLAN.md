@@ -70,4 +70,3 @@ plugin source, the production bundle, the manifest, or runtime behavior.
 Deterministic documentation assertions are required; a Photoshop runtime
 retest, package rebuild, CCX reinstall, tag change, or release-asset change is
 neither required nor permitted for this milestone.
-
