@@ -43,7 +43,7 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-132 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-133 suite |
 | `npm run test:smart-typography` | Run the canonical ALB-118 through ALB-128 Smart Typography suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |
@@ -80,11 +80,10 @@ available when the UXP command-line tool is installed and configured.
 
 Adobe UXP plugins use `.ccx` packages for direct installation through Creative
 Cloud Desktop. The current GitHub ZIP remains the reproducible development
-bundle; ALB-097 qualified a UXP Developer Tool-generated CCX for direct local
-installation. ALB-108 moves that qualified distribution path onto the exact
-`1.1.2` patch provenance. See `ALB-097_DIRECT_CCX_DISTRIBUTION.md` for the
-original gate, `ALB-108_V1.1.2_PATCH_RELEASE_QUALIFICATION.md` for qualification,
-and `docs/ALB-109_V1.1.2_RELEASE_CLOSEOUT.md` for publication evidence.
+bundle; ALB-097 qualified the direct-install path, and ALB-131 qualified the
+exact `v1.2.0` ZIP and CCX. ALB-132 records the immutable publication evidence.
+ALB-133 selects Adobe Marketplace readiness as the next actionable milestone
+without changing the published artifacts.
 
 ## Repository layout
 
