@@ -45,7 +45,11 @@ module.exports = (_env, argv = {}) => {
             },
             {
                 test: /\.css$/,
-                use: ["style-loader", "css-loader"]
+                use: [
+                    "style-loader",
+                    "css-loader",
+                    path.resolve(__dirname, "scripts/minify-css-loader.js")
+                ]
             }
         ]
     },

@@ -100,8 +100,11 @@ runtime qualification before they may be presented as product behavior.
   rejection, locked/hidden/missing-font safeguards, cancellation boundaries,
   save/reopen and grouped Undo, plus fail-closed output recovery evidence
 - Smart Typography release readiness — ALB-129 delivered; the consolidated
-  ALB-118 through ALB-128 test/evidence gate reports `READY_FOR_VERSION_BUMP`
-  while preserving the immutable `v1.1.2` publication boundary
+  ALB-118 through ALB-128 test/evidence gate selected the safe next release
+  action while preserving the immutable `v1.1.2` publication boundary
+- v1.2.0 release candidate — ALB-130 in qualification; candidate identity and
+  production CSS bundle headroom are implemented, while package/distribution
+  and installed Photoshop smoke evidence remain required before publication
 
 ### Distribution and collaboration
 

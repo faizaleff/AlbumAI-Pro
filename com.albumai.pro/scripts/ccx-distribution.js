@@ -9,7 +9,7 @@ const { DIST_FILES } = require("./release-package");
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const EXPECTED_PLUGIN_ID = "com.albumai.pro";
 const EXPECTED_HOST_APP = "PS";
-const EXPECTED_BUILD_ID = "ALB-108-v1.1.2-patch-v1";
+const EXPECTED_BUILD_ID = "ALB-130-v1.2.0-smart-typography-v1";
 
 function comparePaths(left, right) {
     return left < right ? -1 : left > right ? 1 : 0;

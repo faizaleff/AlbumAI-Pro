@@ -1,0 +1,69 @@
+AlbumAI Summary
+Generated: 2026-08-31T20:17:26.983Z
+
+Runtime Identity
+Product: AlbumAI Pro
+Plugin ID: com.albumai.pro
+Version: 1.2.0
+Build ID: ALB-130-v1.2.0-smart-typography-v1
+Runtime Revision: ALB-130-v1.2.0-release-candidate-v1
+Support ID: ALB-103-runtime-identity-support-v1
+Release: Not published (candidate)
+Network Access: Not requested (offline by default)
+
+Project
+Status: READY
+ID: c494e726-c022-4b31-a5aa-000229262b9a
+Name: REC005-MULTI-TEMPLATE-2
+Photos: 0
+Selected: 0
+
+Template
+Name: —
+Smart Objects: 0
+
+Project Template Registry
+Registered Templates: 4
+Registry Order:
+
+1. 02.psd
+2. 01.psd
+3. ALB-121-Typography-Test.psd
+4. ALB-127-Storyboard-Typography-Test.psd
+
+Execution
+Plan Status: NOT READY
+Ready Steps: 0
+Completed: 0 / 0
+Success: 0
+Failed: 0
+Lifecycle: IDLE
+
+Auto Save
+Enabled: OFF
+Mode: Save Copy
+Result: NOT RUN
+Output: —
+
+Export
+Enabled: OFF
+Format: JPEG
+Result: NOT RUN
+Output: —
+
+Recovery
+Recovery Available: Yes
+Recovery State: INTERRUPTED
+Previous Batch ID: ea8510bc-f06f-4b3b-a0c9-7900e4b5de05
+Previous Batch Status: COMPLETED_WITH_ERRORS
+Completed: 1
+Successful: 0
+Failed: 1
+Pending: 0
+Committed Outputs: 0
+Safe Retry Outputs: 0
+Commit Unknown: 0
+Cleanup Required: 1
+Last Template: ALB-127-Storyboard-Typography-Test.psd
+Last Stage: IDLE
+Resume/Retry Result: ALBUM_SHEET_RENDER

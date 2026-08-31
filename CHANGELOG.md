@@ -2,6 +2,30 @@
 
 All notable changes to AlbumAI Pro will be documented in this file.
 
+## [1.2.0] - Unreleased
+
+### Added
+
+- Smart Typography workflows delivered across ALB-118 through ALB-128,
+  including template-local styles, font/style presets, role-aware offline text
+  suggestions, custom project presets, storyboard assignments, and guarded
+  Typography-before-output execution.
+
+### Candidate hardening
+
+- Selected the ALB-130 v1.2.0 release-candidate identity without claiming an
+  unpublished GitHub release.
+- Added production CSS minification to preserve more than 16 KiB of headroom
+  under the strict 740 KiB runtime-bundle ceiling.
+- Preserved the published v1.1.2 release records, checksums, and provenance as
+  immutable history.
+
+### Verification
+
+- Automated candidate qualification is in progress under ALB-130.
+- Publication remains blocked until package/distribution verification and the
+  installed Photoshop startup/workflow smoke test pass.
+
 ## [1.1.2] - 2026-08-23
 
 ### Fixed and hardened

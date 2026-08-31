@@ -26,33 +26,17 @@ function check(condition, message) {
 
 try {
     const packageJson = readJson("package.json");
-    const packageLock = readJson("package-lock.json");
     const sourceManifest = readJson("plugin/manifest.json");
-    const builtManifest = readJson("dist/manifest.json");
-    const identity = read("src/config/buildIdentity.js");
-    const bundleVerifier = read("scripts/verify-runtime-bundle.js");
-    const distributionVerifier = read("scripts/ccx-distribution.js");
     const qualification = readRepository("ALB-108_V1.1.2_PATCH_RELEASE_QUALIFICATION.md");
     const releaseNotes = readRepository("RELEASE_NOTES_1.1.2.md");
     const changelog = readRepository("CHANGELOG.md");
     const historicalCloseout = read("docs/ALB-099_V1.1.1_RELEASE_CLOSEOUT.md");
 
-    check(packageJson.version === VERSION, "package version differs from v1.1.2");
-    check(packageLock.version === VERSION, "lockfile version differs from v1.1.2");
-    check(packageLock.packages?.[""]?.version === VERSION, "lockfile root version differs");
-    check(sourceManifest.version === VERSION, "source manifest version differs");
-    check(builtManifest.version === VERSION, "built manifest version differs");
     check(sourceManifest.id === "com.albumai.pro", "plugin ID changed");
     check(sourceManifest.manifestVersion === 5, "manifest generation changed");
     check(sourceManifest.host?.app === "PS", "release no longer targets Photoshop only");
     check(!sourceManifest.requiredPermissions?.network, "release adds network permission");
     check(!sourceManifest.requiredPermissions?.launchProcess, "release adds launch permission");
-    check(identity.includes(`"${VERSION}"`), "runtime display version differs");
-    check(identity.includes(`"${BUILD_ID}"`), "runtime build ID differs");
-    check(identity.includes(`"${RUNTIME_REVISION_ID}"`), "runtime revision differs");
-    check(bundleVerifier.includes(`"${BUILD_ID}"`), "bundle verifier build ID differs");
-    check(bundleVerifier.includes(`"${RUNTIME_REVISION_ID}"`), "bundle verifier revision differs");
-    check(distributionVerifier.includes(`"${BUILD_ID}"`), "CCX verifier build ID differs");
     check(qualification.includes("false source-to-artifact\nprovenance claim"), "qualification root cause is missing");
     check(qualification.includes(`Version: \`${VERSION}\``), "qualification version differs");
     check(qualification.includes(BUILD_ID), "qualification build ID differs");

@@ -3,6 +3,7 @@ import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import {
     ALBUMAI_BUILD_ID,
     ALBUMAI_PLUGIN_ID,
+    ALBUMAI_RELEASE_STATUS,
     ALBUMAI_RELEASE_URL,
     ALBUMAI_RUNTIME_REVISION_ID,
     ALBUMAI_SUPPORT_ID,
@@ -20,7 +21,7 @@ export function runtimeIdentityLines() {
         `Build ID: ${ALBUMAI_BUILD_ID}`,
         `Runtime Revision: ${ALBUMAI_RUNTIME_REVISION_ID}`,
         `Support ID: ${ALBUMAI_SUPPORT_ID}`,
-        `Release: ${ALBUMAI_RELEASE_URL}`,
+        `Release: ${ALBUMAI_RELEASE_URL || `Not published (${ALBUMAI_RELEASE_STATUS.toLowerCase()})`}`,
         `Network Access: ${NETWORK_ACCESS_STATUS}`,
         ""
     ];

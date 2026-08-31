@@ -1,0 +1,117 @@
+AlbumAI Debug Log
+Generated: 2026-08-31T20:23:31.931Z
+
+Runtime Identity
+Product: AlbumAI Pro
+Plugin ID: com.albumai.pro
+Version: 1.2.0
+Build ID: ALB-130-v1.2.0-smart-typography-v1
+Runtime Revision: ALB-130-v1.2.0-release-candidate-v1
+Support ID: ALB-103-runtime-identity-support-v1
+Release: Not published (candidate)
+Network Access: Not requested (offline by default)
+
+Project
+ID: c494e726-c022-4b31-a5aa-000229262b9a
+Name: REC005-MULTI-TEMPLATE-2
+
+Template
+ID: 209
+Document ID: 209
+Name: ALB-127-Storyboard-Typography-Test.psd
+
+Selected Photos
+
+- ZSA00166.jpg
+
+Smart Object Slots
+
+- 4 — 02
+- 2 — 01
+
+Placement Assignments
+None
+
+Execution Plan Steps
+None
+
+Replacement Request Steps
+None
+
+Batch Progress
+Status: IDLE
+Completed: 0 / 0
+Success: 0
+Failed: 0
+
+Execution Summary
+Status: —
+Completed: 0
+Failed: 0
+Lifecycle: IDLE
+Lifecycle Error: None
+
+Auto Save Result
+Status: —
+Output Path: None
+Warnings: None
+Error: None
+
+Export Result
+Status: —
+Output Path: None
+Warnings: None
+Error: None
+
+Project Execution Summary
+Status: —
+Registered Templates: 4
+Completed Templates: 0
+Successful Templates: 0
+Failed Templates: 0
+Skipped Templates: 0
+Batch Status: —
+Current Template: —
+Batch Warning: None
+Batch Fatal Error: None
+Batch Lifecycle: IDLE
+Current Stage: IDLE
+Template Progress: —
+Remaining Templates: 0
+Progress: 0%
+Registry Validation: None
+
+Project Template Registry
+
+1. 470e5d68-9bf4-4482-a4d7-4182e530afa8 — 02.psd: READY
+2. 487957f5-4fff-4f5c-9d28-da4c5b3e21f5 — 01.psd: READY
+3. 7b34ea65-6738-4826-a12b-fbfa94cc6fa1 — ALB-121-Typography-Test.psd: READY
+4. 664ab3c7-03e4-4160-abf6-710a4093e052 — ALB-127-Storyboard-Typography-Test.psd: READY
+
+Errors & Warnings
+Registry: None
+Placement: None
+Replacement: None
+Batch Errors: None
+
+Recovery Diagnostics
+Available: Yes
+Classification: INTERRUPTED
+Batch ID: ea8510bc-f06f-4b3b-a0c9-7900e4b5de05
+Status: COMPLETED_WITH_ERRORS
+Run Mode: ALBUM_SHEET_RENDER
+Completed/Success/Failed/Skipped/Pending: 1/0/1/0/0
+Last Template: ALB-127-Storyboard-Typography-Test.psd
+Last Stage: IDLE
+Output States (Committed/Safe Retry/Commit Unknown/Cleanup Required): 0/0/0/1
+Automatic Retry Templates: 0
+Blocked Templates: 0
+Remediation Templates: 1
+Warnings: Auto Save is disabled. | Template failed; selected photos were not consumed.
+Fatal Error: None
+
+Recovery Template Outcomes
+664ab3c7-03e4-4160-abf6-710a4093e052 — ALB-127-Storyboard-Typography-Test.psd: FAILED [photos 1-2, assigned=2, remaining=0] (Template export failed.)
+
+Output Recovery States
+ALB-127-Storyboard-Typography-Test.psd — Export: Cleanup required (CLEANUP_FAILED)
