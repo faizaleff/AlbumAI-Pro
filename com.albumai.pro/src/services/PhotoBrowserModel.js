@@ -31,6 +31,8 @@ const DATE_FIELDS = new Set([
     "taken",
     "created"
 ]);
+const RATING_COMPARISONS = new Set(["exact", "above", "below"]);
+const COLOR_LABELS = new Set([6, 7, 8]);
 const MAX_SEARCH_LENGTH = 160;
 const MAX_PHOTO_DECISIONS = 20000;
 const MAX_EVENT_CHAPTERS = 200;
@@ -55,6 +57,11 @@ function normalizedRating(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) return 0;
     return Math.max(0, Math.min(5, Math.floor(number)));
+}
+
+function normalizedColorLabel(value) {
+    const number = Number(value);
+    return COLOR_LABELS.has(number) ? number : 0;
 }
 
 function fnv1a(value, seed) {
@@ -352,11 +359,13 @@ function normalizedDecision(item) {
     if (!photoKey) return null;
     const rating = normalizedRating(item.rating);
     const favorite = item.favorite === true;
+    const colorLabel = normalizedColorLabel(item.colorLabel);
     const culling = typeof item.culling === "string" && ["KEEP", "REJECT"].includes(item.culling.toUpperCase())
         ? item.culling.toUpperCase()
         : null;
-    if (!rating && !favorite && !culling) return null;
+    if (!rating && !favorite && !colorLabel && !culling) return null;
     const result = { photoKey, rating, favorite };
+    if (colorLabel) result.colorLabel = colorLabel;
     if (culling) result.culling = culling;
     return Object.freeze(result);
 }
@@ -389,7 +398,8 @@ function effectivePhotoDecision(photo, decisionsByKey) {
     const persisted = decisionsByKey.get(photoDecisionKey(photo));
     return persisted || {
         rating: normalizedRating(photo?.rating),
-        favorite: photo?.favorite === true
+        favorite: photo?.favorite === true,
+        colorLabel: normalizedColorLabel(photo?.colorLabel)
     };
 }
 
@@ -399,6 +409,7 @@ export function photoDecisionFor(value, photo) {
         rating: decision.rating,
         favorite: decision.favorite
     };
+    if (decision.colorLabel) result.colorLabel = decision.colorLabel;
     if (decision.culling && decision.culling !== "UNRATED") {
         result.culling = decision.culling;
     }
@@ -413,6 +424,7 @@ export function createPhotoDecisionLookup(value = {}) {
             rating: decision.rating,
             favorite: decision.favorite
         };
+        if (decision.colorLabel) result.colorLabel = decision.colorLabel;
         if (decision.culling && decision.culling !== "UNRATED") {
             result.culling = decision.culling;
         }
@@ -425,21 +437,25 @@ export function updatePhotoDecision(value, photo, changes = {}) {
     const current = normalizePhotoDecisions(value);
     if (!photoKey) return current;
     const byKey = new Map(current.items.map(item => [item.photoKey, item]));
-    const previous = byKey.get(photoKey) || { rating: 0, favorite: false };
+    const previous = byKey.get(photoKey) || { rating: 0, favorite: false, colorLabel: 0 };
     const rating = Object.prototype.hasOwnProperty.call(changes, "rating")
         ? normalizedRating(changes.rating)
         : previous.rating;
     const favorite = Object.prototype.hasOwnProperty.call(changes, "favorite")
         ? changes.favorite === true
         : previous.favorite;
+    const colorLabel = Object.prototype.hasOwnProperty.call(changes, "colorLabel")
+        ? normalizedColorLabel(changes.colorLabel)
+        : (previous.colorLabel || 0);
     const culling = Object.prototype.hasOwnProperty.call(changes, "culling")
         ? (typeof changes.culling === "string" && ["KEEP", "REJECT"].includes(changes.culling.toUpperCase())
             ? changes.culling.toUpperCase()
             : null)
         : (previous.culling || null);
-    if (!rating && !favorite && !culling) byKey.delete(photoKey);
+    if (!rating && !favorite && !colorLabel && !culling) byKey.delete(photoKey);
     else {
         const next = { photoKey, rating, favorite };
+        if (colorLabel) next.colorLabel = colorLabel;
         if (culling) next.culling = culling;
         byKey.set(photoKey, next);
     }
@@ -473,6 +489,12 @@ export function normalizePhotoBrowserPreferences(value = {}) {
             ORIENTATIONS
         )),
         minimumRating: normalizedRating(source.minimumRating),
+        ratingFilterActive: source.ratingFilterActive === true,
+        ratingValue: normalizedRating(source.ratingValue),
+        ratingComparison: RATING_COMPARISONS.has(source.ratingComparison)
+            ? source.ratingComparison
+            : "exact",
+        colorLabel: normalizedColorLabel(source.colorLabel),
         favoritesOnly: source.favoritesOnly === true,
         duplicatesOnly: source.duplicatesOnly === true,
         datePreset: DATE_PRESETS.has(source.datePreset)
@@ -642,7 +664,15 @@ function matchesPhoto(
         !preferences.orientations.includes(photoOrientation(photo))
     ) return false;
     const decision = effectivePhotoDecision(photo, decisionsByKey);
-    if (decision.rating < preferences.minimumRating) return false;
+    if (preferences.ratingFilterActive) {
+        const ratingMatch = preferences.ratingComparison === "above"
+            ? decision.rating >= preferences.ratingValue
+            : preferences.ratingComparison === "below"
+                ? decision.rating <= preferences.ratingValue
+                : decision.rating === preferences.ratingValue;
+        if (!ratingMatch) return false;
+    } else if (decision.rating < preferences.minimumRating) return false;
+    if (preferences.colorLabel && decision.colorLabel !== preferences.colorLabel) return false;
     if (preferences.favoritesOnly && !decision.favorite) return false;
     if (
         preferences.duplicatesOnly &&
@@ -714,6 +744,8 @@ export function hasActivePhotoBrowserFilters(value = {}) {
         preferences.types.length ||
         preferences.orientations.length ||
         preferences.minimumRating ||
+        preferences.ratingFilterActive ||
+        preferences.colorLabel ||
         preferences.favoritesOnly ||
         preferences.duplicatesOnly ||
         preferences.datePreset !== "any"

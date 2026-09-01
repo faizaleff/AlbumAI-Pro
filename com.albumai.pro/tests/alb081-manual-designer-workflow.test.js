@@ -640,8 +640,8 @@ export async function runAlb081Tests() {
             check(photoBrowserSource.includes('aria-label="Metadata and decision filters"'), "Workflow toolbar contains Metadata / Decision Filters group");
             check(photoBrowserSource.includes("Deselect"), "PhotoBrowserSection uses unambiguous Deselect label for selection clear");
             check(photoBrowserSource.includes("✕ Reset Filters"), "PhotoBrowserSection uses unambiguous Reset Filters label for filter reset");
-            check(photoBrowserSource.includes("photo-browser-orientation"), "PhotoBrowserSection preserves orientation filter dropdown");
-            check(photoBrowserSource.includes("duplicatesOnly") && photoBrowserSource.includes("analyzeDuplicates"), "PhotoBrowserSection preserves separate duplicates only checkbox and duplicate analysis action");
+            check(photoBrowserSource.includes("photo-rating-label-filter"), "PhotoBrowserSection exposes the compact rating and label filters");
+            check(photoBrowserSource.includes("Compare selected") && photoBrowserSource.includes("Auto-pick bursts"), "PhotoBrowserSection preserves burst review actions without advanced duplicate clutter");
 
             // 4. Verify styles.css photo-culling-toolbar containment
             check(stylesSource.includes(".photo-culling-toolbar"), "styles.css defines .photo-culling-toolbar rule");

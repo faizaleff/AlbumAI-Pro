@@ -329,7 +329,7 @@ test("manual sort preserves source order until a story order is applied", () => 
     ]);
 });
 
-    test("persisted decisions drive filters and sorting without photo mutation", () => {
+test("persisted decisions drive filters and sorting without photo mutation", () => {
     const before = JSON.stringify(photos);
     let decisions = updatePhotoDecision({}, photos[1], {
         rating: 5,
@@ -373,6 +373,49 @@ test("manual sort preserves source order until a story order is applied", () => 
     assert.deepStrictEqual(filtered.photos.map(item => item.id), ["two"]);
     assert.deepStrictEqual(sorted.photos.map(item => item.id), ["two", "ten"]);
     assert.strictEqual(JSON.stringify(photos), before);
+});
+
+test("exact, above, below, and unrated filters use persisted ratings", () => {
+    let decisions = updatePhotoDecision({}, photos[0], { rating: 1 });
+    decisions = updatePhotoDecision(decisions, photos[1], { rating: 3 });
+    decisions = updatePhotoDecision(decisions, photos[2], { rating: 5 });
+    const ids = (ratingValue, ratingComparison) => queryPhotoBrowser(photos, {
+        ratingFilterActive: true,
+        ratingValue,
+        ratingComparison
+    }, { decisions }).photos.map(item => item.id);
+    assert.deepStrictEqual(ids(3, "exact"), ["two"]);
+    assert.deepStrictEqual(ids(3, "above"), ["square", "two"]);
+    assert.deepStrictEqual(ids(3, "below"), ["unknown", "two", "ten"]);
+    assert.deepStrictEqual(ids(0, "exact"), ["unknown"]);
+});
+
+test("color labels accept only keyboard labels 6, 7, and 8", () => {
+    let decisions = updatePhotoDecision({}, photos[0], { colorLabel: 6 });
+    decisions = updatePhotoDecision(decisions, photos[1], { colorLabel: 7 });
+    decisions = updatePhotoDecision(decisions, photos[2], { colorLabel: 8 });
+    decisions = updatePhotoDecision(decisions, photos[3], { colorLabel: 9 });
+    assert.deepStrictEqual(
+        queryPhotoBrowser(photos, { colorLabel: 7 }, { decisions })
+            .photos.map(item => item.id),
+        ["two"]
+    );
+    const lookup = createPhotoDecisionLookup(decisions);
+    assert.strictEqual(lookup(photos[0]).colorLabel, 6);
+    assert.strictEqual(lookup(photos[1]).colorLabel, 7);
+    assert.strictEqual(lookup(photos[2]).colorLabel, 8);
+    assert.strictEqual(lookup(photos[3]).colorLabel, undefined);
+});
+
+test("clearing the last rating or label removes a neutral decision", () => {
+    let decisions = updatePhotoDecision({}, photos[0], {
+        rating: 4,
+        colorLabel: 8
+    });
+    decisions = updatePhotoDecision(decisions, photos[0], { rating: 0 });
+    assert.strictEqual(createPhotoDecisionLookup(decisions)(photos[0]).colorLabel, 8);
+    decisions = updatePhotoDecision(decisions, photos[0], { colorLabel: 0 });
+    assert.deepStrictEqual(decisions.items, []);
 });
 
 console.info(`ALB-060 photo browser query tests complete: ${assertions} assertions.`);

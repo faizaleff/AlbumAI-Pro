@@ -2,17 +2,22 @@ import React, { useCallback, useState } from "react";
 import PhotoImage from "./PhotoImage";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 
+const COLOR_LABELS = Object.freeze({
+    6: "#e24e5b",
+    7: "#e3ae38",
+    8: "#31a66f"
+});
+
 function ThumbnailCard({
     photo,
     onClick,
-    onContextMenu,
     compact = false,
     thumbnailRevision,
     loading,
     selected,
     viewMode = "icons",
     visible = false,
-    decision = { rating: 0, favorite: false, culling: "unrated" },
+    decision = { rating: 0, culling: "unrated" },
     onDecisionChange,
     decisionControlsVisible = true,
     manualOrderEnabled = false,
@@ -24,18 +29,13 @@ function ThumbnailCard({
 
     const imageHeight = compact ? 74 : 100;
     const rating = decision?.rating || 0;
-    const isFavorite = Boolean(decision?.favorite);
+    const colorLabel = Number(decision?.colorLabel) || 0;
+    const colorStroke = COLOR_LABELS[colorLabel] || null;
     const culling = decision?.culling?.toLowerCase();
 
     const handleClick = useCallback(event => {
         onClick(photo, event);
     }, [photo, onClick]);
-
-    const handleContextMenu = useCallback(event => {
-        event.preventDefault();
-        event.stopPropagation();
-        onContextMenu?.(event, photo);
-    }, [photo, onContextMenu]);
 
     const handleDragStart = useCallback(event => {
         if (!photo?.id) return;
@@ -70,10 +70,18 @@ function ThumbnailCard({
         onDecisionChange?.(photo, { rating: nextRating });
     };
 
-    const handleFavoriteClick = (event) => {
+    const handleDecisionClick = (event, cullingValue) => {
         event.stopPropagation();
         event.preventDefault();
-        onDecisionChange?.(photo, { favorite: !isFavorite });
+        onDecisionChange?.(photo, { culling: cullingValue });
+    };
+
+    const handleColorClick = (event, value) => {
+        event.stopPropagation();
+        event.preventDefault();
+        onDecisionChange?.(photo, {
+            colorLabel: colorLabel === value ? 0 : value
+        });
     };
 
     const displayStars = hoverStar > 0 ? hoverStar : rating;
@@ -81,7 +89,6 @@ function ThumbnailCard({
     return (
         <div
             onClick={handleClick}
-            onContextMenu={handleContextMenu}
             onDragOver={handleDragOver}
             onDragLeave={() => setReorderTarget(false)}
             onDrop={handleDrop}
@@ -97,7 +104,9 @@ function ThumbnailCard({
                 flexDirection: "column",
                 background: selected ? "#162338" : "#151b23",
                 border: selected ? "1px solid #00d2ff" : "1px solid #30363d",
-                boxShadow: selected ? "0 0 10px rgba(0, 210, 255, 0.4)" : "none",
+                boxShadow: selected
+                    ? `0 0 10px rgba(0, 210, 255, 0.4)${colorStroke ? `, inset 0 0 0 3px ${colorStroke}` : ""}`
+                    : colorStroke ? `inset 0 0 0 3px ${colorStroke}` : "none",
                 borderRadius: 6,
                 overflow: "hidden",
                 cursor: "pointer",
@@ -144,6 +153,47 @@ function ThumbnailCard({
                         display: "block"
                     }}
                 />
+
+                {rating > 0 && (
+                    <span className="photo-card-persistent-rating" aria-label={`${rating} star rating`}>
+                        {"★".repeat(rating)}
+                    </span>
+                )}
+
+                {decisionControlsVisible && (
+                    <div className="photo-card-hover-controls" aria-label={`Rate and label ${photo.name}`}>
+                        <div className="photo-card-hover-decisions">
+                            <button type="button" onClick={event => handleDecisionClick(event, "KEEP")} title="Keep (K)">✓</button>
+                            <button type="button" onClick={event => handleDecisionClick(event, "REJECT")} title="Reject (R)">×</button>
+                        </div>
+                        <div className="photo-card-hover-rating" onMouseLeave={() => setHoverStar(0)}>
+                            <div>
+                                {[1, 2, 3, 4, 5].map(starNum => (
+                                    <button
+                                        key={starNum}
+                                        type="button"
+                                        className={starNum <= displayStars ? "is-active" : ""}
+                                        onClick={event => handleStarClick(event, starNum)}
+                                        onMouseEnter={() => setHoverStar(starNum)}
+                                        title={`${starNum} star${starNum > 1 ? "s" : ""} (${starNum})`}
+                                    >★</button>
+                                ))}
+                            </div>
+                            <div>
+                                {Object.entries(COLOR_LABELS).map(([value, color]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        className={`photo-card-color${colorLabel === Number(value) ? " is-active" : ""}`}
+                                        style={{ background: color }}
+                                        onClick={event => handleColorClick(event, Number(value))}
+                                        title={`Color label ${value}`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Selection Badge */}
                 {selected && (
@@ -205,7 +255,7 @@ function ThumbnailCard({
                 }}
             >
                 {/* Filename */}
-                {decisionControlsVisible && <div
+                <div
                     title={photo.name}
                     style={{
                         fontSize: 10,
@@ -218,7 +268,7 @@ function ThumbnailCard({
                     }}
                 >
                     {photo.name}
-                </div>}
+                </div>
 
                 {/* 5 Stars Rating + Favorite Heart (Explicit zero-min-width styling for UXP) */}
                 <div
@@ -232,59 +282,10 @@ function ThumbnailCard({
                     }}
                     onMouseLeave={() => setHoverStar(0)}
                 >
-                    {/* 5-Star Row (All 5 Stars Tightly Spaced) */}
-                    <div style={{ display: "flex", gap: 1, alignItems: "center" }}>
-                        {[1, 2, 3, 4, 5].map(starNum => {
-                            const isFilled = starNum <= displayStars;
-                            return (
-                                <span
-                                    key={starNum}
-                                    role="button"
-                                    onClick={(e) => handleStarClick(e, starNum)}
-                                    onMouseEnter={() => setHoverStar(starNum)}
-                                    style={{
-                                        cursor: "pointer",
-                                        fontSize: 12,
-                                        lineHeight: 1,
-                                        width: 12,
-                                        height: 14,
-                                        minWidth: 0,
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        color: isFilled ? "#ffd700" : "#484f58",
-                                        transition: "color 0.1s ease, transform 0.1s ease",
-                                        userSelect: "none"
-                                    }}
-                                    title={`Rate ${starNum} star${starNum > 1 ? "s" : ""} (${starNum})`}
-                                >
-                                    ★
-                                </span>
-                            );
-                        })}
+                    <div className="photo-card-rating-summary">
+                        {rating ? `${"★".repeat(rating)}` : "Unrated"}
                     </div>
 
-                    {/* Heart Button */}
-                    <span
-                        role="button"
-                        onClick={handleFavoriteClick}
-                        style={{
-                            cursor: "pointer",
-                            fontSize: 13,
-                            lineHeight: 1,
-                            minWidth: 0,
-                            padding: "0 2px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: isFavorite ? "#ff4d4f" : "#6e7681",
-                            transition: "color 0.1s ease, transform 0.1s ease",
-                            userSelect: "none"
-                        }}
-                        title={isFavorite ? "Remove from favourites (F)" : "Add to favourites (F)"}
-                    >
-                        {isFavorite ? "♥" : "♡"}
-                    </span>
                 </div>
             </div>
         </div>
@@ -298,7 +299,6 @@ export default React.memo(
         previous.photo?.file === next.photo?.file &&
         previous.photo?.name === next.photo?.name &&
         previous.onClick === next.onClick &&
-        previous.onContextMenu === next.onContextMenu &&
         previous.compact === next.compact &&
         previous.thumbnailRevision === next.thumbnailRevision &&
         previous.loading === next.loading &&
@@ -306,7 +306,7 @@ export default React.memo(
         previous.viewMode === next.viewMode &&
         previous.visible === next.visible &&
         previous.decision?.rating === next.decision?.rating &&
-        previous.decision?.favorite === next.decision?.favorite &&
+        previous.decision?.colorLabel === next.decision?.colorLabel &&
         previous.decision?.culling === next.decision?.culling &&
         previous.decisionControlsVisible === next.decisionControlsVisible &&
         previous.onDecisionChange === next.onDecisionChange

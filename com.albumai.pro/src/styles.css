@@ -228,32 +228,6 @@ button.photo-browser-control:active:not(:disabled) {
     padding-right: 22px;
 }
 
-.photo-browser-favorite-filter {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    color: #cfcfcf;
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.photo-duplicate-summary {
-    margin: 0 10px 8px;
-    padding: 6px 8px;
-    border: 1px solid #4f5964;
-    border-radius: 4px;
-    color: #cbd8e6;
-    background: #29313a;
-    font-size: 10px;
-}
-
-.photo-duplicate-summary.has-error {
-    border-color: #9b4f58;
-    color: #ffd4d9;
-    background: #40282c;
-}
-
 .photo-list-rating {
     min-width: 0;
     height: 18px;
@@ -265,32 +239,9 @@ button.photo-browser-control:active:not(:disabled) {
     font-size: 9px;
 }
 
-.photo-list-favorite {
-    width: 20px;
-    min-width: 20px;
-    height: 18px;
-    padding: 0;
-    border: 1px solid #555;
-    border-radius: 3px;
-    color: #bbb;
-    background: #303030;
-    font-size: 13px;
-    line-height: 16px;
-}
-
-.photo-list-favorite.is-favorite {
-    border-color: #b66a75;
-    color: #ff8fa3;
-    background: #4a2930;
-}
-
 .photo-list-rating {
     flex: 0 0 52px;
     width: 52px;
-}
-
-.photo-list-favorite {
-    flex: 0 0 20px;
 }
 
 .photo-decision-error {
@@ -3394,4 +3345,198 @@ body, .albumai-workspace-layout {
 .execution-details-copy-btn:hover {
     background: #30363d;
     color: #f0f6fc;
+}
+.photo-card-persistent-rating {
+    position: absolute;
+    left: 5px;
+    bottom: 5px;
+    z-index: 4;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: rgba(8, 11, 16, 0.78);
+    color: #ffd166;
+    font-size: 9px;
+    letter-spacing: -1px;
+    pointer-events: none;
+}
+
+.photo-card-hover-controls {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 5px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+}
+
+.modern-studio-card:hover .photo-card-hover-controls,
+.modern-studio-card:focus-within .photo-card-hover-controls {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.photo-card-hover-decisions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.photo-card-hover-decisions button {
+    width: 25px;
+    height: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 6px;
+    background: rgba(8, 11, 16, 0.86);
+    color: #78e2ae;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.photo-card-hover-decisions button:last-child { color: #ff858c; }
+
+.photo-card-hover-rating {
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 6px;
+    border-radius: 7px;
+    background: rgba(8, 11, 16, 0.9);
+}
+
+.photo-card-hover-rating > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.photo-card-hover-rating button {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.photo-card-hover-rating > div:first-child button {
+    width: 15px;
+    color: #59616d;
+    font-size: 13px;
+}
+
+.photo-card-hover-rating > div:first-child button.is-active { color: #ffd166; }
+
+.photo-card-hover-rating .photo-card-color {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.68);
+    border-radius: 50%;
+}
+
+.photo-card-hover-rating .photo-card-color.is-active {
+    box-shadow: 0 0 0 2px #ffffff;
+}
+
+.photo-card-rating-summary {
+    min-height: 14px;
+    color: #ffd166;
+    font-size: 10px;
+}
+
+.photo-rating-label-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    background: #161b22;
+}
+
+.photo-rating-filter-row,
+.photo-color-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-wrap: wrap;
+}
+
+.photo-rating-filter-button,
+.photo-color-filter-button {
+    min-width: 26px;
+    min-height: 24px;
+    padding: 2px 5px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    color: #9aa5b1;
+    font-size: 10px;
+}
+
+.photo-rating-filter-button.is-star { color: #d4a93d; }
+
+.photo-rating-filter-button.is-active,
+.photo-color-filter-button.is-active {
+    border-color: #58a6ff;
+    background: #1b3557;
+    color: #ffffff;
+}
+
+.photo-rating-filter-divider {
+    width: 1px;
+    height: 18px;
+    margin: 0 2px;
+    background: #30363d;
+}
+
+.photo-color-filter-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.photo-color-filter-button > span {
+    width: 11px;
+    height: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: 50%;
+}
+
+.photo-quick-preview-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(5, 7, 10, 0.92);
+    pointer-events: none;
+}
+
+.photo-quick-preview-card {
+    width: min(780px, 92vw);
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.photo-quick-preview-image {
+    width: 100%;
+    min-height: 360px;
+    max-height: 74vh;
+    object-fit: contain;
+}
+
+.photo-quick-preview-meta {
+    display: flex;
+    justify-content: space-between;
+    color: #e6edf3;
+    font-size: 12px;
 }
