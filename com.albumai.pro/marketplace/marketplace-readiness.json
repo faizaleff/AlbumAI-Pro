@@ -27,11 +27,16 @@
     "releaseNotes": ""
   },
   "packageIconReview": {
+    "operatorApproved": true,
     "ownershipConfirmed": false,
-    "adobeAssetUse": "UNREVIEWED"
+    "adobeAssetUse": "NONE"
   },
   "media": {
-    "icons": [],
+    "icons": [
+      "marketplace/assets/icons/albumai-icon-48.png",
+      "marketplace/assets/icons/albumai-icon-96.png",
+      "marketplace/assets/icons/albumai-icon-192.png"
+    ],
     "screenshots": []
   },
   "qualification": {

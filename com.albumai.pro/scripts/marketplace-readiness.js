@@ -122,6 +122,7 @@ function evaluateMarketplaceReadiness(input) {
     if (!["FREE", "PAID"].includes(listing.commerce)) add("COMMERCE_DECISION_MISSING");
     if (!String(listing.releaseNotes || "").trim()) add("RELEASE_NOTES_MISSING");
 
+    if (!config.packageIconReview?.operatorApproved) add("PLUGIN_ICON_DIRECTION_NOT_APPROVED");
     if (!config.packageIconReview?.ownershipConfirmed) add("PLUGIN_ICON_OWNERSHIP_UNCONFIRMED");
     if (config.packageIconReview?.adobeAssetUse !== "NONE") add("PLUGIN_ICON_ADOBE_ASSET_REVIEW_INCOMPLETE");
     if (input.pluginIcons.length === 0 || input.pluginIcons.some(item => (
@@ -177,7 +178,10 @@ function readCurrentMarketplaceInputs(projectRoot = PROJECT_ROOT) {
         packageLock: readJson("package-lock.json"),
         sourceManifest,
         builtManifest: readJson("dist/manifest.json"),
-        pluginIcons: mediaEvidence(projectRoot, uniqueManifestIconPaths(sourceManifest)),
+        pluginIcons: mediaEvidence(
+            path.join(projectRoot, "plugin"),
+            uniqueManifestIconPaths(sourceManifest)
+        ),
         marketplaceIcons: mediaEvidence(projectRoot, config.media?.icons),
         screenshots: mediaEvidence(projectRoot, config.media?.screenshots)
     };

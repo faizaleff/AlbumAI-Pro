@@ -62,7 +62,11 @@ function readyInput() {
                 requiresThirdPartyService: false,
                 releaseNotes: "Marketplace identity and icon qualification."
             },
-            packageIconReview: { ownershipConfirmed: true, adobeAssetUse: "NONE" },
+            packageIconReview: {
+                operatorApproved: true,
+                ownershipConfirmed: true,
+                adobeAssetUse: "NONE"
+            },
             qualification: {
                 targetCcxQualified: true,
                 marketplaceRuntimeSmokePassed: true,
@@ -100,14 +104,15 @@ try {
     );
 
     check(live.status === "BLOCKED", "live Marketplace state must fail closed");
-    check(live.currentVersion === "1.2.0", "published source version changed during audit");
+    check(live.currentVersion === "1.2.1", "Marketplace candidate version differs");
     check(live.targetVersion === "1.2.1", "bounded Marketplace patch target differs");
-    check(live.blockers.includes("TARGET_VERSION_NOT_APPLIED"), "version boundary blocker missing");
+    check(!live.blockers.includes("TARGET_VERSION_NOT_APPLIED"), "approved version boundary remains blocked");
     check(live.blockers.includes("ADOBE_PLUGIN_ID_NOT_CONFIRMED"), "Console ID blocker missing");
     check(live.blockers.includes("PUBLISHER_PROFILE_NOT_APPROVED"), "publisher blocker missing");
     check(live.blockers.includes("EU_TRADER_DECISION_MISSING"), "trader decision blocker missing");
-    check(live.blockers.includes("PLUGIN_ICON_PLACEHOLDER_OR_MISSING"), "placeholder blocker missing");
-    check(live.blockers.includes("MARKETPLACE_ICONS_INVALID"), "listing icon blocker missing");
+    check(!live.blockers.includes("PLUGIN_ICON_PLACEHOLDER_OR_MISSING"), "approved icon is still classified placeholder");
+    check(!live.blockers.includes("MARKETPLACE_ICONS_INVALID"), "generated listing icons are invalid");
+    check(live.blockers.includes("PLUGIN_ICON_OWNERSHIP_UNCONFIRMED"), "ownership confirmation blocker missing");
     check(live.blockers.includes("SCREENSHOTS_INVALID"), "screenshot blocker missing");
     check(live.blockers.includes("PRIVACY_POLICY_URL_MISSING"), "privacy blocker missing");
     check(live.blockers.includes("TERMS_OF_SERVICE_URL_MISSING"), "terms blocker missing");
@@ -116,10 +121,12 @@ try {
     check(live.submissionApproved === false, "submission approval must default false");
     check(config.qualification.publicationMode === "MANUAL", "manual publication boundary differs");
     check(config.qualification.submissionApproved === false, "submission is incorrectly approved");
-    check(manifest.version === "1.2.0", "ALB-134.1 must not mutate the manifest version");
+    check(manifest.version === "1.2.1", "Marketplace candidate manifest version differs");
     check(uniqueManifestIconPaths(manifest).length === 2, "manifest icon inventory differs");
     check(DISALLOWED_PLACEHOLDER_ICON_SHA256.size === 4, "placeholder digest set differs");
     check(plan.includes("selects **`v1.2.1`**"), "version decision is missing");
+    check(plan.includes("Option 3"), "approved icon direction is missing");
+    check(plan.includes("322ebed5dc0dac1c8b20683280c54a4d66641e76b52be482e090e17746613c4a"), "master icon digest is missing");
     check(plan.includes("No Adobe upload, draft creation, submission, or publication"), "external safety boundary missing");
     check(plan.includes("official-requirement audit") || plan.includes("Official requirements reviewed"), "official audit missing");
 

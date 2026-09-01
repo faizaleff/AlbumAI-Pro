@@ -1,6 +1,6 @@
 # ALB-134 — Adobe Marketplace Readiness
 
-Status: **in progress — baseline audited and fail-closed gate implemented**
+Status: **in progress — icon direction approved and candidate assets generated**
 
 Date: 2026-09-01
 
@@ -44,7 +44,7 @@ Passing technical facts:
 
 - manifest v5 with one Photoshop host;
 - Photoshop minimum version `24.0.0`, above Adobe's minimum UXP requirement;
-- exact three-part `1.2.0` package and manifest version alignment;
+- exact three-part `1.2.1` candidate package and manifest version alignment;
 - no network or process-launch permission;
 - qualified eight-file CCX inventory with no zero-byte files; and
 - safe upload filename `com.albumai.pro_PS.ccx`.
@@ -53,17 +53,15 @@ Blocking facts:
 
 1. Adobe Console plugin ID match is not yet confirmed.
 2. Publisher profile approval and EU trader-distribution decision are unknown.
-3. The packaged icons are the generic `UXP` sample/placeholder artwork. Adobe's
-   checklist explicitly rejects placeholder or sample-project icons.
-4. Unique owned plugin artwork and the 48/96/192 marketplace icon set are
-   missing.
-5. One to five 1360x800 marketplace screenshots are missing.
-6. Subtitle, support email, help URL, description, category, tags, approved
+3. Operator approval is recorded for the new Option 3 artwork, but the final
+   publisher ownership confirmation is still required.
+4. One to five 1360x800 marketplace screenshots are missing.
+5. Subtitle, support email, help URL, description, category, tags, approved
    privacy URL, approved terms URL, commerce decision, and release notes are
    incomplete.
-7. The Marketplace-specific install, minimum/maximum panel, workflow, and
+6. The Marketplace-specific install, minimum/maximum panel, workflow, and
    performance smoke has not been recorded.
-8. A target CCX containing the final marketplace identity and artwork has not
+7. A target CCX containing the final marketplace identity and artwork has not
    been qualified.
 
 ## Version decision
@@ -72,7 +70,22 @@ ALB-133 correctly refused an empty patch. ALB-134 found a concrete package and
 review blocker: the immutable `v1.2.0` CCX contains placeholder icon artwork.
 Replacing packaged artwork changes the distributed artifact, so Marketplace
 readiness selects **`v1.2.1`** as the bounded patch target. The version is not
-applied until the owned icon direction and listing boundary are approved.
+applied until the icon direction is approved. That approval is now recorded,
+and the repository carries the `v1.2.1` Marketplace candidate identity; no tag
+or release exists.
+
+## Approved icon evidence
+
+The operator approved Option 3: two interlocking photo frames with three
+connected automation nodes. The built-in image generation workflow produced a
+transparent 1254x1254 master, then deterministic downscaling created the
+package 32/64 pixel assets and Marketplace 48/96/192 pixel assets.
+
+- Master: `marketplace/assets/albumai-icon-master.png`
+- Master SHA-256:
+  `322ebed5dc0dac1c8b20683280c54a4d66641e76b52be482e090e17746613c4a`
+- The artwork contains no text, UXP label, Adobe/Photoshop symbol, or Adobe
+  asset. Publisher ownership confirmation remains a separate factual gate.
 
 ## Delivery slices
 

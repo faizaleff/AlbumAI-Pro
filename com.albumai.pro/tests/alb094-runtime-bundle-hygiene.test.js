@@ -7,7 +7,7 @@ const path = require("path");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const PLUGIN_ROOT = path.join(PROJECT_ROOT, "plugin");
-const EXPECTED_BUILD_ID = "ALB-131-v1.2.0-release-v1";
+const EXPECTED_BUILD_ID = "ALB-134-v1.2.1-marketplace-candidate-v1";
 const RETIRED_BUILD_ID = "ALB-030.3-scroll-commit-timing-v1";
 
 let assertions = 0;

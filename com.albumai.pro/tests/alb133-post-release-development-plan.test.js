@@ -24,19 +24,13 @@ try {
     const roadmap = readProjectFile("docs/ROADMAP.md");
     const readme = readProjectFile("README.md");
     const packageJson = JSON.parse(readProjectFile("package.json"));
-    const identity = readProjectFile("src/config/buildIdentity.js");
     const closeout = readProjectFile("docs/ALB-132_V1.2.0_RELEASE_CLOSEOUT.md");
     const index = fs.readFileSync(
         path.join(REPOSITORY_ROOT, "ALB-116_ENGINEERING_RECORD_INDEX.md"),
         "utf8"
     );
 
-    check(packageJson.version === "1.2.0", "ALB-133 must not bump the package version");
-    check(identity.includes("ALB-131-v1.2.0-release-v1"), "release build identity changed");
-    check(
-        identity.includes("ALB-131-v1.2.0-publication-ready-v1"),
-        "release runtime revision changed"
-    );
+    check(packageJson.version === "1.2.1", "ALB-134 candidate version differs");
     check(plan.includes("Do not create an empty `v1.2.1` release"), "patch decision is missing");
     check(plan.includes("Keep `v1.2.0` immutable"), "immutable release boundary is missing");
     check(plan.includes("ALB-134 — Adobe Marketplace Readiness"), "next milestone is missing");
@@ -56,6 +50,8 @@ try {
     check(packageJson.scripts["test:alb133"] === "node tests/run-alb133-tests.js", "ALB-133 script differs");
     check(index.includes("ALB-133_POST_RELEASE_DEVELOPMENT_PLAN.md"), "engineering index omits ALB-133");
     check(closeout.includes("tag and release assets are immutable"), "ALB-132 history changed");
+    check(closeout.includes("ALB-131-v1.2.0-release-v1"), "published build identity history changed");
+    check(closeout.includes("ALB-131-v1.2.0-publication-ready-v1"), "published runtime revision history changed");
 
     console.info(`PASS ALB-133: ${assertions} post-release planning assertions`);
 } catch (error) {

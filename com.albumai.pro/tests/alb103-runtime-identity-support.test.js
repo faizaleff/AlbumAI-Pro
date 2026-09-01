@@ -33,8 +33,15 @@ function check(condition, message) {
 try {
     check(identitySource.includes('"com.albumai.pro"'), "canonical plugin ID is missing");
     check(identitySource.includes('"ALB-103-runtime-identity-support-v1"'), "ALB-103 support identity is missing");
-    check(identitySource.includes('ALBUMAI_RELEASE_STATUS =\n    "RELEASE"'), "release artifact status is missing");
-    check(identitySource.includes("v${ALBUMAI_VERSION}"), "canonical release reference is not version-driven");
+    check(
+        /ALBUMAI_RELEASE_STATUS\s*=\s*\n\s*"(?:CANDIDATE|RELEASE)"/.test(identitySource),
+        "runtime artifact status is missing"
+    );
+    check(
+        identitySource.includes("v${ALBUMAI_VERSION}") ||
+            identitySource.includes("ALBUMAI_RELEASE_URL = null"),
+        "release reference does not preserve candidate/release truth"
+    );
     check(detailsSource.includes("export function runtimeIdentityLines"), "runtime identity formatter is missing");
     check(detailsSource.includes('...runtimeIdentityLines()'), "copied diagnostics omit runtime identity");
     check(detailsSource.match(/\.\.\.runtimeIdentityLines\(\)/g)?.length === 2, "summary and debug log must both contain runtime identity");

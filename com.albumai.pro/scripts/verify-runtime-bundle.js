@@ -9,8 +9,8 @@ const path = require("path");
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const PLUGIN_ROOT = path.join(PROJECT_ROOT, "plugin");
 const DIST_ROOT = path.join(PROJECT_ROOT, "dist");
-const EXPECTED_BUILD_ID = "ALB-131-v1.2.0-release-v1";
-const EXPECTED_RUNTIME_REVISION_ID = "ALB-131-v1.2.0-publication-ready-v1";
+const EXPECTED_BUILD_ID = "ALB-134-v1.2.1-marketplace-candidate-v1";
+const EXPECTED_RUNTIME_REVISION_ID = "ALB-134-v1.2.1-marketplace-icon-v1";
 const RETIRED_BUILD_ID = "ALB-030.3-scroll-commit-timing-v1";
 const STATIC_FILES = Object.freeze([
     "icons/icon_D.png",
@@ -65,7 +65,7 @@ try {
     }
 
     console.info(
-        `PASS ALB-131 bundle: ${EXPECTED_BUILD_ID} ${EXPECTED_RUNTIME_REVISION_ID} ` +
+        `PASS ALB-134 bundle: ${EXPECTED_BUILD_ID} ${EXPECTED_RUNTIME_REVISION_ID} ` +
         `${bundle.length} bytes sha256=${sha256(bundle)}`
     );
 } catch (error) {

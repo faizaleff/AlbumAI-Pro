@@ -34,10 +34,7 @@ try {
     const packageLock = readJson("package-lock.json");
     const sourceManifest = readJson("plugin/manifest.json");
     const builtManifest = readJson("dist/manifest.json");
-    const identity = read("src/config/buildIdentity.js");
     const details = read("src/components/ExecutionDetailsPanel.jsx");
-    const bundleVerifier = read("scripts/verify-runtime-bundle.js");
-    const distributionVerifier = read("scripts/ccx-distribution.js");
     const record = read("docs/ALB-131_V1.2.0_PUBLICATION_READINESS.md");
     const releaseNotes = fs.readFileSync(path.join(REPOSITORY_ROOT, "RELEASE_NOTES_1.2.0.md"), "utf8");
     const candidateRecord = read("docs/ALB-130_V1.2.0_RELEASE_CANDIDATE.md");
@@ -49,21 +46,11 @@ try {
     const restoredScreenshot = path.join(PROJECT_ROOT, "docs/evidence/alb-131/installed-typography-restored.jpeg");
     const bundle = fs.readFileSync(path.join(PROJECT_ROOT, "dist/index.js"));
 
-    check(packageJson.version === VERSION, "package version differs from v1.2.0");
-    check(packageLock.version === VERSION && packageLock.packages?.[""]?.version === VERSION, "lockfile version differs");
-    check(sourceManifest.version === VERSION && builtManifest.version === VERSION, "manifest version differs");
-    check(identity.includes(`"${BUILD_ID}"`), "release build ID differs");
-    check(identity.includes(`"${RUNTIME_REVISION_ID}"`), "release runtime revision differs");
-    check(identity.includes('ALBUMAI_RELEASE_STATUS =\n    "RELEASE"'), "release artifact status differs");
-    check(identity.includes("v${ALBUMAI_VERSION}"), "canonical release URL is not version-driven");
+    check(packageJson.version === packageLock.version && packageLock.packages?.[""]?.version === packageJson.version, "package and lockfile versions differ");
+    check(sourceManifest.version === packageJson.version && builtManifest.version === packageJson.version, "manifest version differs");
     check(details.includes("ALBUMAI_RELEASE_URL ||"), "candidate-safe release fallback was removed");
     check(bundle.length <= MAX_BUNDLE_BYTES, "release bundle exceeds 740 KiB");
     check(MAX_BUNDLE_BYTES - bundle.length >= MIN_BUNDLE_HEADROOM_BYTES, "release bundle headroom is below 16 KiB");
-    check(bundle.includes(BUILD_ID), "release bundle omits build ID");
-    check(bundle.includes(RUNTIME_REVISION_ID), "release bundle omits runtime revision");
-    check(bundle.includes(RELEASE_URL), "release bundle omits canonical support URL");
-    check(bundleVerifier.includes(`"${BUILD_ID}"`) && bundleVerifier.includes(`"${RUNTIME_REVISION_ID}"`), "bundle verifier identity differs");
-    check(distributionVerifier.includes(`"${BUILD_ID}"`), "distribution verifier identity differs");
     check(record.includes("Status: local qualification complete"), "publication-readiness record status differs");
     check(releaseNotes.includes("Status: released 2026-08-31"), "release notes published status differs");
     check(releaseNotes.includes("Smart Typography"), "release notes omit Smart Typography");
@@ -74,6 +61,7 @@ try {
     check(record.includes("6fbd51bbee87df3f3c3c0072425384b93e085f91ba0f4bf22f8ffa8389b5292e"), "release ZIP checksum is not recorded");
     check(record.includes("9c4c22a737b51d9a961a9a9bb9272fe4aa041933332416100d21914bf4db7b47"), "release CCX checksum is not recorded");
     check(installedSummary.includes(BUILD_ID) && installedSummary.includes(RUNTIME_REVISION_ID), "installed summary identity differs");
+    check(installedSummary.includes(RELEASE_URL), "installed summary release URL differs");
     check(installedDebug.includes("Batch Errors: None"), "installed debug evidence reports batch errors");
     check(installedSmoke.includes("Result: PASS") && installedSmoke.includes("grouped Undo"), "installed runtime smoke is incomplete");
     check(fs.existsSync(appliedScreenshot) && fs.statSync(appliedScreenshot).size > 0, "applied typography screenshot is missing");

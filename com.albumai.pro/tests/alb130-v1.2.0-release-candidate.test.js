@@ -53,11 +53,10 @@ try {
         "docs/evidence/alb-130/installed-typography-undo-restored.jpeg"
     ));
 
-    check(packageJson.version === VERSION, "package version differs from v1.2.0");
-    check(packageLock.version === VERSION, "lockfile version differs from v1.2.0");
-    check(packageLock.packages?.[""]?.version === VERSION, "lockfile root version differs");
-    check(sourceManifest.version === VERSION, "source manifest version differs");
-    check(builtManifest.version === VERSION, "built manifest version differs");
+    check(packageJson.version === packageLock.version, "package and lockfile versions differ");
+    check(packageLock.packages?.[""]?.version === packageJson.version, "lockfile root version differs");
+    check(sourceManifest.version === packageJson.version, "source manifest version differs");
+    check(builtManifest.version === packageJson.version, "built manifest version differs");
     check(webpack.includes('path.resolve(__dirname, "scripts/minify-css-loader.js")'), "production CSS minifier is not wired");
     check(minifyCss('a::before { content: "a /* keep */ b"; }') === 'a::before{content:"a /* keep */ b"}', "CSS minifier changes quoted content");
     check(minifyCss("/* drop */ .a { color: red; }") === ".a{color:red}", "CSS minifier does not collapse comments and syntax");
