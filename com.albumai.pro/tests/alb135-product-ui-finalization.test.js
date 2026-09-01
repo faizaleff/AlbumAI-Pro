@@ -113,8 +113,13 @@ try {
     check(photoBrowser.includes("Merge ↑"), "merge-with-previous action is missing");
     check(photoBrowser.includes("Sort incomplete"), "incomplete Sort warning is missing");
     check(photoBrowser.includes("Continue to Cull →"), "Sort-to-Cull handoff is missing");
+    check(photoBrowser.includes("Cull incomplete"), "incomplete Cull warning is missing");
+    check(photoBrowser.includes("Review Unrated"), "unrated-photo review action is missing");
+    check(photoBrowser.includes("Continue to Design →"), "Cull-to-Design handoff is missing");
     check(openFolder.includes("groupsReviewed: sortReviewStatus.ready"), "workflow completion ignores Sort review status");
     check(openFolder.includes("unassigned photos before Cull"), "locked Cull guidance omits unassigned photos");
+    check(openFolder.includes("cullReviewStatus.ready ? cullReviewStatus.kept : 0"), "workflow completion ignores canonical Cull review status");
+    check(openFolder.includes("unrated photos before Design"), "locked Design guidance omits unrated photos");
     check(projectService.includes('"photoEventChapters"'), "project metadata validation omits manual events");
     check(plan.includes("Manual event chapters"), "manual event chapter implementation record is missing");
     check(plan.includes("Reception membership restored"), "manual event runtime persistence evidence is missing");
@@ -124,6 +129,9 @@ try {
     check(plan.includes("retains the preceding\nchapter's identity and name"), "safe merge identity boundary is missing");
     check(plan.includes("Sort completion and Cull handoff"), "Sort completion implementation record is missing");
     check(plan.includes("does not infer completion from photo presence alone"), "Sort completion safety rule is missing");
+    check(plan.includes("Cull completion and Design handoff"), "Cull completion implementation record is missing");
+    check(plan.includes("every current photo is explicitly"), "Cull completion decision boundary is missing");
+    check(plan.includes("Go to Designer** command remains an intentional manual"), "explicit Designer shortcut boundary is missing");
     check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");

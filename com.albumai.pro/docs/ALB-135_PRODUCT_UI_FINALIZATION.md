@@ -370,6 +370,36 @@ bundle inside its published release ZIP instead of incorrectly measuring the
 active v1.2.1 development bundle. The current candidate still retains its own
 740 KiB ceiling through ALB-129.
 
+#### Cull completion and Design handoff
+
+Cull now publishes one canonical completion summary from the persisted photo
+decisions. The checkpoint is ready only when every current photo is explicitly
+rated **Keep** or **Reject** and at least one photo is kept. Remaining unrated
+photos, or an all-rejected library, cannot silently unlock the normal Design
+workflow.
+
+While Step 3 is active, a compact handoff banner reports kept, rejected, and
+unrated state. **Review Unrated** clears unrelated browser and event filters so
+the complete decision queue is visible. If every photo was rejected, **Review
+Rejected** opens that set and asks the operator to keep at least one photo.
+Only the ready state exposes **Continue to Design →**. The top Design step uses
+the same summary and explains whether unrated photos or a missing Keep decision
+still blocks the reviewed handoff.
+
+The existing explicit **Go to Designer** command remains an intentional manual
+shortcut established by ALB-081; it is not treated as proof that Cull is
+complete. This distinction preserves the deterministic power-user route while
+the normal guided workflow cannot advance on partial culling state. No photo,
+EXIF, or source-folder content is changed by the completion check.
+
+The completed production bundle reloaded through Adobe UXP Developer Tools
+with **Plugin Reload Successful** on 2026-09-01. This was a load-only runtime
+check; no project fixture, photo decision, or Photoshop document was mutated.
+
+The next bounded unit is Design entry clarity: show which kept photos feed the
+design workspace and keep the reviewed workflow state distinct from the
+explicit manual shortcut before Design/execution controls are reorganized.
+
 ## Approved product-workflow foundation
 
 The pre-implementation prototype review selected one progressive six-step

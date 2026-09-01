@@ -159,8 +159,20 @@ export async function runAlb072Tests() {
         check(summary.kept === 2, `Kept count is 2 (got ${summary.kept})`);
         check(summary.rejected === 1, `Rejected count is 1 (got ${summary.rejected})`);
         check(summary.unrated === 2, `Unrated count is 2 (got ${summary.unrated})`);
+        check(summary.ready === false, "Cull is incomplete while photos remain unrated");
         check(summary.burstCount === 1, "Burst count is 1");
         check(summary.burstBestCount === 1, "Burst best count is 1");
+
+        decisions = updatePhotoDecision(decisions, photos[3], { culling: CullingStatus.REJECT });
+        decisions = updatePhotoDecision(decisions, photos[4], { culling: CullingStatus.KEEP });
+        const complete = summarizeCulling(photos, createPhotoDecisionLookup(decisions));
+        check(complete.ready === true, "Cull completes after every photo is decided and at least one is kept");
+
+        const allRejected = photos.reduce(
+            (current, photo) => updatePhotoDecision(current, photo, { culling: CullingStatus.REJECT }),
+            normalizePhotoDecisions({})
+        );
+        check(summarizeCulling(photos, createPhotoDecisionLookup(allRejected)).ready === false, "Cull cannot complete when every photo is rejected");
     }
 
     // Test 6: PhotoComparisonModal rendering

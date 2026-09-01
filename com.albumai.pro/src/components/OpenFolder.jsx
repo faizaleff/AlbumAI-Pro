@@ -80,6 +80,11 @@ export default function OpenFolder() {
         ready: false,
         unassignedCount: 0
     });
+    const [cullReviewStatus, setCullReviewStatus] = useState({
+        ready: false,
+        kept: 0,
+        unrated: 0
+    });
     const activeWorkspaceMode = workspaceModeForWizardStep(wizardStep);
     const activeWizardStep = WIZARD_STEPS.find(step => step.id === wizardStep) || WIZARD_STEPS[0];
 
@@ -110,16 +115,12 @@ export default function OpenFolder() {
         return entries;
     }, []);
 
-    const keptPhotoCount = workspacePhotos.filter(p => {
-        const decision = App.culling?.getDecision?.(p.id);
-        return decision === "keep" || decision === "KEEP";
-    }).length;
     const placedPhotoCount = activeSheet?.slots?.filter(s => s.photoId)?.length || 0;
     const wizardCompletedSteps = computeCompletedSteps({
         photoCount: workspacePhotos.length,
         analysisComplete: workspacePhotos.length > 0,
         groupsReviewed: sortReviewStatus.ready,
-        keptPhotoCount,
+        keptPhotoCount: cullReviewStatus.ready ? cullReviewStatus.kept : 0,
         placedPhotoCount,
         exportComplete: false
     });
@@ -144,6 +145,7 @@ export default function OpenFolder() {
         setAlbumDuplicateId("");
         setAlbumMutationError(null);
         setSortReviewStatus({ ready: false, unassignedCount: 0 });
+        setCullReviewStatus({ ready: false, kept: 0, unrated: 0 });
         refreshRegisteredTemplates();
     }, [projectId, refreshRegisteredTemplates]);
 
@@ -1114,6 +1116,13 @@ export default function OpenFolder() {
                                     const isCompleted = wizardCompletedSteps?.has(step.id);
                                     const isClickable = canNavigateToStep(wizardStep, step.id, wizardCompletedSteps);
                                     const isLocked = !isClickable && !isActive && !isCompleted;
+                                    const lockedTitle = step.id === 3 && sortReviewStatus.unassignedCount
+                                        ? `Assign ${sortReviewStatus.unassignedCount} unassigned photos before Cull`
+                                        : step.id === 4 && cullReviewStatus.unrated
+                                            ? `Review ${cullReviewStatus.unrated} unrated photos before Design`
+                                            : step.id === 4 && !cullReviewStatus.kept
+                                                ? "Keep at least 1 photo before Design"
+                                                : `Complete Step ${step.id - 1} first`;
 
                                     let cls = "wizard-step";
                                     if (isActive) cls += " wizard-step--active";
@@ -1128,9 +1137,7 @@ export default function OpenFolder() {
                                             onClick={() => handleWizardStepClick(step.id)}
                                             disabled={isLocked}
                                             title={isLocked
-                                                ? step.id === 3 && sortReviewStatus.unassignedCount
-                                                    ? `Assign ${sortReviewStatus.unassignedCount} unassigned photos before Cull`
-                                                    : `Complete Step ${step.id - 1} first`
+                                                ? lockedTitle
                                                 : `${step.id}. ${step.label} (${step.description})`}
                                             aria-current={isActive ? "step" : undefined}
                                         >
@@ -1360,6 +1367,8 @@ export default function OpenFolder() {
                                 workflowStep={wizardStep}
                                 onSortStatusChange={setSortReviewStatus}
                                 onContinueToCull={() => handleWizardStepClick(3)}
+                                onCullStatusChange={setCullReviewStatus}
+                                onContinueToDesign={() => handleWizardStepClick(4)}
                             />
                         </div>
 

@@ -104,7 +104,9 @@ function PhotoBrowserSection({
     photoFolderChange = null,
     workflowStep = 1,
     onSortStatusChange,
-    onContinueToCull
+    onContinueToCull,
+    onCullStatusChange,
+    onContinueToDesign
 }) {
 
     const canChangePhotoFolder = canStartPhotoFolderChange({
@@ -299,6 +301,10 @@ function PhotoBrowserSection({
     useEffect(() => {
         onSortStatusChange?.(sortReview);
     }, [onSortStatusChange, sortReview]);
+
+    useEffect(() => {
+        onCullStatusChange?.(cullingSummary);
+    }, [cullingSummary, onCullStatusChange]);
 
     useEffect(() => {
         setPreferences(readSavedPreferences());
@@ -1313,6 +1319,38 @@ function PhotoBrowserSection({
                         }}
                     >
                         {sortReview.ready ? "Continue to Cull →" : "Review Unassigned"}
+                    </button>
+                </div>
+            )}
+
+            {photos.length > 0 && workflowStep === 3 && (
+                <div className={`photo-sort-handoff${cullingSummary.ready ? " is-ready" : " has-warning"}`} role="status">
+                    <span>
+                        <strong>{cullingSummary.ready ? "Cull ready" : "Cull incomplete"}</strong> · {cullingSummary.unrated
+                            ? `${cullingSummary.unrated} ${cullingSummary.unrated === 1 ? "photo is" : "photos are"} still unrated.`
+                            : cullingSummary.kept
+                                ? `${cullingSummary.kept} kept · ${cullingSummary.rejected} rejected.`
+                                : "Keep at least one photo before designing."}
+                    </span>
+                    <button
+                        type="button"
+                        className="photo-browser-control"
+                        onClick={() => {
+                            if (cullingSummary.ready) onContinueToDesign?.();
+                            else {
+                                setSelectedEventId("");
+                                updatePreferences(previous => ({ sort: previous.sort }));
+                                setCullingFilter(cullingSummary.unrated
+                                    ? CullingFilterMode.UNRATED
+                                    : CullingFilterMode.REJECTED);
+                            }
+                        }}
+                    >
+                        {cullingSummary.ready
+                            ? "Continue to Design →"
+                            : cullingSummary.unrated
+                                ? "Review Unrated"
+                                : "Review Rejected"}
                     </button>
                 </div>
             )}

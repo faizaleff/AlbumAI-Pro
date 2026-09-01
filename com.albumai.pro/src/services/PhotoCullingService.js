@@ -116,6 +116,7 @@ export function summarizeCulling(photos = [], getDecisionFn, bursts = []) {
         kept,
         rejected,
         unrated,
+        ready: list.length > 0 && kept > 0 && unrated === 0,
         burstCount,
         burstBestCount
     });
