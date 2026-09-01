@@ -79,6 +79,7 @@ mean that a file is missing.
 | ALB-131 | [v1.2.0 Publication Readiness](com.albumai.pro/docs/ALB-131_V1.2.0_PUBLICATION_READINESS.md) | Plugin docs |
 | ALB-132 | [v1.2.0 Release Closeout](com.albumai.pro/docs/ALB-132_V1.2.0_RELEASE_CLOSEOUT.md) | Plugin docs |
 | ALB-133 | [v1.2.0 Post-Release Development Plan](com.albumai.pro/docs/ALB-133_POST_RELEASE_DEVELOPMENT_PLAN.md) | Plugin docs |
+| ALB-134 | [Adobe Marketplace Readiness](com.albumai.pro/docs/ALB-134_ADOBE_MARKETPLACE_READINESS.md) | Plugin docs |
 
 ## Verification
 

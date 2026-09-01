@@ -118,9 +118,9 @@ runtime qualification before they may be presented as product behavior.
 
 - Direct `.ccx` packaging and Creative Cloud Desktop installation — ALB-097
   delivered and runtime-qualified
-- Marketplace readiness — selected by ALB-133 as the next actionable milestone;
-  ALB-134 will define listing, package, version, validation, and submission
-  approval boundaries before any Adobe upload
+- Marketplace readiness — ALB-134 in progress with an official-requirement
+  audit and fail-closed gate; the placeholder package icon requires a bounded
+  `v1.2.1` identity/artwork patch before any Adobe upload
 - Cloud sync and team collaboration
 - Mobile/client proof review
 

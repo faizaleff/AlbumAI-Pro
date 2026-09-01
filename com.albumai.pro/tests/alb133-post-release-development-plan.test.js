@@ -46,7 +46,10 @@ try {
     check(/Photoshop runtime\s+retest/.test(plan), "runtime retest boundary is missing");
     check(roadmap.includes("**1.2.0 stable — released 2026-08-31**"), "roadmap current release differs");
     check(!roadmap.includes("**1.1.2 stable — released 2026-08-23**"), "roadmap retains stale heading");
-    check(roadmap.includes("ALB-134 will define listing"), "roadmap next milestone differs");
+    check(
+        roadmap.includes("Marketplace readiness — ALB-134 in progress"),
+        "roadmap next milestone differs"
+    );
     check(readme.includes("ALB-131 qualified the\nexact `v1.2.0` ZIP and CCX"), "README installer provenance differs");
     check(readme.includes("ALB-133 selects Adobe Marketplace readiness"), "README next action differs");
     check(packageJson.scripts.test.includes("npm run test:alb133"), "ALB-133 is absent from npm test");

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "submissionTarget": "ADOBE_CREATIVE_CLOUD_MARKETPLACE",
+  "currentRelease": "1.2.0",
+  "targetVersion": "1.2.1",
+  "ccxFileName": "com.albumai.pro_PS.ccx",
+  "adobePluginIdConfirmed": false,
+  "publisherProfile": {
+    "approved": false,
+    "euTraderDecision": "UNDECIDED"
+  },
+  "listing": {
+    "publicName": "AlbumAI Pro",
+    "subtitle": "",
+    "supportEmail": "",
+    "helpUrl": "",
+    "description": "",
+    "languages": [
+      "en"
+    ],
+    "categories": [],
+    "customTags": [],
+    "privacyPolicyUrl": "",
+    "termsOfServiceUrl": "",
+    "commerce": "UNDECIDED",
+    "requiresThirdPartyService": false,
+    "releaseNotes": ""
+  },
+  "packageIconReview": {
+    "ownershipConfirmed": false,
+    "adobeAssetUse": "UNREVIEWED"
+  },
+  "media": {
+    "icons": [],
+    "screenshots": []
+  },
+  "qualification": {
+    "targetCcxQualified": false,
+    "marketplaceRuntimeSmokePassed": false,
+    "consolePreviewApproved": false,
+    "submissionApproved": false,
+    "publicationMode": "MANUAL"
+  }
+}
