@@ -28,6 +28,7 @@ try {
     const packageJson = JSON.parse(readProjectFile("package.json"));
     const identity = readProjectFile("src/config/buildIdentity.js");
     const openFolder = readProjectFile("src/components/OpenFolder.jsx");
+    const photoBrowser = readProjectFile("src/components/PhotoBrowserSection.jsx");
     const panelController = readProjectFile("src/controllers/PanelController.jsx");
     const styles = readProjectFile("src/styles.css");
     const index = fs.readFileSync(
@@ -35,7 +36,7 @@ try {
         "utf8"
     );
 
-    check(plan.includes("Status: **implementation in progress — workspace shell started**"), "implementation status differs");
+    check(plan.includes("Status: **implementation in progress — Import/Sort/Cull started**"), "implementation status differs");
     check(plan.includes("P0 — runtime entry and panel visibility"), "runtime visibility priority is missing");
     check(plan.includes("Developer/diagnostic actions compete"), "Design action-hierarchy finding is missing");
     check(plan.includes("Minimum dock | 320x500"), "minimum-dock acceptance is missing");
@@ -63,6 +64,13 @@ try {
     check(plan.includes("live 420-pixel Photoshop dock width"), "preferred-dock runtime evidence is missing");
     check(plan.includes("320x500 visual check remains environment-limited"), "minimum-dock runtime boundary is missing");
     check(plan.includes("900x700 visual check remains open"), "floating runtime boundary is missing");
+    check(plan.includes("ALB-135.3 implementation progress"), "Import/Sort/Cull implementation record is missing");
+    check(plan.includes("Persistent manual drag ordering"), "remaining Sort-workbench boundary is missing");
+    check(plan.includes("six-photo REC005 fixture"), "Import/Sort/Cull runtime evidence is missing");
+    check(photoBrowser.includes("secondaryFiltersOpen"), "secondary filter disclosure state is missing");
+    check(photoBrowser.includes('aria-controls="photo-browser-secondary-filters"'), "secondary filter disclosure is not connected to its panel");
+    check(photoBrowser.includes("Filters{secondaryFilterCount"), "active secondary filter count is missing");
+    check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");
     check(openFolder.includes("workspace-brand-mark"), "compact workspace brand mark is missing");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
     check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");

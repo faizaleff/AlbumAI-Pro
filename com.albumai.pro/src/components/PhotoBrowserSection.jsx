@@ -122,6 +122,7 @@ function PhotoBrowserSection({
     const [comparingPair, setComparingPair] = useState(null);
     const [cullingBusy, setCullingBusy] = useState(false);
     const [contextMenu, setContextMenu] = useState(null);
+    const [secondaryFiltersOpen, setSecondaryFiltersOpen] = useState(false);
     const decisionRevision = useRef(0);
 
     const handleContextMenu = useCallback((event, photo) => {
@@ -167,6 +168,13 @@ function PhotoBrowserSection({
     }, [culledPhotos, selectedEventId, smartEvents]);
 
     const filtersActive = hasActivePhotoBrowserFilters(preferences) || cullingFilter !== CullingFilterMode.ALL || Boolean(selectedEventId);
+    const secondaryFilterCount = useMemo(() => [
+        preferences.types.length > 0,
+        preferences.minimumRating > 0,
+        preferences.orientations.length > 0,
+        preferences.favoritesOnly,
+        preferences.duplicatesOnly
+    ].filter(Boolean).length, [preferences]);
 
     const cullingSummary = useMemo(
         () => summarizeCulling(photos, decisionForPhoto, App.getPhotoBursts ? App.getPhotoBursts() : []),
@@ -182,6 +190,7 @@ function PhotoBrowserSection({
         ));
         setDuplicateBusy(false);
         setDuplicateError(null);
+        setSecondaryFiltersOpen(false);
         decisionRevision.current += 1;
     }, [projectId]);
 
@@ -759,8 +768,40 @@ function PhotoBrowserSection({
                         </button>
                     </div>
 
-                    {/* 2. Metadata & Decision Filters Group */}
-                    <div className="photo-filter-inline-group" aria-label="Metadata and decision filters">
+                    {/* 2. Secondary Metadata & Decision Filters */}
+                    <div className="photo-filter-disclosure">
+                        <button
+                            type="button"
+                            className={`photo-browser-control photo-filter-disclosure-button${secondaryFiltersOpen ? " is-active" : ""}`}
+                            onClick={() => setSecondaryFiltersOpen(open => !open)}
+                            aria-expanded={secondaryFiltersOpen}
+                            aria-controls="photo-browser-secondary-filters"
+                        >
+                            Filters{secondaryFilterCount ? ` (${secondaryFilterCount})` : ""}
+                            <span aria-hidden="true">{secondaryFiltersOpen ? "▴" : "▾"}</span>
+                        </button>
+                        {filtersActive && !secondaryFiltersOpen && (
+                            <button
+                                type="button"
+                                onClick={clearFilters}
+                                className="photo-browser-control photo-browser-clear-btn"
+                                aria-label="Reset photo filters"
+                                title="Reset active search and filters"
+                            >
+                                Reset
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {photos.length > 0 && secondaryFiltersOpen && (
+                <div
+                    id="photo-browser-secondary-filters"
+                    className="photo-filter-panel"
+                    aria-label="Metadata and decision filters"
+                >
+                    <div className="photo-filter-inline-group">
                         <UxpDropdown
                             id="photo-browser-type"
                             value={preferences.types[0] || ""}

@@ -1,6 +1,6 @@
 # ALB-135 — Product UI Finalization
 
-Status: **implementation in progress — workspace shell started**
+Status: **implementation in progress — Import/Sort/Cull started**
 
 Date: 2026-09-01
 
@@ -164,6 +164,27 @@ width, so the 320x500 visual check remains environment-limited rather than
 failed. A controlled floating-panel drag again moved the panel outside the
 captured primary workspace, so the 900x700 visual check remains open; Reset
 Essentials restored the project panel to its visible docked state afterward.
+
+### ALB-135.3 implementation progress
+
+The first Import/Sort/Cull density pass keeps the frequent controls—view,
+folder, search, base sort, selection, culling decisions, auto-pick, and
+comparison—directly available. Type, rating, orientation, favourite, and
+duplicate controls now live in one collapsed **Filters** disclosure. Its label
+shows the number of active secondary filters, and an active filtered state can
+still be reset without reopening the disclosure.
+
+This is a presentation-only reorganization: existing query behavior, saved
+photo-browser preferences, culling decisions, duplicate analysis, selection,
+and keyboard controls remain unchanged. Persistent manual drag ordering,
+per-camera clock correction UI, and the optional future AI story draft remain
+the next Sort-workbench units.
+
+The production bundle reloaded successfully in UXP Developer Tools. In the
+live 420-pixel Photoshop dock with the six-photo REC005 fixture, the compact
+Filters control was visible beside the culling actions, expanded to reveal the
+secondary controls, and collapsed back to the default state without changing
+the loaded project, photo count, or selection.
 
 ## Approved product-workflow foundation
 
