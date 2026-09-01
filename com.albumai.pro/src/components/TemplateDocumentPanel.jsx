@@ -129,6 +129,7 @@ export default function TemplateDocumentPanel({
     );
     const [projectExecutionSummary, setProjectExecutionSummary] = useState(null);
     const [recoveryVersion, setRecoveryVersion] = useState(0);
+    const [advancedExecutionOpen, setAdvancedExecutionOpen] = useState(false);
     const currentRecoveryState = readCurrentRecoveryState(
         getBatchRecoveryState
     );
@@ -222,6 +223,7 @@ export default function TemplateDocumentPanel({
         setRevalidationMessage(empty.message);
         setRevalidateBusy(empty.busy);
         setTemplatesWorkspaceAvailable(empty.workspaceAvailable);
+        setAdvancedExecutionOpen(false);
         draggedTemplateIdRef.current = null;
         dragStateRef.current = null;
         templateRowRefs.current.clear();
@@ -1204,33 +1206,6 @@ export default function TemplateDocumentPanel({
                 </div>
 
                 <div className="template-execution-row">
-                    <div className="template-action-group">
-                <button
-                    onClick={buildExecutionPlan}
-                    disabled={isExecuting || !hasProject || !placementPlan}
-                >
-                    Build Execution Dry Run
-                </button>
-
-                <button
-                    onClick={executeFirstReplacementStep}
-                    disabled={
-                        !hasProject ||
-                        isExecuting ||
-                        executionPlan?.status !== "READY" ||
-                        !replacementRequest?.steps?.length
-                    }
-                >
-                    Execute Replacement
-                </button>
-
-                <button
-                    onClick={executeReplacementBatchRequest}
-                    disabled={isExecuting || !hasProject}
-                >
-                    {isExecuting ? "Replacing…" : "Replace All"}
-                </button>
-                    </div>
                     <div className="template-action-group template-action-group--primary">
                 <button
                     onClick={executeProjectRequest}
@@ -1255,7 +1230,37 @@ export default function TemplateDocumentPanel({
                             : `Render Sheet: ${albumSheetForRender.label || albumSheetForRender.id}`}
                     </button>
                 )}
+                <button
+                    type="button"
+                    aria-expanded={advancedExecutionOpen}
+                    onClick={() => setAdvancedExecutionOpen(value => !value)}
+                    disabled={isExecuting}
+                >
+                    {advancedExecutionOpen ? "Hide Advanced" : "Advanced Execution"}
+                </button>
                     </div>
+                    {advancedExecutionOpen && (
+                        <div className="template-action-group template-action-group--advanced">
+                            <button
+                                onClick={buildExecutionPlan}
+                                disabled={isExecuting || !hasProject || !placementPlan}
+                            >
+                                Build Execution Dry Run
+                            </button>
+                            <button
+                                onClick={executeFirstReplacementStep}
+                                disabled={!hasProject || isExecuting || executionPlan?.status !== "READY" || !replacementRequest?.steps?.length}
+                            >
+                                Execute Replacement
+                            </button>
+                            <button
+                                onClick={executeReplacementBatchRequest}
+                                disabled={isExecuting || !hasProject}
+                            >
+                                {isExecuting ? "Replacing…" : "Replace All"}
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <BatchProgressPanel

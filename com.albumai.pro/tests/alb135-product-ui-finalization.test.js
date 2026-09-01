@@ -28,6 +28,7 @@ try {
     const packageJson = JSON.parse(readProjectFile("package.json"));
     const identity = readProjectFile("src/config/buildIdentity.js");
     const openFolder = readProjectFile("src/components/OpenFolder.jsx");
+    const templatePanel = readProjectFile("src/components/TemplateDocumentPanel.jsx");
     const photoBrowser = readProjectFile("src/components/PhotoBrowserSection.jsx");
     const photoBrowserModel = readProjectFile("src/services/PhotoBrowserModel.js");
     const photoGroupingEngine = readProjectFile("src/services/PhotoGroupingEngine.js");
@@ -125,6 +126,12 @@ try {
     check(openFolder.includes("Open Designer Manually →"), "manual Designer shortcut is not explicit");
     check(openFolder.includes("getPhotoDecision={designPhotoDecisionLookup}"), "Auto-Flow does not receive canonical photo decisions");
     check(photoBrowser.includes("Continue to Design →"), "reviewed Design entry action is missing");
+    check(openFolder.includes("Create Album Draft"), "primary Design draft action is missing");
+    check(openFolder.includes('aria-expanded={manualSpreadToolsOpen}'), "manual spread disclosure is missing");
+    check(openFolder.includes("manualSpreadToolsOpen &&"), "manual spread tools are not collapsed by default");
+    check(templatePanel.includes('aria-expanded={advancedExecutionOpen}'), "advanced execution disclosure is missing");
+    check(templatePanel.includes("advancedExecutionOpen &&"), "advanced execution controls are not collapsed by default");
+    check(templatePanel.indexOf("Process Project") < templatePanel.indexOf("Advanced Execution"), "production processing is not presented before advanced execution");
     check(projectService.includes('"photoEventChapters"'), "project metadata validation omits manual events");
     check(plan.includes("Manual event chapters"), "manual event chapter implementation record is missing");
     check(plan.includes("Reception membership restored"), "manual event runtime persistence evidence is missing");
@@ -139,6 +146,8 @@ try {
     check(plan.includes("Go to Designer** command remains an intentional manual"), "explicit Designer shortcut boundary is missing");
     check(plan.includes("Design entry source clarity"), "Design entry source implementation record is missing");
     check(plan.includes("never falls back from Kept Photos to unrated photos"), "strict Auto-Flow source boundary is missing");
+    check(plan.includes("Design primary-action hierarchy"), "Design hierarchy implementation record is missing");
+    check(plan.includes("Advanced Execution** disclosure"), "advanced execution boundary is missing");
     check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");

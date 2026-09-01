@@ -416,10 +416,36 @@ same data.
 This unit does not create spreads, change selections, rewrite source photos, or
 alter existing album sheets. The production bundle reloaded through Adobe UXP
 Developer Tools with **Plugin Reload Successful** on 2026-09-01; this was a
-load-only runtime check with no fixture mutation. The next bounded unit is the
-first ALB-135.4 Design hierarchy pass: make Smart Auto-Flow the clear primary
-layout action and separate manual spread construction, print output, and
-execution diagnostics.
+load-only runtime check with no fixture mutation.
+
+#### Design primary-action hierarchy
+
+The Design workspace now leads with **Create Album Draft**, which opens the
+existing deterministic Smart Auto-Flow review. Manual construction remains
+fully available behind **Add Spread Manually**; its spread ID and PSD-template
+controls are collapsed until explicitly requested. **Print & Proof** remains a
+separate output action and stays unavailable until at least one spread exists.
+
+Production execution now appears before developer-level controls. **Process
+Project** and the current **Render Sheet** action remain directly reachable,
+while Build Execution Dry Run, Execute Replacement, and Replace All move behind
+one collapsed **Advanced Execution** disclosure. Opening or closing either
+disclosure does not run Photoshop, create a spread, or change project metadata.
+The controls keep their existing eligibility, busy, preflight, cancellation,
+and recovery gates.
+
+Layered neon glow and hover-lift overrides were reduced at the same time so
+active, selected, and primary states rely on color, border, and weight rather
+than competing effects. This keeps the hierarchy calmer and preserves the
+candidate's enforced 740 KiB production ceiling.
+
+The completed bundle reloaded through Adobe UXP Developer Tools with **Plugin
+Reload Successful** on 2026-09-01. This was a load-only runtime check; no
+Design action, Photoshop execution, spread mutation, or project save ran.
+
+This completes the first ALB-135.4 hierarchy pass. The next bounded unit is
+template-registry and output/recovery clarity: simplify template rows and keep
+normal Design state compact while retaining actionable failure diagnostics.
 
 ## Approved product-workflow foundation
 

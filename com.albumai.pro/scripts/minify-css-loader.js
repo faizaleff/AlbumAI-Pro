@@ -52,7 +52,35 @@ function minifyCss(source) {
         output += character;
     }
 
-    return output.trim();
+    return compactCssValues(output.trim());
+}
+
+function compactCssValues(input) {
+    const compact = value => value
+        .replace(/(^|[:(, ])-?0(?:px|em|rem|vh|vw|vmin|vmax|%|s|ms|deg)(?=([,;) }!]|$))/g, "$10")
+        .replace(/(^|[:(, ])(-?)0\.(\d+)/g, "$1$2.$3")
+        .replace(/(^|[:(, ])#([0-9a-fA-F])\2([0-9a-fA-F])\3([0-9a-fA-F])\4\b/g, "$1#$2$3$4");
+    let result = "";
+    let start = 0;
+    let quote = null;
+    let escaped = false;
+    for (let index = 0; index < input.length; index += 1) {
+        const character = input[index];
+        if (!quote && (character === '"' || character === "'")) {
+            result += compact(input.slice(start, index));
+            start = index;
+            quote = character;
+        } else if (quote) {
+            if (escaped) escaped = false;
+            else if (character === "\\") escaped = true;
+            else if (character === quote) {
+                result += input.slice(start, index + 1);
+                start = index + 1;
+                quote = null;
+            }
+        }
+    }
+    return result + compact(input.slice(start));
 }
 
 function minifyCssLoader(source) {

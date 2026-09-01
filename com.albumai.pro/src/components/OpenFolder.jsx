@@ -70,6 +70,7 @@ export default function OpenFolder() {
     const [albumSheetRenderBusy, setAlbumSheetRenderBusy] = useState(false);
     const [isAutoFlowModalOpen, setIsAutoFlowModalOpen] = useState(false);
     const [isPrintProofModalOpen, setIsPrintProofModalOpen] = useState(false);
+    const [manualSpreadToolsOpen, setManualSpreadToolsOpen] = useState(false);
     const unavailableDiagnosticRef = useRef(null);
     const mountedRef = useRef(true);
     const photoFolderChangeAttemptRef = useRef(0);
@@ -158,6 +159,7 @@ export default function OpenFolder() {
         setSortReviewStatus({ ready: false, unassignedCount: 0 });
         setCullReviewStatus({ ready: false, kept: 0, unrated: 0 });
         setDesignerEntryMode(null);
+        setManualSpreadToolsOpen(false);
         refreshRegisteredTemplates();
     }, [projectId, refreshRegisteredTemplates]);
 
@@ -1479,34 +1481,8 @@ export default function OpenFolder() {
                                         </span>
                                     </div>
 
-                                    <div className="album-workspace-action-row" style={{ marginBottom: 10 }}>
-                                        <div className="album-workspace-action-group">
-                                            <input
-                                                value={albumSheetId}
-                                                onChange={event => setAlbumSheetId(event.target.value)}
-                                                placeholder="Spread ID (e.g. Spread_1)"
-                                                disabled={albumMutationLocked || albumMutationBusy}
-                                            />
-                                            <select
-                                                value={albumTemplateId || registeredTemplates[0]?.id || ""}
-                                                onChange={event => setAlbumTemplateId(event.target.value)}
-                                                disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                            >
-                                                {!registeredTemplates.length && <option value="">No templates registered</option>}
-                                                {registeredTemplates.map(template => (
-                                                    <option key={template.id} value={template.id}>
-                                                        {template.name || template.fileName || template.id}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <button
-                                                onClick={addAlbumSheet}
-                                                disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                            >
-                                                + Add Spread
-                                            </button>
-                                        </div>
-                                        <div className="album-workspace-action-group">
+                                    <div className="album-workspace-action-row design-primary-actions" style={{ marginBottom: 10 }}>
+                                        <div className="album-workspace-action-group album-workspace-action-group--primary">
                                             <button
                                                 type="button"
                                                 className="album-autoflow-btn"
@@ -1520,7 +1496,15 @@ export default function OpenFolder() {
                                                             : "Open Smart Auto-Flow Engine"
                                                 }
                                             >
-                                                ⚡ Smart Auto-Flow
+                                                Create Album Draft
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-expanded={manualSpreadToolsOpen}
+                                                onClick={() => setManualSpreadToolsOpen(value => !value)}
+                                                disabled={albumMutationLocked || albumMutationBusy}
+                                            >
+                                                {manualSpreadToolsOpen ? "Hide Manual Tools" : "Add Spread Manually"}
                                             </button>
                                             <button
                                                 type="button"
@@ -1535,10 +1519,41 @@ export default function OpenFolder() {
                                                             : "Open Print Export & PDF Proofing Suite"
                                                 }
                                             >
-                                                🖨 Print & Proof
+                                                Print & Proof
                                             </button>
                                         </div>
                                     </div>
+
+                                    {manualSpreadToolsOpen && (
+                                        <div className="album-workspace-action-row design-manual-spread-tools" style={{ marginBottom: 10 }}>
+                                            <div className="album-workspace-action-group">
+                                                <input
+                                                    value={albumSheetId}
+                                                    onChange={event => setAlbumSheetId(event.target.value)}
+                                                    placeholder="Spread ID (e.g. Spread_1)"
+                                                    disabled={albumMutationLocked || albumMutationBusy}
+                                                />
+                                                <select
+                                                    value={albumTemplateId || registeredTemplates[0]?.id || ""}
+                                                    onChange={event => setAlbumTemplateId(event.target.value)}
+                                                    disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
+                                                >
+                                                    {!registeredTemplates.length && <option value="">No templates registered</option>}
+                                                    {registeredTemplates.map(template => (
+                                                        <option key={template.id} value={template.id}>
+                                                            {template.name || template.fileName || template.id}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    onClick={addAlbumSheet}
+                                                    disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
+                                                >
+                                                    Add Spread
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {!registeredTemplates.length && (
                                         <div style={{ fontSize: 12, color: "#e3b341", padding: 6, background: "rgba(227, 179, 65, 0.1)", borderRadius: 4 }}>

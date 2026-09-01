@@ -69,6 +69,9 @@ try {
     check(webpack.includes('path.resolve(__dirname, "scripts/minify-css-loader.js")'), "production CSS minifier is not wired");
     check(minifyCss('a::before { content: "a /* keep */ b"; }') === 'a::before{content:"a /* keep */ b"}', "CSS minifier changes quoted content");
     check(minifyCss("/* drop */ .a { color: red; }") === ".a{color:red}", "CSS minifier does not collapse comments and syntax");
+    check(minifyCss(".a { margin: 0px 0rem; transform: rotate(0deg); }") === ".a{margin:0 0;transform:rotate(0)}", "CSS minifier does not remove zero-value units");
+    check(minifyCss(".a { color: #ffffff; background: #aabbcc; }") === ".a{color:#fff;background:#abc}", "CSS minifier does not shorten compatible hex colors");
+    check(minifyCss('.a::before { content: "#ffffff 0px 0.5"; opacity: 0.5; }') === '.a::before{content:"#ffffff 0px 0.5";opacity:.5}', "CSS value compaction changes quoted content");
     check(minifiedCss.length < css.length - 10000, "CSS minifier does not provide meaningful headroom");
     check((minifiedCss.match(/{/g) || []).length === (minifiedCss.match(/}/g) || []).length, "minified stylesheet braces are unbalanced");
     check(bundle.length <= MAX_BUNDLE_BYTES, "candidate bundle exceeds 740 KiB");
