@@ -1111,7 +1111,7 @@ export default function OpenFolder() {
                 <div className="workspace-brand-group">
                     <span className="workspace-brand-mark" aria-hidden="true">AI</span>
                     <span className="workspace-brand-title">
-                        AlbumAI Pro
+                        AlbumAI Pro ·
                     </span>
                     <span className={`workspace-project-badge ${hasProject ? "active" : ""}`}>
                         {hasProject ? project.metadata.name : `v${ALBUMAI_VERSION}`}

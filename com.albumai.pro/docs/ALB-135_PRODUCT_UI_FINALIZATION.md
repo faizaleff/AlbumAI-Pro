@@ -511,6 +511,16 @@ Photoshop's panel drag has not produced a stable on-screen floating surface in
 this workspace, and Marketplace screenshot capture remains intentionally
 deferred until the permanent logo and final visual approval.
 
+A second controlled floating-tab attempt moved AlbumAI out of the captured
+Photoshop workspace again; **Bring All to Front** did not surface a separately
+measurable panel, while **Reset Essentials** restored the dock immediately.
+The preferred dock check also exposed UXP compressing the brand group's flex
+gap, which could visually join the product name and a long project badge. The
+header now renders the explicit `AlbumAI Pro · project` boundary. The final
+757,756-byte production bundle reloaded with **Plugin Reload Successful**, and
+REC005 reopened at the preferred dock width with the product and project labels
+unambiguously separated. No render, save, or output action ran.
+
 ## Approved product-workflow foundation
 
 The pre-implementation prototype review selected one progressive six-step

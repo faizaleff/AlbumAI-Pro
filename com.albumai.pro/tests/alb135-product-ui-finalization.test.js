@@ -162,10 +162,13 @@ try {
     check(plan.includes("ALB-135.5 responsive runtime qualification"), "responsive runtime qualification record is missing");
     check(plan.includes("approximately 320 pixels"), "minimum-dock runtime evidence is missing");
     check(plan.includes("#1 · filename · Ready"), "template-row runtime clarity evidence is missing");
+    check(plan.includes("AlbumAI Pro · project"), "brand/project runtime clarity evidence is missing");
+    check(plan.includes("Bring All to Front** did not surface"), "floating-panel limitation evidence is missing");
     check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");
     check(openFolder.includes("workspace-brand-mark"), "compact workspace brand mark is missing");
+    check(openFolder.includes("AlbumAI Pro ·"), "product name is not visually separated from the project badge");
     check(styles.includes(".workspace-brand-title,\n    .workspace-project-badge"), "minimum-dock brand compaction is missing");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
     check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");
