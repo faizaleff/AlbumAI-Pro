@@ -106,6 +106,10 @@ try {
         path.join(PROJECT_ROOT, "marketplace/LISTING_COPY_DRAFT.md"),
         "utf8"
     );
+    const supportPlan = fs.readFileSync(
+        path.join(PROJECT_ROOT, "marketplace/SUPPORT_LEGAL_AND_MEDIA_PLAN.md"),
+        "utf8"
+    );
 
     check(live.status === "BLOCKED", "live Marketplace state must fail closed");
     check(live.currentVersion === "1.2.1", "Marketplace candidate version differs");
@@ -142,6 +146,12 @@ try {
     check(listingDraft.includes(config.listing.subtitle), "listing subtitle differs from readiness data");
     check(listingDraft.includes("Productivity"), "proposed category is missing from listing draft");
     check(/does not require a third-party\s+service/.test(listingDraft), "offline service posture is missing");
+    check(supportPlan.includes("planning only — no public pages or Marketplace media approved"), "support plan boundary missing");
+    check(supportPlan.includes("public support email: **UNDECIDED**"), "support-email decision is inferred");
+    check(supportPlan.includes("commerce mode: **UNDECIDED**"), "commerce decision is inferred");
+    check(supportPlan.includes("Final Marketplace screenshots will not be captured"), "screenshot deferral is missing");
+    check(supportPlan.includes("exactly 1360x800 pixels"), "screenshot dimensions are missing");
+    check(supportPlan.includes("temporary Option 3 icon remains candidate-test artwork only"), "temporary-logo boundary is missing");
 
     const requiredGate = childProcess.spawnSync(
         process.execPath,

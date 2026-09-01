@@ -1,6 +1,6 @@
 # ALB-134 — Adobe Marketplace Readiness
 
-Status: **in progress — candidate icon assets and listing-copy draft generated**
+Status: **in progress — candidate assets, listing copy, and support/legal plan generated**
 
 Date: 2026-09-01
 
@@ -95,6 +95,14 @@ It describes only repository-qualified behavior, keeps the offline posture
 explicit, and makes no generative-AI or third-party-service claim. The proposed
 `Productivity` category must still be confirmed against the live Console
 choices. Copy approval remains separate from Adobe upload or submission.
+
+## Support, legal, and media plan
+
+`marketplace/SUPPORT_LEGAL_AND_MEDIA_PLAN.md` records the remaining factual
+decisions without inventing an email address, public URL, commerce model,
+publisher identity, or legal approval. Final screenshot capture is explicitly
+deferred until both the product UI and permanent logo are approved. The future
+shot list is planning evidence only, so `SCREENSHOTS_INVALID` remains blocked.
 
 ## Delivery slices
 
