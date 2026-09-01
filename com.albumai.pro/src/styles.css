@@ -73,6 +73,58 @@ html, body {
     scrollbar-width: auto;
 }
 
+.photo-workflow-intro {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid #282c35;
+    background: #101318;
+}
+
+.photo-workflow-kicker {
+    display: block;
+    margin-bottom: 3px;
+    color: #8b949e;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.photo-workflow-intro h2 {
+    margin: 0;
+    color: #f0f3f6;
+    font-size: 18px;
+    line-height: 1.25;
+}
+
+.photo-workflow-intro-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    color: #8b949e;
+    font-size: 11px;
+    text-align: right;
+}
+
+.photo-workflow-mode-note {
+    padding: 5px 8px;
+    border: 1px solid #30363d;
+}
+
+.photo-workflow-mode-note strong {
+    color: #f0f3f6;
+}
+
+.photo-workflow-mode-note em {
+    color: #d2a8ff;
+    font-style: normal;
+}
+
 .photo-browser-control {
     flex: 0 0 auto;
     min-width: 0;
@@ -619,6 +671,18 @@ button.photo-browser-control:active:not(:disabled) {
 }
 
 @media (max-width: 720px) {
+    .photo-workflow-intro {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px 8px;
+    }
+
+    .photo-workflow-intro-actions {
+        justify-content: flex-start;
+        text-align: left;
+    }
+
     .album-workspace-action-group,
     .template-action-group {
         flex-basis: 100%;

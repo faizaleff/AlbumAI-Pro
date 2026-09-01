@@ -583,6 +583,23 @@ The production bundle remained within the release ceiling at **756,018 bytes**;
 the full regression suite, 162 focused ALB-135 assertions, architecture checks,
 and active-file coverage all passed.
 
+#### Import and Sort screen hierarchy alignment
+
+Import and Sort now expose the prototype's step kicker, plain-language screen
+title, photo/selection summary, and one clear forward action. Import provides
+**Continue to Sort** after photos are available. Sort is titled **Build the
+shooting sequence** and keeps the implemented base sorting, multi-camera clock
+correction, event chapters, and manual visual reordering beneath it. Its mode
+summary explicitly labels AI story building as **Future** instead of presenting
+an unavailable automatic action. Culling-only controls no longer compete on the
+Import and Sort screens.
+
+After a successful production build and plugin reload, both screens were checked
+in the compact Photoshop dock using the REC005 disposable fixture. Import showed
+the new primary handoff; activating it displayed the Sort title and bounded
+Manual/AI-story mode summary. No photo order, event assignment, project output,
+or Photoshop document content was changed during this visual check.
+
 ### Story ordering and multi-camera work
 
 - Sort must support an automatic base order followed by persistent visual

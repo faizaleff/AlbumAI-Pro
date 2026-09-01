@@ -103,6 +103,7 @@ function PhotoBrowserSection({
     loadingPhotoCount = 0,
     photoFolderChange = null,
     workflowStep = 1,
+    onContinueToSort,
     onSortStatusChange,
     onContinueToCull,
     onCullStatusChange,
@@ -912,6 +913,36 @@ function PhotoBrowserSection({
 
     return (
         <section className="photo-browser-shell" aria-label="Photo browser">
+            <div className="photo-workflow-intro">
+                <div>
+                    <span className="photo-workflow-kicker">Step {workflowStep} of 6</span>
+                    <h2>
+                        {workflowStep === 1
+                            ? "Import photos"
+                            : workflowStep === 2
+                                ? "Build the shooting sequence"
+                                : "Review and cull photos"}
+                    </h2>
+                </div>
+                <div className="photo-workflow-intro-actions">
+                    <span>{photos.length} {photos.length === 1 ? "photo" : "photos"} · {selectedCount} selected</span>
+                    {workflowStep === 1 && photos.length > 0 && (
+                        <button
+                            type="button"
+                            className="photo-browser-control photo-browser-primary-button"
+                            onClick={onContinueToSort}
+                        >
+                            Continue to Sort →
+                        </button>
+                    )}
+                    {workflowStep === 2 && (
+                        <span className="photo-workflow-mode-note">
+                            <strong>Manual</strong> · AI story <em>Future</em>
+                        </span>
+                    )}
+                </div>
+            </div>
+
             {/* Primary Action Bar (Row 1) */}
             <div className="photo-browser-toolbar" role="toolbar" aria-label="Primary photo controls">
                 {/* 1. View / Source Group */}
@@ -1356,7 +1387,7 @@ function PhotoBrowserSection({
             )}
 
             {/* Workflow & Filter Toolbar (Row 2) */}
-            {photos.length > 0 && (
+            {photos.length > 0 && workflowStep === 3 && (
                 <div className="photo-culling-toolbar" role="toolbar" aria-label="Workflow and filter controls">
                     {/* 1. Culling Workflow Group */}
                     <div className="photo-culling-pills" aria-label="Culling workflow">

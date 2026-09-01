@@ -182,6 +182,13 @@ try {
     check(styles.includes(".workspace-project-group {\n        display: none;"), "compact-dock project compaction is missing");
     check(styles.includes("border-bottom-color: #58a6ff"), "prototype active-tab underline is missing");
     check(styles.includes(".wizard-step-bar {\n    display: flex;"), "workflow tabs do not use the UXP-safe flex layout");
+    check(photoBrowser.includes('className="photo-workflow-intro"'), "prototype Import/Sort screen heading hierarchy is missing");
+    check(photoBrowser.includes('"Import photos"'), "Import screen title is missing");
+    check(photoBrowser.includes('"Build the shooting sequence"'), "Sort screen title is missing");
+    check(photoBrowser.includes("Continue to Sort →"), "Import-to-Sort primary handoff is missing");
+    check(photoBrowser.includes("AI story <em>Future</em>"), "future AI story provision is not visibly bounded");
+    check(photoBrowser.includes("photos.length > 0 && workflowStep === 3"), "culling controls are not isolated to the Cull step");
+    check(styles.includes(".photo-workflow-intro"), "Import/Sort screen heading styling is missing");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
     check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");
     check(!openFolder.includes("<span>✨ AlbumAI Pro</span>"), "legacy emoji product title remains");

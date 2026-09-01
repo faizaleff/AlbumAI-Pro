@@ -1293,6 +1293,7 @@ export default function OpenFolder() {
                                     )
                                 }}
                                 workflowStep={wizardStep}
+                                onContinueToSort={() => handleWizardStepClick(2)}
                                 onSortStatusChange={setSortReviewStatus}
                                 onContinueToCull={() => handleWizardStepClick(3)}
                                 onCullStatusChange={setCullReviewStatus}
