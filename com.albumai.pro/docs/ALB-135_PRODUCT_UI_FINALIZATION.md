@@ -278,9 +278,6 @@ remain respected. The saved current order stays path-free and restores across
 project reopen; the temporary undo stack intentionally starts fresh after a
 reload or photo-library change.
 
-The next bounded Sort unit is a clearer unassigned-photo review and manual
-chapter membership workflow before future AI event proposals are introduced.
-
 Live Photoshop runtime verification on 2026-09-01 confirmed that the compact
 panel shows Undo, Redo, Reset, and Use Date Taken without clipping. Selecting
 all six REC005 photos changed the guidance to **move all 6 together**; Reset
@@ -294,6 +291,28 @@ To preserve the existing 740 KiB release ceiling, this unit also removed
 unreachable legacy `photo-thumbnail-card`, wizard connector, and wizard banner
 styles. The active `modern-studio-card` and current workspace controls were
 visually rechecked in Photoshop after that cleanup.
+
+#### Unassigned-photo review and chapter membership
+
+Manual Event chapters now expose assignment completeness directly in the Sort
+workbench. The chapter panel reports assigned and unassigned totals, while
+**View Unassigned** filters the grid to photos still outside every manual event.
+**Select Unassigned** opens the same review and selects that complete set for a
+one-click move into any chapter through its existing **Add selected** action.
+The event strip also keeps a dedicated Unassigned count visible, so missing
+story membership cannot be mistaken for a complete reviewed sequence.
+
+**Remove selected** reverses a manual membership without deleting, renaming, or
+reordering a chapter. Removed photos return to Unassigned in their current
+library/story order. The operation reuses normalized `p1-…` identities, retains
+the one-photo/one-chapter invariant, saves through `photoEventChapters`, and
+does not write source files or EXIF metadata. Empty named chapters remain valid
+for a story structure that the operator intends to fill later.
+
+This completes the deterministic membership-review loop before future AI event
+proposals are introduced. The next bounded Sort unit is safe chapter lifecycle
+editing—delete an empty chapter and merge reviewed chapters without losing or
+duplicating photo membership.
 
 The ALB-130/131 historical size assertions now inspect the immutable v1.2.0
 bundle inside its published release ZIP instead of incorrectly measuring the

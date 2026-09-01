@@ -272,6 +272,31 @@ export function assignPhotosToEventChapter(
     }, photos);
 }
 
+export function removePhotosFromEventChapters(
+    value,
+    selectedPhotos = [],
+    photos = null
+) {
+    const current = normalizePhotoEventChapters(value, photos);
+    const selectedKeys = new Set(selectedPhotos.map(photoDecisionKey).filter(Boolean));
+    if (!selectedKeys.size) return current;
+    return normalizePhotoEventChapters({
+        items: current.items.map(item => ({
+            ...item,
+            photoKeys: item.photoKeys.filter(key => !selectedKeys.has(key))
+        }))
+    }, photos);
+}
+
+export function findUnassignedPhotoEventChapterPhotos(value, photos = []) {
+    const availablePhotos = Array.isArray(photos) ? photos : [];
+    const current = normalizePhotoEventChapters(value, availablePhotos);
+    const assignedKeys = new Set(current.items.flatMap(item => item.photoKeys));
+    return Object.freeze(availablePhotos.filter(
+        photo => !assignedKeys.has(photoDecisionKey(photo))
+    ));
+}
+
 function normalizedDecision(item) {
     if (!item || typeof item !== "object" || Array.isArray(item)) return null;
     const photoKey = typeof item.photoKey === "string" &&

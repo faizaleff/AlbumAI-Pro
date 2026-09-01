@@ -22,9 +22,11 @@ import {
 import {
     assignPhotosToEventChapter,
     createPhotoEventChapter,
+    findUnassignedPhotoEventChapterPhotos,
     movePhotoEventChapter,
     normalizePhotoEventChapters,
     photoDecisionKey,
+    removePhotosFromEventChapters,
     renamePhotoEventChapter
 } from "../src/services/PhotoBrowserModel";
 import {
@@ -335,6 +337,21 @@ export async function runAlb071Tests() {
         const secondPhotoKey = photoDecisionKey(photos[1]);
         check(!reassigned.items[0].photoKeys.includes(secondPhotoKey), "Reassignment removes a photo from its old event");
         check(reassigned.items[1].photoKeys.includes(secondPhotoKey), "Reassignment adds a photo to the target event");
+
+        const unassignedBeforeRemoval = findUnassignedPhotoEventChapterPhotos(
+            reassigned,
+            photos
+        );
+        check(unassignedBeforeRemoval.length === 0, "Every chapter member is excluded from the unassigned review");
+
+        const removed = removePhotosFromEventChapters(
+            reassigned,
+            [photos[1]],
+            photos
+        );
+        check(!removed.items.some(item => item.photoKeys.includes(secondPhotoKey)), "Removing membership clears the selected photo from every event");
+        check(findUnassignedPhotoEventChapterPhotos(removed, photos)[0] === photos[1], "Removed membership returns the photo to the unassigned review in library order");
+        check(reassigned.items[1].photoKeys.includes(secondPhotoKey), "Removing membership does not mutate the prior chapter model");
 
         const moved = movePhotoEventChapter(reassigned, "chapter-2", "up", photos);
         check(moved.items[0].chapterId === "chapter-2", "Manual events can move earlier");

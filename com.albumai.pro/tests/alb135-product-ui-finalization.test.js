@@ -102,9 +102,15 @@ try {
     check(photoBrowser.includes("handleMoveEventChapter"), "manual event reorder is not connected");
     check(photoBrowserModel.includes("normalizePhotoEventChapters"), "manual event normalization is missing");
     check(photoBrowserModel.includes("assignPhotosToEventChapter"), "manual event photo assignment is missing");
+    check(photoBrowserModel.includes("findUnassignedPhotoEventChapterPhotos"), "unassigned event-photo review is missing");
+    check(photoBrowserModel.includes("removePhotosFromEventChapters"), "manual event membership removal is missing");
+    check(photoBrowser.includes("Select Unassigned"), "unassigned-photo selection action is missing");
+    check(photoBrowser.includes("Remove selected"), "manual event membership removal action is missing");
     check(projectService.includes('"photoEventChapters"'), "project metadata validation omits manual events");
     check(plan.includes("Manual event chapters"), "manual event chapter implementation record is missing");
     check(plan.includes("Reception membership restored"), "manual event runtime persistence evidence is missing");
+    check(plan.includes("Unassigned-photo review and chapter membership"), "unassigned-photo workflow record is missing");
+    check(plan.includes("one-photo/one-chapter invariant"), "manual chapter membership safety boundary is missing");
     check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");

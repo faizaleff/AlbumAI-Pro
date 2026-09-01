@@ -14,6 +14,7 @@ import {
     assignPhotosToEventChapter,
     createPhotoDecisionLookup,
     createPhotoEventChapter,
+    findUnassignedPhotoEventChapterPhotos,
     hasActivePhotoBrowserFilters,
     movePhotosInStoryOrder,
     normalizePhotoDecisions,
@@ -22,6 +23,7 @@ import {
     normalizePhotoStoryOrder,
     photoDecisionKey,
     queryPhotoBrowser,
+    removePhotosFromEventChapters,
     movePhotoEventChapter,
     renamePhotoEventChapter,
     updatePhotoDecision
@@ -80,6 +82,8 @@ const PHOTO_SORT_OPTIONS = Object.freeze([
     Object.freeze({ value: "rating", label: "Rating" }),
     Object.freeze({ value: "size", label: "File Size" })
 ]);
+
+const MANUAL_UNASSIGNED_EVENT_ID = "manual-unassigned";
 
 function PhotoBrowserSection({
     photos,
@@ -193,13 +197,20 @@ function PhotoBrowserSection({
         if (!correctedPhotos.length) return [];
         return groupPhotosByEvent(correctedPhotos);
     }, [correctedPhotos]);
+    const unassignedEventPhotos = useMemo(
+        () => findUnassignedPhotoEventChapterPhotos(
+            eventChapters,
+            correctedPhotos
+        ),
+        [correctedPhotos, eventChapters]
+    );
     const visibleEvents = useMemo(() => {
         if (!eventChapters.items.length) return smartEvents;
         const photoIdByKey = new Map(correctedPhotos.map(photo => [
             photoDecisionKey(photo),
             photo.id
         ]));
-        return eventChapters.items.map(chapter => {
+        const manualEvents = eventChapters.items.map(chapter => {
             const photoIds = chapter.photoKeys
                 .map(key => photoIdByKey.get(key))
                 .filter(Boolean);
@@ -211,7 +222,18 @@ function PhotoBrowserSection({
                 manual: true
             });
         });
-    }, [correctedPhotos, eventChapters, smartEvents]);
+        return Object.freeze([
+            ...manualEvents,
+            Object.freeze({
+                eventId: MANUAL_UNASSIGNED_EVENT_ID,
+                label: "Unassigned",
+                photoIds: Object.freeze(unassignedEventPhotos.map(photo => photo.id)),
+                count: unassignedEventPhotos.length,
+                manual: true,
+                unassigned: true
+            })
+        ]);
+    }, [correctedPhotos, eventChapters, smartEvents, unassignedEventPhotos]);
 
     const queryResult = useMemo(
         () => queryPhotoBrowser(correctedPhotos, preferences, {
@@ -411,6 +433,25 @@ function PhotoBrowserSection({
             correctedPhotos
         ));
     }, [commitEventChapters, correctedPhotos, eventChapters, selectedChapterPhotos]);
+
+    const handleRemoveEventChapterAssignment = useCallback(() => {
+        const selected = selectedChapterPhotos();
+        if (!selected.length) return;
+        commitEventChapters(removePhotosFromEventChapters(
+            eventChapters,
+            selected,
+            correctedPhotos
+        ));
+        setSelectedEventId(MANUAL_UNASSIGNED_EVENT_ID);
+    }, [commitEventChapters, correctedPhotos, eventChapters, selectedChapterPhotos]);
+
+    const handleReviewUnassigned = useCallback(selectPhotos => {
+        setSelectedEventId(MANUAL_UNASSIGNED_EVENT_ID);
+        if (!selectPhotos || !unassignedEventPhotos.length) return;
+        App.selection.setOrderedPhotos(unassignedEventPhotos);
+        setCanonicalBrowserPhotos(unassignedEventPhotos);
+        App.selection.selectAll();
+    }, [unassignedEventPhotos]);
 
     const handleCameraCorrection = useCallback((cameraKey, value) => {
         const next = updateCameraClockOffset(
@@ -1048,6 +1089,41 @@ function PhotoBrowserSection({
                             + New Event{selectedCount ? ` from ${selectedCount} selected` : ""}
                         </button>
                     </div>
+                    {eventChapters.items.length > 0 && (
+                        <div className="photo-event-membership-review" role="status">
+                            <span>
+                                <strong>{photos.length - unassignedEventPhotos.length}</strong> assigned · {" "}
+                                <strong>{unassignedEventPhotos.length}</strong> unassigned
+                            </span>
+                            <div className="photo-event-membership-actions">
+                                <button
+                                    type="button"
+                                    className="photo-browser-control"
+                                    onClick={() => handleReviewUnassigned(false)}
+                                    disabled={!unassignedEventPhotos.length}
+                                >
+                                    View Unassigned
+                                </button>
+                                <button
+                                    type="button"
+                                    className="photo-browser-control"
+                                    onClick={() => handleReviewUnassigned(true)}
+                                    disabled={!unassignedEventPhotos.length}
+                                >
+                                    Select Unassigned
+                                </button>
+                                <button
+                                    type="button"
+                                    className="photo-browser-control"
+                                    onClick={handleRemoveEventChapterAssignment}
+                                    disabled={!selectedCount}
+                                    title="Remove the selected photos from their current event"
+                                >
+                                    Remove selected
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     {eventChapters.items.length ? (
                         <div className="photo-event-chapter-list">
                             {eventChapters.items.map((chapter, index) => (
@@ -1145,7 +1221,7 @@ function PhotoBrowserSection({
                             onClick={() => setSelectedEventId(selectedEventId === evt.eventId ? "" : evt.eventId)}
                             title={`${evt.manual ? "Manual event" : `Event ${idx + 1}`}: ${evt.count} photos`}
                         >
-                            {evt.label} ({evt.count})
+                            {evt.unassigned ? "⚠ " : ""}{evt.label} ({evt.count})
                         </button>
                     ))}
                     {detectedCameras.length > 1 && (
