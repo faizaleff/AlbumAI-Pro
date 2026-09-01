@@ -32,7 +32,6 @@ import {
     upgradePhotoFolderChangeForRecovery
 } from "./photoFolderChangeMessages";
 import {
-    WIZARD_STEPS,
     computeCompletedSteps,
     canNavigateToStep,
     resolveWizardNavigation,
@@ -41,6 +40,13 @@ import {
 import { createPhotoDecisionLookup } from "../services/PhotoBrowserModel";
 import { CullingStatus, normalizeCullingStatus } from "../services/PhotoCullingService";
 import { ALBUMAI_VERSION } from "../config/buildIdentity";
+
+const WORKSPACE_TABS = [
+    { id: 1, label: "Photos", targetStep: 1 },
+    { id: 2, label: "Enhance", targetStep: 4 },
+    { id: 3, label: "Design", targetStep: 5 },
+    { id: 4, label: "Export", targetStep: 6 }
+];
 
 export default function OpenFolder() {
 
@@ -89,7 +95,7 @@ export default function OpenFolder() {
     });
     const [designerEntryMode, setDesignerEntryMode] = useState(null);
     const activeWorkspaceMode = workspaceModeForWizardStep(wizardStep);
-    const activeWizardStep = WIZARD_STEPS.find(step => step.id === wizardStep) || WIZARD_STEPS[0];
+    const activeWorkspaceTab = wizardStep <= 3 ? WORKSPACE_TABS[0] : WORKSPACE_TABS[wizardStep - 3];
 
     PhotoBrowserPerformance.recordRender("OpenFolder");
     const project = App.project.getProject();
@@ -1091,23 +1097,14 @@ export default function OpenFolder() {
                         </div>
 
                         <div className="workspace-workflow-group">
-                            <span className="workspace-step-context">
-                                Step {activeWizardStep.id} of {WIZARD_STEPS.length} · {activeWizardStep.label}
-                            </span>
                             <nav className="wizard-step-bar" role="tablist" aria-label="Album workflow">
-                                {WIZARD_STEPS.map(step => {
-                                    const isActive = step.id === wizardStep;
-                                    const isCompleted = wizardCompletedSteps?.has(step.id);
-                                    const isClickable = canNavigateToStep(wizardStep, step.id, wizardCompletedSteps);
+                                {WORKSPACE_TABS.map(tab => {
+                                    const targetStep = tab.id === 1 && wizardStep > 3 ? 3 : tab.targetStep;
+                                    const completionStep = tab.id === 1 ? 3 : tab.targetStep;
+                                    const isActive = tab.id === activeWorkspaceTab.id;
+                                    const isCompleted = wizardCompletedSteps?.has(completionStep);
+                                    const isClickable = tab.id === 1 || canNavigateToStep(wizardStep, targetStep, wizardCompletedSteps);
                                     const isLocked = !isClickable && !isActive && !isCompleted;
-                                    const lockedTitle = step.id === 3 && sortReviewStatus.unassignedCount
-                                        ? `Assign ${sortReviewStatus.unassignedCount} unassigned photos before Cull`
-                                        : step.id >= 4 && cullReviewStatus.unrated
-                                            ? `Review ${cullReviewStatus.unrated} unrated photos before Enhance`
-                                            : step.id >= 4 && !cullReviewStatus.kept
-                                                ? "Keep at least 1 photo before Enhance"
-                                                : `Complete Step ${step.id - 1} first`;
-
                                     let cls = "wizard-step";
                                     if (isActive) cls += " wizard-step--active";
                                     if (isCompleted) cls += " wizard-step--completed";
@@ -1115,19 +1112,19 @@ export default function OpenFolder() {
 
                                     return (
                                         <button
-                                            key={step.id}
+                                            key={tab.id}
                                             type="button"
                                             className={cls}
-                                            onClick={() => handleWizardStepClick(step.id)}
+                                            onClick={() => handleWizardStepClick(targetStep)}
                                             disabled={isLocked}
                                             title={isLocked
-                                                ? lockedTitle
-                                                : `${step.id}. ${step.label} (${step.description})`}
+                                                ? "Complete Photos before continuing"
+                                                : `${tab.id}. ${tab.label}`}
                                             aria-current={isActive ? "step" : undefined}
                                             aria-selected={isActive}
                                             role="tab"
                                         >
-                                            <span className="wizard-step-label">{step.id} · {step.label}</span>
+                                            <span className="wizard-step-label">{tab.id} · {tab.label}</span>
                                         </button>
                                     );
                                 })}
@@ -1220,6 +1217,14 @@ export default function OpenFolder() {
                                     )
                                 }}
                                 workflowStep={wizardStep}
+                                onSelectPhotoStage={handleWizardStepClick}
+                                photoStageUnlocked={{
+                                    sort: workspacePhotos.length > 0,
+                                    cull: sortReviewStatus.ready
+                                }}
+                                photoStageLockedReason={sortReviewStatus.unassignedCount
+                                    ? `Assign ${sortReviewStatus.unassignedCount} unassigned photos before Cull`
+                                    : "Complete Sort before Cull"}
                                 onContinueToSort={() => handleWizardStepClick(2)}
                                 onSortStatusChange={setSortReviewStatus}
                                 onContinueToCull={() => handleWizardStepClick(3)}
@@ -1271,7 +1276,7 @@ export default function OpenFolder() {
                         <section className="enhance-workspace-card">
                             <header className="enhance-workspace-header">
                                 <div>
-                                    <span>Step 4 of 6</span>
+                                    <span>Step 2 of 4</span>
                                     <h2>Enhance selected photos</h2>
                                 </div>
                                 <strong>Future AI</strong>
@@ -1319,7 +1324,7 @@ export default function OpenFolder() {
                             <>
                                 <header className="design-workspace-heading">
                                     <div>
-                                        <span>Step 5 of 6</span>
+                                        <span>Step 3 of 4</span>
                                         <h2>Design album sheets</h2>
                                     </div>
                                     <span className="design-mode-note"><strong>Manual</strong> · AI-assisted <em>Future</em></span>
@@ -1584,7 +1589,7 @@ export default function OpenFolder() {
                         <section className="export-workspace-card">
                             <header>
                                 <div>
-                                    <span>Step 6 of 6</span>
+                                    <span>Step 4 of 4</span>
                                     <h2>Export the album</h2>
                                 </div>
                                 <strong>{album?.sheets?.length ? `${album.sheets.length} sheets` : "Setup needed"}</strong>

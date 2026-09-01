@@ -626,14 +626,28 @@ shows an honest Future AI provision for color correction, portrait retouch,
 background extension, and object removal, with no fake active controls and a
 clear non-destructive approval boundary.
 
-Design now opens with a Step 5 heading and a concise **Manual · AI-assisted
+Design now opens with a Step 3 heading and a concise **Manual · AI-assisted
 Future** mode summary. The existing template management, manual spread tools,
 advanced execution, and output settings retain their disclosures. Print & Proof
 no longer competes with Design actions. Export owns that workflow through a
-Step 6 preflight summary and one primary **Open Export Settings** action. Photo
+Step 4 preflight summary and one primary **Open Export Settings** action. Photo
 ratings, favourites, and Keep/Reject badges render only in Cull, leaving Import
 and Sort focused on selection and sequence. The production bundle remains below
 the release ceiling at **757,374 bytes** and 185 focused ALB-135 assertions pass.
+
+#### Four-tab workflow consolidation
+
+The visible product workflow is now four primary tabs: **Photos → Enhance →
+Design → Export**. Import, Sort, and Cull remain distinct safe internal stages,
+but they are arranged as one compact segmented workflow inside Photos instead
+of consuming three primary navigation tabs. Existing navigation gates, saved
+story order, event chapters, culling decisions, and the transition into Enhance
+continue to use the qualified internal stage model.
+
+Photos always remains reachable. Sort unlocks after photos are imported, Cull
+unlocks after the Sort review is ready, and Enhance remains locked until the
+photo workflow has an approved kept set. The production bundle remains within
+the release ceiling at **757,717 bytes**, with 188 focused ALB-135 assertions.
 
 ### Story ordering and multi-camera work
 

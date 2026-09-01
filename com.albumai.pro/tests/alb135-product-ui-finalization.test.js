@@ -127,7 +127,7 @@ try {
     check(openFolder.includes("groupsReviewed: sortReviewStatus.ready"), "workflow completion ignores Sort review status");
     check(openFolder.includes("unassigned photos before Cull"), "locked Cull guidance omits unassigned photos");
     check(openFolder.includes("cullReviewStatus.ready ? cullReviewStatus.kept : 0"), "workflow completion ignores canonical Cull review status");
-    check(openFolder.includes("unrated photos before Enhance"), "locked Enhance guidance omits unrated photos");
+    check(openFolder.includes("Complete Photos before continuing"), "locked main-tab guidance is missing");
     check(openFolder.includes("Reviewed Cull source"), "reviewed Design source summary is missing");
     check(openFolder.includes("Manual Designer entry"), "manual Designer entry warning is missing");
     check(!openFolder.includes("Open Designer Manually →"), "Import screen still bypasses the guided workflow");
@@ -205,14 +205,17 @@ try {
     check(openFolder.includes('className="export-workspace-card"'), "Export screen hierarchy is missing");
     check(openFolder.includes("Open Export Settings"), "Export primary action is missing");
     check(photoBrowser.includes("decisionControlsVisible={workflowStep === 3}"), "photo decision controls are visible outside Cull");
-    check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
+    check(openFolder.includes("WORKSPACE_TABS.map"), "four-tab navigation is missing");
+    check(openFolder.includes('{ id: 1, label: "Photos", targetStep: 1 }'), "combined Photos tab is missing");
+    check(openFolder.includes('{ id: 4, label: "Export", targetStep: 6 }'), "four-tab Export mapping is missing");
+    check(photoBrowser.includes('className="photo-stage-switch"'), "Import/Sort/Cull segmented workflow is missing");
     check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");
     check(!openFolder.includes("<span>✨ AlbumAI Pro</span>"), "legacy emoji product title remains");
     check(!openFolder.includes("wizard-step-connector"), "legacy workflow connectors remain rendered");
     check(styles.includes(".workspace-top-bar {\n    display: flex;"), "UXP-safe workspace-shell flex layout is missing");
     check(styles.includes("flex: 0 0 auto;\n    flex-wrap: nowrap;"), "workspace header can collapse in the UXP flex root");
     check(!styles.includes("grid-template-columns: minmax(170px, auto) minmax(260px, 1fr) auto"), "unsupported workspace-shell grid remains");
-    check(styles.includes(".workspace-step-context"), "responsive active-step styling is missing");
+    check(styles.includes(".photo-stage-switch"), "responsive photo-stage navigation is missing");
     check(styles.includes(".workspace-quick-btn--primary"), "primary header action styling is missing");
     check(panelController.includes("create(rootNode)"), "Manifest v5 panel create signature is missing");
     check(panelController.includes("rootNode.appendChild(this[_root])"), "panel content is not attached during create");

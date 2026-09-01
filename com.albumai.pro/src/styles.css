@@ -83,14 +83,23 @@ html, body {
     background: #101318;
 }
 
-.photo-workflow-kicker {
-    display: block;
-    margin-bottom: 3px;
+.photo-stage-switch {
+    display: flex;
+    padding: 8px 16px 0;
+}
+
+.photo-stage-switch button {
+    flex: 1 1 0;
+    padding: 7px 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
     color: #8b949e;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+}
+
+.photo-stage-switch button.is-active {
+    border-bottom-color: #58a6ff;
+    color: #f0f3f6;
 }
 
 .photo-workflow-intro h2 {
@@ -2588,13 +2597,6 @@ button.photo-browser-control:active:not(:disabled) {
     border-top: 1px solid #282c35;
 }
 
-.workspace-step-context {
-    display: none;
-    color: #8b949e;
-    font-size: 11px;
-    white-space: nowrap;
-}
-
 .workspace-quick-btn {
     padding: 4px 10px;
     font-size: 11px;
@@ -2906,12 +2908,6 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
         margin: 0 -8px !important;
         padding: 0 8px !important;
         gap: 0 !important;
-    }
-
-    .workspace-step-context {
-        display: block !important;
-        padding: 4px 0 1px !important;
-        text-align: center !important;
     }
 
     .wizard-step-bar {

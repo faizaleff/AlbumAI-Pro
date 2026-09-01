@@ -103,6 +103,9 @@ function PhotoBrowserSection({
     loadingPhotoCount = 0,
     photoFolderChange = null,
     workflowStep = 1,
+    onSelectPhotoStage,
+    photoStageUnlocked = {},
+    photoStageLockedReason = "",
     onContinueToSort,
     onSortStatusChange,
     onContinueToCull,
@@ -913,9 +916,28 @@ function PhotoBrowserSection({
 
     return (
         <section className="photo-browser-shell" aria-label="Photo browser">
+            <nav className="photo-stage-switch" role="tablist" aria-label="Photo workflow">
+                {[
+                    [1, "Import", true],
+                    [2, "Sort", photoStageUnlocked.sort],
+                    [3, "Cull", photoStageUnlocked.cull]
+                ].map(([step, label, unlocked]) => (
+                    <button
+                        key={step}
+                        type="button"
+                        role="tab"
+                        aria-selected={workflowStep === step}
+                        className={workflowStep === step ? "is-active" : ""}
+                        disabled={!unlocked}
+                        title={!unlocked && step === 3 ? photoStageLockedReason : undefined}
+                        onClick={() => onSelectPhotoStage?.(step)}
+                    >
+                        {label}
+                    </button>
+                ))}
+            </nav>
             <div className="photo-workflow-intro">
                 <div>
-                    <span className="photo-workflow-kicker">Step {workflowStep} of 6</span>
                     <h2>
                         {workflowStep === 1
                             ? "Import photos"
