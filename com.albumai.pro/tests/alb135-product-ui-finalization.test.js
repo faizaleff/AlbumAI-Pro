@@ -106,10 +106,15 @@ try {
     check(photoBrowserModel.includes("removePhotosFromEventChapters"), "manual event membership removal is missing");
     check(photoBrowserModel.includes("deleteEmptyPhotoEventChapter"), "safe empty-event deletion is missing");
     check(photoBrowserModel.includes("mergePhotoEventChapters"), "safe event merging is missing");
+    check(photoBrowserModel.includes("summarizePhotoEventChapterReview"), "Sort completion summary is missing");
     check(photoBrowser.includes("Select Unassigned"), "unassigned-photo selection action is missing");
     check(photoBrowser.includes("Remove selected"), "manual event membership removal action is missing");
     check(photoBrowser.includes("Delete empty"), "empty-event deletion action is missing");
     check(photoBrowser.includes("Merge ↑"), "merge-with-previous action is missing");
+    check(photoBrowser.includes("Sort incomplete"), "incomplete Sort warning is missing");
+    check(photoBrowser.includes("Continue to Cull →"), "Sort-to-Cull handoff is missing");
+    check(openFolder.includes("groupsReviewed: sortReviewStatus.ready"), "workflow completion ignores Sort review status");
+    check(openFolder.includes("unassigned photos before Cull"), "locked Cull guidance omits unassigned photos");
     check(projectService.includes('"photoEventChapters"'), "project metadata validation omits manual events");
     check(plan.includes("Manual event chapters"), "manual event chapter implementation record is missing");
     check(plan.includes("Reception membership restored"), "manual event runtime persistence evidence is missing");
@@ -117,6 +122,8 @@ try {
     check(plan.includes("one-photo/one-chapter invariant"), "manual chapter membership safety boundary is missing");
     check(plan.includes("Safe chapter lifecycle editing"), "chapter lifecycle implementation record is missing");
     check(plan.includes("retains the preceding\nchapter's identity and name"), "safe merge identity boundary is missing");
+    check(plan.includes("Sort completion and Cull handoff"), "Sort completion implementation record is missing");
+    check(plan.includes("does not infer completion from photo presence alone"), "Sort completion safety rule is missing");
     check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");

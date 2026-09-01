@@ -29,6 +29,7 @@ import {
     normalizePhotoEventChapters,
     photoDecisionKey,
     removePhotosFromEventChapters,
+    summarizePhotoEventChapterReview,
     renamePhotoEventChapter
 } from "../src/services/PhotoBrowserModel";
 import {
@@ -382,6 +383,14 @@ export async function runAlb071Tests() {
         check(merged.items[0].photoKeys.length === 3, "Merging preserves every unique photo membership");
         check(new Set(merged.items[0].photoKeys).size === 3, "Merging cannot duplicate photo membership");
         check(reassigned.items.length === 2, "Merging does not mutate prior state");
+
+        const automaticReview = summarizePhotoEventChapterReview({}, photos);
+        check(automaticReview.ready && !automaticReview.manual, "Automatic event groups provide the deterministic Sort fallback");
+        const incompleteReview = summarizePhotoEventChapterReview(first, photos);
+        check(!incompleteReview.ready && incompleteReview.unassignedCount === 1, "Manual Sort remains incomplete while a photo is unassigned");
+        const completeReview = summarizePhotoEventChapterReview(reassigned, photos);
+        check(completeReview.ready && completeReview.assignedCount === 3, "Manual Sort completes when every photo has one event membership");
+        check(Object.isFrozen(completeReview), "Sort completion summary is immutable");
 
         const moved = movePhotoEventChapter(reassigned, "chapter-2", "up", photos);
         check(moved.items[0].chapterId === "chapter-2", "Manual events can move earlier");

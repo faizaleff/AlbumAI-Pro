@@ -26,6 +26,7 @@ import {
     photoDecisionKey,
     queryPhotoBrowser,
     removePhotosFromEventChapters,
+    summarizePhotoEventChapterReview,
     movePhotoEventChapter,
     renamePhotoEventChapter,
     updatePhotoDecision
@@ -100,7 +101,10 @@ function PhotoBrowserSection({
     onChangePhotoFolder,
     isLoading = false,
     loadingPhotoCount = 0,
-    photoFolderChange = null
+    photoFolderChange = null,
+    workflowStep = 1,
+    onSortStatusChange,
+    onContinueToCull
 }) {
 
     const canChangePhotoFolder = canStartPhotoFolderChange({
@@ -206,6 +210,10 @@ function PhotoBrowserSection({
         ),
         [correctedPhotos, eventChapters]
     );
+    const sortReview = useMemo(
+        () => summarizePhotoEventChapterReview(eventChapters, correctedPhotos),
+        [correctedPhotos, eventChapters]
+    );
     const visibleEvents = useMemo(() => {
         if (!eventChapters.items.length) return smartEvents;
         const photoIdByKey = new Map(correctedPhotos.map(photo => [
@@ -287,6 +295,10 @@ function PhotoBrowserSection({
             setSelectedEventId("");
         }
     }, [selectedEventId, visibleEvents]);
+
+    useEffect(() => {
+        onSortStatusChange?.(sortReview);
+    }, [onSortStatusChange, sortReview]);
 
     useEffect(() => {
         setPreferences(readSavedPreferences());
@@ -1277,6 +1289,31 @@ function PhotoBrowserSection({
                             📷 {detectedCameras.length} Cameras
                         </span>
                     )}
+                </div>
+            )}
+
+            {photos.length > 0 && workflowStep === 2 && (
+                <div className={`photo-sort-handoff${sortReview.ready ? " is-ready" : " has-warning"}`} role="status">
+                    <span>
+                        <strong>{sortReview.ready ? "Sort ready" : "Sort incomplete"}</strong> · {sortReview.manual
+                            ? sortReview.ready
+                                ? `All ${sortReview.assignedCount} photos are assigned across ${sortReview.chapterCount} events.`
+                                : `${sortReview.unassignedCount} ${sortReview.unassignedCount === 1 ? "photo is" : "photos are"} still unassigned.`
+                            : "Automatic event groups are active; manual chapters are optional."}
+                    </span>
+                    <button
+                        type="button"
+                        className="photo-browser-control"
+                        onClick={() => {
+                            if (sortReview.ready) onContinueToCull?.();
+                            else {
+                                setEventChaptersOpen(true);
+                                handleReviewUnassigned(false);
+                            }
+                        }}
+                    >
+                        {sortReview.ready ? "Continue to Cull →" : "Review Unassigned"}
+                    </button>
                 </div>
             )}
 

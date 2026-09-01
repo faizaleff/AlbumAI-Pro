@@ -326,6 +326,23 @@ export function findUnassignedPhotoEventChapterPhotos(value, photos = []) {
     ));
 }
 
+export function summarizePhotoEventChapterReview(value, photos = []) {
+    const availablePhotos = Array.isArray(photos) ? photos : [];
+    const current = normalizePhotoEventChapters(value, availablePhotos);
+    const unassignedCount = findUnassignedPhotoEventChapterPhotos(
+        current,
+        availablePhotos
+    ).length;
+    const manual = current.items.length > 0;
+    return Object.freeze({
+        ready: availablePhotos.length > 0 && (!manual || unassignedCount === 0),
+        manual,
+        chapterCount: current.items.length,
+        assignedCount: availablePhotos.length - unassignedCount,
+        unassignedCount
+    });
+}
+
 function normalizedDecision(item) {
     if (!item || typeof item !== "object" || Array.isArray(item)) return null;
     const photoKey = typeof item.photoKey === "string" &&

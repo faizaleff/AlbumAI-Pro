@@ -76,6 +76,10 @@ export default function OpenFolder() {
     const photoFolderChangeProjectIdRef = useRef(null);
     const [, forceRefresh] = useState(0);
     const [wizardStep, setWizardStep] = useState(1);
+    const [sortReviewStatus, setSortReviewStatus] = useState({
+        ready: false,
+        unassignedCount: 0
+    });
     const activeWorkspaceMode = workspaceModeForWizardStep(wizardStep);
     const activeWizardStep = WIZARD_STEPS.find(step => step.id === wizardStep) || WIZARD_STEPS[0];
 
@@ -114,7 +118,7 @@ export default function OpenFolder() {
     const wizardCompletedSteps = computeCompletedSteps({
         photoCount: workspacePhotos.length,
         analysisComplete: workspacePhotos.length > 0,
-        groupsReviewed: workspacePhotos.length > 0,
+        groupsReviewed: sortReviewStatus.ready,
         keptPhotoCount,
         placedPhotoCount,
         exportComplete: false
@@ -139,6 +143,7 @@ export default function OpenFolder() {
         setAlbumSheetLabel("");
         setAlbumDuplicateId("");
         setAlbumMutationError(null);
+        setSortReviewStatus({ ready: false, unassignedCount: 0 });
         refreshRegisteredTemplates();
     }, [projectId, refreshRegisteredTemplates]);
 
@@ -1122,7 +1127,11 @@ export default function OpenFolder() {
                                             className={cls}
                                             onClick={() => handleWizardStepClick(step.id)}
                                             disabled={isLocked}
-                                            title={isLocked ? `Complete Step ${step.id - 1} first` : `${step.id}. ${step.label} (${step.description})`}
+                                            title={isLocked
+                                                ? step.id === 3 && sortReviewStatus.unassignedCount
+                                                    ? `Assign ${sortReviewStatus.unassignedCount} unassigned photos before Cull`
+                                                    : `Complete Step ${step.id - 1} first`
+                                                : `${step.id}. ${step.label} (${step.description})`}
                                             aria-current={isActive ? "step" : undefined}
                                         >
                                             <span className="wizard-step-icon" aria-hidden="true">
@@ -1348,6 +1357,9 @@ export default function OpenFolder() {
                                         previous => ({ ...previous, clearRecovery: accepted })
                                     )
                                 }}
+                                workflowStep={wizardStep}
+                                onSortStatusChange={setSortReviewStatus}
+                                onContinueToCull={() => handleWizardStepClick(3)}
                             />
                         </div>
 

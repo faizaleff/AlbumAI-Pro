@@ -336,6 +336,35 @@ deleted and no unsupported visual-runtime claim is recorded. Delete/merge
 behavior is covered by immutable ALB-071 domain tests and ALB-135 render-contract
 checks; a physical compact-dock click-through remains an operator smoke check.
 
+#### Sort completion and Cull handoff
+
+Sort now publishes one deterministic completion summary to the workspace
+workflow. When no manual chapters exist, the existing automatic event groups
+remain the ready fallback. Once an operator creates manual chapters, Sort is
+complete only when every current library photo belongs to exactly one chapter.
+The shared immutable summary reports ready/manual state plus chapter, assigned,
+and unassigned counts; it does not infer completion from photo presence alone.
+
+While Step 2 is active, a compact handoff banner explains the current state.
+An incomplete manual Sort shows the exact unassigned count and opens the
+Unassigned review instead of advancing. A ready automatic or manual Sort shows
+**Continue to Cull →**. The top Cull step uses this same readiness result and,
+when locked, identifies the number of photos that must still be assigned.
+
+This closes the deterministic Sort-to-Cull checkpoint without making manual
+chapters mandatory. Future AI event proposals can write into the same chapter
+model and inherit the same review gate. The next bounded workflow unit is a
+clear Cull completion summary and safe Design handoff, including visibility of
+remaining unrated photos before the operator advances.
+
+Before this unit, the active bundle had only 42 bytes of size headroom. Verified
+unreferenced workspace-mode, retired card-control, and inspector alias styles
+were removed before adding the handoff. This recovered several kilobytes
+without changing active `modern-studio-card`, workflow, or inspector selectors.
+The completed production bundle reloaded through Adobe UXP Developer Tools with
+**Plugin Reload Successful** on 2026-09-01; no project or photo metadata was
+mutated during this load-only runtime check.
+
 The ALB-130/131 historical size assertions now inspect the immutable v1.2.0
 bundle inside its published release ZIP instead of incorrectly measuring the
 active v1.2.1 development bundle. The current candidate still retains its own
