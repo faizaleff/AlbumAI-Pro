@@ -91,6 +91,15 @@ try {
     check(jpegRenderer.includes("cameraMake"), "JPEG camera make extraction is missing");
     check(jpegRenderer.includes("cameraModel"), "JPEG camera model extraction is missing");
     check(projectService.includes('"cameraClockOffsets"'), "project metadata validation omits camera corrections");
+    check(photoBrowser.includes("Event chapters"), "manual event chapter UI is missing");
+    check(photoBrowser.includes("handleCreateEventChapter"), "manual event creation is not connected");
+    check(photoBrowser.includes("handleRenameEventChapter"), "manual event rename is not connected");
+    check(photoBrowser.includes("handleMoveEventChapter"), "manual event reorder is not connected");
+    check(photoBrowserModel.includes("normalizePhotoEventChapters"), "manual event normalization is missing");
+    check(photoBrowserModel.includes("assignPhotosToEventChapter"), "manual event photo assignment is missing");
+    check(projectService.includes('"photoEventChapters"'), "project metadata validation omits manual events");
+    check(plan.includes("Manual event chapters"), "manual event chapter implementation record is missing");
+    check(plan.includes("Reception membership restored"), "manual event runtime persistence evidence is missing");
     check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");

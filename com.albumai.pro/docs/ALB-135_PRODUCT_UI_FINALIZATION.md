@@ -225,16 +225,43 @@ photo records and JPEG metadata remain untouched. Reset all removes every saved
 correction. Missing camera EXIF is handled as one visible **Primary Camera**
 group so the deterministic/manual workflow remains available.
 
-The next bounded Sort unit is operator-authored event chapters with persistent
-rename/reorder controls. Future AI story drafting may consume corrected time as
-supporting evidence, but visual/location/outfit/event evidence remains necessary
-and the proposal stays review-only.
+Future AI story drafting may consume corrected time as supporting evidence, but
+visual/location/outfit/event evidence remains necessary and the proposal stays
+review-only.
 
 Live Photoshop runtime verification on 2026-09-01 used the six-photo REC005
 fixture in the compact dock. Camera Times opened without hiding its guidance or
 input, a `+8` minute Primary Camera correction saved as one normalized project
 metadata item, and both the active-count badge and value restored after plugin
 reload plus project reopen. The source JPEGs were not written or renamed.
+
+#### Manual event chapters
+
+The Sort workbench now supports operator-authored **Event chapters** alongside
+automatic time groups. An operator can select photos, create an event, rename
+it, move it earlier or later in the wedding story, and move another selection
+into it. Creating the first manual chapter switches the event strip to the
+reviewed manual sequence; before that, automatic time groups remain available.
+
+Chapter membership uses the same path-free stable `p1-…` photo identities as
+manual story order. A photo belongs to at most one manual event, stale photo
+memberships are removed when the library changes, and empty named chapters are
+retained. The normalized model is immutable, limited to 200 chapters, and saves
+under `photoEventChapters` in project metadata. Source photos, EXIF, and folder
+order are never modified.
+
+This completes the first manual event-sequencing foundation. Future AI event
+drafting can propose chapters using corrected time plus scene, location, people,
+and outfit continuity, then write into the same reviewable model without
+replacing the deterministic/manual path. The next bounded Sort unit is
+multi-photo story moves plus undo/redo/reset for manual ordering.
+
+Live Photoshop runtime verification on 2026-09-01 used the six-photo REC005
+fixture in the compact dock. Two chapters were created, renamed to **Reception**
+and **Ceremony**, reordered, and displayed in the same order in the event strip.
+After plugin reload and project reopen, both names, the order, and the six-photo
+Reception membership restored from project metadata. The fixture intentionally
+retains these two review chapters as runtime evidence.
 
 The ALB-130/131 historical size assertions now inspect the immutable v1.2.0
 bundle inside its published release ZIP instead of incorrectly measuring the

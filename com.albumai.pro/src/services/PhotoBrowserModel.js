@@ -1,6 +1,7 @@
 export const PHOTO_BROWSER_PREFERENCES_SCHEMA = 1;
 export const PHOTO_DECISIONS_SCHEMA = 1;
 export const PHOTO_STORY_ORDER_SCHEMA = 1;
+export const PHOTO_EVENT_CHAPTERS_SCHEMA = 1;
 
 const SORT_FIELDS = new Set([
     "name",
@@ -32,6 +33,8 @@ const DATE_FIELDS = new Set([
 ]);
 const MAX_SEARCH_LENGTH = 160;
 const MAX_PHOTO_DECISIONS = 20000;
+const MAX_EVENT_CHAPTERS = 200;
+const MAX_EVENT_CHAPTER_NAME_LENGTH = 80;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function boundedString(value, maximum = MAX_SEARCH_LENGTH) {
@@ -138,6 +141,124 @@ export function movePhotoInStoryOrder(
     keys.splice(sourceIndex, 1);
     keys.splice(keys.indexOf(targetKey), 0, sourceKey);
     return normalizePhotoStoryOrder({ items: keys }, ordered);
+}
+
+function normalizedEventChapterName(value, fallback) {
+    const name = boundedString(value, MAX_EVENT_CHAPTER_NAME_LENGTH);
+    return name || fallback;
+}
+
+export function normalizePhotoEventChapters(value = {}, photos = null) {
+    const source = value && typeof value === "object" && !Array.isArray(value)
+        ? value
+        : {};
+    const available = Array.isArray(photos)
+        ? new Set(photos.map(photoDecisionKey).filter(Boolean))
+        : null;
+    const claimedPhotoKeys = new Set();
+    const seenChapterIds = new Set();
+    const items = [];
+
+    for (const candidate of Array.isArray(source.items)
+        ? source.items.slice(0, MAX_EVENT_CHAPTERS)
+        : []) {
+        const chapterId = typeof candidate?.chapterId === "string"
+            ? candidate.chapterId.trim()
+            : "";
+        if (!/^chapter-[1-9][0-9]{0,5}$/.test(chapterId) ||
+            seenChapterIds.has(chapterId)) continue;
+        seenChapterIds.add(chapterId);
+
+        const photoKeys = [];
+        for (const photoKey of Array.isArray(candidate.photoKeys)
+            ? candidate.photoKeys.slice(0, MAX_PHOTO_DECISIONS)
+            : []) {
+            if (!/^p1-[0-9a-f]{16}$/.test(photoKey || "") ||
+                claimedPhotoKeys.has(photoKey) ||
+                (available && !available.has(photoKey))) continue;
+            claimedPhotoKeys.add(photoKey);
+            photoKeys.push(photoKey);
+        }
+        items.push(Object.freeze({
+            chapterId,
+            name: normalizedEventChapterName(
+                candidate.name,
+                `Event ${items.length + 1}`
+            ),
+            photoKeys: Object.freeze(photoKeys)
+        }));
+    }
+
+    return Object.freeze({
+        schemaVersion: PHOTO_EVENT_CHAPTERS_SCHEMA,
+        items: Object.freeze(items)
+    });
+}
+
+export function createPhotoEventChapter(value, selectedPhotos = [], photos = null) {
+    const current = normalizePhotoEventChapters(value, photos);
+    const nextNumber = current.items.reduce((maximum, item) => {
+        const number = Number(item.chapterId.slice("chapter-".length));
+        return Math.max(maximum, Number.isFinite(number) ? number : 0);
+    }, 0) + 1;
+    const chapterId = `chapter-${nextNumber}`;
+    const selectedKeys = new Set(selectedPhotos.map(photoDecisionKey).filter(Boolean));
+    const items = current.items.map(item => ({
+        ...item,
+        photoKeys: item.photoKeys.filter(key => !selectedKeys.has(key))
+    }));
+    items.push({
+        chapterId,
+        name: `Event ${items.length + 1}`,
+        photoKeys: [...selectedKeys]
+    });
+    return normalizePhotoEventChapters({ items }, photos);
+}
+
+export function renamePhotoEventChapter(value, chapterId, name, photos = null) {
+    const current = normalizePhotoEventChapters(value, photos);
+    return normalizePhotoEventChapters({
+        items: current.items.map((item, index) => item.chapterId === chapterId
+            ? {
+                ...item,
+                name: normalizedEventChapterName(name, `Event ${index + 1}`)
+            }
+            : item)
+    }, photos);
+}
+
+export function movePhotoEventChapter(value, chapterId, direction, photos = null) {
+    const current = normalizePhotoEventChapters(value, photos);
+    const items = current.items.map(item => ({ ...item, photoKeys: [...item.photoKeys] }));
+    const sourceIndex = items.findIndex(item => item.chapterId === chapterId);
+    const delta = direction === "up" || Number(direction) < 0 ? -1 : 1;
+    const targetIndex = sourceIndex + delta;
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= items.length) {
+        return current;
+    }
+    const [moved] = items.splice(sourceIndex, 1);
+    items.splice(targetIndex, 0, moved);
+    return normalizePhotoEventChapters({ items }, photos);
+}
+
+export function assignPhotosToEventChapter(
+    value,
+    chapterId,
+    selectedPhotos = [],
+    photos = null
+) {
+    const current = normalizePhotoEventChapters(value, photos);
+    if (!current.items.some(item => item.chapterId === chapterId)) return current;
+    const selectedKeys = new Set(selectedPhotos.map(photoDecisionKey).filter(Boolean));
+    return normalizePhotoEventChapters({
+        items: current.items.map(item => ({
+            ...item,
+            photoKeys: [
+                ...item.photoKeys.filter(key => !selectedKeys.has(key)),
+                ...(item.chapterId === chapterId ? selectedKeys : [])
+            ]
+        }))
+    }, photos);
 }
 
 function normalizedDecision(item) {

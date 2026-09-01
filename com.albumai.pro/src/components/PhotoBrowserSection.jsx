@@ -11,14 +11,19 @@ import UxpDropdown from "./UxpDropdown";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import {
     applyPhotoStoryOrder,
+    assignPhotosToEventChapter,
     createPhotoDecisionLookup,
+    createPhotoEventChapter,
     hasActivePhotoBrowserFilters,
     movePhotoInStoryOrder,
     normalizePhotoDecisions,
     normalizePhotoBrowserPreferences,
+    normalizePhotoEventChapters,
     normalizePhotoStoryOrder,
     photoDecisionKey,
     queryPhotoBrowser,
+    movePhotoEventChapter,
+    renamePhotoEventChapter,
     updatePhotoDecision
 } from "../services/PhotoBrowserModel";
 import {
@@ -128,6 +133,13 @@ function PhotoBrowserSection({
     );
     const [cameraTimesOpen, setCameraTimesOpen] = useState(false);
     const [cameraClockError, setCameraClockError] = useState(null);
+    const readSavedEventChapters = () => normalizePhotoEventChapters(
+        App.project.getProject()?.metadata?.photoEventChapters,
+        photos
+    );
+    const [eventChapters, setEventChapters] = useState(readSavedEventChapters);
+    const [eventChaptersOpen, setEventChaptersOpen] = useState(false);
+    const [eventChapterError, setEventChapterError] = useState(null);
     const [decisions, setDecisions] = useState(
         () => normalizePhotoDecisions(App.getPhotoDecisions())
     );
@@ -177,6 +189,25 @@ function PhotoBrowserSection({
         if (!correctedPhotos.length) return [];
         return groupPhotosByEvent(correctedPhotos);
     }, [correctedPhotos]);
+    const visibleEvents = useMemo(() => {
+        if (!eventChapters.items.length) return smartEvents;
+        const photoIdByKey = new Map(correctedPhotos.map(photo => [
+            photoDecisionKey(photo),
+            photo.id
+        ]));
+        return eventChapters.items.map(chapter => {
+            const photoIds = chapter.photoKeys
+                .map(key => photoIdByKey.get(key))
+                .filter(Boolean);
+            return Object.freeze({
+                eventId: chapter.chapterId,
+                label: chapter.name,
+                photoIds: Object.freeze(photoIds),
+                count: photoIds.length,
+                manual: true
+            });
+        });
+    }, [correctedPhotos, eventChapters, smartEvents]);
 
     const queryResult = useMemo(
         () => queryPhotoBrowser(correctedPhotos, preferences, {
@@ -201,11 +232,11 @@ function PhotoBrowserSection({
     );
     const visiblePhotos = useMemo(() => {
         if (!selectedEventId) return culledPhotos;
-        const targetEvent = smartEvents.find(e => e.eventId === selectedEventId);
+        const targetEvent = visibleEvents.find(e => e.eventId === selectedEventId);
         if (!targetEvent) return culledPhotos;
         const allowed = new Set(targetEvent.photoIds);
         return culledPhotos.filter(p => allowed.has(p.id));
-    }, [culledPhotos, selectedEventId, smartEvents]);
+    }, [culledPhotos, selectedEventId, visibleEvents]);
 
     const filtersActive = hasActivePhotoBrowserFilters(preferences) || cullingFilter !== CullingFilterMode.ALL || Boolean(selectedEventId);
     const secondaryFilterCount = useMemo(() => [
@@ -222,12 +253,23 @@ function PhotoBrowserSection({
     );
 
     useEffect(() => {
+        if (selectedEventId && !visibleEvents.some(
+            event => event.eventId === selectedEventId
+        )) {
+            setSelectedEventId("");
+        }
+    }, [selectedEventId, visibleEvents]);
+
+    useEffect(() => {
         setPreferences(readSavedPreferences());
         setStoryOrder(readSavedStoryOrder());
         setStoryOrderError(null);
         setCameraClockOffsets(readSavedCameraClockOffsets());
         setCameraTimesOpen(false);
         setCameraClockError(null);
+        setEventChapters(readSavedEventChapters());
+        setEventChaptersOpen(false);
+        setEventChapterError(null);
         setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
         setDecisionError(null);
         setDuplicateEvidence(normalizePhotoDuplicateEvidence(
@@ -245,6 +287,10 @@ function PhotoBrowserSection({
         setCameraClockOffsets(previous => normalizeCameraClockOffsets(
             previous,
             detectCameras(photos)
+        ));
+        setEventChapters(previous => normalizePhotoEventChapters(
+            previous,
+            photos
         ));
         setDuplicateEvidence(normalizePhotoDuplicateEvidence(
             App.getPhotoDuplicateEvidence()
@@ -300,6 +346,65 @@ function PhotoBrowserSection({
             console.warn("Camera clock correction persistence:", error);
         });
     }, []);
+
+    const persistEventChapters = useCallback(value => {
+        App.saveProject({ photoEventChapters: value }, {
+            reason: "PHOTO_EVENT_CHAPTERS"
+        }).catch(error => {
+            setEventChapterError("Event chapters could not be saved.");
+            console.warn("Photo event chapter persistence:", error);
+        });
+    }, []);
+
+    const commitEventChapters = useCallback(value => {
+        setEventChapterError(null);
+        setEventChapters(value);
+        persistEventChapters(value);
+    }, [persistEventChapters]);
+
+    const selectedChapterPhotos = useCallback(() => {
+        const selectedIds = App.selection.selectedIds();
+        return correctedPhotos.filter(photo => selectedIds.has(photo.id));
+    }, [correctedPhotos]);
+
+    const handleCreateEventChapter = useCallback(() => {
+        const next = createPhotoEventChapter(
+            eventChapters,
+            selectedChapterPhotos(),
+            correctedPhotos
+        );
+        commitEventChapters(next);
+        setSelectedEventId(next.items[next.items.length - 1]?.chapterId || "");
+    }, [commitEventChapters, correctedPhotos, eventChapters, selectedChapterPhotos]);
+
+    const handleRenameEventChapter = useCallback((chapterId, name) => {
+        commitEventChapters(renamePhotoEventChapter(
+            eventChapters,
+            chapterId,
+            name,
+            correctedPhotos
+        ));
+    }, [commitEventChapters, correctedPhotos, eventChapters]);
+
+    const handleMoveEventChapter = useCallback((chapterId, direction) => {
+        commitEventChapters(movePhotoEventChapter(
+            eventChapters,
+            chapterId,
+            direction,
+            correctedPhotos
+        ));
+    }, [commitEventChapters, correctedPhotos, eventChapters]);
+
+    const handleAssignEventChapter = useCallback(chapterId => {
+        const selected = selectedChapterPhotos();
+        if (!selected.length) return;
+        commitEventChapters(assignPhotosToEventChapter(
+            eventChapters,
+            chapterId,
+            selected,
+            correctedPhotos
+        ));
+    }, [commitEventChapters, correctedPhotos, eventChapters, selectedChapterPhotos]);
 
     const handleCameraCorrection = useCallback((cameraKey, value) => {
         const next = updateCameraClockOffset(
@@ -772,6 +877,16 @@ function PhotoBrowserSection({
                     </button>
                     <button
                         type="button"
+                        onClick={() => setEventChaptersOpen(open => !open)}
+                        aria-expanded={eventChaptersOpen}
+                        aria-controls="photo-event-chapter-panel"
+                        className={`photo-browser-control photo-event-chapter-button${eventChaptersOpen ? " is-active" : ""}`}
+                        title="Create and arrange manual event chapters"
+                    >
+                        🗓 Events{eventChapters.items.length ? ` (${eventChapters.items.length})` : ""}
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => selectAllBrowserPhotos()}
                         disabled={!visiblePhotos.length}
                         className="photo-browser-control"
@@ -864,8 +979,103 @@ function PhotoBrowserSection({
                 </div>
             )}
 
+            {photos.length > 0 && eventChaptersOpen && (
+                <div
+                    id="photo-event-chapter-panel"
+                    className="photo-event-chapter-panel"
+                    aria-label="Manual event chapters"
+                >
+                    <div className="photo-event-chapter-heading">
+                        <div>
+                            <strong>Event chapters</strong>
+                            <span>Select photos, create a chapter, then rename or arrange it.</span>
+                        </div>
+                        <button
+                            type="button"
+                            className="photo-browser-control photo-event-create-button"
+                            onClick={handleCreateEventChapter}
+                        >
+                            + New Event{selectedCount ? ` from ${selectedCount} selected` : ""}
+                        </button>
+                    </div>
+                    {eventChapters.items.length ? (
+                        <div className="photo-event-chapter-list">
+                            {eventChapters.items.map((chapter, index) => (
+                                <div
+                                    key={chapter.chapterId}
+                                    className="photo-event-chapter-row"
+                                >
+                                    <span className="photo-event-chapter-order">{index + 1}</span>
+                                    <input
+                                        key={`${chapter.chapterId}:${chapter.name}`}
+                                        type="text"
+                                        defaultValue={chapter.name}
+                                        maxLength={80}
+                                        aria-label={`Name for event ${index + 1}`}
+                                        className="photo-event-chapter-name photo-browser-control"
+                                        onBlur={event => handleRenameEventChapter(
+                                            chapter.chapterId,
+                                            event.currentTarget.value
+                                        )}
+                                        onKeyDown={event => {
+                                            if (event.key === "Enter") {
+                                                event.currentTarget.blur?.();
+                                            }
+                                        }}
+                                    />
+                                    <span className="photo-event-chapter-count">
+                                        {chapter.photoKeys.length} {chapter.photoKeys.length === 1 ? "photo" : "photos"}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="photo-browser-control"
+                                        onClick={() => handleAssignEventChapter(chapter.chapterId)}
+                                        disabled={!selectedCount}
+                                        title="Move the selected photos into this event"
+                                    >
+                                        Add selected
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="photo-browser-control photo-event-order-button"
+                                        onClick={() => handleMoveEventChapter(chapter.chapterId, "up")}
+                                        disabled={index === 0}
+                                        aria-label={`Move ${chapter.name} earlier`}
+                                        title="Move earlier"
+                                    >
+                                        ↑
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="photo-browser-control photo-event-order-button"
+                                        onClick={() => handleMoveEventChapter(chapter.chapterId, "down")}
+                                        disabled={index === eventChapters.items.length - 1}
+                                        aria-label={`Move ${chapter.name} later`}
+                                        title="Move later"
+                                    >
+                                        ↓
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="photo-event-chapter-empty">
+                            Automatic time groups remain active until you create the first manual event.
+                        </div>
+                    )}
+                    <div className="photo-event-chapter-note" role="status">
+                        Each photo belongs to at most one manual event. Original files are unchanged.
+                    </div>
+                    {eventChapterError && (
+                        <div className="photo-story-order-error" role="alert">
+                            {eventChapterError}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Capture One Style Wedding Event Tabs */}
-            {photos.length > 0 && smartEvents.length > 1 && (
+            {photos.length > 0 && visibleEvents.length > 0 && (
                 <div
                     className="photo-event-strip"
                     style={{
@@ -897,7 +1107,7 @@ function PhotoBrowserSection({
                     >
                         All Events ({photos.length})
                     </button>
-                    {smartEvents.map((evt, idx) => (
+                    {visibleEvents.map((evt, idx) => (
                         <button
                             key={evt.eventId}
                             type="button"
@@ -910,7 +1120,7 @@ function PhotoBrowserSection({
                                 fontWeight: selectedEventId === evt.eventId ? 600 : 400,
                                 borderRadius: 14
                             }}
-                            title={`Event ${idx + 1}: ${evt.count} photos`}
+                            title={`${evt.manual ? "Manual event" : `Event ${idx + 1}`}: ${evt.count} photos`}
                         >
                             {evt.label} ({evt.count})
                         </button>

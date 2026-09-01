@@ -20,6 +20,14 @@ import {
     updateCameraClockOffset
 } from "../src/services/PhotoGroupingEngine";
 import {
+    assignPhotosToEventChapter,
+    createPhotoEventChapter,
+    movePhotoEventChapter,
+    normalizePhotoEventChapters,
+    photoDecisionKey,
+    renamePhotoEventChapter
+} from "../src/services/PhotoBrowserModel";
+import {
     PHOTO_AI_ANALYSIS_SCHEMA,
     PhotoAiAggregateStatus,
     PhotoAiProviderKind,
@@ -300,6 +308,42 @@ export async function runAlb071Tests() {
         check(normalized.items.length === 1, "Stale camera corrections are removed");
         check(normalized.items[0].correctionMinutes === 10080, "Corrections are bounded to seven days");
         check(Object.isFrozen(normalized.items), "Normalized camera corrections are immutable");
+    }
+
+    // Test 11: Persistent manual event chapters
+    {
+        const photos = [
+            { id: "event-photo-1", name: "001.jpg" },
+            { id: "event-photo-2", name: "002.jpg" },
+            { id: "event-photo-3", name: "003.jpg" }
+        ];
+        const first = createPhotoEventChapter({}, photos.slice(0, 2), photos);
+        check(first.items.length === 1, "A manual event chapter is created");
+        check(first.items[0].photoKeys.length === 2, "Selected photos seed the new event");
+        check(!JSON.stringify(first).includes("001.jpg"), "Event metadata does not contain filenames or paths");
+
+        const second = createPhotoEventChapter(first, [photos[2]], photos);
+        const renamed = renamePhotoEventChapter(second, "chapter-2", "Reception", photos);
+        check(renamed.items[1].name === "Reception", "A manual event can be renamed");
+
+        const reassigned = assignPhotosToEventChapter(
+            renamed,
+            "chapter-2",
+            [photos[1]],
+            photos
+        );
+        const secondPhotoKey = photoDecisionKey(photos[1]);
+        check(!reassigned.items[0].photoKeys.includes(secondPhotoKey), "Reassignment removes a photo from its old event");
+        check(reassigned.items[1].photoKeys.includes(secondPhotoKey), "Reassignment adds a photo to the target event");
+
+        const moved = movePhotoEventChapter(reassigned, "chapter-2", "up", photos);
+        check(moved.items[0].chapterId === "chapter-2", "Manual events can move earlier");
+        check(reassigned.items[0].chapterId === "chapter-1", "Event reordering does not mutate prior state");
+
+        const reconciled = normalizePhotoEventChapters(moved, [photos[0], photos[2]]);
+        check(reconciled.items.length === 2, "Empty event chapters survive photo reconciliation");
+        check(reconciled.items.every(item => !item.photoKeys.includes(secondPhotoKey)), "Unavailable photo memberships are removed");
+        check(Object.isFrozen(reconciled.items), "Normalized event chapters are immutable");
     }
 
     console.info(`PASS ALB-071: All assertions passed (${assertions} assertions).`);

@@ -646,6 +646,7 @@ export default class ProjectService {
             "photoDecisions",
             "photoBrowserPreferences",
             "photoStoryOrder",
+            "photoEventChapters",
             "cameraClockOffsets",
             "photoDuplicateEvidence"
         ]) {
