@@ -56,6 +56,19 @@ export async function runAlb082Tests() {
         const allNonRejected = filterPhotosForAutoFlow(photos, PhotoSourceMode.ALL_PHOTOS);
         check(allNonRejected.length === 3, "ALL_PHOTOS returns 3 non-rejected photos");
         check(!allNonRejected.some(p => p.id === "p2"), "Rejected photo omitted from ALL_PHOTOS");
+
+        const persistedDecision = photo => ({
+            culling: photo.id === "p2" ? CullingStatus.KEEP : CullingStatus.REJECT
+        });
+        const persistedKept = filterPhotosForAutoFlow(
+            photos,
+            PhotoSourceMode.KEPT_ONLY,
+            new Set(),
+            persistedDecision
+        );
+        check(persistedKept.length === 1 && persistedKept[0].id === "p2", "Persisted decisions override stale embedded culling state");
+        check(filterPhotosForAutoFlow([photos[0]], PhotoSourceMode.KEPT_ONLY, new Set(), () => ({})).length === 0, "Canonical unrated state overrides stale embedded KEEP");
+        check(filterPhotosForAutoFlow([{ id: "unrated" }], PhotoSourceMode.KEPT_ONLY).length === 0, "KEPT_ONLY never falls back to unrated photos");
     }
 
     // Test 2: selectBestTemplate
@@ -228,8 +241,8 @@ export async function runAlb082Tests() {
     // Test 7: AutoFlowModal Server-Side Rendering
     {
         const photos = [
-            { id: "p1", culling: { status: CullingStatus.KEPT } },
-            { id: "p2", culling: { status: CullingStatus.KEPT } }
+            { id: "p1", culling: { status: CullingStatus.KEEP } },
+            { id: "p2", culling: { status: CullingStatus.KEEP } }
         ];
         const templates = [
             { id: "t1", name: "2-Photo Spread", smartObjects: [{ layerId: 1 }, { layerId: 2 }] }
@@ -285,7 +298,7 @@ export async function runAlb082Tests() {
             id: `photo-${i + 1}`,
             name: `Photo_${i + 1}.jpg`,
             dateTaken: 1700000000000 + i * 60000,
-            culling: { status: CullingStatus.KEPT }
+            culling: { status: CullingStatus.KEEP }
         }));
         const templates = [
             {
@@ -336,7 +349,7 @@ export async function runAlb082Tests() {
             id: `photo-${i + 1}`,
             name: `Photo_${i + 1}.jpg`,
             dateTaken: 1700000000000 + i * 60000,
-            culling: { status: CullingStatus.KEPT }
+            culling: { status: CullingStatus.KEEP }
         }));
         const templates = [
             {
@@ -371,7 +384,7 @@ export async function runAlb082Tests() {
             id: `photo-${i + 1}`,
             name: `Photo_${i + 1}.jpg`,
             dateTaken: 1700000000000 + i * 60000,
-            culling: { status: CullingStatus.KEPT }
+            culling: { status: CullingStatus.KEEP }
         }));
         const templates = [
             {
@@ -415,7 +428,7 @@ export async function runAlb082Tests() {
                     id: `p-${photoIndex}`,
                     name: `P_${photoIndex}.jpg`,
                     dateTaken: baseTime + c * 1000,
-                    culling: { status: CullingStatus.KEPT }
+                    culling: { status: CullingStatus.KEEP }
                 });
                 photoIndex++;
             }

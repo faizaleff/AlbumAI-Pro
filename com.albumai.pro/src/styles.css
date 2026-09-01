@@ -528,10 +528,6 @@ button.photo-browser-control:active:not(:disabled) {
     flex: 1 1 0;
 }
 
-.album-workspace-scroll-pane > .fixed-controls {
-    flex: 0 0 auto;
-}
-
 .album-workspace-summary,
 .album-workspace-action-row,
 .album-workspace-action-group,
@@ -1429,13 +1425,6 @@ button.photo-browser-control:active:not(:disabled) {
     background: #222a33;
 }
 
-.spread-slot-card.is-drag-over {
-    border-color: #58a6ff;
-    background: #1f364d;
-    box-shadow: 0 0 10px rgba(88, 166, 255, 0.4);
-    transform: scale(1.02);
-}
-
 .spread-slot-card.is-swap-source {
     border-color: #f1e05a;
     box-shadow: 0 0 8px rgba(241, 224, 90, 0.4);
@@ -1863,20 +1852,20 @@ button.photo-browser-control:active:not(:disabled) {
     border-bottom: 1px solid #383838;
 }
 
-.autoflow-modal-title-group {
+.autoflow-modal-title {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.autoflow-modal-title-group h3 {
+.autoflow-modal-title h3 {
     margin: 0;
     font-size: 14px;
     font-weight: 600;
     color: #fff;
 }
 
-.autoflow-modal-icon {
+.autoflow-icon {
     color: #e3b341;
     font-size: 16px;
 }
@@ -1916,55 +1905,6 @@ button.photo-browser-control:active:not(:disabled) {
     letter-spacing: 0.5px;
 }
 
-.autoflow-radio-group {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 8px;
-}
-
-.autoflow-radio-card {
-    background: #1c1c1c;
-    border: 1px solid #383838;
-    border-radius: 6px;
-    padding: 8px 10px;
-    cursor: pointer;
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    transition: all 120ms ease;
-}
-
-.autoflow-radio-card:hover {
-    background: #282828;
-    border-color: #505050;
-}
-
-.autoflow-radio-card.is-active {
-    border-color: #388bfd;
-    background: #162436;
-}
-
-.autoflow-radio-card input {
-    margin-top: 2px;
-}
-
-.autoflow-radio-content {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.autoflow-radio-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: #eee;
-}
-
-.autoflow-radio-badge {
-    font-size: 10px;
-    color: #888;
-}
-
 .autoflow-strategy-grid {
     display: flex;
     flex-direction: column;
@@ -1992,12 +1932,6 @@ button.photo-browser-control:active:not(:disabled) {
 .autoflow-strategy-btn.is-active {
     border-color: #388bfd;
     background: #162436;
-}
-
-.strategy-name {
-    font-size: 11px;
-    font-weight: 600;
-    color: #eee;
 }
 
 .strategy-desc {
@@ -2638,6 +2572,38 @@ button.photo-browser-control:active:not(:disabled) {
     gap: 12px;
 }
 
+.design-entry-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 11px;
+    border: 1px solid #6e5b24;
+    border-radius: 6px;
+    background: #2a2415;
+    color: #d7dde5;
+    font-size: 11px;
+}
+
+.design-entry-summary.is-reviewed {
+    border-color: #2f6f48;
+    background: #16281e;
+}
+
+.design-entry-summary-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.design-entry-source-names {
+    overflow: hidden;
+    color: #9da7b3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ═══════════════════════════════════════════════════════
    REC-003A RESPONSIVE DOCK CONTAINMENT (<=720px)
 ═══════════════════════════════════════════════════════ */
@@ -2990,25 +2956,6 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
     background: #1c2128;
 }
 
-.wizard-step--active {
-    color: #f0f6fc;
-    background: #182a44;
-    border-color: #234876;
-    font-weight: 600;
-}
-
-.wizard-step--active .wizard-step-icon {
-    background: #1f6feb;
-    color: #fff;
-    border-color: #388bfd;
-}
-
-.wizard-step--completed .wizard-step-icon {
-    background: #238636;
-    color: #fff;
-    border-color: #2ea043;
-}
-
 .wizard-step--completed {
     color: #c9d1d9;
 }
@@ -3085,21 +3032,6 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
    ULTIMATE PRO HYBRID: NEON GLOW & POLISHED WORKSPACE
 ═══════════════════════════════════════════════════════ */
 
-.wizard-step--active {
-    color: #ffffff !important;
-    background: rgba(31, 111, 235, 0.18) !important;
-    border: 1px solid #00d2ff !important;
-    box-shadow: 0 0 14px rgba(0, 210, 255, 0.3) !important;
-    font-weight: 600 !important;
-}
-
-.wizard-step--active .wizard-step-icon {
-    background: #0088ff !important;
-    color: #ffffff !important;
-    border-color: #00d2ff !important;
-    box-shadow: 0 0 10px rgba(0, 210, 255, 0.6) !important;
-}
-
 .wizard-step--completed .wizard-step-icon {
     background: #238636 !important;
     color: #ffffff !important;
@@ -3170,9 +3102,11 @@ body, .albumai-workspace-layout {
 
 /* Glowing Top Wizard Progress Bar */
 .wizard-step--active {
+    color: #ffffff !important;
     background: rgba(0, 210, 255, 0.12) !important;
     border: 1px solid #00d2ff !important;
     box-shadow: 0 0 16px rgba(0, 210, 255, 0.35) !important;
+    font-weight: 600 !important;
 }
 
 .wizard-step--active .wizard-step-icon {

@@ -120,6 +120,11 @@ try {
     check(openFolder.includes("unassigned photos before Cull"), "locked Cull guidance omits unassigned photos");
     check(openFolder.includes("cullReviewStatus.ready ? cullReviewStatus.kept : 0"), "workflow completion ignores canonical Cull review status");
     check(openFolder.includes("unrated photos before Design"), "locked Design guidance omits unrated photos");
+    check(openFolder.includes("Reviewed Cull source"), "reviewed Design source summary is missing");
+    check(openFolder.includes("Manual Designer entry"), "manual Designer entry warning is missing");
+    check(openFolder.includes("Open Designer Manually →"), "manual Designer shortcut is not explicit");
+    check(openFolder.includes("getPhotoDecision={designPhotoDecisionLookup}"), "Auto-Flow does not receive canonical photo decisions");
+    check(photoBrowser.includes("Continue to Design →"), "reviewed Design entry action is missing");
     check(projectService.includes('"photoEventChapters"'), "project metadata validation omits manual events");
     check(plan.includes("Manual event chapters"), "manual event chapter implementation record is missing");
     check(plan.includes("Reception membership restored"), "manual event runtime persistence evidence is missing");
@@ -132,6 +137,8 @@ try {
     check(plan.includes("Cull completion and Design handoff"), "Cull completion implementation record is missing");
     check(plan.includes("every current photo is explicitly"), "Cull completion decision boundary is missing");
     check(plan.includes("Go to Designer** command remains an intentional manual"), "explicit Designer shortcut boundary is missing");
+    check(plan.includes("Design entry source clarity"), "Design entry source implementation record is missing");
+    check(plan.includes("never falls back from Kept Photos to unrated photos"), "strict Auto-Flow source boundary is missing");
     check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");

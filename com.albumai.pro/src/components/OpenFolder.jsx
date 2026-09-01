@@ -39,6 +39,8 @@ import {
     resolveWizardNavigation,
     workspaceModeForWizardStep
 } from "../services/PhotoGroupingEngine";
+import { createPhotoDecisionLookup } from "../services/PhotoBrowserModel";
+import { CullingStatus, normalizeCullingStatus } from "../services/PhotoCullingService";
 import { ALBUMAI_VERSION } from "../config/buildIdentity";
 
 export default function OpenFolder() {
@@ -85,6 +87,7 @@ export default function OpenFolder() {
         kept: 0,
         unrated: 0
     });
+    const [designerEntryMode, setDesignerEntryMode] = useState(null);
     const activeWorkspaceMode = workspaceModeForWizardStep(wizardStep);
     const activeWizardStep = WIZARD_STEPS.find(step => step.id === wizardStep) || WIZARD_STEPS[0];
 
@@ -95,6 +98,11 @@ export default function OpenFolder() {
     const album = albumHistory?.present || project?.metadata?.album || null;
     const albumMutationLocked = App.isAlbumSheetMutationLocked();
     const workspacePhotos = App.getPhotos();
+    const designPhotoDecisionLookup = createPhotoDecisionLookup(App.getPhotoDecisions());
+    const designKeptPhotos = workspacePhotos.filter(photo =>
+        normalizeCullingStatus(designPhotoDecisionLookup(photo)?.culling) === CullingStatus.KEEP
+    );
+    const designSourceNames = designKeptPhotos.slice(0, 4).map(photo => photo.name || "Untitled photo");
     const [selectedPhoto, setSelectedPhoto] = useState(() => App.selection.getSelected()[0] || null);
     const templateList = registeredTemplates.length > 0
         ? registeredTemplates
@@ -134,6 +142,9 @@ export default function OpenFolder() {
             directDesignerEntry
         });
         if (!isAllowed) return;
+        if (stepId === 4 && wizardStep !== 4 && wizardStep !== 5) {
+            setDesignerEntryMode(directDesignerEntry ? "MANUAL_SHORTCUT" : "REVIEWED_CULL");
+        }
         setWizardStep(stepId);
     };
 
@@ -146,6 +157,7 @@ export default function OpenFolder() {
         setAlbumMutationError(null);
         setSortReviewStatus({ ready: false, unassignedCount: 0 });
         setCullReviewStatus({ ready: false, kept: 0, unrated: 0 });
+        setDesignerEntryMode(null);
         refreshRegisteredTemplates();
     }, [projectId, refreshRegisteredTemplates]);
 
@@ -1331,7 +1343,7 @@ export default function OpenFolder() {
                                             onClick={() => handleWizardStepClick(4, { directDesignerEntry: true })}
                                             style={{ background: "#1f6feb", borderColor: "#388bfd", color: "#fff", fontWeight: 600, fontSize: 11, padding: "3px 10px" }}
                                         >
-                                            🎨 Go to Designer →
+                                            Open Designer Manually →
                                         </button>
                                     </div>
                                 </div>
@@ -1429,6 +1441,28 @@ export default function OpenFolder() {
                             </div>
                         ) : (
                             <>
+                                <section className={`design-entry-summary${designerEntryMode === "REVIEWED_CULL" ? " is-reviewed" : " is-manual"}`}>
+                                    <div className="design-entry-summary-copy">
+                                        <strong>{designerEntryMode === "REVIEWED_CULL" ? "Reviewed Cull source" : "Manual Designer entry"}</strong>
+                                        <span>
+                                            {designerEntryMode === "REVIEWED_CULL"
+                                                ? `${designKeptPhotos.length} kept ${designKeptPhotos.length === 1 ? "photo is" : "photos are"} the default Smart Auto-Flow source.`
+                                                : designKeptPhotos.length
+                                                    ? `Cull was bypassed; ${designKeptPhotos.length} existing kept ${designKeptPhotos.length === 1 ? "photo is" : "photos are"} still available.`
+                                                    : "Cull was bypassed; no reviewed kept photos are available yet."}
+                                        </span>
+                                        {designSourceNames.length > 0 && (
+                                            <span className="design-entry-source-names" title={designKeptPhotos.map(photo => photo.name || "Untitled photo").join(", ")}>
+                                                {designSourceNames.join(", ")}{designKeptPhotos.length > designSourceNames.length ? ` +${designKeptPhotos.length - designSourceNames.length} more` : ""}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {designerEntryMode !== "REVIEWED_CULL" && (
+                                        <button type="button" onClick={() => handleWizardStepClick(3)}>
+                                            Review Cull
+                                        </button>
+                                    )}
+                                </section>
                                 <section
                                     className="album-workspace-section album-sheets-section"
                                     style={{
@@ -1700,6 +1734,7 @@ export default function OpenFolder() {
                 isOpen={isAutoFlowModalOpen}
                 onClose={() => setIsAutoFlowModalOpen(false)}
                 photos={workspacePhotos}
+                getPhotoDecision={designPhotoDecisionLookup}
                 selectedPhotoIds={new Set(App.selection.getSelected().map(p => p.id))}
                 templates={registeredTemplates}
                 existingSheetCount={album?.sheets?.length || 0}

@@ -6,12 +6,12 @@ import {
     generateAutoFlowSpreads,
     getTemplateSlotCapacity
 } from "../services/PhotoAutoFlowEngine";
-import { CullingStatus } from "../services/PhotoCullingService";
 
 export default function AutoFlowModal({
     isOpen = false,
     onClose,
     photos = [],
+    getPhotoDecision,
     selectedPhotoIds = new Set(),
     templates = [],
     existingSheetCount = 0,
@@ -25,18 +25,18 @@ export default function AutoFlowModal({
     const [errorMessage, setErrorMessage] = useState(null);
 
     const keptCount = useMemo(() =>
-        photos.filter(p => p.culling?.status === CullingStatus.KEEP || p.culling?.status === "KEPT").length,
-        [photos]
+        filterPhotosForAutoFlow(photos, PhotoSourceMode.KEPT_ONLY, selectedPhotoIds, getPhotoDecision).length,
+        [photos, selectedPhotoIds, getPhotoDecision]
     );
     const selectedCount = selectedPhotoIds instanceof Set ? selectedPhotoIds.size : (selectedPhotoIds?.length || 0);
     const nonRejectedCount = useMemo(() =>
-        photos.filter(p => p.culling?.status !== CullingStatus.REJECT && p.culling?.status !== "REJECTED").length,
-        [photos]
+        filterPhotosForAutoFlow(photos, PhotoSourceMode.ALL_PHOTOS, selectedPhotoIds, getPhotoDecision).length,
+        [photos, selectedPhotoIds, getPhotoDecision]
     );
 
     const filteredPhotos = useMemo(() =>
-        filterPhotosForAutoFlow(photos, sourceMode, selectedPhotoIds),
-        [photos, sourceMode, selectedPhotoIds]
+        filterPhotosForAutoFlow(photos, sourceMode, selectedPhotoIds, getPhotoDecision),
+        [photos, sourceMode, selectedPhotoIds, getPhotoDecision]
     );
 
     const maxAvailableSlots = useMemo(() => {

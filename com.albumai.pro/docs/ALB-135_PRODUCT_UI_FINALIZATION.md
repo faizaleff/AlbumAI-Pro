@@ -396,9 +396,30 @@ The completed production bundle reloaded through Adobe UXP Developer Tools
 with **Plugin Reload Successful** on 2026-09-01. This was a load-only runtime
 check; no project fixture, photo decision, or Photoshop document was mutated.
 
-The next bounded unit is Design entry clarity: show which kept photos feed the
-design workspace and keep the reviewed workflow state distinct from the
-explicit manual shortcut before Design/execution controls are reorganized.
+#### Design entry source clarity
+
+Design now identifies how the operator entered the workspace. The reviewed
+Cull handoff shows a green **Reviewed Cull source** summary with the exact kept
+count and a compact filename preview. The explicit library shortcut is renamed
+**Open Designer Manually →** and opens an amber **Manual Designer entry**
+summary; it never presents a bypassed Cull checkpoint as reviewed. From that
+state the operator can return directly to **Review Cull**.
+
+Smart Auto-Flow now reads the same persisted, path-free photo-decision lookup
+used by Cull. **Kept Photos** therefore means exactly the photos marked Keep and
+never falls back from Kept Photos to unrated photos. Manual-entry users may
+still explicitly choose Selection or All Non-Rejected in the Auto-Flow dialog,
+preserving the ALB-081 power-user route without making an implicit source
+choice. The Design source summary and Auto-Flow source count now describe the
+same data.
+
+This unit does not create spreads, change selections, rewrite source photos, or
+alter existing album sheets. The production bundle reloaded through Adobe UXP
+Developer Tools with **Plugin Reload Successful** on 2026-09-01; this was a
+load-only runtime check with no fixture mutation. The next bounded unit is the
+first ALB-135.4 Design hierarchy pass: make Smart Auto-Flow the clear primary
+layout action and separate manual spread construction, print output, and
+execution diagnostics.
 
 ## Approved product-workflow foundation
 

@@ -3,7 +3,7 @@ import {
     groupPhotosByEvent
 } from "./PhotoGroupingEngine";
 import { computeOptimalCropFocus } from "./PhotoFaceDetectionEngine";
-import { CullingStatus } from "./PhotoCullingService";
+import { CullingStatus, normalizeCullingStatus } from "./PhotoCullingService";
 
 export const AutoFlowStrategy = Object.freeze({
     CHRONOLOGICAL_BURST: "CHRONOLOGICAL_BURST",
@@ -56,20 +56,16 @@ function isPortraitPhoto(photo) {
     return false;
 }
 
-function isPhotoKept(photo) {
-    const status = photo?.culling?.status;
-    return status === CullingStatus.KEEP || status === "KEPT" || status === "KEEP";
-}
-
-function isPhotoRejected(photo) {
-    const status = photo?.culling?.status;
-    return status === CullingStatus.REJECT || status === "REJECT" || status === "REJECTED";
+function photoCullingStatus(photo, getDecisionFn) {
+    return normalizeCullingStatus(typeof getDecisionFn === "function"
+        ? getDecisionFn(photo)?.culling
+        : photo?.culling?.status);
 }
 
 /**
  * Filter photos according to source mode
  */
-export function filterPhotosForAutoFlow(photos = [], mode = PhotoSourceMode.KEPT_ONLY, selectedPhotoIds = new Set()) {
+export function filterPhotosForAutoFlow(photos = [], mode = PhotoSourceMode.KEPT_ONLY, selectedPhotoIds = new Set(), getDecisionFn) {
     if (!Array.isArray(photos) || photos.length === 0) return [];
 
     switch (mode) {
@@ -79,15 +75,12 @@ export function filterPhotosForAutoFlow(photos = [], mode = PhotoSourceMode.KEPT
         }
 
         case PhotoSourceMode.KEPT_ONLY: {
-            const kept = photos.filter(isPhotoKept);
-            if (kept.length > 0) return kept;
-            // Fallback to non-rejected if no photos explicitly marked kept
-            return photos.filter(p => !isPhotoRejected(p));
+            return photos.filter(photo => photoCullingStatus(photo, getDecisionFn) === CullingStatus.KEEP);
         }
 
         case PhotoSourceMode.ALL_PHOTOS:
         default:
-            return photos.filter(p => !isPhotoRejected(p));
+            return photos.filter(photo => photoCullingStatus(photo, getDecisionFn) !== CullingStatus.REJECT);
     }
 }
 
