@@ -8,6 +8,7 @@ import React, {
 
 import ThumbnailGrid from "./ThumbnailGrid";
 import UxpDropdown from "./UxpDropdown";
+import SelectionCount from "./SelectionCount";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import {
     applyPhotoStoryOrder,
@@ -97,7 +98,6 @@ function PhotoBrowserSection({
     folderLoaded = false,
     folderMessage = null,
     onOpenFolder,
-    onRefresh,
     onChangePhotoFolder,
     isLoading = false,
     loadingPhotoCount = 0,
@@ -925,7 +925,7 @@ function PhotoBrowserSection({
                     </h2>
                 </div>
                 <div className="photo-workflow-intro-actions">
-                    <span>{photos.length} {photos.length === 1 ? "photo" : "photos"} · {selectedCount} selected</span>
+                    <span>{photos.length} {photos.length === 1 ? "photo" : "photos"} · <SelectionCount selection={App.selection} /> selected</span>
                     {workflowStep === 1 && photos.length > 0 && (
                         <button
                             type="button"
@@ -964,19 +964,7 @@ function PhotoBrowserSection({
                             {label}
                         </button>
                     ))}
-                    <button
-                        type="button"
-                        onClick={onRefresh}
-                        disabled={!folderLoaded || isLoading}
-                        aria-disabled={!folderLoaded || isLoading}
-                        className="photo-browser-control"
-                        title={folderLoaded ? "Refresh photo folder" : "Open a photo folder before refreshing"}
-                        aria-label="Refresh photo folder"
-                    >
-                        <span className="photo-browser-control-icon" aria-hidden="true">↻</span>
-                        Refresh
-                    </button>
-                    <button
+                    {workflowStep === 1 && <button
                         type="button"
                         onClick={onChangePhotoFolder}
                         disabled={!canChangePhotoFolder}
@@ -986,7 +974,7 @@ function PhotoBrowserSection({
                         aria-label="Change photo folder"
                     >
                         {photoFolderChange?.busy ? "Changing…" : "📁 Change Folder"}
-                    </button>
+                    </button>}
                 </div>
 
                 {/* 2. Discovery Group */}
@@ -1013,7 +1001,7 @@ function PhotoBrowserSection({
                 </div>
 
                 {/* 3. Sort & Selection Group */}
-                <div className="photo-browser-toolbar-group photo-browser-sort-group" aria-label="Sort and selection">
+                {workflowStep === 2 && <div className="photo-browser-toolbar-group photo-browser-sort-group" aria-label="Sort controls">
                     <UxpDropdown
                         id="photo-browser-sort"
                         value={preferences.sort.field}
@@ -1053,30 +1041,10 @@ function PhotoBrowserSection({
                     >
                         🗓 Events{eventChapters.items.length ? ` (${eventChapters.items.length})` : ""}
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => selectAllBrowserPhotos()}
-                        disabled={!visiblePhotos.length}
-                        className="photo-browser-control"
-                        title="Select all photos"
-                        aria-label="Select all photos"
-                    >
-                        Select All
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => App.selection.clear()}
-                        disabled={!selectedCount}
-                        className="photo-browser-control"
-                        title="Deselect all photos"
-                        aria-label="Deselect all photos"
-                    >
-                        Deselect
-                    </button>
-                </div>
+                </div>}
             </div>
 
-            {photos.length > 0 && cameraTimesOpen && (
+            {photos.length > 0 && workflowStep === 2 && cameraTimesOpen && (
                 <div
                     id="photo-camera-time-panel"
                     className="photo-camera-time-panel"
@@ -1147,7 +1115,7 @@ function PhotoBrowserSection({
                 </div>
             )}
 
-            {photos.length > 0 && eventChaptersOpen && (
+            {photos.length > 0 && workflowStep === 2 && eventChaptersOpen && (
                 <div
                     id="photo-event-chapter-panel"
                     className="photo-event-chapter-panel"
@@ -1298,7 +1266,7 @@ function PhotoBrowserSection({
             )}
 
             {/* Capture One Style Wedding Event Tabs */}
-            {photos.length > 0 && visibleEvents.length > 0 && (
+            {photos.length > 0 && workflowStep >= 2 && visibleEvents.length > 0 && (
                 <div className="photo-event-strip">
                     <span className="photo-event-strip-label">
                         <span>🗓</span> Events:
@@ -1576,7 +1544,7 @@ function PhotoBrowserSection({
                 </div>
             )}
 
-            {photos.length > 0 && preferences.sort.field === "manual" && (
+            {photos.length > 0 && workflowStep === 2 && preferences.sort.field === "manual" && (
                 <div className="photo-manual-order-banner" role="status">
                     <span>
                         <strong>Manual Order</strong> · {selectedCount > 1

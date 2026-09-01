@@ -2560,6 +2560,15 @@ button.photo-browser-control:active:not(:disabled) {
     color: #f0f3f6;
 }
 
+.workspace-project-close {
+    flex: 0 0 auto;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: #8b949e;
+    font-size: 16px;
+}
+
 .workspace-quick-actions {
     display: flex;
     align-items: center;

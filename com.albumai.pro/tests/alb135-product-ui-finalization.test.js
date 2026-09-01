@@ -130,7 +130,7 @@ try {
     check(openFolder.includes("unrated photos before Enhance"), "locked Enhance guidance omits unrated photos");
     check(openFolder.includes("Reviewed Cull source"), "reviewed Design source summary is missing");
     check(openFolder.includes("Manual Designer entry"), "manual Designer entry warning is missing");
-    check(openFolder.includes("Open Designer Manually →"), "manual Designer shortcut is not explicit");
+    check(!openFolder.includes("Open Designer Manually →"), "Import screen still bypasses the guided workflow");
     check(openFolder.includes("getPhotoDecision={designPhotoDecisionLookup}"), "Auto-Flow does not receive canonical photo decisions");
     check(photoBrowser.includes("Continue to Enhance →"), "reviewed Enhance entry action is missing");
     check(openFolder.includes("Create Album Draft"), "primary Design draft action is missing");
@@ -189,6 +189,10 @@ try {
     check(photoBrowser.includes("AI story <em>Future</em>"), "future AI story provision is not visibly bounded");
     check(photoBrowser.includes("photos.length > 0 && workflowStep === 3"), "culling controls are not isolated to the Cull step");
     check(styles.includes(".photo-workflow-intro"), "Import/Sort screen heading styling is missing");
+    check(openFolder.includes('className="workspace-project-close"'), "compact project-close affordance is missing");
+    check(photoBrowser.includes("workflowStep === 2 && cameraTimesOpen"), "camera correction is visible outside Sort");
+    check(photoBrowser.includes("workflowStep === 2 && eventChaptersOpen"), "event editing is visible outside Sort");
+    check(openFolder.includes("diagnostics={wizardStep >= 5 ?"), "technical diagnostics are still exposed in photo workflow steps");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
     check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");
     check(!openFolder.includes("<span>✨ AlbumAI Pro</span>"), "legacy emoji product title remains");

@@ -8,7 +8,6 @@ import React, {
 import PhotoBrowserSection from "./PhotoBrowserSection";
 import PreviewPanel from "./PreviewPanel";
 import TemplateDocumentPanel from "./TemplateDocumentPanel";
-import SelectionCount from "./SelectionCount";
 import SpreadCanvas from "./SpreadCanvas";
 import SheetStoryboardStrip from "./SheetStoryboardStrip";
 import AutoFlowModal from "./AutoFlowModal";
@@ -475,50 +474,6 @@ export default function OpenFolder() {
             if (progressTimer != null) clearInterval(progressTimer);
             setImportedPhotoCount(App.getPhotos().length);
             setIsImportingPhotos(false);
-        }
-
-    }
-
-    async function refreshFolder() {
-
-        if (!hasProject || !photoFolderAvailable) {
-            return;
-        }
-
-        try {
-
-            await App.refreshPhotos();
-
-            setPhotoFolderAvailable(true);
-            setPhotoFolderMessage(null);
-            forceRefresh(value => value + 1);
-
-        }
-
-        catch (error) {
-
-            const reason = String(
-                error?.message || error || "folder-refresh-failed"
-            );
-            const isUnavailable = [
-                "no such file or directory",
-                "invalid token",
-                "unavailable volume",
-                "folder before refreshing",
-                "not found",
-                "disconnected"
-            ].some(value => reason.toLowerCase().includes(value));
-
-            if (isUnavailable) {
-                markFolderUnavailable(
-                    reason,
-                    !!project?.metadata?.photoSource
-                );
-                return;
-            }
-
-            console.error("Refresh photos:", error);
-
         }
 
     }
@@ -1123,6 +1078,16 @@ export default function OpenFolder() {
                         <div className="workspace-project-group">
                             <span>Project</span>
                             <strong>{project.metadata.name}</strong>
+                            <button
+                                type="button"
+                                className="workspace-project-close"
+                                onClick={closeProject}
+                                disabled={Boolean(projectAction)}
+                                title="Close project"
+                                aria-label="Close project"
+                            >
+                                ×
+                            </button>
                         </div>
 
                         <div className="workspace-workflow-group">
@@ -1234,43 +1199,6 @@ export default function OpenFolder() {
                 ) : activeWorkspaceMode === "LIBRARY" && (
                     <div className="library-workspace-container">
                         <div className="left-pane album-workspace-scroll-pane">
-                            <section
-                                className="album-workspace-section album-workspace-project-section"
-                                style={{
-                                    marginBottom: 12,
-                                    padding: 12,
-                                    background: "#1c1f26",
-                                    borderRadius: 6,
-                                    border: "1px solid #2d333f"
-                                }}
-                            >
-                                <div className="album-workspace-summary" style={{ fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center", color: "#8b949e", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
-                                    <div className="album-workspace-meta-stats" style={{ display: "flex", gap: "6px 12px", flexWrap: "wrap", minWidth: 0 }}>
-                                        <span>Project: <strong style={{ color: "#f0f3f6" }}>{project.metadata.name}</strong></span>
-                                        <span>Photos: <strong style={{ color: "#f0f3f6" }}>{App.getPhotos().length}</strong></span>
-                                        <span>Selected: <SelectionCount selection={App.selection} /></span>
-                                    </div>
-                                    <div className="album-workspace-action-group album-workspace-action-group--primary" style={{ display: "flex", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
-                                        <button onClick={closeProject} disabled={!hasProject || Boolean(projectAction)} style={{ fontSize: 11, padding: "3px 8px" }}>
-                                            {projectAction === "CLOSING" ? "Closing…" : "Close Project"}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleWizardStepClick(5, { directDesignerEntry: true })}
-                                            style={{ background: "#1f6feb", borderColor: "#388bfd", color: "#fff", fontWeight: 600, fontSize: 11, padding: "3px 10px" }}
-                                        >
-                                            Open Designer Manually →
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {projectError && (
-                                    <div style={{ marginTop: 8, fontSize: 12, color: "#ff9999" }}>
-                                        Project: {projectError}
-                                    </div>
-                                )}
-                            </section>
-
                             <PhotoBrowserSection
                                 photos={App.getPhotos()}
                                 onPhotoClick={onPhotoClick}
@@ -1280,7 +1208,6 @@ export default function OpenFolder() {
                                 folderLoaded={photoFolderAvailable}
                                 folderMessage={photoFolderMessage}
                                 onOpenFolder={openFolder}
-                                onRefresh={refreshFolder}
                                 onChangePhotoFolder={changePhotoFolder}
                                 isLoading={isImportingPhotos}
                                 loadingPhotoCount={importedPhotoCount}
@@ -1305,7 +1232,7 @@ export default function OpenFolder() {
                             photos={App.getPhotos()}
                             selection={App.selection}
                             focusedPhotoId={focusedPhotoId}
-                            diagnostics={{
+                            diagnostics={wizardStep >= 5 ? {
                                 hasProject,
                                 projectId: project?.metadata?.id || null,
                                 projectName: project?.metadata?.name || "",
@@ -1334,7 +1261,7 @@ export default function OpenFolder() {
                                 onResumeBatch: resumeProjectBatch,
                                 onRetryFailed: retryFailedTemplates,
                                 onClearRecovery: clearRecoveryState
-                            }}
+                            } : null}
                         />
                     </div>
                 )}

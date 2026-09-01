@@ -600,6 +600,23 @@ the new primary handoff; activating it displayed the Sort title and bounded
 Manual/AI-story mode summary. No photo order, event assignment, project output,
 or Photoshop document content was changed during this visual check.
 
+#### Progressive disclosure simplification
+
+The first implementation pass still exposed too many controls at once in a
+wide panel. Import now keeps only the photo view toggle, Change Folder, search,
+the photo grid, and the primary Continue action. Camera clock correction,
+event editing, base sorting, and manual story order appear only in Sort;
+culling controls appear only in Cull. Technical execution diagnostics are no
+longer shown beside Import, Sort, or Cull—the inspector remains focused on the
+selected photograph. The large project summary and **Open Designer Manually**
+bypass were removed; the project identity stays in the header with a compact
+close affordance.
+
+This preserves the existing multi-camera, manual ordering, event, and culling
+capabilities while revealing each only at the step where it is needed. The
+production bundle became smaller at **755,511 bytes** and 173 focused ALB-135
+assertions passed.
+
 ### Story ordering and multi-camera work
 
 - Sort must support an automatic base order followed by persistent visual
