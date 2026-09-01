@@ -154,13 +154,16 @@ legacy workspace content below remained visible. The header was changed to a
 non-shrinking, wrapping flex layout and the production bundle was rebuilt and
 reloaded successfully.
 
+Developer Tools measured the live panel document at **420x675**.
 At the live 420-pixel Photoshop dock width, the corrected header visibly shows
 the compact AlbumAI mark and name, Save, Undo, Redo, and the active **Step 1 of
 5 · Import** context without root horizontal scrolling. The existing project
 content remains usable below it. This qualifies the preferred dock shell
-behavior. A floating-panel drag moved the panel outside the captured primary
-workspace, so the 900x700 visual check remains open; Reset Essentials restored
-the project panel to its visible docked state afterward.
+behavior. Photoshop did not allow the dock divider to contract below this live
+width, so the 320x500 visual check remains environment-limited rather than
+failed. A controlled floating-panel drag again moved the panel outside the
+captured primary workspace, so the 900x700 visual check remains open; Reset
+Essentials restored the project panel to its visible docked state afterward.
 
 ## Approved product-workflow foundation
 

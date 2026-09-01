@@ -59,7 +59,9 @@ try {
     check(plan.includes("ALB-135.2 remains open only for inspecting"), "remaining runtime acceptance boundary is missing");
     check(plan.includes("CSS Grid box measured 0x0"), "UXP header-collapse diagnosis is missing");
     check(plan.includes("non-shrinking, wrapping flex layout"), "UXP header runtime fix is missing");
+    check(plan.includes("panel document at **420x675**"), "live panel measurement evidence is missing");
     check(plan.includes("live 420-pixel Photoshop dock width"), "preferred-dock runtime evidence is missing");
+    check(plan.includes("320x500 visual check remains environment-limited"), "minimum-dock runtime boundary is missing");
     check(plan.includes("900x700 visual check remains open"), "floating runtime boundary is missing");
     check(openFolder.includes("workspace-brand-mark"), "compact workspace brand mark is missing");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
