@@ -2302,9 +2302,12 @@ button.photo-browser-control:active:not(:disabled) {
    ========================================================================== */
 
 .workspace-top-bar {
-    display: grid;
-    grid-template-columns: minmax(170px, auto) minmax(260px, 1fr) auto;
+    display: flex;
     align-items: center;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    width: 100%;
+    box-sizing: border-box;
     min-height: 48px;
     padding: 8px 12px;
     background: #16181d;
@@ -2563,7 +2566,8 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
     }
 
     .workspace-top-bar {
-        grid-template-columns: minmax(0, 1fr) auto !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
         padding: 6px 8px !important;
         gap: 6px !important;
         width: 100% !important;
@@ -2571,7 +2575,7 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
     }
 
     .workspace-brand-group {
-        flex: 0 0 auto !important;
+        flex: 1 1 0 !important;
         min-width: 0 !important;
     }
 
@@ -2581,9 +2585,10 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
     }
 
     .workspace-workflow-group {
-        grid-column: 1 / -1 !important;
-        display: grid !important;
-        grid-template-columns: auto minmax(0, 1fr) !important;
+        order: 3 !important;
+        flex: 1 0 100% !important;
+        display: flex !important;
+        align-items: center !important;
         width: 100% !important;
         gap: 6px !important;
     }

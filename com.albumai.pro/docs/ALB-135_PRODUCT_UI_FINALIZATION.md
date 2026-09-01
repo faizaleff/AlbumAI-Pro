@@ -146,6 +146,22 @@ bundle. ALB-135.2 remains open only for inspecting the project workspace shell
 at the acceptance sizes. No project content or Photoshop document content was
 changed during this check.
 
+#### Docked workspace-shell qualification
+
+Opening the existing REC005 test project exposed a UXP-specific layout defect:
+the new header DOM was present, but its CSS Grid box measured 0x0 while the
+legacy workspace content below remained visible. The header was changed to a
+non-shrinking, wrapping flex layout and the production bundle was rebuilt and
+reloaded successfully.
+
+At the live 420-pixel Photoshop dock width, the corrected header visibly shows
+the compact AlbumAI mark and name, Save, Undo, Redo, and the active **Step 1 of
+5 · Import** context without root horizontal scrolling. The existing project
+content remains usable below it. This qualifies the preferred dock shell
+behavior. A floating-panel drag moved the panel outside the captured primary
+workspace, so the 900x700 visual check remains open; Reset Essentials restored
+the project panel to its visible docked state afterward.
+
 ## Approved product-workflow foundation
 
 The pre-implementation prototype review selected one progressive six-step
