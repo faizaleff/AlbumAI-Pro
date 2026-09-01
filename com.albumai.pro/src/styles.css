@@ -2644,6 +2644,64 @@ button.photo-browser-control:active:not(:disabled) {
     gap: 12px;
 }
 
+.enhance-workspace-card {
+    padding: 14px;
+    border: 1px solid #30363d;
+    border-radius: 7px;
+    background: #161b22;
+}
+
+.enhance-workspace-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.enhance-workspace-header span,
+.enhance-workspace-card p {
+    color: #8b949e;
+    font-size: 11px;
+}
+
+.enhance-workspace-header h2 {
+    margin: 3px 0 0;
+    font-size: 18px;
+}
+
+.enhance-workspace-header strong {
+    color: #d2a8ff;
+    font-size: 10px;
+}
+
+.enhance-preview-grid,
+.enhance-provision-list {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.enhance-preview-grid div {
+    flex: 1 1 0;
+    min-height: 120px;
+    padding: 8px;
+    border: 1px dashed #30363d;
+    color: #8b949e;
+    font-size: 11px;
+}
+
+.enhance-provision-list {
+    flex-wrap: wrap;
+}
+
+.enhance-provision-list span {
+    padding: 5px 8px;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    color: #c9d1d9;
+    font-size: 11px;
+}
+
 .design-entry-summary {
     display: flex;
     align-items: center;
@@ -2654,6 +2712,67 @@ button.photo-browser-control:active:not(:disabled) {
     border-radius: 6px;
     background: #2a2415;
     color: #d7dde5;
+    font-size: 11px;
+}
+
+.design-workspace-heading,
+.export-workspace-card header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.design-workspace-heading span,
+.export-workspace-card header span {
+    color: #8b949e;
+    font-size: 11px;
+}
+
+.design-workspace-heading h2,
+.export-workspace-card h2 {
+    margin: 3px 0 0;
+    font-size: 18px;
+}
+
+.design-mode-note {
+    padding: 5px 8px;
+    border: 1px solid #30363d;
+}
+
+.design-mode-note strong {
+    color: #f0f3f6;
+}
+
+.design-mode-note em {
+    color: #d2a8ff;
+    font-style: normal;
+}
+
+.export-workspace-card {
+    padding: 14px;
+    border: 1px solid #30363d;
+    border-radius: 7px;
+    background: #161b22;
+}
+
+.export-workspace-card header > strong {
+    color: #55c98b;
+    font-size: 11px;
+}
+
+.export-preflight-summary,
+.export-workspace-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.export-preflight-summary span {
+    padding: 6px 8px;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
     font-size: 11px;
 }
 

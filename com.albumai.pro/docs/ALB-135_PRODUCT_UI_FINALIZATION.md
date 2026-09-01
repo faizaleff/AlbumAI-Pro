@@ -617,6 +617,24 @@ capabilities while revealing each only at the step where it is needed. The
 production bundle became smaller at **755,511 bytes** and 173 focused ALB-135
 assertions passed.
 
+#### Cull, Enhance, Design, and Export hierarchy
+
+Cull now uses one status selector instead of four competing status buttons.
+Compare and burst auto-pick remain available inside the existing Filters
+disclosure, and advanced filters cannot remain visible outside Cull. Enhance
+shows an honest Future AI provision for color correction, portrait retouch,
+background extension, and object removal, with no fake active controls and a
+clear non-destructive approval boundary.
+
+Design now opens with a Step 5 heading and a concise **Manual · AI-assisted
+Future** mode summary. The existing template management, manual spread tools,
+advanced execution, and output settings retain their disclosures. Print & Proof
+no longer competes with Design actions. Export owns that workflow through a
+Step 6 preflight summary and one primary **Open Export Settings** action. Photo
+ratings, favourites, and Keep/Reject badges render only in Cull, leaving Import
+and Sort focused on selection and sequence. The production bundle remains below
+the release ceiling at **757,374 bytes** and 185 focused ALB-135 assertions pass.
+
 ### Story ordering and multi-camera work
 
 - Sort must support an automatic base order followed by persistent visual

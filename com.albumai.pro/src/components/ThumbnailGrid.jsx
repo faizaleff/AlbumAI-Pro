@@ -77,13 +77,13 @@ function usePhotoItemState(photo) {
     return state;
 }
 
-const IconsPhotoItem = React.memo(function IconsPhotoItem({ photo, onPhotoClick, onContextMenu, style, focused, viewMode, visible, decision, onPhotoDecisionChange, manualOrderEnabled, onReorderDrop }) {
+const IconsPhotoItem = React.memo(function IconsPhotoItem({ photo, onPhotoClick, onContextMenu, style, focused, viewMode, visible, decision, onPhotoDecisionChange, decisionControlsVisible, manualOrderEnabled, onReorderDrop }) {
     PhotoBrowserPerformance.recordRender("IconsPhotoItem");
     const state = usePhotoItemState(photo);
-    return <div className={`photo-grid-item${focused ? " is-focused" : ""}`} style={style}><ThumbnailCard photo={photo} onClick={onPhotoClick} onContextMenu={onContextMenu} compact thumbnailRevision={state.thumbnailRevision} loading={state.loading} selected={state.selected} viewMode={viewMode} visible={visible} decision={decision} onDecisionChange={onPhotoDecisionChange} manualOrderEnabled={manualOrderEnabled} onReorderDrop={onReorderDrop} /></div>;
+    return <div className={`photo-grid-item${focused ? " is-focused" : ""}`} style={style}><ThumbnailCard photo={photo} onClick={onPhotoClick} onContextMenu={onContextMenu} compact thumbnailRevision={state.thumbnailRevision} loading={state.loading} selected={state.selected} viewMode={viewMode} visible={visible} decision={decision} onDecisionChange={onPhotoDecisionChange} decisionControlsVisible={decisionControlsVisible} manualOrderEnabled={manualOrderEnabled} onReorderDrop={onReorderDrop} /></div>;
 });
 
-const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, onContextMenu, style, focused, viewMode, visible, decision, onPhotoDecisionChange, manualOrderEnabled, onReorderDrop }) {
+const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, onContextMenu, style, focused, viewMode, visible, decision, onPhotoDecisionChange, decisionControlsVisible, manualOrderEnabled, onReorderDrop }) {
     PhotoBrowserPerformance.recordRender("ListPhotoRow");
     const state = usePhotoItemState(photo);
     const [reorderTarget, setReorderTarget] = useState(false);
@@ -119,7 +119,7 @@ const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, onC
         <div style={{ flex: "0 0 30px", width: 30, height: 30, background: "#1f1f1f", overflow: "hidden" }}><PhotoImage photo={photo} profile="thumbnail" priority={visible ? 1 : 2} role="browser" onImageLoad={() => PhotoBrowserPerformance.thumbnailVisible(photo.id)} fallback={status => <div style={{ color: "#777", fontSize: 13, textAlign: "center", lineHeight: "30px" }}>{status === "loading" ? "…" : "▧"}</div>} style={LIST_IMAGE_STYLE} /></div>
         <div style={{ flex: "1 1 auto", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12 }}>{photo.name}</div>
         <div style={{ flex: "0 0 42px", color: "#aaa", fontSize: 11, textTransform: "uppercase" }}>{photo.extension || "—"}</div>
-        <UxpDropdown
+        {decisionControlsVisible && <><UxpDropdown
             className="photo-list-rating"
             value={decision.rating}
             options={LIST_RATING_OPTIONS}
@@ -144,7 +144,7 @@ const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, onC
             aria-label={`${decision.favorite ? "Remove" : "Add"} ${photo.name} ${decision.favorite ? "from" : "to"} favourites`}
         >
             {decision.favorite ? "♥" : "♡"}
-        </button>
+        </button></>}
         <div style={{ flex: "0 0 16px", width: 16, height: 16, borderRadius: 8, background: state.selected ? "#3B82F6" : "#555", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{state.selected ? "✓" : ""}</div>
     </div>;
 });
@@ -261,6 +261,7 @@ function ThumbnailGrid({
     onFocusPhoto,
     decisionForPhoto = () => ({ rating: 0, favorite: false }),
     onPhotoDecisionChange,
+    decisionControlsVisible = true,
     manualOrderEnabled = false,
     onReorderPhoto
 }) {
@@ -428,11 +429,11 @@ function ThumbnailGrid({
         const key = photo.id || photo.name || index;
         const decision = decisionForPhoto(photo);
         if (viewMode === "list") {
-            items.push(<ListPhotoRow key={key} photo={photo} onPhotoClick={handlePhotoClick} onContextMenu={onContextMenu} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} manualOrderEnabled={manualOrderEnabled} onReorderDrop={handleReorderDrop} style={{ position: "absolute", top: index * LIST_ROW_HEIGHT, left: 0, right: 0, height: LIST_ROW_HEIGHT }} />);
+            items.push(<ListPhotoRow key={key} photo={photo} onPhotoClick={handlePhotoClick} onContextMenu={onContextMenu} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} decisionControlsVisible={decisionControlsVisible} manualOrderEnabled={manualOrderEnabled} onReorderDrop={handleReorderDrop} style={{ position: "absolute", top: index * LIST_ROW_HEIGHT, left: 0, right: 0, height: LIST_ROW_HEIGHT }} />);
         } else {
             const row = Math.floor(index / renderWindow.columns);
             const column = index % renderWindow.columns;
-            items.push(<IconsPhotoItem key={key} photo={photo} onPhotoClick={handlePhotoClick} onContextMenu={onContextMenu} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} manualOrderEnabled={manualOrderEnabled} onReorderDrop={handleReorderDrop} style={{ position: "absolute", left: ICON_PADDING + column * (ICON_WIDTH + ICON_GAP), top: ICON_PADDING + row * ICON_ROW_HEIGHT, width: ICON_WIDTH, height: ICON_HEIGHT }} />);
+            items.push(<IconsPhotoItem key={key} photo={photo} onPhotoClick={handlePhotoClick} onContextMenu={onContextMenu} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} decisionControlsVisible={decisionControlsVisible} manualOrderEnabled={manualOrderEnabled} onReorderDrop={handleReorderDrop} style={{ position: "absolute", left: ICON_PADDING + column * (ICON_WIDTH + ICON_GAP), top: ICON_PADDING + row * ICON_ROW_HEIGHT, width: ICON_WIDTH, height: ICON_HEIGHT }} />);
         }
     }
 

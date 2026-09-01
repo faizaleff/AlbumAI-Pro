@@ -921,7 +921,7 @@ function PhotoBrowserSection({
                             ? "Import photos"
                             : workflowStep === 2
                                 ? "Build the shooting sequence"
-                                : "Review and cull photos"}
+                                : "Review one photo at a time"}
                     </h2>
                 </div>
                 <div className="photo-workflow-intro-actions">
@@ -1359,53 +1359,19 @@ function PhotoBrowserSection({
                 <div className="photo-culling-toolbar" role="toolbar" aria-label="Workflow and filter controls">
                     {/* 1. Culling Workflow Group */}
                     <div className="photo-culling-pills" aria-label="Culling workflow">
-                        <span className="culling-label">Culling:</span>
-                        <button
-                            type="button"
-                            className={`culling-pill${cullingFilter === CullingFilterMode.ALL ? " active" : ""}`}
-                            onClick={() => setCullingFilter(CullingFilterMode.ALL)}
-                        >
-                            All ({cullingSummary.total})
-                        </button>
-                        <button
-                            type="button"
-                            className={`culling-pill keep-pill${cullingFilter === CullingFilterMode.KEPT ? " active" : ""}`}
-                            onClick={() => setCullingFilter(CullingFilterMode.KEPT)}
-                        >
-                            ✓ Kept ({cullingSummary.kept})
-                        </button>
-                        <button
-                            type="button"
-                            className={`culling-pill reject-pill${cullingFilter === CullingFilterMode.REJECTED ? " active" : ""}`}
-                            onClick={() => setCullingFilter(CullingFilterMode.REJECTED)}
-                        >
-                            ✕ Rejected ({cullingSummary.rejected})
-                        </button>
-                        <button
-                            type="button"
-                            className={`culling-pill unrated-pill${cullingFilter === CullingFilterMode.UNRATED ? " active" : ""}`}
-                            onClick={() => setCullingFilter(CullingFilterMode.UNRATED)}
-                        >
-                            ? Unrated ({cullingSummary.unrated})
-                        </button>
-                        <button
-                            type="button"
-                            className="photo-browser-control culling-action-btn"
-                            onClick={handleAutoPickBurstBest}
-                            disabled={cullingBusy || !cullingSummary.burstCount}
-                            title="Auto-pick highest quality photo in each burst sequence"
-                        >
-                            {cullingBusy ? "Auto-picking…" : "⚡ Auto-Pick"}
-                        </button>
-                        <button
-                            type="button"
-                            className="photo-browser-control culling-action-btn"
-                            onClick={startComparison}
-                            disabled={selectedCount !== 2}
-                            title="Compare 2 selected photos side by side"
-                        >
-                            🔍 Compare (2)
-                        </button>
+                        <UxpDropdown
+                            id="photo-cull-status"
+                            value={cullingFilter}
+                            options={[
+                                { value: CullingFilterMode.ALL, label: `All · ${cullingSummary.total}` },
+                                { value: CullingFilterMode.UNRATED, label: `To review · ${cullingSummary.unrated}` },
+                                { value: CullingFilterMode.KEPT, label: `Kept · ${cullingSummary.kept}` },
+                                { value: CullingFilterMode.REJECTED, label: `Rejected · ${cullingSummary.rejected}` }
+                            ]}
+                            onValueChange={setCullingFilter}
+                            className="photo-browser-control photo-cull-status-select"
+                            ariaLabel="Show culling status"
+                        />
                     </div>
 
                     {/* 2. Secondary Metadata & Decision Filters */}
@@ -1435,13 +1401,29 @@ function PhotoBrowserSection({
                 </div>
             )}
 
-            {photos.length > 0 && secondaryFiltersOpen && (
+            {photos.length > 0 && workflowStep === 3 && secondaryFiltersOpen && (
                 <div
                     id="photo-browser-secondary-filters"
                     className="photo-filter-panel"
                     aria-label="Metadata and decision filters"
                 >
                     <div className="photo-filter-inline-group">
+                        <button
+                            type="button"
+                            onClick={startComparison}
+                            disabled={selectedCount !== 2}
+                            className="photo-browser-control"
+                        >
+                            Compare selected
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleAutoPickBurstBest}
+                            disabled={cullingBusy || !cullingSummary.burstCount}
+                            className="photo-browser-control"
+                        >
+                            {cullingBusy ? "Auto-picking…" : "Auto-pick bursts"}
+                        </button>
                         <UxpDropdown
                             id="photo-browser-type"
                             value={preferences.types[0] || ""}
@@ -1647,6 +1629,7 @@ function PhotoBrowserSection({
                         viewMode={viewMode}
                         decisionForPhoto={decisionForPhoto}
                         onPhotoDecisionChange={changePhotoDecision}
+                        decisionControlsVisible={workflowStep === 3}
                         manualOrderEnabled={!filtersActive}
                         onReorderPhoto={handleManualReorder}
                     />

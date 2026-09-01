@@ -14,6 +14,7 @@ function ThumbnailCard({
     visible = false,
     decision = { rating: 0, favorite: false, culling: "unrated" },
     onDecisionChange,
+    decisionControlsVisible = true,
     manualOrderEnabled = false,
     onReorderDrop
 }) {
@@ -170,7 +171,7 @@ function ThumbnailCard({
                 )}
 
                 {/* Culling Badge (Keep / Reject) */}
-                {culling && culling !== "unrated" && (
+                {decisionControlsVisible && culling && culling !== "unrated" && (
                     <div
                         style={{
                             position: "absolute",
@@ -204,7 +205,7 @@ function ThumbnailCard({
                 }}
             >
                 {/* Filename */}
-                <div
+                {decisionControlsVisible && <div
                     title={photo.name}
                     style={{
                         fontSize: 10,
@@ -217,7 +218,7 @@ function ThumbnailCard({
                     }}
                 >
                     {photo.name}
-                </div>
+                </div>}
 
                 {/* 5 Stars Rating + Favorite Heart (Explicit zero-min-width styling for UXP) */}
                 <div
@@ -307,5 +308,6 @@ export default React.memo(
         previous.decision?.rating === next.decision?.rating &&
         previous.decision?.favorite === next.decision?.favorite &&
         previous.decision?.culling === next.decision?.culling &&
+        previous.decisionControlsVisible === next.decisionControlsVisible &&
         previous.onDecisionChange === next.onDecisionChange
 );

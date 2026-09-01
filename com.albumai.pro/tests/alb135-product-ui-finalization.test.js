@@ -193,6 +193,18 @@ try {
     check(photoBrowser.includes("workflowStep === 2 && cameraTimesOpen"), "camera correction is visible outside Sort");
     check(photoBrowser.includes("workflowStep === 2 && eventChaptersOpen"), "event editing is visible outside Sort");
     check(openFolder.includes("diagnostics={wizardStep >= 5 ?"), "technical diagnostics are still exposed in photo workflow steps");
+    check(photoBrowser.includes('"Review one photo at a time"'), "prototype Cull title is missing");
+    check(photoBrowser.includes('id="photo-cull-status"'), "Cull status controls are not consolidated");
+    check(photoBrowser.includes("workflowStep === 3 && secondaryFiltersOpen"), "advanced Cull controls leak into other steps");
+    check(openFolder.includes('className="enhance-workspace-card"'), "Enhance provision workspace is missing");
+    check(openFolder.includes("Background extension"), "future background extension provision is missing");
+    check(openFolder.includes("every result requires approval"), "Enhance review boundary is missing");
+    check(openFolder.includes('className="design-workspace-heading"'), "Design screen hierarchy is missing");
+    check(openFolder.includes("AI-assisted <em>Future</em>"), "future Design mode is not visibly bounded");
+    check(!openFolder.includes(">\n                                                Print & Proof\n"), "Export action still competes in Design");
+    check(openFolder.includes('className="export-workspace-card"'), "Export screen hierarchy is missing");
+    check(openFolder.includes("Open Export Settings"), "Export primary action is missing");
+    check(photoBrowser.includes("decisionControlsVisible={workflowStep === 3}"), "photo decision controls are visible outside Cull");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
     check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");
     check(!openFolder.includes("<span>✨ AlbumAI Pro</span>"), "legacy emoji product title remains");

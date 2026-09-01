@@ -1268,11 +1268,25 @@ export default function OpenFolder() {
 
                 {activeWorkspaceMode === "ENHANCE" && (
                     <div className="workspace-mode-pane">
-                        <div className="workspace-empty-state">
-                            <div className="workspace-empty-title">Enhance selected photos · Future</div>
-                            <div className="workspace-empty-subtitle">
-                                Optional AI color and retouch previews will appear here. Originals stay unchanged.
+                        <section className="enhance-workspace-card">
+                            <header className="enhance-workspace-header">
+                                <div>
+                                    <span>Step 4 of 6</span>
+                                    <h2>Enhance selected photos</h2>
+                                </div>
+                                <strong>Future AI</strong>
+                            </header>
+                            <div className="enhance-preview-grid" aria-label="Future before and after preview">
+                                <div>Original</div>
+                                <div>Preview</div>
                             </div>
+                            <div className="enhance-provision-list">
+                                <span>Color correction</span>
+                                <span>Portrait retouch</span>
+                                <span>Background extension</span>
+                                <span>Object removal</span>
+                            </div>
+                            <p>Preview only. Originals stay unchanged and every result requires approval.</p>
                             <button
                                 type="button"
                                 className="workspace-quick-btn workspace-quick-btn--primary"
@@ -1280,7 +1294,7 @@ export default function OpenFolder() {
                             >
                                 Continue to Design →
                             </button>
-                        </div>
+                        </section>
                     </div>
                 )}
 
@@ -1303,6 +1317,13 @@ export default function OpenFolder() {
                             </div>
                         ) : (
                             <>
+                                <header className="design-workspace-heading">
+                                    <div>
+                                        <span>Step 5 of 6</span>
+                                        <h2>Design album sheets</h2>
+                                    </div>
+                                    <span className="design-mode-note"><strong>Manual</strong> · AI-assisted <em>Future</em></span>
+                                </header>
                                 <section className={`design-entry-summary${designerEntryMode === "REVIEWED_CULL" ? " is-reviewed" : " is-manual"}`}>
                                     <div className="design-entry-summary-copy">
                                         <strong>{designerEntryMode === "REVIEWED_CULL" ? "Reviewed Cull source" : "Manual Designer entry"}</strong>
@@ -1365,21 +1386,6 @@ export default function OpenFolder() {
                                                 disabled={albumMutationLocked || albumMutationBusy}
                                             >
                                                 {manualSpreadToolsOpen ? "Hide Manual Tools" : "Add Spread Manually"}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="album-printproof-btn"
-                                                onClick={() => setIsPrintProofModalOpen(true)}
-                                                disabled={albumMutationLocked || albumMutationBusy || !album?.sheets?.length}
-                                                title={
-                                                    !album?.sheets?.length
-                                                        ? "Add at least one spread to use Print & Proof"
-                                                        : (albumMutationLocked || albumMutationBusy)
-                                                            ? "Spread changes are locked while the batch is running"
-                                                            : "Open Print Export & PDF Proofing Suite"
-                                                }
-                                            >
-                                                Print & Proof
                                             </button>
                                         </div>
                                     </div>
@@ -1575,32 +1581,37 @@ export default function OpenFolder() {
 
                 {activeWorkspaceMode === "EXPORT" && (
                     <div className="workspace-mode-pane">
-                        <div className="workspace-empty-state" style={{ background: "#1c1f26", border: "1px solid #2d333f" }}>
-                            <div className="workspace-empty-icon">🖨</div>
-                            <div className="workspace-empty-title">High-Resolution Print Export & Multi-Page PDF Proofing</div>
-                            <div className="workspace-empty-subtitle">
-                                Preflight inspection, 300 DPI Lab Print profiles (12×12", 12×18", 10×10", 8.5×11"), bleed geometry calculations, studio watermarking, and direct Photoshop batch rendering.
+                        <section className="export-workspace-card">
+                            <header>
+                                <div>
+                                    <span>Step 6 of 6</span>
+                                    <h2>Export the album</h2>
+                                </div>
+                                <strong>{album?.sheets?.length ? `${album.sheets.length} sheets` : "Setup needed"}</strong>
+                            </header>
+                            <div className="export-preflight-summary">
+                                <span>{registeredTemplates.length} templates registered</span>
+                                <span>Print profiles · JPEG · PDF proof</span>
+                                <span>Offline processing</span>
                             </div>
-                            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                            <div className="export-workspace-actions">
                                 <button
                                     type="button"
                                     className="workspace-empty-action-btn"
-                                    style={{ background: "#8957e5", borderColor: "#a371f7" }}
                                     onClick={() => setIsPrintProofModalOpen(true)}
                                     disabled={albumMutationLocked || albumMutationBusy || !album?.sheets?.length}
                                 >
-                                    ⚡ Open Print & Proof Suite
+                                    Open Export Settings
                                 </button>
                                 <button
                                     type="button"
-                                    className="workspace-empty-action-btn"
-                                    style={{ background: "#21262d", borderColor: "#363c4a", color: "#c9d1d9" }}
+                                    className="workspace-quick-btn"
                                     onClick={() => handleWizardStepClick(5)}
                                 >
-                                    🎨 Back to Designer
+                                    Back to Design
                                 </button>
                             </div>
-                        </div>
+                        </section>
                     </div>
                 )}
             </div>
