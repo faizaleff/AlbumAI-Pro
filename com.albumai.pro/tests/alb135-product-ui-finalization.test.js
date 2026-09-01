@@ -54,8 +54,9 @@ try {
     check(plan.includes("Plugin Reload Successful"), "updated-bundle reload evidence is missing");
     check(plan.includes("Plugin Load Successful"), "clean plugin-load evidence is missing");
     check(plan.includes("900x700\npanel document"), "runtime panel-mount evidence is missing");
-    check(plan.includes("panel surface still did not appear"), "installed panel-visibility gap is missing");
-    check(plan.includes("not visual runtime acceptance"), "runtime acceptance boundary is missing");
+    check(plan.includes("Reset Essentials"), "workspace-reset evidence is missing");
+    check(plan.includes("expanding that collapsed dock surfaced"), "visible panel evidence is missing");
+    check(plan.includes("ALB-135.2 remains open only for inspecting"), "remaining runtime acceptance boundary is missing");
     check(openFolder.includes("workspace-brand-mark"), "compact workspace brand mark is missing");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
     check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");

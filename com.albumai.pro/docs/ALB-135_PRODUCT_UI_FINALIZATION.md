@@ -26,9 +26,10 @@ After the existing local plugin was loaded successfully, selecting **Plugins >
 AlbumAI Pro > AlbumAI Browser** did not surface a visible panel in the captured
 Photoshop workspace. A subsequent Manifest v5 lifecycle correction and clean
 unload/load confirmed that the ALB-135 workspace is mounted in a 900x700 panel
-document. The remaining acceptance gap is the visible Photoshop surface:
-workspace placement, off-screen or collapsed placement, and reopen behavior
-must still be tested deterministically.
+document. Resetting the Essentials workspace and expanding Photoshop's
+collapsed secondary panel dock then surfaced **AlbumAI Browser** visibly. This
+classified the original symptom as saved workspace/dock placement rather than
+a React rendering failure.
 
 No project content, Photoshop document content, Adobe account data, or external
 service was changed by the audit.
@@ -136,14 +137,14 @@ panel document containing the new `albumai-workspace-layout`, product header,
 and workflow shell. No application exception was reported during load.
 
 In Photoshop 2026, **Plugins > AlbumAI Pro > AlbumAI Browser** remained
-available, but the panel surface still did not appear in the captured primary
-workspace, including after **Bring All to Front**. This proves that the current
-bundle mounts the UI, while visible window/dock placement remains unresolved.
-The new header therefore has automated, build, and runtime-mount evidence, but
-not visual runtime acceptance. ALB-135.2 stays open until panel reopen
-visibility is deterministic and the shell is inspected at the acceptance
-sizes. No project content or Photoshop document content was changed during
-this check.
+available. **Bring All to Front** alone did not reveal it. After the
+user-approved **Window > Workspace > Reset Essentials** action, selecting the
+panel added it to the secondary dock; expanding that collapsed dock surfaced
+the AlbumAI Browser visibly in the primary workspace. This resolves the panel
+visibility diagnosis and provides visual runtime evidence for the installed
+bundle. ALB-135.2 remains open only for inspecting the project workspace shell
+at the acceptance sizes. No project content or Photoshop document content was
+changed during this check.
 
 ## Approved product-workflow foundation
 
