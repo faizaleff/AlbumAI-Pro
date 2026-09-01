@@ -27,12 +27,14 @@ try {
     const readme = readProjectFile("README.md");
     const packageJson = JSON.parse(readProjectFile("package.json"));
     const identity = readProjectFile("src/config/buildIdentity.js");
+    const openFolder = readProjectFile("src/components/OpenFolder.jsx");
+    const styles = readProjectFile("src/styles.css");
     const index = fs.readFileSync(
         path.join(REPOSITORY_ROOT, "ALB-116_ENGINEERING_RECORD_INDEX.md"),
         "utf8"
     );
 
-    check(plan.includes("Status: **audit complete — implementation pending**"), "audit status differs");
+    check(plan.includes("Status: **implementation in progress — workspace shell started**"), "implementation status differs");
     check(plan.includes("P0 — runtime entry and panel visibility"), "runtime visibility priority is missing");
     check(plan.includes("Developer/diagnostic actions compete"), "Design action-hierarchy finding is missing");
     check(plan.includes("Minimum dock | 320x500"), "minimum-dock acceptance is missing");
@@ -47,6 +49,15 @@ try {
     check(plan.includes("cover, wrapper, index, story spreads"), "future album-structure provision is missing");
     check(plan.includes("Approved PSD templates remain the deterministic design source"), "template fallback boundary is missing");
     check(plan.includes("capability-gated by ALB-070"), "future AI gate boundary is missing");
+    check(plan.includes("ALB-135.2 implementation progress"), "workspace-shell implementation record is missing");
+    check(openFolder.includes("workspace-brand-mark"), "compact workspace brand mark is missing");
+    check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
+    check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");
+    check(!openFolder.includes("<span>✨ AlbumAI Pro</span>"), "legacy emoji product title remains");
+    check(!openFolder.includes("wizard-step-connector"), "legacy workflow connectors remain rendered");
+    check(styles.includes("grid-template-columns: minmax(170px, auto) minmax(260px, 1fr) auto"), "workspace-shell grid is missing");
+    check(styles.includes(".workspace-step-context"), "responsive active-step styling is missing");
+    check(styles.includes(".workspace-quick-btn--primary"), "primary header action styling is missing");
     check(plan.includes("No permanent logo decision and no final Marketplace screenshots"), "visual-asset boundary is missing");
     check(marketplacePlan.includes("Final screenshot capture is explicitly\ndeferred"), "ALB-134 screenshot boundary changed");
     check(supportPlan.includes("temporary Option 3 icon remains candidate-test artwork only"), "temporary-icon boundary changed");

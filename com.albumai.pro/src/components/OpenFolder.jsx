@@ -77,6 +77,7 @@ export default function OpenFolder() {
     const [, forceRefresh] = useState(0);
     const [wizardStep, setWizardStep] = useState(1);
     const activeWorkspaceMode = workspaceModeForWizardStep(wizardStep);
+    const activeWizardStep = WIZARD_STEPS.find(step => step.id === wizardStep) || WIZARD_STEPS[0];
 
     PhotoBrowserPerformance.recordRender("OpenFolder");
     const project = App.project.getProject();
@@ -1085,39 +1086,38 @@ export default function OpenFolder() {
             }}
         >
             {/* Top Workspace Navigation Bar */}
-            <header className="workspace-top-bar" style={{ minHeight: 42 }}>
+            <header className="workspace-top-bar">
                 <div className="workspace-brand-group">
+                    <span className="workspace-brand-mark" aria-hidden="true">AI</span>
                     <span className="workspace-brand-title">
-                        <span>✨ AlbumAI Pro</span>
+                        AlbumAI Pro
                     </span>
                     <span className={`workspace-project-badge ${hasProject ? "active" : ""}`}>
-                        {hasProject ? `📁 ${project.metadata.name}` : `v${ALBUMAI_VERSION}`}
+                        {hasProject ? project.metadata.name : `v${ALBUMAI_VERSION}`}
                     </span>
                 </div>
 
                 {hasProject && (
                     <>
-                        <nav className="wizard-step-bar" role="navigation" aria-label="Workflow Steps">
-                            {WIZARD_STEPS.map((step, idx) => {
-                                const isActive = step.id === wizardStep;
-                                const isCompleted = wizardCompletedSteps?.has(step.id);
-                                const isClickable = canNavigateToStep(wizardStep, step.id, wizardCompletedSteps);
-                                const isLocked = !isClickable && !isActive && !isCompleted;
+                        <div className="workspace-workflow-group">
+                            <span className="workspace-step-context">
+                                Step {activeWizardStep.id} of {WIZARD_STEPS.length} · {activeWizardStep.label}
+                            </span>
+                            <nav className="wizard-step-bar" role="navigation" aria-label="Workflow Steps">
+                                {WIZARD_STEPS.map(step => {
+                                    const isActive = step.id === wizardStep;
+                                    const isCompleted = wizardCompletedSteps?.has(step.id);
+                                    const isClickable = canNavigateToStep(wizardStep, step.id, wizardCompletedSteps);
+                                    const isLocked = !isClickable && !isActive && !isCompleted;
 
-                                let cls = "wizard-step";
-                                if (isActive) cls += " wizard-step--active";
-                                if (isCompleted) cls += " wizard-step--completed";
-                                if (isLocked) cls += " wizard-step--locked";
+                                    let cls = "wizard-step";
+                                    if (isActive) cls += " wizard-step--active";
+                                    if (isCompleted) cls += " wizard-step--completed";
+                                    if (isLocked) cls += " wizard-step--locked";
 
-                                return (
-                                    <React.Fragment key={step.id}>
-                                        {idx > 0 && (
-                                            <div
-                                                className={`wizard-step-connector${isCompleted || wizardCompletedSteps?.has(step.id - 1) ? " filled" : ""}`}
-                                                aria-hidden="true"
-                                            />
-                                        )}
+                                    return (
                                         <button
+                                            key={step.id}
                                             type="button"
                                             className={cls}
                                             onClick={() => handleWizardStepClick(step.id)}
@@ -1125,25 +1125,25 @@ export default function OpenFolder() {
                                             title={isLocked ? `Complete Step ${step.id - 1} first` : `${step.id}. ${step.label} (${step.description})`}
                                             aria-current={isActive ? "step" : undefined}
                                         >
-                                            <span className="wizard-step-icon">
-                                                {isCompleted ? "✓" : step.icon}
+                                            <span className="wizard-step-icon" aria-hidden="true">
+                                                {isCompleted ? "✓" : step.id}
                                             </span>
-                                            <span className="wizard-step-label">{step.id}. {step.label}</span>
+                                            <span className="wizard-step-label">{step.label}</span>
                                         </button>
-                                    </React.Fragment>
-                                );
-                            })}
-                        </nav>
+                                    );
+                                })}
+                            </nav>
+                        </div>
 
                         <div className="workspace-quick-actions">
                             <button
                                 type="button"
-                                className="workspace-quick-btn"
+                                className="workspace-quick-btn workspace-quick-btn--primary"
                                 onClick={saveProject}
                                 disabled={!hasProject || Boolean(projectAction)}
                                 title="Save Project Metadata"
                             >
-                                {projectAction === "SAVING" ? "Saving…" : "💾 Save"}
+                                {projectAction === "SAVING" ? "Saving…" : "Save"}
                             </button>
                             <button
                                 type="button"
@@ -1152,7 +1152,7 @@ export default function OpenFolder() {
                                 disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
                                 title="Undo Sheet Change"
                             >
-                                ⟲ Undo
+                                Undo
                             </button>
                             <button
                                 type="button"
@@ -1161,7 +1161,7 @@ export default function OpenFolder() {
                                 disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
                                 title="Redo Sheet Change"
                             >
-                                ⟳ Redo
+                                Redo
                             </button>
                         </div>
                     </>

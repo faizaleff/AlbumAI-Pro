@@ -1,6 +1,6 @@
 # ALB-135 — Product UI Finalization
 
-Status: **audit complete — implementation pending**
+Status: **implementation in progress — workspace shell started**
 
 Date: 2026-09-01
 
@@ -107,6 +107,22 @@ focus order.
    diagnostics, clarify template rows, and collapse normal recovery details.
 5. **ALB-135.5 — responsive runtime qualification:** test the acceptance matrix
    in Photoshop with disposable fixtures and record final UI evidence.
+
+### ALB-135.2 implementation progress
+
+The first workspace-shell pass is implemented on the dedicated ALB-135 branch:
+
+- the header uses one compact brand mark, product name, truncated project
+  identity, workflow region, and action region;
+- workflow steps use stable numeric/completed markers rather than platform
+  emoji, with the active step exposed as text at docked widths;
+- connector decoration is removed so every step has a consistent target; and
+- Save remains the emphasized header action while Undo and Redo retain their
+  existing behavior and disabled-state rules.
+
+This pass does not change wizard eligibility, photo state, album state,
+Photoshop execution, persistence, output, or recovery behavior. Import/Sort/
+Cull screen work and the reserved Enhance step remain later slices.
 
 ## Approved product-workflow foundation
 

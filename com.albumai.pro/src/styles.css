@@ -2302,34 +2302,51 @@ button.photo-browser-control:active:not(:disabled) {
    ========================================================================== */
 
 .workspace-top-bar {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(170px, auto) minmax(260px, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px 14px;
+    min-height: 48px;
+    padding: 8px 12px;
     background: #16181d;
     border-bottom: 1px solid #282c35;
     gap: 12px;
-    flex-wrap: wrap;
     z-index: 10;
 }
 
 .workspace-brand-group {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    min-width: 0;
+}
+
+.workspace-brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: #1f6feb;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
 }
 
 .workspace-brand-title {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     color: #f0f3f6;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    letter-spacing: 0.3px;
+    white-space: nowrap;
 }
 
 .workspace-project-badge {
+    min-width: 0;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 11px;
     font-weight: 500;
     padding: 3px 8px;
@@ -2395,6 +2412,20 @@ button.photo-browser-control:active:not(:disabled) {
     gap: 6px;
 }
 
+.workspace-workflow-group {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 8px;
+}
+
+.workspace-step-context {
+    display: none;
+    color: #8b949e;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
 .workspace-quick-btn {
     padding: 4px 10px;
     font-size: 11px;
@@ -2415,6 +2446,16 @@ button.photo-browser-control:active:not(:disabled) {
 .workspace-quick-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+}
+
+.workspace-quick-btn--primary {
+    background: #1f6feb;
+    border-color: #388bfd;
+    color: #ffffff;
+}
+
+.workspace-quick-btn--primary:hover:not(:disabled) {
+    background: #388bfd;
 }
 
 .workspace-view-container {
@@ -2522,9 +2563,9 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
     }
 
     .workspace-top-bar {
+        grid-template-columns: minmax(0, 1fr) auto !important;
         padding: 6px 8px !important;
         gap: 6px !important;
-        flex-wrap: wrap !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }
@@ -2535,21 +2576,30 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
     }
 
     .workspace-quick-actions {
-        flex: 0 0 auto !important;
-        margin-left: auto !important;
         display: flex !important;
         gap: 4px !important;
     }
 
+    .workspace-workflow-group {
+        grid-column: 1 / -1 !important;
+        display: grid !important;
+        grid-template-columns: auto minmax(0, 1fr) !important;
+        width: 100% !important;
+        gap: 6px !important;
+    }
+
+    .workspace-step-context {
+        display: inline !important;
+    }
+
     .wizard-step-bar {
-        flex: 1 1 100% !important;
         width: 100% !important;
         min-width: 0 !important;
         max-width: 100% !important;
         overflow-x: auto !important;
         scrollbar-width: none !important;
         padding: 4px 0 !important;
-        margin-top: 2px !important;
+        margin-top: 0 !important;
         box-sizing: border-box !important;
     }
 
@@ -2730,35 +2780,38 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 }
 
 /* ═══════════════════════════════════════════════════════
-   5-STEP WIZARD WORKFLOW NAVIGATION
+   PRODUCT WORKFLOW NAVIGATION
 ═══════════════════════════════════════════════════════ */
 
 .wizard-step-bar {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(64px, 1fr));
     align-items: center;
-    gap: 0;
+    gap: 4px;
     flex: 1;
     min-width: 0;
     max-width: 100%;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: 0 4px;
+    padding: 0;
     box-sizing: border-box;
 }
 
 .wizard-step {
-    display: flex;
+    display: grid;
+    grid-template-columns: 20px minmax(0, auto);
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
+    justify-content: center;
+    gap: 5px;
+    min-height: 34px;
+    padding: 5px 7px;
     border: 1px solid transparent;
     background: transparent;
     cursor: pointer;
     color: #8b949e;
     border-radius: 6px;
     transition: all 0.15s ease;
-    min-width: max-content;
-    flex-shrink: 0;
+    min-width: 0;
     position: relative;
     user-select: none;
 }
@@ -2770,8 +2823,8 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 
 .wizard-step--active {
     color: #f0f6fc;
-    background: #1c2128;
-    border-color: #388bfd;
+    background: #182a44;
+    border-color: #234876;
     font-weight: 600;
 }
 
@@ -2779,7 +2832,6 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
     background: #1f6feb;
     color: #fff;
     border-color: #388bfd;
-    box-shadow: 0 0 8px rgba(56, 139, 253, 0.4);
 }
 
 .wizard-step--completed .wizard-step-icon {
@@ -2798,8 +2850,8 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 }
 
 .wizard-step-icon {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     border: 1px solid #30363d;
     display: flex;
@@ -2814,6 +2866,8 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 .wizard-step-label {
     font-size: 11px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     letter-spacing: 0.01em;
 }
 
