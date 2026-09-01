@@ -44,15 +44,16 @@ export const SCENE_LABELS = Object.freeze({
 });
 
 export const WIZARD_STEPS = Object.freeze([
-    { id: 1, key: "IMPORT", icon: "📂", label: "Import", description: "Load Photos" },
-    { id: 2, key: "SORT",   icon: "🗂",  label: "Sort",   description: "Smart Groups" },
-    { id: 3, key: "CULL",   icon: "⭐",  label: "Cull",   description: "Select Best" },
-    { id: 4, key: "DESIGN", icon: "🎨", label: "Design", description: "Album Layout" },
-    { id: 5, key: "EXPORT", icon: "🖨",  label: "Export", description: "JPEG / PDF" }
+    { id: 1, key: "IMPORT",  label: "Import",  description: "Load" },
+    { id: 2, key: "SORT",    label: "Sort",    description: "Order" },
+    { id: 3, key: "CULL",    label: "Cull",    description: "Select" },
+    { id: 4, key: "ENHANCE", label: "Enhance", description: "Optional" },
+    { id: 5, key: "DESIGN",  label: "Design",  description: "Layout" },
+    { id: 6, key: "EXPORT",  label: "Export",  description: "Output" }
 ]);
 
 export const WIZARD_STEP_KEYS = Object.freeze({
-    IMPORT: 1, SORT: 2, CULL: 3, DESIGN: 4, EXPORT: 5
+    IMPORT: 1, SORT: 2, CULL: 3, ENHANCE: 4, DESIGN: 5, EXPORT: 6
 });
 
 export const ANALYSIS_STATUS = Object.freeze({
@@ -574,13 +575,17 @@ export function computeCompletedSteps({
     if (photoCount > 0 && analysisComplete) completed.add(1);
     if (completed.has(1) && groupsReviewed)  completed.add(2);
     if (completed.has(2) && keptPhotoCount > 0) completed.add(3);
-    if (completed.has(3) && placedPhotoCount > 0) completed.add(4);
-    if (completed.has(4) && exportComplete)  completed.add(5);
+    // Enhance is a reserved, optional review checkpoint until a qualified
+    // capability is installed. Completing Cull therefore keeps the existing
+    // deterministic path to Design available without claiming an AI result.
+    if (completed.has(3)) completed.add(4);
+    if (completed.has(4) && placedPhotoCount > 0) completed.add(5);
+    if (completed.has(5) && exportComplete)  completed.add(6);
     return Object.freeze(completed);
 }
 
 export function canNavigateToStep(currentStep, targetStep, completedSteps) {
-    if (targetStep < 1 || targetStep > 5) return false;
+    if (targetStep < 1 || targetStep > 6) return false;
     if (targetStep <= currentStep) return true;
     const maxUnlocked = Math.max(...[...(completedSteps || [])], 0) + 1;
     return targetStep <= maxUnlocked;
@@ -591,8 +596,9 @@ export function stepLockedReason(targetStep, completedSteps) {
     const reasons = {
         2: "Import photos first to enable smart grouping.",
         3: "Review your photo groups before culling.",
-        4: "Select at least 1 photo to keep before designing.",
-        5: "Place photos in the album layout before exporting."
+        4: "Select at least 1 photo to keep before enhancing.",
+        5: "Review or skip optional enhancements before designing.",
+        6: "Place photos in the album layout before exporting."
     };
     return reasons[targetStep] || null;
 }
@@ -606,7 +612,7 @@ export function resolveWizardNavigation({
     directDesignerEntry = false
 } = {}) {
     if (directDesignerEntry) {
-        return Boolean(hasProject && photoCount > 0 && targetStep === 4);
+        return Boolean(hasProject && photoCount > 0 && targetStep === 5);
     }
     return canNavigateToStep(currentStep, targetStep, completedSteps);
 }
@@ -614,7 +620,8 @@ export function resolveWizardNavigation({
 export function workspaceModeForWizardStep(stepId) {
     const step = Number(stepId);
     if (step >= 1 && step <= 3) return "LIBRARY";
-    if (step === 4) return "DESIGNER";
-    if (step === 5) return "EXPORT";
+    if (step === 4) return "ENHANCE";
+    if (step === 5) return "DESIGNER";
+    if (step === 6) return "EXPORT";
     return "LIBRARY";
 }

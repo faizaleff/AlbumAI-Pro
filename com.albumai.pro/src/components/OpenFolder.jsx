@@ -143,7 +143,7 @@ export default function OpenFolder() {
             directDesignerEntry
         });
         if (!isAllowed) return;
-        if (stepId === 4 && wizardStep !== 4 && wizardStep !== 5) {
+        if (stepId === 5 && wizardStep !== 5 && wizardStep !== 6) {
             setDesignerEntryMode(directDesignerEntry ? "MANUAL_SHORTCUT" : "REVIEWED_CULL");
         }
         setWizardStep(stepId);
@@ -1132,10 +1132,10 @@ export default function OpenFolder() {
                                     const isLocked = !isClickable && !isActive && !isCompleted;
                                     const lockedTitle = step.id === 3 && sortReviewStatus.unassignedCount
                                         ? `Assign ${sortReviewStatus.unassignedCount} unassigned photos before Cull`
-                                        : step.id === 4 && cullReviewStatus.unrated
-                                            ? `Review ${cullReviewStatus.unrated} unrated photos before Design`
-                                            : step.id === 4 && !cullReviewStatus.kept
-                                                ? "Keep at least 1 photo before Design"
+                                        : step.id >= 4 && cullReviewStatus.unrated
+                                            ? `Review ${cullReviewStatus.unrated} unrated photos before Enhance`
+                                            : step.id >= 4 && !cullReviewStatus.kept
+                                                ? "Keep at least 1 photo before Enhance"
                                                 : `Complete Step ${step.id - 1} first`;
 
                                     let cls = "wizard-step";
@@ -1201,121 +1201,31 @@ export default function OpenFolder() {
             {/* Mode-specific Workspace View */}
             <div className="workspace-view-container">
                 {!hasProject ? (
-                    <div
-                        className="welcome-landing-screen"
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flex: "1 1 auto",
-                            width: "100%",
-                            padding: "40px 20px",
-                            boxSizing: "border-box",
-                            textAlign: "center"
-                        }}
-                    >
-                        <div style={{ fontSize: 40, marginBottom: 8 }}>✨</div>
-                        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0", color: "#f0f6fc", letterSpacing: "0.02em" }}>
-                            AlbumAI Pro
-                        </h1>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
-                            <span style={{ fontSize: 11, background: "#1f6feb22", color: "#58a6ff", border: "1px solid #388bfd44", padding: "2px 8px", borderRadius: 12, fontWeight: 600 }}>
-                                v{ALBUMAI_VERSION}
-                            </span>
-                            <span style={{ fontSize: 12, color: "#8b949e" }}>
-                                Smart Wedding & Event Album Designer
-                            </span>
-                        </div>
-
-                        <div
-                            style={{
-                                background: "#161b22",
-                                border: "1px solid #30363d",
-                                borderRadius: 10,
-                                padding: "24px 28px",
-                                width: "100%",
-                                maxWidth: 360,
-                                boxSizing: "border-box",
-                                boxShadow: "0 8px 24px rgba(0,0,0,0.4)"
-                            }}
+                    <div className="workspace-empty-state">
+                        <div className="workspace-empty-title">AlbumAI Pro · v{ALBUMAI_VERSION}</div>
+                        <div className="workspace-empty-subtitle">Smart Wedding & Event Album Designer</div>
+                        <label>
+                            Project Name
+                            <input
+                                value={projectName}
+                                onChange={event => setProjectName(event.target.value)}
+                                placeholder="e.g. Rahul_Ananya_Wedding"
+                                disabled={Boolean(projectAction)}
+                            />
+                        </label>
+                        <button
+                            type="button"
+                            className="workspace-empty-action-btn"
+                            onClick={createProject}
+                            disabled={Boolean(projectAction) || !projectName.trim()}
                         >
-                            <div style={{ marginBottom: 14, textAlign: "left" }}>
-                                <label style={{ fontSize: 11, fontWeight: 600, color: "#c9d1d9", display: "block", marginBottom: 6 }}>
-                                    Project Name
-                                </label>
-                                <input
-                                    value={projectName}
-                                    onChange={event => setProjectName(event.target.value)}
-                                    placeholder="e.g. Rahul_Ananya_Wedding"
-                                    disabled={hasProject || Boolean(projectAction)}
-                                    style={{
-                                        width: "100%",
-                                        padding: "8px 12px",
-                                        background: "#0d1117",
-                                        border: "1px solid #30363d",
-                                        borderRadius: 6,
-                                        color: "#fff",
-                                        fontSize: 13,
-                                        boxSizing: "border-box"
-                                    }}
-                                />
-                            </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                <button
-                                    type="button"
-                                    onClick={createProject}
-                                    disabled={hasProject || Boolean(projectAction) || !projectName.trim()}
-                                    style={{
-                                        padding: "10px 16px",
-                                        background: projectName.trim() ? "#238636" : "#21262d",
-                                        borderColor: projectName.trim() ? "#2ea043" : "#30363d",
-                                        color: projectName.trim() ? "#fff" : "#6e7681",
-                                        borderRadius: 6,
-                                        fontWeight: 600,
-                                        fontSize: 13,
-                                        cursor: projectName.trim() ? "pointer" : "not-allowed",
-                                        border: "1px solid",
-                                        transition: "all 0.15s ease"
-                                    }}
-                                >
-                                    {projectAction === "CREATING" ? "Creating Project…" : "+ Create Project"}
-                                </button>
-
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
-                                    <div style={{ flex: 1, height: 1, background: "#30363d" }} />
-                                    <span style={{ fontSize: 11, color: "#6e7681" }}>or</span>
-                                    <div style={{ flex: 1, height: 1, background: "#30363d" }} />
-                                </div>
-
-                                <button
-                                    type="button"
-                                    onClick={openProject}
-                                    disabled={hasProject || Boolean(projectAction)}
-                                    style={{
-                                        padding: "10px 16px",
-                                        background: "#21262d",
-                                        borderColor: "#30363d",
-                                        color: "#c9d1d9",
-                                        borderRadius: 6,
-                                        fontWeight: 600,
-                                        fontSize: 13,
-                                        cursor: "pointer",
-                                        border: "1px solid #30363d",
-                                        transition: "all 0.15s ease"
-                                    }}
-                                >
-                                    {projectAction === "OPENING" ? "Opening Project…" : "📁 Open Existing Project"}
-                                </button>
-                            </div>
-
-                            {projectError && (
-                                <div style={{ marginTop: 12, fontSize: 11, color: "#f85149", background: "#f8514911", border: "1px solid #f8514933", padding: "6px 10px", borderRadius: 4 }}>
-                                    ⚠️ {projectError}
-                                </div>
-                            )}
-                        </div>
+                            {projectAction === "CREATING" ? "Creating Project…" : "Create Project"}
+                        </button>
+                        <span>or</span>
+                        <button type="button" onClick={openProject} disabled={Boolean(projectAction)}>
+                            {projectAction === "OPENING" ? "Opening Project…" : "Open Existing Project"}
+                        </button>
+                        {projectError && <div role="alert">{projectError}</div>}
                     </div>
                 ) : activeWorkspaceMode === "LIBRARY" && (
                     <div className="library-workspace-container">
@@ -1342,7 +1252,7 @@ export default function OpenFolder() {
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => handleWizardStepClick(4, { directDesignerEntry: true })}
+                                            onClick={() => handleWizardStepClick(5, { directDesignerEntry: true })}
                                             style={{ background: "#1f6feb", borderColor: "#388bfd", color: "#fff", fontWeight: 600, fontSize: 11, padding: "3px 10px" }}
                                         >
                                             Open Designer Manually →
@@ -1382,7 +1292,7 @@ export default function OpenFolder() {
                                 onSortStatusChange={setSortReviewStatus}
                                 onContinueToCull={() => handleWizardStepClick(3)}
                                 onCullStatusChange={setCullReviewStatus}
-                                onContinueToDesign={() => handleWizardStepClick(4)}
+                                onContinueToEnhance={() => handleWizardStepClick(4)}
                             />
                         </div>
 
@@ -1421,6 +1331,24 @@ export default function OpenFolder() {
                                 onClearRecovery: clearRecoveryState
                             }}
                         />
+                    </div>
+                )}
+
+                {activeWorkspaceMode === "ENHANCE" && (
+                    <div className="workspace-mode-pane">
+                        <div className="workspace-empty-state">
+                            <div className="workspace-empty-title">Enhance selected photos · Future</div>
+                            <div className="workspace-empty-subtitle">
+                                Optional AI color and retouch previews will appear here. Originals stay unchanged.
+                            </div>
+                            <button
+                                type="button"
+                                className="workspace-quick-btn workspace-quick-btn--primary"
+                                onClick={() => handleWizardStepClick(5)}
+                            >
+                                Continue to Design →
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -1735,7 +1663,7 @@ export default function OpenFolder() {
                                     type="button"
                                     className="workspace-empty-action-btn"
                                     style={{ background: "#21262d", borderColor: "#363c4a", color: "#c9d1d9" }}
-                                    onClick={() => handleWizardStepClick(4)}
+                                    onClick={() => handleWizardStepClick(5)}
                                 >
                                     🎨 Back to Designer
                                 </button>

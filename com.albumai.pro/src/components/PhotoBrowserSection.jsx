@@ -106,7 +106,7 @@ function PhotoBrowserSection({
     onSortStatusChange,
     onContinueToCull,
     onCullStatusChange,
-    onContinueToDesign
+    onContinueToEnhance
 }) {
 
     const canChangePhotoFolder = canStartPhotoFolderChange({
@@ -1330,13 +1330,13 @@ function PhotoBrowserSection({
                             ? `${cullingSummary.unrated} ${cullingSummary.unrated === 1 ? "photo is" : "photos are"} still unrated.`
                             : cullingSummary.kept
                                 ? `${cullingSummary.kept} kept · ${cullingSummary.rejected} rejected.`
-                                : "Keep at least one photo before designing."}
+                                : "Keep at least one photo before enhancing."}
                     </span>
                     <button
                         type="button"
                         className="photo-browser-control"
                         onClick={() => {
-                            if (cullingSummary.ready) onContinueToDesign?.();
+                            if (cullingSummary.ready) onContinueToEnhance?.();
                             else {
                                 setSelectedEventId("");
                                 updatePreferences(previous => ({ sort: previous.sort }));
@@ -1347,7 +1347,7 @@ function PhotoBrowserSection({
                         }}
                     >
                         {cullingSummary.ready
-                            ? "Continue to Design →"
+                            ? "Continue to Enhance →"
                             : cullingSummary.unrated
                                 ? "Review Unrated"
                                 : "Review Rejected"}

@@ -529,6 +529,38 @@ operator checkpoints, not six mandatory manual jobs. A future automatic path
 may prepare a reviewable draft across multiple steps, while every decision
 remains editable and the existing deterministic/manual path stays available.
 
+### Canonical prototype recovery and priority reset
+
+The approved `albumai-ui-redesign-prototype.html` was recovered from the local
+Codex visualization workspace and re-inspected screen by screen on 2026-09-02.
+It is the visual and workflow reference for the remaining UI work. The current
+production UI had adopted several hierarchy improvements but still exposed a
+five-step shell, so it did not yet match the approved prototype as a complete
+interface.
+
+The priority order is now locked as follows:
+
+1. align the production shell to the approved six-step workflow without
+   weakening existing manual, execution, persistence, output, or recovery
+   behavior;
+2. match the prototype's header, navigation, and per-screen hierarchy while
+   retaining every already implemented operator capability;
+3. qualify compact dock, preferred dock, floating, and Marketplace layouts;
+4. replace the test icon and capture final screenshots only after visual
+   approval.
+
+The first structural unit adds **Enhance** as an explicitly optional future
+review provision between Cull and Design. It does not activate an AI model or
+claim that color correction or retouching is available. Completing Cull keeps
+the deterministic path to Design available, while the Enhance screen documents
+the planned non-destructive capabilities and the required review boundary.
+
+The production bundle completed at 756,314 bytes, below the enforced 740 KiB
+ceiling. The complete test suite, ALB-135's 154 focused assertions, the
+261-assertion architecture verification, and the 1,134-assertion regression
+verification all passed. Runtime Photoshop visual qualification remains a
+separate check before this structural unit is considered visually approved.
+
 ### Story ordering and multi-camera work
 
 - Sort must support an automatic base order followed by persistent visual

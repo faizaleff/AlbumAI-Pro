@@ -2911,7 +2911,7 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 
 .wizard-step-bar {
     display: grid;
-    grid-template-columns: repeat(5, minmax(64px, 1fr));
+    grid-template-columns: repeat(6, minmax(64px, 1fr));
     align-items: center;
     gap: 4px;
     flex: 1;

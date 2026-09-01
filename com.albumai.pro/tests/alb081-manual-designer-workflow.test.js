@@ -341,7 +341,7 @@ export async function runAlb081Tests() {
 
     // Test 10: Wizard Navigation & Direct Designer Entry Qualification
     {
-        // 1. Normal Step-4 wizard gating without KEEP decisions fails
+        // 1. Normal Enhance/Design wizard gating without KEEP decisions fails
         const stepsNoKeep = computeCompletedSteps({
             photoCount: 36,
             analysisComplete: true,
@@ -353,17 +353,17 @@ export async function runAlb081Tests() {
         check(stepsNoKeep.has(1) === true, "Step 1 completed with photos");
         check(stepsNoKeep.has(2) === true, "Step 2 completed with groups reviewed");
         check(stepsNoKeep.has(3) === false, "Step 3 not completed without KEEP decisions");
-        check(canNavigateToStep(1, 4, stepsNoKeep) === false, "Normal Step 4 navigation blocked without KEEP decisions");
+        check(canNavigateToStep(1, 4, stepsNoKeep) === false, "Normal Enhance navigation blocked without KEEP decisions");
         check(resolveWizardNavigation({
             currentStep: 1,
-            targetStep: 4,
+            targetStep: 5,
             completedSteps: stepsNoKeep,
             hasProject: true,
             photoCount: 36,
             directDesignerEntry: false
-        }) === false, "resolveWizardNavigation blocks normal Step 4 without KEEP decisions");
+        }) === false, "resolveWizardNavigation blocks normal Design without KEEP decisions");
 
-        // 2. Normal Step-4 wizard gating with KEEP decisions succeeds
+        // 2. Completing Cull unlocks the optional Enhance review and Design
         const stepsWithKeep = computeCompletedSteps({
             photoCount: 36,
             analysisComplete: true,
@@ -373,20 +373,22 @@ export async function runAlb081Tests() {
             exportComplete: false
         });
         check(stepsWithKeep.has(3) === true, "Step 3 completed with KEEP decisions");
-        check(canNavigateToStep(1, 4, stepsWithKeep) === true, "Normal Step 4 navigation allowed with KEEP decisions");
+        check(stepsWithKeep.has(4) === true, "Optional Enhance checkpoint completes with reviewed Cull");
+        check(canNavigateToStep(1, 4, stepsWithKeep) === true, "Normal Enhance navigation allowed with KEEP decisions");
+        check(canNavigateToStep(1, 5, stepsWithKeep) === true, "Normal Design navigation allowed after optional Enhance checkpoint");
         check(resolveWizardNavigation({
             currentStep: 1,
-            targetStep: 4,
+            targetStep: 5,
             completedSteps: stepsWithKeep,
             hasProject: true,
             photoCount: 36,
             directDesignerEntry: false
-        }) === true, "resolveWizardNavigation allows normal Step 4 with KEEP decisions");
+        }) === true, "resolveWizardNavigation allows normal Design with KEEP decisions");
 
         // 3. Direct Designer entry works with project + photos even with 0 KEEP decisions
         const directAllowed = resolveWizardNavigation({
             currentStep: 1,
-            targetStep: 4,
+            targetStep: 5,
             completedSteps: stepsNoKeep,
             hasProject: true,
             photoCount: 36,
@@ -397,7 +399,7 @@ export async function runAlb081Tests() {
         // 4. Direct Designer entry fails closed without project
         const directNoProject = resolveWizardNavigation({
             currentStep: 1,
-            targetStep: 4,
+            targetStep: 5,
             completedSteps: stepsNoKeep,
             hasProject: false,
             photoCount: 36,
@@ -408,7 +410,7 @@ export async function runAlb081Tests() {
         // 5. Direct Designer entry fails closed with zero photos
         const directNoPhotos = resolveWizardNavigation({
             currentStep: 1,
-            targetStep: 4,
+            targetStep: 5,
             completedSteps: stepsNoKeep,
             hasProject: true,
             photoCount: 0,
@@ -419,7 +421,7 @@ export async function runAlb081Tests() {
         // 6. Direct Designer entry fails closed for non-step-4 targets
         const directWrongStep = resolveWizardNavigation({
             currentStep: 1,
-            targetStep: 5,
+            targetStep: 4,
             completedSteps: stepsNoKeep,
             hasProject: true,
             photoCount: 36,
@@ -520,13 +522,14 @@ export async function runAlb081Tests() {
         check(workspaceModeForWizardStep(1) === "LIBRARY", "Step 1 maps to LIBRARY");
         check(workspaceModeForWizardStep(2) === "LIBRARY", "Step 2 maps to LIBRARY");
         check(workspaceModeForWizardStep(3) === "LIBRARY", "Step 3 maps to LIBRARY");
-        check(workspaceModeForWizardStep(4) === "DESIGNER", "Step 4 maps to DESIGNER");
-        check(workspaceModeForWizardStep(5) === "EXPORT", "Step 5 maps to EXPORT");
+        check(workspaceModeForWizardStep(4) === "ENHANCE", "Step 4 maps to ENHANCE");
+        check(workspaceModeForWizardStep(5) === "DESIGNER", "Step 5 maps to DESIGNER");
+        check(workspaceModeForWizardStep(6) === "EXPORT", "Step 6 maps to EXPORT");
         check(workspaceModeForWizardStep(0) === "LIBRARY", "Out of bounds step 0 defaults to LIBRARY");
-        check(workspaceModeForWizardStep(6) === "LIBRARY", "Out of bounds step 6 defaults to LIBRARY");
+        check(workspaceModeForWizardStep(7) === "LIBRARY", "Out of bounds step 7 defaults to LIBRARY");
         check(workspaceModeForWizardStep(null) === "LIBRARY", "Null step defaults to LIBRARY");
         check(workspaceModeForWizardStep(undefined) === "LIBRARY", "Undefined step defaults to LIBRARY");
-        check(workspaceModeForWizardStep("4") === "DESIGNER", "String '4' coerces to DESIGNER");
+        check(workspaceModeForWizardStep("5") === "DESIGNER", "String '5' coerces to DESIGNER");
 
         // 2. Canonical dispatcher state progression simulation
         let wizardStep = 1;
@@ -569,14 +572,14 @@ export async function runAlb081Tests() {
         check(wizardStep === 3, "Navigated to Step 3");
         check(getActiveWorkspaceMode() === "LIBRARY", "Step 3 renders LIBRARY workspace");
 
-        // Step 4 without directDesignerEntry fails because Step 3 is incomplete
+        // Step 4 without reviewed Cull fails because Step 3 is incomplete
         handleWizardStepClick(4);
         check(wizardStep === 3, "Normal Step 4 navigation blocked without KEEP decisions");
         check(getActiveWorkspaceMode() === "LIBRARY", "Workspace mode remains LIBRARY");
 
-        // Direct Designer action transitions to Step 4 and DESIGNER workspace
-        handleWizardStepClick(4, { directDesignerEntry: true });
-        check(wizardStep === 4, "Direct Designer action transitions to Step 4");
+        // Direct Designer action transitions to Step 5 and DESIGNER workspace
+        handleWizardStepClick(5, { directDesignerEntry: true });
+        check(wizardStep === 5, "Direct Designer action transitions to Step 5");
         check(getActiveWorkspaceMode() === "DESIGNER", "Derived workspace mode is DESIGNER");
 
         // Designer empty state return button transitions back to Step 1 and LIBRARY workspace
@@ -584,9 +587,9 @@ export async function runAlb081Tests() {
         check(wizardStep === 1, "Return to Library transitions to Step 1");
         check(getActiveWorkspaceMode() === "LIBRARY", "Derived workspace mode is LIBRARY");
 
-        // Export pane return button transitions to Step 4 and DESIGNER workspace
-        handleWizardStepClick(4, { directDesignerEntry: true });
-        check(wizardStep === 4, "Navigated back to Step 4");
+        // Export pane return button transitions to Step 5 and DESIGNER workspace
+        handleWizardStepClick(5, { directDesignerEntry: true });
+        check(wizardStep === 5, "Navigated back to Step 5");
         check(getActiveWorkspaceMode() === "DESIGNER", "Derived workspace mode is DESIGNER");
 
         // Project lifecycle resets: closeProject / createProject / openProject reset to Step 1
