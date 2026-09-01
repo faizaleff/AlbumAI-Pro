@@ -186,6 +186,30 @@ Filters control was visible beside the culling actions, expanded to reveal the
 secondary controls, and collapsed back to the default state without changing
 the loaded project, photo count, or selection.
 
+#### Persistent manual story order
+
+The next Sort-workbench unit adds **Manual Order** as an explicit sort mode.
+The operator may begin with Name, Date Taken, or another deterministic base
+sort, then drag a thumbnail or list row onto another photo to move it in the
+story. The first move activates Manual Order and saves a path-free ordered list
+of stable photo keys in project metadata. Reopening or refreshing the project
+reconciles that order: unavailable photos are removed and newly imported photos
+are appended without mutating the source photo records.
+
+Manual reorder is intentionally disabled while search, metadata, culling, or
+event filters hide part of the library; the UI asks the operator to clear those
+filters before changing the full story. Switching back to Date Taken or another
+automatic sort does not destroy the saved manual order. Per-camera clock
+correction UI remains the next bounded Sort-workbench unit.
+
+Live Photoshop runtime verification on 2026-09-01 confirmed that a six-photo
+project saved `sort.field = manual` with six path-free `p1-…` story keys, and
+that Manual Order plus all six photos restored after a plugin reload and project
+reopen. The desktop automation driver does not synthesize UXP's HTML5
+`DataTransfer` payload, so the physical drag gesture remains an operator smoke
+check; deterministic move, reconciliation, immutability, and persistence paths
+are covered by the ALB-060 and ALB-135 regression suites.
+
 ## Approved product-workflow foundation
 
 The pre-implementation prototype review selected one progressive six-step

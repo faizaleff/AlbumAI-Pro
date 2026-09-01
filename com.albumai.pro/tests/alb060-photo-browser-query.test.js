@@ -1,10 +1,13 @@
 import assert from "assert";
 
 import {
+    applyPhotoStoryOrder,
     createPhotoDecisionLookup,
     hasActivePhotoBrowserFilters,
+    movePhotoInStoryOrder,
     normalizePhotoDecisions,
     normalizePhotoBrowserPreferences,
+    normalizePhotoStoryOrder,
     photoDecisionKey,
     photoOrientation,
     queryPhotoBrowser,
@@ -244,6 +247,52 @@ test("refresh reconciliation retains available decisions and removes stale keys"
         rating: 0,
         favorite: true
     });
+});
+
+test("manual story order is deterministic, reconciled, and immutable", () => {
+    const original = photos.slice(0, 3);
+    const initial = normalizePhotoStoryOrder({}, original);
+    const moved = movePhotoInStoryOrder(
+        initial,
+        original,
+        original[2],
+        original[0]
+    );
+    const ordered = applyPhotoStoryOrder(original, moved);
+    assert.deepStrictEqual(
+        ordered.map(item => item.id),
+        ["square", "ten", "two"]
+    );
+    assert.deepStrictEqual(
+        original.map(item => item.id),
+        ["ten", "two", "square"]
+    );
+    assert(Object.isFrozen(moved));
+    assert(Object.isFrozen(moved.items));
+});
+
+test("manual story order drops stale photos and appends newly imported photos", () => {
+    const firstTwo = normalizePhotoStoryOrder({}, photos.slice(0, 2));
+    const reconciled = normalizePhotoStoryOrder(firstTwo, photos.slice(1, 4));
+    assert.deepStrictEqual(
+        applyPhotoStoryOrder(photos.slice(1, 4), reconciled).map(item => item.id),
+        ["two", "square", "unknown"]
+    );
+    assert.strictEqual(reconciled.items.length, 3);
+});
+
+test("manual sort preserves source order until a story order is applied", () => {
+    const source = [photos[2], photos[0], photos[1]];
+    const result = queryPhotoBrowser(source, {
+        sort: { field: "manual", direction: "desc" }
+    });
+    assert.strictEqual(result.preferences.sort.field, "manual");
+    assert.strictEqual(result.preferences.sort.direction, "desc");
+    assert.deepStrictEqual(result.photos.map(item => item.id), [
+        "square",
+        "ten",
+        "two"
+    ]);
 });
 
     test("persisted decisions drive filters and sorting without photo mutation", () => {

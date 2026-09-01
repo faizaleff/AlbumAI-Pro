@@ -13,10 +13,13 @@ function ThumbnailCard({
     viewMode = "icons",
     visible = false,
     decision = { rating: 0, favorite: false, culling: "unrated" },
-    onDecisionChange
+    onDecisionChange,
+    manualOrderEnabled = false,
+    onReorderDrop
 }) {
     PhotoBrowserPerformance.recordRender("ThumbnailCard");
     const [hoverStar, setHoverStar] = useState(0);
+    const [reorderTarget, setReorderTarget] = useState(false);
 
     const imageHeight = compact ? 74 : 100;
     const rating = decision?.rating || 0;
@@ -41,8 +44,23 @@ function ThumbnailCard({
             photoName: photo.name
         }));
         event.dataTransfer.setData("text/plain", String(photo.id));
-        event.dataTransfer.effectAllowed = "copy";
-    }, [photo]);
+        event.dataTransfer.effectAllowed = manualOrderEnabled ? "copyMove" : "copy";
+    }, [manualOrderEnabled, photo]);
+
+    const handleDragOver = useCallback(event => {
+        if (!manualOrderEnabled) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        setReorderTarget(true);
+    }, [manualOrderEnabled]);
+
+    const handleDrop = useCallback(event => {
+        if (!manualOrderEnabled) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setReorderTarget(false);
+        onReorderDrop?.(event.dataTransfer.getData("text/plain"), photo);
+    }, [manualOrderEnabled, onReorderDrop, photo]);
 
     const handleStarClick = (event, starValue) => {
         event.stopPropagation();
@@ -63,7 +81,10 @@ function ThumbnailCard({
         <div
             onClick={handleClick}
             onContextMenu={handleContextMenu}
-            className={`modern-studio-card${selected ? " is-selected" : ""}`}
+            onDragOver={handleDragOver}
+            onDragLeave={() => setReorderTarget(false)}
+            onDrop={handleDrop}
+            className={`modern-studio-card${selected ? " is-selected" : ""}${reorderTarget ? " is-reorder-target" : ""}`}
             role="option"
             aria-selected={selected}
             title={photo.name}

@@ -77,22 +77,45 @@ function usePhotoItemState(photo) {
     return state;
 }
 
-const IconsPhotoItem = React.memo(function IconsPhotoItem({ photo, onPhotoClick, onContextMenu, style, focused, viewMode, visible, decision, onPhotoDecisionChange }) {
+const IconsPhotoItem = React.memo(function IconsPhotoItem({ photo, onPhotoClick, onContextMenu, style, focused, viewMode, visible, decision, onPhotoDecisionChange, manualOrderEnabled, onReorderDrop }) {
     PhotoBrowserPerformance.recordRender("IconsPhotoItem");
     const state = usePhotoItemState(photo);
-    return <div className={`photo-grid-item${focused ? " is-focused" : ""}`} style={style}><ThumbnailCard photo={photo} onClick={onPhotoClick} onContextMenu={onContextMenu} compact thumbnailRevision={state.thumbnailRevision} loading={state.loading} selected={state.selected} viewMode={viewMode} visible={visible} decision={decision} onDecisionChange={onPhotoDecisionChange} /></div>;
+    return <div className={`photo-grid-item${focused ? " is-focused" : ""}`} style={style}><ThumbnailCard photo={photo} onClick={onPhotoClick} onContextMenu={onContextMenu} compact thumbnailRevision={state.thumbnailRevision} loading={state.loading} selected={state.selected} viewMode={viewMode} visible={visible} decision={decision} onDecisionChange={onPhotoDecisionChange} manualOrderEnabled={manualOrderEnabled} onReorderDrop={onReorderDrop} /></div>;
 });
 
-const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, onContextMenu, style, focused, viewMode, visible, decision, onPhotoDecisionChange }) {
+const ListPhotoRow = React.memo(function ListPhotoRow({ photo, onPhotoClick, onContextMenu, style, focused, viewMode, visible, decision, onPhotoDecisionChange, manualOrderEnabled, onReorderDrop }) {
     PhotoBrowserPerformance.recordRender("ListPhotoRow");
     const state = usePhotoItemState(photo);
+    const [reorderTarget, setReorderTarget] = useState(false);
     const handleClick = useCallback(event => onPhotoClick(photo, event), [photo, onPhotoClick]);
     const handleContextMenu = useCallback(event => {
         event.preventDefault();
         event.stopPropagation();
         onContextMenu?.(event, photo);
     }, [photo, onContextMenu]);
-    return <div onClick={handleClick} onContextMenu={handleContextMenu} role="option" aria-selected={state.selected} title={photo.name} className={`photo-list-row${state.selected ? " is-selected" : ""}${focused ? " is-focused" : ""}`} style={{ ...style, display: "flex", gap: 8, alignItems: "center", padding: "0 8px", boxSizing: "border-box", cursor: "pointer", color: "#fff" }}>
+    const handleDragStart = useCallback(event => {
+        event.dataTransfer.setData("application/json", JSON.stringify({
+            type: "ALBUMAI_PHOTO",
+            photoId: photo.id,
+            photoName: photo.name
+        }));
+        event.dataTransfer.setData("text/plain", String(photo.id));
+        event.dataTransfer.effectAllowed = manualOrderEnabled ? "copyMove" : "copy";
+    }, [manualOrderEnabled, photo]);
+    const handleDragOver = useCallback(event => {
+        if (!manualOrderEnabled) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        setReorderTarget(true);
+    }, [manualOrderEnabled]);
+    const handleDrop = useCallback(event => {
+        if (!manualOrderEnabled) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setReorderTarget(false);
+        onReorderDrop?.(event.dataTransfer.getData("text/plain"), photo);
+    }, [manualOrderEnabled, onReorderDrop, photo]);
+    return <div onClick={handleClick} onContextMenu={handleContextMenu} draggable={true} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragLeave={() => setReorderTarget(false)} onDrop={handleDrop} role="option" aria-selected={state.selected} title={photo.name} className={`photo-list-row${state.selected ? " is-selected" : ""}${focused ? " is-focused" : ""}${reorderTarget ? " is-reorder-target" : ""}`} style={{ ...style, display: "flex", gap: 8, alignItems: "center", padding: "0 8px", boxSizing: "border-box", cursor: manualOrderEnabled ? "grab" : "pointer", color: "#fff" }}>
         <div style={{ flex: "0 0 30px", width: 30, height: 30, background: "#1f1f1f", overflow: "hidden" }}><PhotoImage photo={photo} profile="thumbnail" priority={visible ? 1 : 2} role="browser" onImageLoad={() => PhotoBrowserPerformance.thumbnailVisible(photo.id)} fallback={status => <div style={{ color: "#777", fontSize: 13, textAlign: "center", lineHeight: "30px" }}>{status === "loading" ? "…" : "▧"}</div>} style={LIST_IMAGE_STYLE} /></div>
         <div style={{ flex: "1 1 auto", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12 }}>{photo.name}</div>
         <div style={{ flex: "0 0 42px", color: "#aaa", fontSize: 11, textTransform: "uppercase" }}>{photo.extension || "—"}</div>
@@ -237,7 +260,9 @@ function ThumbnailGrid({
     focusedPhotoId = null,
     onFocusPhoto,
     decisionForPhoto = () => ({ rating: 0, favorite: false }),
-    onPhotoDecisionChange
+    onPhotoDecisionChange,
+    manualOrderEnabled = false,
+    onReorderPhoto
 }) {
     PhotoBrowserPerformance.recordRender("ThumbnailGrid");
     const viewportRef = useRef(null);
@@ -388,6 +413,12 @@ function ThumbnailGrid({
         onPhotoClick?.(photo, event);
     }, [onFocusPhoto, onPhotoClick]);
 
+    const handleReorderDrop = useCallback((sourceId, targetPhoto) => {
+        const sourcePhoto = photos.find(photo => String(photo?.id) === String(sourceId));
+        if (!sourcePhoto || !targetPhoto) return;
+        onReorderPhoto?.(sourcePhoto, targetPhoto);
+    }, [onReorderPhoto, photos]);
+
     const renderWindow = windowState;
 
     const items = [];
@@ -397,11 +428,11 @@ function ThumbnailGrid({
         const key = photo.id || photo.name || index;
         const decision = decisionForPhoto(photo);
         if (viewMode === "list") {
-            items.push(<ListPhotoRow key={key} photo={photo} onPhotoClick={handlePhotoClick} onContextMenu={onContextMenu} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} style={{ position: "absolute", top: index * LIST_ROW_HEIGHT, left: 0, right: 0, height: LIST_ROW_HEIGHT }} />);
+            items.push(<ListPhotoRow key={key} photo={photo} onPhotoClick={handlePhotoClick} onContextMenu={onContextMenu} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} manualOrderEnabled={manualOrderEnabled} onReorderDrop={handleReorderDrop} style={{ position: "absolute", top: index * LIST_ROW_HEIGHT, left: 0, right: 0, height: LIST_ROW_HEIGHT }} />);
         } else {
             const row = Math.floor(index / renderWindow.columns);
             const column = index % renderWindow.columns;
-            items.push(<IconsPhotoItem key={key} photo={photo} onPhotoClick={handlePhotoClick} onContextMenu={onContextMenu} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} style={{ position: "absolute", left: ICON_PADDING + column * (ICON_WIDTH + ICON_GAP), top: ICON_PADDING + row * ICON_ROW_HEIGHT, width: ICON_WIDTH, height: ICON_HEIGHT }} />);
+            items.push(<IconsPhotoItem key={key} photo={photo} onPhotoClick={handlePhotoClick} onContextMenu={onContextMenu} focused={photo.id === focusedPhotoId} viewMode={viewMode} visible={index >= renderWindow.visibleStart && index < renderWindow.visibleEnd} decision={decision} onPhotoDecisionChange={onPhotoDecisionChange} manualOrderEnabled={manualOrderEnabled} onReorderDrop={handleReorderDrop} style={{ position: "absolute", left: ICON_PADDING + column * (ICON_WIDTH + ICON_GAP), top: ICON_PADDING + row * ICON_ROW_HEIGHT, width: ICON_WIDTH, height: ICON_HEIGHT }} />);
         }
     }
 

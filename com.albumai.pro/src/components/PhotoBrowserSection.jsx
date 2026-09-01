@@ -10,10 +10,13 @@ import ThumbnailGrid from "./ThumbnailGrid";
 import UxpDropdown from "./UxpDropdown";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import {
+    applyPhotoStoryOrder,
     createPhotoDecisionLookup,
     hasActivePhotoBrowserFilters,
+    movePhotoInStoryOrder,
     normalizePhotoDecisions,
     normalizePhotoBrowserPreferences,
+    normalizePhotoStoryOrder,
     photoDecisionKey,
     queryPhotoBrowser,
     updatePhotoDecision
@@ -60,6 +63,7 @@ const PHOTO_RATING_FILTER_OPTIONS = Object.freeze([
 ]);
 
 const PHOTO_SORT_OPTIONS = Object.freeze([
+    Object.freeze({ value: "manual", label: "Manual Order" }),
     Object.freeze({ value: "name", label: "Name" }),
     Object.freeze({ value: "quality", label: "Quality (AI)" }),
     Object.freeze({ value: "modified", label: "Date Modified" }),
@@ -106,6 +110,12 @@ function PhotoBrowserSection({
         });
     };
     const [preferences, setPreferences] = useState(readSavedPreferences);
+    const readSavedStoryOrder = () => normalizePhotoStoryOrder(
+        App.project.getProject()?.metadata?.photoStoryOrder,
+        photos
+    );
+    const [storyOrder, setStoryOrder] = useState(readSavedStoryOrder);
+    const [storyOrderError, setStoryOrderError] = useState(null);
     const [decisions, setDecisions] = useState(
         () => normalizePhotoDecisions(App.getPhotoDecisions())
     );
@@ -151,13 +161,19 @@ function PhotoBrowserSection({
         }),
         [decisions, duplicateEvidence, photos, preferences]
     );
+    const orderedQueryPhotos = useMemo(
+        () => preferences.sort.field === "manual"
+            ? applyPhotoStoryOrder(queryResult.photos, storyOrder)
+            : queryResult.photos,
+        [preferences.sort.field, queryResult.photos, storyOrder]
+    );
     const decisionForPhoto = useMemo(
         () => createPhotoDecisionLookup(decisions),
         [decisions]
     );
     const culledPhotos = useMemo(
-        () => filterPhotosByCulling(queryResult.photos, cullingFilter, decisionForPhoto),
-        [queryResult.photos, cullingFilter, decisionForPhoto]
+        () => filterPhotosByCulling(orderedQueryPhotos, cullingFilter, decisionForPhoto),
+        [orderedQueryPhotos, cullingFilter, decisionForPhoto]
     );
     const visiblePhotos = useMemo(() => {
         if (!selectedEventId) return culledPhotos;
@@ -183,6 +199,8 @@ function PhotoBrowserSection({
 
     useEffect(() => {
         setPreferences(readSavedPreferences());
+        setStoryOrder(readSavedStoryOrder());
+        setStoryOrderError(null);
         setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
         setDecisionError(null);
         setDuplicateEvidence(normalizePhotoDuplicateEvidence(
@@ -196,6 +214,7 @@ function PhotoBrowserSection({
 
     useEffect(() => {
         setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
+        setStoryOrder(previous => normalizePhotoStoryOrder(previous, photos));
         setDuplicateEvidence(normalizePhotoDuplicateEvidence(
             App.getPhotoDuplicateEvidence()
         ));
@@ -232,11 +251,74 @@ function PhotoBrowserSection({
         }));
     }, [updatePreferences]);
 
+    const persistStoryOrder = useCallback((order, nextPreferences) => {
+        App.saveProject({
+            photoStoryOrder: order,
+            photoBrowserPreferences: nextPreferences
+        }, { reason: "PHOTO_STORY_ORDER" }).catch(error => {
+            setStoryOrderError("Manual photo order could not be saved.");
+            console.warn("Photo story order persistence:", error);
+        });
+    }, []);
+
     const clearFilters = useCallback(() => {
         setSelectedEventId("");
         setCullingFilter(CullingFilterMode.ALL);
         updatePreferences(previous => ({ sort: previous.sort }));
     }, [updatePreferences]);
+
+    const activateManualOrder = useCallback(() => {
+        if (filtersActive) {
+            setStoryOrderError("Clear filters before editing the full story order.");
+            return;
+        }
+        setStoryOrderError(null);
+        const baseline = storyOrder.items.length
+            ? normalizePhotoStoryOrder(storyOrder, queryResult.photos)
+            : normalizePhotoStoryOrder({
+                items: queryResult.photos.map(photoDecisionKey).filter(Boolean)
+            }, queryResult.photos);
+        const nextPreferences = normalizePhotoBrowserPreferences({
+            ...preferences,
+            sort: { field: "manual", direction: "asc" }
+        });
+        setStoryOrder(baseline);
+        setPreferences(nextPreferences);
+        persistStoryOrder(baseline, nextPreferences);
+    }, [filtersActive, persistStoryOrder, preferences, queryResult.photos, storyOrder]);
+
+    const handleSortFieldChange = useCallback(field => {
+        if (field === "manual") activateManualOrder();
+        else {
+            setStoryOrderError(null);
+            updateSort({ field });
+        }
+    }, [activateManualOrder, updateSort]);
+
+    const handleManualReorder = useCallback((sourcePhoto, targetPhoto) => {
+        if (!sourcePhoto || !targetPhoto) return;
+        if (filtersActive) {
+            setStoryOrderError("Clear filters before editing the full story order.");
+            return;
+        }
+        const baseline = preferences.sort.field === "manual"
+            ? applyPhotoStoryOrder(queryResult.photos, storyOrder)
+            : queryResult.photos;
+        const nextOrder = movePhotoInStoryOrder(
+            storyOrder,
+            baseline,
+            sourcePhoto,
+            targetPhoto
+        );
+        const nextPreferences = normalizePhotoBrowserPreferences({
+            ...preferences,
+            sort: { field: "manual", direction: "asc" }
+        });
+        setStoryOrderError(null);
+        setStoryOrder(nextOrder);
+        setPreferences(nextPreferences);
+        persistStoryOrder(nextOrder, nextPreferences);
+    }, [filtersActive, persistStoryOrder, preferences, queryResult.photos, storyOrder]);
 
     const changePhotoDecision = useCallback((photo, changes) => {
         const revision = ++decisionRevision.current;
@@ -604,7 +686,7 @@ function PhotoBrowserSection({
                         id="photo-browser-sort"
                         value={preferences.sort.field}
                         options={PHOTO_SORT_OPTIONS}
-                        onValueChange={field => updateSort({ field })}
+                        onValueChange={handleSortFieldChange}
                         className="photo-browser-sort-select photo-browser-control"
                         ariaLabel="Sort photos by"
                         title="Sort photos by"
@@ -612,6 +694,7 @@ function PhotoBrowserSection({
                     <button
                         type="button"
                         onClick={() => updateSort({ direction: preferences.sort.direction === "asc" ? "desc" : "asc" })}
+                        disabled={preferences.sort.field === "manual"}
                         title={`Sort ${preferences.sort.direction === "asc" ? "ascending" : "descending"}`}
                         aria-label="Toggle sort direction"
                         className="photo-browser-control photo-browser-direction-button"
@@ -904,6 +987,19 @@ function PhotoBrowserSection({
                 </div>
             )}
 
+            {photos.length > 0 && preferences.sort.field === "manual" && (
+                <div className="photo-manual-order-banner" role="status">
+                    <span><strong>Manual Order</strong> · Drag a photo onto another photo to move it.</span>
+                    <button
+                        type="button"
+                        className="photo-browser-control"
+                        onClick={() => handleSortFieldChange("taken")}
+                    >
+                        Use Date Taken
+                    </button>
+                </div>
+            )}
+
             <div className="photo-browser-content">
                 {photoFolderChange?.message && !isLoading && (
                     <div className="photo-folder-change-message" role="status" aria-live="polite">
@@ -913,6 +1009,11 @@ function PhotoBrowserSection({
                 {decisionError && (
                     <div className="photo-decision-error" role="alert">
                         {decisionError}
+                    </div>
+                )}
+                {storyOrderError && (
+                    <div className="photo-story-order-error" role="alert">
+                        {storyOrderError}
                     </div>
                 )}
                 {(duplicateReady || duplicateError || duplicateEvidence.status === PhotoDuplicateStatus.STALE) && (
@@ -974,6 +1075,8 @@ function PhotoBrowserSection({
                         viewMode={viewMode}
                         decisionForPhoto={decisionForPhoto}
                         onPhotoDecisionChange={changePhotoDecision}
+                        manualOrderEnabled={!filtersActive}
+                        onReorderPhoto={handleManualReorder}
                     />
                 )}
             </div>
@@ -1029,6 +1132,8 @@ function PhotoBrowserSection({
                     <strong>Sort:</strong>{" "}
                     {preferences.sort.field === "name"
                         ? "Name"
+                        : preferences.sort.field === "manual"
+                            ? "Manual Order"
                         : preferences.sort.field === "quality"
                             ? "Quality (AI)"
                             : preferences.sort.field === "modified"

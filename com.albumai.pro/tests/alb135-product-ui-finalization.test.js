@@ -29,6 +29,10 @@ try {
     const identity = readProjectFile("src/config/buildIdentity.js");
     const openFolder = readProjectFile("src/components/OpenFolder.jsx");
     const photoBrowser = readProjectFile("src/components/PhotoBrowserSection.jsx");
+    const photoBrowserModel = readProjectFile("src/services/PhotoBrowserModel.js");
+    const projectService = readProjectFile("src/services/ProjectService.js");
+    const thumbnailGrid = readProjectFile("src/components/ThumbnailGrid.jsx");
+    const thumbnailCard = readProjectFile("src/components/ThumbnailCard.jsx");
     const panelController = readProjectFile("src/controllers/PanelController.jsx");
     const styles = readProjectFile("src/styles.css");
     const index = fs.readFileSync(
@@ -67,9 +71,19 @@ try {
     check(plan.includes("ALB-135.3 implementation progress"), "Import/Sort/Cull implementation record is missing");
     check(plan.includes("Persistent manual drag ordering"), "remaining Sort-workbench boundary is missing");
     check(plan.includes("six-photo REC005 fixture"), "Import/Sort/Cull runtime evidence is missing");
+    check(plan.includes("Persistent manual story order"), "manual story-order implementation record is missing");
+    check(plan.includes("path-free ordered list"), "manual order privacy boundary is missing");
     check(photoBrowser.includes("secondaryFiltersOpen"), "secondary filter disclosure state is missing");
     check(photoBrowser.includes('aria-controls="photo-browser-secondary-filters"'), "secondary filter disclosure is not connected to its panel");
     check(photoBrowser.includes("Filters{secondaryFilterCount"), "active secondary filter count is missing");
+    check(photoBrowser.includes('{ value: "manual", label: "Manual Order" }'), "manual order sort option is missing");
+    check(photoBrowser.includes("onReorderPhoto={handleManualReorder}"), "manual drag reorder is not connected to the photo grid");
+    check(photoBrowser.includes("Clear filters before editing the full story order."), "filtered manual-order guard is missing");
+    check(photoBrowserModel.includes("normalizePhotoStoryOrder"), "manual story-order normalization is missing");
+    check(photoBrowserModel.includes("movePhotoInStoryOrder"), "manual story-order movement is missing");
+    check(projectService.includes('"photoStoryOrder"'), "project metadata validation omits manual story order");
+    check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
+    check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");
     check(openFolder.includes("workspace-brand-mark"), "compact workspace brand mark is missing");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");

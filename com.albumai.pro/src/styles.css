@@ -891,6 +891,38 @@ button.photo-browser-control:active:not(:disabled) {
     margin-left: 0;
 }
 
+.photo-manual-order-banner {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    color: #c9d1d9;
+    background: #14213a;
+    border: 1px solid #294a7a;
+    border-top: 0;
+    font-size: 11px;
+}
+
+.photo-story-order-error {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    color: #ffb3b3;
+    background: #3b1f24;
+    border: 1px solid #7a3038;
+    font-size: 11px;
+}
+
+.modern-studio-card.is-reorder-target,
+.photo-list-row.is-reorder-target {
+    border-color: #58a6ff !important;
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.55) !important;
+}
+
 .culling-label {
     color: #999;
     font-weight: 600;
@@ -2779,6 +2811,11 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 
     .photo-filter-panel {
         padding: 6px !important;
+    }
+
+    .photo-manual-order-banner {
+        align-items: flex-start !important;
+        flex-direction: column !important;
     }
 }
 

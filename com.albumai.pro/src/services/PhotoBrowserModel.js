@@ -1,5 +1,6 @@
 export const PHOTO_BROWSER_PREFERENCES_SCHEMA = 1;
 export const PHOTO_DECISIONS_SCHEMA = 1;
+export const PHOTO_STORY_ORDER_SCHEMA = 1;
 
 const SORT_FIELDS = new Set([
     "name",
@@ -8,7 +9,8 @@ const SORT_FIELDS = new Set([
     "created",
     "rating",
     "size",
-    "quality"
+    "quality",
+    "manual"
 ]);
 const ORIENTATIONS = new Set([
     "landscape",
@@ -71,6 +73,71 @@ export function photoDecisionKey(photo) {
         normalized,
         0x9e3779b9
     )}`;
+}
+
+export function normalizePhotoStoryOrder(value = {}, photos = null) {
+    const source = value && typeof value === "object" && !Array.isArray(value)
+        ? value
+        : {};
+    const items = [];
+    const seen = new Set();
+    for (const key of Array.isArray(source.items)
+        ? source.items.slice(0, MAX_PHOTO_DECISIONS)
+        : []) {
+        if (!/^p1-[0-9a-f]{16}$/.test(key || "") || seen.has(key)) continue;
+        seen.add(key);
+        items.push(key);
+    }
+    if (Array.isArray(photos)) {
+        const available = new Set(photos.map(photoDecisionKey).filter(Boolean));
+        const reconciled = items.filter(key => available.has(key));
+        const reconciledSet = new Set(reconciled);
+        for (const photo of photos) {
+            const key = photoDecisionKey(photo);
+            if (!key || reconciledSet.has(key)) continue;
+            reconciledSet.add(key);
+            reconciled.push(key);
+        }
+        return Object.freeze({
+            schemaVersion: PHOTO_STORY_ORDER_SCHEMA,
+            items: Object.freeze(reconciled)
+        });
+    }
+    return Object.freeze({
+        schemaVersion: PHOTO_STORY_ORDER_SCHEMA,
+        items: Object.freeze(items)
+    });
+}
+
+export function applyPhotoStoryOrder(photos = [], value = {}) {
+    const source = Array.isArray(photos) ? photos : [];
+    const order = normalizePhotoStoryOrder(value, source);
+    const rank = new Map(order.items.map((key, index) => [key, index]));
+    return Object.freeze(source.slice().sort((left, right) =>
+        rank.get(photoDecisionKey(left)) - rank.get(photoDecisionKey(right))
+    ));
+}
+
+export function movePhotoInStoryOrder(
+    value,
+    photos = [],
+    sourcePhoto,
+    targetPhoto
+) {
+    const ordered = applyPhotoStoryOrder(photos, value);
+    const sourceKey = photoDecisionKey(sourcePhoto);
+    const targetKey = photoDecisionKey(targetPhoto);
+    const keys = ordered.map(photoDecisionKey).filter(Boolean);
+    if (!sourceKey || !targetKey || sourceKey === targetKey) {
+        return normalizePhotoStoryOrder({ items: keys }, ordered);
+    }
+    const sourceIndex = keys.indexOf(sourceKey);
+    if (sourceIndex < 0 || !keys.includes(targetKey)) {
+        return normalizePhotoStoryOrder({ items: keys }, ordered);
+    }
+    keys.splice(sourceIndex, 1);
+    keys.splice(keys.indexOf(targetKey), 0, sourceKey);
+    return normalizePhotoStoryOrder({ items: keys }, ordered);
 }
 
 function normalizedDecision(item) {
@@ -410,13 +477,15 @@ export function queryPhotoBrowser(
             duplicateKeys,
             duplicateFilterAvailable
         ))
-        .slice()
-        .sort((left, right) => comparePhotos(
+        .slice();
+    if (preferences.sort.field !== "manual") {
+        matched.sort((left, right) => comparePhotos(
             left,
             right,
             preferences.sort,
             decisionsByKey
         ));
+    }
     const types = [...new Set(source.map(photoExtension).filter(Boolean))].sort();
     const orientations = [...new Set(source.map(photoOrientation))].sort();
 
