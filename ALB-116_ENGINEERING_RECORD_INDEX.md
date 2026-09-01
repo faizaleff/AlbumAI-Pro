@@ -80,6 +80,7 @@ mean that a file is missing.
 | ALB-132 | [v1.2.0 Release Closeout](com.albumai.pro/docs/ALB-132_V1.2.0_RELEASE_CLOSEOUT.md) | Plugin docs |
 | ALB-133 | [v1.2.0 Post-Release Development Plan](com.albumai.pro/docs/ALB-133_POST_RELEASE_DEVELOPMENT_PLAN.md) | Plugin docs |
 | ALB-134 | [Adobe Marketplace Readiness](com.albumai.pro/docs/ALB-134_ADOBE_MARKETPLACE_READINESS.md) | Plugin docs |
+| ALB-135 | [Product UI Finalization](com.albumai.pro/docs/ALB-135_PRODUCT_UI_FINALIZATION.md) | Plugin docs |
 
 ## Verification
 

@@ -43,7 +43,7 @@ dependency graph recorded in `package-lock.json`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the complete deterministic ALB-043 through ALB-134 suite |
+| `npm test` | Run the complete deterministic ALB-043 through ALB-135 suite |
 | `npm run test:smart-typography` | Run the canonical ALB-118 through ALB-128 Smart Typography suite |
 | `npm run build` | Create a clean production bundle in `dist/` |
 | `npm run build:prod` | Create the same production bundle explicitly |
@@ -85,6 +85,10 @@ bundle; ALB-097 qualified the direct-install path, and ALB-131 qualified the
 exact `v1.2.0` ZIP and CCX. ALB-132 records the immutable publication evidence.
 ALB-133 selects Adobe Marketplace readiness as the next actionable milestone
 without changing the published artifacts.
+
+ALB-135 starts product UI finalization before permanent-logo integration and
+final Marketplace screenshots. Its first slice records the responsive and
+runtime acceptance plan without changing production behavior.
 
 ## Repository layout
 

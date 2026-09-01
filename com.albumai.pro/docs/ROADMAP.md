@@ -119,8 +119,12 @@ runtime qualification before they may be presented as product behavior.
 - Direct `.ccx` packaging and Creative Cloud Desktop installation — ALB-097
   delivered and runtime-qualified
 - Marketplace readiness — ALB-134 in progress with an official-requirement
-  audit and fail-closed gate; the placeholder package icon requires a bounded
-  `v1.2.1` identity/artwork patch before any Adobe upload
+  audit and fail-closed gate; the bounded `v1.2.1` candidate uses temporary
+  test artwork while final logo, screenshots, account facts, and qualification
+  remain blocked
+- Product UI finalization — ALB-135 audit complete; workspace hierarchy,
+  responsive containment, panel visibility, and runtime acceptance are planned
+  before permanent-logo integration or final Marketplace screenshots
 - Cloud sync and team collaboration
 - Mobile/client proof review
 
