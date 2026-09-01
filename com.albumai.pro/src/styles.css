@@ -891,6 +891,96 @@ button.photo-browser-control:active:not(:disabled) {
     margin-left: 0;
 }
 
+.photo-camera-time-button.is-active {
+    color: #fff;
+    background: #174b7a;
+    border-color: #5aa8ff;
+}
+
+.photo-camera-time-panel {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    color: #d9e2ec;
+    background: #141b24;
+    border: 1px solid #30445c;
+    border-top: 0;
+    font-size: 11px;
+}
+
+.photo-camera-time-heading,
+.photo-camera-time-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.photo-camera-time-heading > div,
+.photo-camera-time-identity {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.photo-camera-time-heading span,
+.photo-camera-time-identity small,
+.photo-camera-time-note {
+    color: #9fb0c3;
+    font-size: 10px;
+}
+
+.photo-camera-time-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.photo-camera-time-row {
+    padding: 6px 7px;
+    background: #202a36;
+    border: 1px solid #35465a;
+    border-radius: 4px;
+}
+
+.photo-camera-time-identity strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.photo-camera-time-input-wrap {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 5px;
+    color: #9fb0c3;
+}
+
+.photo-camera-time-input {
+    width: 74px !important;
+    text-align: right;
+}
+
+@media (max-width: 420px) {
+    .photo-camera-time-heading,
+    .photo-camera-time-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .photo-camera-time-heading > .photo-browser-control,
+    .photo-camera-time-input-wrap {
+        align-self: flex-end;
+    }
+}
+
 .photo-manual-order-banner {
     flex: 0 0 auto;
     display: flex;

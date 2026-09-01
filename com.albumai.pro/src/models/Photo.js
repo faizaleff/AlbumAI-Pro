@@ -42,6 +42,8 @@ export default class Photo {
         this.created = file.created || null;
         this.modified = file.modified || null;
         this.dateTaken = null;
+        this.cameraMake = null;
+        this.cameraModel = null;
         this.metadataLoaded = false;
 
         // Loading

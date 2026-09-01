@@ -1130,6 +1130,8 @@ export default class PhotoWorkspaceService {
             photo.height = facts.height;
             photo.orientation = facts.orientation;
             photo.dateTaken = facts.dateTaken;
+            photo.cameraMake = facts.cameraMake || null;
+            photo.cameraModel = facts.cameraModel || null;
             photo.metadataLoaded = true;
             updated++;
             if (updated % 25 === 0) this.refreshService.refresh();
@@ -1497,6 +1499,8 @@ export default class PhotoWorkspaceService {
             height: photo.height,
             orientation: photo.orientation,
             dateTaken: photo.dateTaken,
+            cameraMake: photo.cameraMake,
+            cameraModel: photo.cameraModel,
             fileSize: photo.fileSize,
             created: photo.created,
             modified: photo.modified

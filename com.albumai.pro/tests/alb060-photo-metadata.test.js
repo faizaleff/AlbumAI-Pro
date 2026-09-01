@@ -30,12 +30,18 @@ function write32(bytes, offset, value) {
 
 function jpegFixture({ width = 4000, height = 3000, orientation = 6 } = {}) {
     const date = "2026:08:12 00:15:30\0";
-    const tiff = new Uint8Array(56 + date.length);
+    const cameraMake = "Canon\0";
+    const cameraModel = "EOS R5\0";
+    const dataOffset = 80;
+    const makeOffset = dataOffset;
+    const modelOffset = makeOffset + cameraMake.length;
+    const dateOffset = modelOffset + cameraModel.length;
+    const tiff = new Uint8Array(dateOffset + date.length);
     tiff[0] = 0x49;
     tiff[1] = 0x49;
     write16(tiff, 2, 42);
     write32(tiff, 4, 8);
-    write16(tiff, 8, 2);
+    write16(tiff, 8, 4);
     write16(tiff, 10, 0x0112);
     write16(tiff, 12, 3);
     write32(tiff, 14, 1);
@@ -43,16 +49,30 @@ function jpegFixture({ width = 4000, height = 3000, orientation = 6 } = {}) {
     write16(tiff, 22, 0x8769);
     write16(tiff, 24, 4);
     write32(tiff, 26, 1);
-    write32(tiff, 30, 38);
-    write32(tiff, 34, 0);
-    write16(tiff, 38, 1);
-    write16(tiff, 40, 0x9003);
-    write16(tiff, 42, 2);
-    write32(tiff, 44, date.length);
-    write32(tiff, 48, 56);
-    write32(tiff, 52, 0);
+    write32(tiff, 30, 62);
+    write16(tiff, 34, 0x010f);
+    write16(tiff, 36, 2);
+    write32(tiff, 38, cameraMake.length);
+    write32(tiff, 42, makeOffset);
+    write16(tiff, 46, 0x0110);
+    write16(tiff, 48, 2);
+    write32(tiff, 50, cameraModel.length);
+    write32(tiff, 54, modelOffset);
+    write32(tiff, 58, 0);
+    write16(tiff, 62, 1);
+    write16(tiff, 64, 0x9003);
+    write16(tiff, 66, 2);
+    write32(tiff, 68, date.length);
+    write32(tiff, 72, dateOffset);
+    write32(tiff, 76, 0);
+    for (let index = 0; index < cameraMake.length; index++) {
+        tiff[makeOffset + index] = cameraMake.charCodeAt(index);
+    }
+    for (let index = 0; index < cameraModel.length; index++) {
+        tiff[modelOffset + index] = cameraModel.charCodeAt(index);
+    }
     for (let index = 0; index < date.length; index++) {
-        tiff[56 + index] = date.charCodeAt(index);
+        tiff[dateOffset + index] = date.charCodeAt(index);
     }
 
     const exif = new Uint8Array(6 + tiff.length);
@@ -122,6 +142,8 @@ async function run() {
         assert.strictEqual(metadata.height, 4000);
         assert.strictEqual(metadata.orientation, 6);
         assert.strictEqual(metadata.dateTaken, "2026-08-12T00:15:30");
+        assert.strictEqual(metadata.cameraMake, "Canon");
+        assert.strictEqual(metadata.cameraModel, "EOS R5");
         assert.ok(Object.isFrozen(metadata));
     });
 
@@ -133,7 +155,9 @@ async function run() {
                 width: 0,
                 height: 0,
                 orientation: 1,
-                dateTaken: null
+                dateTaken: null,
+                cameraMake: null,
+                cameraModel: null
             }
         );
     });
@@ -175,7 +199,9 @@ async function run() {
                 width: value * 100,
                 height: value * 50,
                 orientation: 1,
-                dateTaken: "2026-08-12T00:15:30"
+                dateTaken: "2026-08-12T00:15:30",
+                cameraMake: value === 1 ? "Canon" : "Sony",
+                cameraModel: value === 1 ? "EOS R5" : "A7 IV"
             })
         });
         const photos = [1, 2, 3].map(id => ({
@@ -194,6 +220,10 @@ async function run() {
             [[100, 50], [200, 100], [300, 150]]
         );
         assert.ok(photos.every(photo => photo.metadataLoaded));
+        assert.deepStrictEqual(
+            photos.map(photo => [photo.cameraMake, photo.cameraModel]),
+            [["Canon", "EOS R5"], ["Sony", "A7 IV"], ["Sony", "A7 IV"]]
+        );
         assert.strictEqual(state.refreshes(), 1);
     });
 

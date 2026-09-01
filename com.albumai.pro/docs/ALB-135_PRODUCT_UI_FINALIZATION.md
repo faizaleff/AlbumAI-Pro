@@ -176,9 +176,10 @@ still be reset without reopening the disclosure.
 
 This is a presentation-only reorganization: existing query behavior, saved
 photo-browser preferences, culling decisions, duplicate analysis, selection,
-and keyboard controls remain unchanged. Persistent manual drag ordering,
-per-camera clock correction UI, and the optional future AI story draft remain
-the next Sort-workbench units.
+and keyboard controls remain unchanged. Persistent manual drag ordering and
+per-camera clock correction are now implemented; operator-authored event
+chapters and the optional future AI story draft remain the next Sort-workbench
+units.
 
 The production bundle reloaded successfully in UXP Developer Tools. In the
 live 420-pixel Photoshop dock with the six-photo REC005 fixture, the compact
@@ -199,8 +200,7 @@ are appended without mutating the source photo records.
 Manual reorder is intentionally disabled while search, metadata, culling, or
 event filters hide part of the library; the UI asks the operator to clear those
 filters before changing the full story. Switching back to Date Taken or another
-automatic sort does not destroy the saved manual order. Per-camera clock
-correction UI remains the next bounded Sort-workbench unit.
+automatic sort does not destroy the saved manual order.
 
 Live Photoshop runtime verification on 2026-09-01 confirmed that a six-photo
 project saved `sort.field = manual` with six path-free `p1-…` story keys, and
@@ -209,6 +209,37 @@ reopen. The desktop automation driver does not synthesize UXP's HTML5
 `DataTransfer` payload, so the physical drag gesture remains an operator smoke
 check; deterministic move, reconciliation, immutability, and persistence paths
 are covered by the ALB-060 and ALB-135 regression suites.
+
+#### Per-camera clock correction
+
+The Sort workbench now exposes **Camera Times** without changing the original
+files. JPEG EXIF inspection publishes camera make/model with Date Taken, the
+browser groups photos by stable normalized camera identity, and the operator may
+enter a signed correction in whole minutes for each camera. The UI states the
+direction explicitly: a camera that is eight minutes slow receives `+8`.
+
+Corrections are bounded to seven days, normalized into project metadata, and
+reconciled against cameras still present in the library. Corrected timestamps
+are in-memory projections used by Date Taken sorting and event grouping; source
+photo records and JPEG metadata remain untouched. Reset all removes every saved
+correction. Missing camera EXIF is handled as one visible **Primary Camera**
+group so the deterministic/manual workflow remains available.
+
+The next bounded Sort unit is operator-authored event chapters with persistent
+rename/reorder controls. Future AI story drafting may consume corrected time as
+supporting evidence, but visual/location/outfit/event evidence remains necessary
+and the proposal stays review-only.
+
+Live Photoshop runtime verification on 2026-09-01 used the six-photo REC005
+fixture in the compact dock. Camera Times opened without hiding its guidance or
+input, a `+8` minute Primary Camera correction saved as one normalized project
+metadata item, and both the active-count badge and value restored after plugin
+reload plus project reopen. The source JPEGs were not written or renamed.
+
+The ALB-130/131 historical size assertions now inspect the immutable v1.2.0
+bundle inside its published release ZIP instead of incorrectly measuring the
+active v1.2.1 development bundle. The current candidate still retains its own
+740 KiB ceiling through ALB-129.
 
 ## Approved product-workflow foundation
 

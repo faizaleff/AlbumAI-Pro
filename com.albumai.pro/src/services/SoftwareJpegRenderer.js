@@ -137,6 +137,8 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
 
     let orientation = 1;
     let exifIfdRelative = 0;
+    let cameraMake = null;
+    let cameraModel = null;
     for (let index = 0; index < ifd0Entries; index++) {
         const entryOffset = ifd0Offset + 2 + index * 12;
         if (entryOffset + 12 > segmentEnd) return null;
@@ -146,6 +148,10 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
             if (value >= 1 && value <= 8) orientation = value;
         } else if (tag === 0x8769) {
             exifIfdRelative = read32(entryOffset + 8);
+        } else if (tag === 0x010f) {
+            cameraMake = String(readAscii(entryOffset) || "").trim() || null;
+        } else if (tag === 0x0110) {
+            cameraModel = String(readAscii(entryOffset) || "").trim() || null;
         }
     }
     const exifIfdOffset = tiffOffset + exifIfdRelative;
@@ -157,11 +163,11 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
 
     const ifd1Relative = read32(nextIfdPointer);
     if (!ifd1Relative) {
-        return { binary: null, orientation, dateTaken };
+        return { binary: null, orientation, dateTaken, cameraMake, cameraModel };
     }
     const ifd1Offset = tiffOffset + ifd1Relative;
     if (ifd1Offset + 2 > segmentEnd) {
-        return { binary: null, orientation, dateTaken };
+        return { binary: null, orientation, dateTaken, cameraMake, cameraModel };
     }
 
     const ifd1Entries = read16(ifd1Offset);
@@ -170,7 +176,7 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
     for (let index = 0; index < ifd1Entries; index++) {
         const entryOffset = ifd1Offset + 2 + index * 12;
         if (entryOffset + 12 > segmentEnd) {
-            return { binary: null, orientation, dateTaken };
+            return { binary: null, orientation, dateTaken, cameraMake, cameraModel };
         }
         const tag = read16(entryOffset);
         if (tag === 0x0201) {
@@ -190,12 +196,14 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
         bytes[thumbnailOffset] !== 0xff ||
         bytes[thumbnailOffset + 1] !== 0xd8
     ) {
-        return { binary: null, orientation, dateTaken };
+        return { binary: null, orientation, dateTaken, cameraMake, cameraModel };
     }
     return {
         binary: bytes.slice(thumbnailOffset, thumbnailEnd),
         orientation,
-        dateTaken
+        dateTaken,
+        cameraMake,
+        cameraModel
     };
 
 }
@@ -212,12 +220,16 @@ export function inspectJpegMetadata(binary) {
         width: 0,
         height: 0,
         orientation: 1,
-        dateTaken: null
+        dateTaken: null,
+        cameraMake: null,
+        cameraModel: null
     };
 
     let best = null;
     let orientation = 1;
     let dateTaken = null;
+    let cameraMake = null;
+    let cameraModel = null;
     let width = 0;
     let height = 0;
     let markerOffset = 2;
@@ -251,6 +263,8 @@ export function inspectJpegMetadata(binary) {
             if (candidate) {
                 orientation = candidate.orientation;
                 dateTaken = candidate.dateTaken || dateTaken;
+                cameraMake = candidate.cameraMake || cameraMake;
+                cameraModel = candidate.cameraModel || cameraModel;
                 if (
                     candidate.binary &&
                     (
@@ -279,7 +293,9 @@ export function inspectJpegMetadata(binary) {
         width: swapsAxes ? height : width,
         height: swapsAxes ? width : height,
         orientation: best?.orientation || orientation,
-        dateTaken
+        dateTaken,
+        cameraMake,
+        cameraModel
     });
 
 }
@@ -502,7 +518,9 @@ class SoftwareJpegRenderer {
             width: metadata.width,
             height: metadata.height,
             orientation: metadata.orientation,
-            dateTaken: metadata.dateTaken
+            dateTaken: metadata.dateTaken,
+            cameraMake: metadata.cameraMake,
+            cameraModel: metadata.cameraModel
         });
 
     }

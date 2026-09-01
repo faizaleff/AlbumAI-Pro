@@ -3,6 +3,7 @@
 "use strict";
 
 const assert = require("assert");
+const { execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const { minifyCss } = require("../scripts/minify-css-loader");
@@ -28,6 +29,14 @@ function readJson(relativePath) {
     return JSON.parse(read(relativePath));
 }
 
+function readReleasedBundle() {
+    return execFileSync("unzip", [
+        "-p",
+        path.join(PROJECT_ROOT, "release/1.2.0/AlbumAI-Pro-1.2.0.zip"),
+        "index.js"
+    ]);
+}
+
 try {
     const packageJson = readJson("package.json");
     const packageLock = readJson("package-lock.json");
@@ -36,7 +45,7 @@ try {
     const webpack = read("webpack.config.js");
     const css = read("src/styles.css");
     const minifiedCss = minifyCss(css);
-    const bundle = fs.readFileSync(path.join(PROJECT_ROOT, "dist/index.js"));
+    const bundle = readReleasedBundle();
     const historicalQualification = fs.readFileSync(
         path.join(REPOSITORY_ROOT, "ALB-108_V1.1.2_PATCH_RELEASE_QUALIFICATION.md"),
         "utf8"

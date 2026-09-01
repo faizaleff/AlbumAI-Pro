@@ -11,9 +11,13 @@ import {
     QUALITY_PIPELINE_VERSION
 } from "../src/services/PhotoQualitySignalEngine";
 import {
+    applyCameraClockCorrections,
     groupPhotosByBurst,
     groupPhotosByEvent,
-    buildPhotoGroupIndex
+    buildPhotoGroupIndex,
+    detectCameras,
+    normalizeCameraClockOffsets,
+    updateCameraClockOffset
 } from "../src/services/PhotoGroupingEngine";
 import {
     PHOTO_AI_ANALYSIS_SCHEMA,
@@ -247,6 +251,55 @@ export async function runAlb071Tests() {
         const p2Info = index.get("p2");
         check(p2Info.burstGroupId === "burst-group-1", "p2 is in burst-group-1");
         check(p2Info.isBurstBest === true, "p2 is burst best");
+    }
+
+    // Test 10: Persistent per-camera clock correction
+    {
+        const baseTime = new Date("2026-06-15T10:00:00Z").getTime();
+        const photos = [
+            {
+                id: "canon-1",
+                dateTaken: baseTime + 5 * 60 * 1000,
+                cameraMake: "Canon",
+                cameraModel: "EOS R5"
+            },
+            {
+                id: "sony-1",
+                dateTaken: baseTime,
+                cameraMake: "Sony",
+                cameraModel: "A7 IV"
+            }
+        ];
+        const cameras = detectCameras(photos);
+        check(cameras.length === 2, "Two camera identities are detected");
+        const canon = cameras.find(camera => camera.label === "Canon EOS R5");
+        const correctedOffsets = updateCameraClockOffset(
+            {},
+            canon.cameraKey,
+            -5,
+            cameras
+        );
+        check(correctedOffsets.items.length === 1, "One non-zero correction is persisted");
+        check(correctedOffsets.items[0].correctionMinutes === -5, "Signed correction is retained");
+
+        const corrected = applyCameraClockCorrections(
+            photos,
+            correctedOffsets,
+            cameras
+        );
+        check(corrected[0].dateTaken === baseTime, "Correction is added to Date Taken");
+        check(corrected[0].metadata._timeCorrected === true, "Corrected photo is marked in memory");
+        check(photos[0].dateTaken === baseTime + 5 * 60 * 1000, "Original photo metadata is unchanged");
+
+        const normalized = normalizeCameraClockOffsets({
+            items: [
+                { cameraKey: canon.cameraKey, correctionMinutes: 999999 },
+                { cameraKey: "stale|camera", correctionMinutes: 10 }
+            ]
+        }, cameras);
+        check(normalized.items.length === 1, "Stale camera corrections are removed");
+        check(normalized.items[0].correctionMinutes === 10080, "Corrections are bounded to seven days");
+        check(Object.isFrozen(normalized.items), "Normalized camera corrections are immutable");
     }
 
     console.info(`PASS ALB-071: All assertions passed (${assertions} assertions).`);

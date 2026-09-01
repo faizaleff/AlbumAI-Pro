@@ -3,6 +3,7 @@
 "use strict";
 
 const assert = require("assert");
+const { execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -29,6 +30,14 @@ function readJson(relativePath) {
     return JSON.parse(read(relativePath));
 }
 
+function readReleasedBundle() {
+    return execFileSync("unzip", [
+        "-p",
+        path.join(PROJECT_ROOT, "release/1.2.0/AlbumAI-Pro-1.2.0.zip"),
+        "index.js"
+    ]);
+}
+
 try {
     const packageJson = readJson("package.json");
     const packageLock = readJson("package-lock.json");
@@ -44,7 +53,7 @@ try {
     const installedSmoke = read("docs/evidence/alb-131/INSTALLED_RUNTIME_SMOKE.md");
     const appliedScreenshot = path.join(PROJECT_ROOT, "docs/evidence/alb-131/installed-typography-applied.jpeg");
     const restoredScreenshot = path.join(PROJECT_ROOT, "docs/evidence/alb-131/installed-typography-restored.jpeg");
-    const bundle = fs.readFileSync(path.join(PROJECT_ROOT, "dist/index.js"));
+    const bundle = readReleasedBundle();
 
     check(packageJson.version === packageLock.version && packageLock.packages?.[""]?.version === packageJson.version, "package and lockfile versions differ");
     check(sourceManifest.version === packageJson.version && builtManifest.version === packageJson.version, "manifest version differs");

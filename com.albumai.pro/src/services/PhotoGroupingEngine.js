@@ -14,6 +14,8 @@ export const DEFAULT_BURST_THRESHOLD_MS = 3000; // 3 seconds
 export const DEFAULT_EVENT_GAP_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 export const PROFESSIONAL_CAMERA_MIN_PHOTOS = 20;
 export const SUSPICIOUS_OFFSET_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+export const CAMERA_CLOCK_OFFSETS_SCHEMA = 1;
+export const MAX_CAMERA_CLOCK_CORRECTION_MINUTES = 7 * 24 * 60;
 
 export const COSTUME_CHANGE_DELTA_E_THRESHOLD = 35;
 export const HALDI_YELLOW_HUE_MIN = 40;
@@ -65,7 +67,7 @@ export const ANALYSIS_STATUS = Object.freeze({
     ERROR: "ERROR"
 });
 
-function getPhotoTimestamp(photo) {
+export function getPhotoTimestamp(photo) {
     if (!photo) return 0;
     const candidates = [
         photo.metadata?.dateTaken,
@@ -253,7 +255,7 @@ export function buildPhotoGroupIndex(photos = [], {
 
 const PHONE_KEYWORDS = ["iphone", "samsung", "pixel", "oneplus", "xiaomi", "oppo", "vivo", "huawei", "realme"];
 
-function getCameraKey(photo) {
+export function getCameraKey(photo) {
     const make = (photo.metadata?.cameraMake || photo.cameraMake || "").toLowerCase().trim();
     const model = (photo.metadata?.cameraModel || photo.cameraModel || "").toLowerCase().trim();
     if (!make && !model) return "unknown";
@@ -290,6 +292,64 @@ export function detectCameras(photos = []) {
         if (ts > 0) entry.timestamps.push(ts);
     }
     return [...map.values()].sort((a, b) => b.photoCount - a.photoCount);
+}
+
+export function normalizeCameraClockOffsets(value = {}, cameras = null) {
+    const source = value && typeof value === "object" && !Array.isArray(value)
+        ? value
+        : {};
+    const available = Array.isArray(cameras)
+        ? new Set(cameras.map(camera => camera?.cameraKey).filter(Boolean))
+        : null;
+    const byCamera = new Map();
+    for (const candidate of Array.isArray(source.items)
+        ? source.items.slice(0, 64)
+        : []) {
+        const cameraKey = typeof candidate?.cameraKey === "string"
+            ? candidate.cameraKey.trim().slice(0, 160)
+            : "";
+        const numeric = Number(candidate?.correctionMinutes);
+        if (!cameraKey || !Number.isFinite(numeric)) continue;
+        if (available && !available.has(cameraKey)) continue;
+        const correctionMinutes = Math.max(
+            -MAX_CAMERA_CLOCK_CORRECTION_MINUTES,
+            Math.min(MAX_CAMERA_CLOCK_CORRECTION_MINUTES, Math.round(numeric))
+        );
+        if (!correctionMinutes) byCamera.delete(cameraKey);
+        else byCamera.set(cameraKey, Object.freeze({
+            cameraKey,
+            correctionMinutes
+        }));
+    }
+    return Object.freeze({
+        schemaVersion: CAMERA_CLOCK_OFFSETS_SCHEMA,
+        items: Object.freeze([...byCamera.values()].sort((left, right) =>
+            left.cameraKey.localeCompare(right.cameraKey)
+        ))
+    });
+}
+
+export function updateCameraClockOffset(
+    value,
+    cameraKey,
+    correctionMinutes,
+    cameras = null
+) {
+    const current = normalizeCameraClockOffsets(value, cameras);
+    return normalizeCameraClockOffsets({
+        items: [
+            ...current.items.filter(item => item.cameraKey !== cameraKey),
+            { cameraKey, correctionMinutes }
+        ]
+    }, cameras);
+}
+
+export function cameraClockCorrectionMap(value = {}, cameras = null) {
+    const normalized = normalizeCameraClockOffsets(value, cameras);
+    return new Map(normalized.items.map(item => [
+        item.cameraKey,
+        -item.correctionMinutes * 60 * 1000
+    ]));
 }
 
 export function findAnchorCamera(cameras = []) {
@@ -361,6 +421,7 @@ export function applyTimestampOffsets(photos = [], offsetMap = new Map()) {
         if (!originalTs) return photo;
         return {
             ...photo,
+            dateTaken: originalTs - offset,
             metadata: {
                 ...(photo.metadata || {}),
                 dateTaken: originalTs - offset,
@@ -370,6 +431,17 @@ export function applyTimestampOffsets(photos = [], offsetMap = new Map()) {
             }
         };
     });
+}
+
+export function applyCameraClockCorrections(
+    photos = [],
+    value = {},
+    cameras = null
+) {
+    return applyTimestampOffsets(
+        photos,
+        cameraClockCorrectionMap(value, cameras)
+    );
 }
 
 export function formatOffset(offsetMs) {

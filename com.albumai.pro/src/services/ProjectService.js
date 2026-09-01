@@ -646,6 +646,7 @@ export default class ProjectService {
             "photoDecisions",
             "photoBrowserPreferences",
             "photoStoryOrder",
+            "cameraClockOffsets",
             "photoDuplicateEvidence"
         ]) {
             const value = metadata[field];

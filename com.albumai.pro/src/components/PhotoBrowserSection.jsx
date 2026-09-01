@@ -40,8 +40,11 @@ import {
     summarizeCulling
 } from "../services/PhotoCullingService";
 import {
+    applyCameraClockCorrections,
     detectCameras,
-    groupPhotosByEvent
+    groupPhotosByEvent,
+    normalizeCameraClockOffsets,
+    updateCameraClockOffset
 } from "../services/PhotoGroupingEngine";
 import PhotoComparisonModal from "./PhotoComparisonModal";
 
@@ -116,6 +119,15 @@ function PhotoBrowserSection({
     );
     const [storyOrder, setStoryOrder] = useState(readSavedStoryOrder);
     const [storyOrderError, setStoryOrderError] = useState(null);
+    const readSavedCameraClockOffsets = () => normalizeCameraClockOffsets(
+        App.project.getProject()?.metadata?.cameraClockOffsets,
+        detectCameras(photos)
+    );
+    const [cameraClockOffsets, setCameraClockOffsets] = useState(
+        readSavedCameraClockOffsets
+    );
+    const [cameraTimesOpen, setCameraTimesOpen] = useState(false);
+    const [cameraClockError, setCameraClockError] = useState(null);
     const [decisions, setDecisions] = useState(
         () => normalizePhotoDecisions(App.getPhotoDecisions())
     );
@@ -144,22 +156,34 @@ function PhotoBrowserSection({
         });
     }, []);
 
-    const smartEvents = useMemo(() => {
-        if (!photos || photos.length === 0) return [];
-        return groupPhotosByEvent(photos);
-    }, [photos]);
-
     const detectedCameras = useMemo(() => {
         if (!photos || photos.length === 0) return [];
         return detectCameras(photos);
     }, [photos]);
+    const cameraCorrectionByKey = useMemo(() => new Map(
+        cameraClockOffsets.items.map(item => [
+            item.cameraKey,
+            item.correctionMinutes
+        ])
+    ), [cameraClockOffsets]);
+
+    const correctedPhotos = useMemo(() => applyCameraClockCorrections(
+        photos,
+        cameraClockOffsets,
+        detectedCameras
+    ), [cameraClockOffsets, detectedCameras, photos]);
+
+    const smartEvents = useMemo(() => {
+        if (!correctedPhotos.length) return [];
+        return groupPhotosByEvent(correctedPhotos);
+    }, [correctedPhotos]);
 
     const queryResult = useMemo(
-        () => queryPhotoBrowser(photos, preferences, {
+        () => queryPhotoBrowser(correctedPhotos, preferences, {
             decisions,
             duplicateEvidence
         }),
-        [decisions, duplicateEvidence, photos, preferences]
+        [correctedPhotos, decisions, duplicateEvidence, preferences]
     );
     const orderedQueryPhotos = useMemo(
         () => preferences.sort.field === "manual"
@@ -201,6 +225,9 @@ function PhotoBrowserSection({
         setPreferences(readSavedPreferences());
         setStoryOrder(readSavedStoryOrder());
         setStoryOrderError(null);
+        setCameraClockOffsets(readSavedCameraClockOffsets());
+        setCameraTimesOpen(false);
+        setCameraClockError(null);
         setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
         setDecisionError(null);
         setDuplicateEvidence(normalizePhotoDuplicateEvidence(
@@ -215,6 +242,10 @@ function PhotoBrowserSection({
     useEffect(() => {
         setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
         setStoryOrder(previous => normalizePhotoStoryOrder(previous, photos));
+        setCameraClockOffsets(previous => normalizeCameraClockOffsets(
+            previous,
+            detectCameras(photos)
+        ));
         setDuplicateEvidence(normalizePhotoDuplicateEvidence(
             App.getPhotoDuplicateEvidence()
         ));
@@ -260,6 +291,34 @@ function PhotoBrowserSection({
             console.warn("Photo story order persistence:", error);
         });
     }, []);
+
+    const persistCameraClockOffsets = useCallback(value => {
+        App.saveProject({ cameraClockOffsets: value }, {
+            reason: "CAMERA_CLOCK_OFFSETS"
+        }).catch(error => {
+            setCameraClockError("Camera time corrections could not be saved.");
+            console.warn("Camera clock correction persistence:", error);
+        });
+    }, []);
+
+    const handleCameraCorrection = useCallback((cameraKey, value) => {
+        const next = updateCameraClockOffset(
+            cameraClockOffsets,
+            cameraKey,
+            value,
+            detectedCameras
+        );
+        setCameraClockError(null);
+        setCameraClockOffsets(next);
+        persistCameraClockOffsets(next);
+    }, [cameraClockOffsets, detectedCameras, persistCameraClockOffsets]);
+
+    const resetCameraCorrections = useCallback(() => {
+        const next = normalizeCameraClockOffsets({}, detectedCameras);
+        setCameraClockError(null);
+        setCameraClockOffsets(next);
+        persistCameraClockOffsets(next);
+    }, [detectedCameras, persistCameraClockOffsets]);
 
     const clearFilters = useCallback(() => {
         setSelectedEventId("");
@@ -703,6 +762,16 @@ function PhotoBrowserSection({
                     </button>
                     <button
                         type="button"
+                        onClick={() => setCameraTimesOpen(open => !open)}
+                        aria-expanded={cameraTimesOpen}
+                        aria-controls="photo-camera-time-panel"
+                        className={`photo-browser-control photo-camera-time-button${cameraTimesOpen ? " is-active" : ""}`}
+                        title="Correct Date Taken differences between cameras"
+                    >
+                        🕐 Camera Times{cameraClockOffsets.items.length ? ` (${cameraClockOffsets.items.length})` : ""}
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => selectAllBrowserPhotos()}
                         disabled={!visiblePhotos.length}
                         className="photo-browser-control"
@@ -723,6 +792,77 @@ function PhotoBrowserSection({
                     </button>
                 </div>
             </div>
+
+            {photos.length > 0 && cameraTimesOpen && (
+                <div
+                    id="photo-camera-time-panel"
+                    className="photo-camera-time-panel"
+                    aria-label="Camera time corrections"
+                >
+                    <div className="photo-camera-time-heading">
+                        <div>
+                            <strong>Align camera clocks</strong>
+                            <span>Correction is added to Date Taken. If a camera is 8 minutes slow, enter +8.</span>
+                        </div>
+                        <button
+                            type="button"
+                            className="photo-browser-control"
+                            onClick={resetCameraCorrections}
+                            disabled={!cameraClockOffsets.items.length}
+                        >
+                            Reset all
+                        </button>
+                    </div>
+                    <div className="photo-camera-time-list">
+                        {detectedCameras.map(camera => {
+                            const correction = cameraCorrectionByKey.get(
+                                camera.cameraKey
+                            ) || 0;
+                            return (
+                                <label
+                                    key={camera.cameraKey}
+                                    className="photo-camera-time-row"
+                                >
+                                    <span className="photo-camera-time-identity">
+                                        <strong>{camera.label}</strong>
+                                        <small>{camera.photoCount} {camera.photoCount === 1 ? "photo" : "photos"}</small>
+                                    </span>
+                                    <span className="photo-camera-time-input-wrap">
+                                        <input
+                                            key={`${camera.cameraKey}:${correction}`}
+                                            type="number"
+                                            defaultValue={correction}
+                                            min={-10080}
+                                            max={10080}
+                                            step={1}
+                                            onBlur={event => handleCameraCorrection(
+                                                camera.cameraKey,
+                                                event.currentTarget.value || 0
+                                            )}
+                                            onKeyDown={event => {
+                                                if (event.key === "Enter") {
+                                                    event.currentTarget.blur?.();
+                                                }
+                                            }}
+                                            aria-label={`Time correction in minutes for ${camera.label}`}
+                                            className="photo-camera-time-input photo-browser-control"
+                                        />
+                                        <span>min</span>
+                                    </span>
+                                </label>
+                            );
+                        })}
+                    </div>
+                    <div className="photo-camera-time-note" role="status">
+                        Originals are unchanged. Corrections affect Date Taken sorting and event grouping in this project only.
+                    </div>
+                    {cameraClockError && (
+                        <div className="photo-story-order-error" role="alert">
+                            {cameraClockError}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Capture One Style Wedding Event Tabs */}
             {photos.length > 0 && smartEvents.length > 1 && (
@@ -791,7 +931,7 @@ function PhotoBrowserSection({
                                 gap: 4
                             }}
                         >
-                            📷 {detectedCameras.length} Cameras Synced
+                            📷 {detectedCameras.length} Cameras
                         </span>
                     )}
                 </div>

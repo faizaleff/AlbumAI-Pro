@@ -30,6 +30,8 @@ try {
     const openFolder = readProjectFile("src/components/OpenFolder.jsx");
     const photoBrowser = readProjectFile("src/components/PhotoBrowserSection.jsx");
     const photoBrowserModel = readProjectFile("src/services/PhotoBrowserModel.js");
+    const photoGroupingEngine = readProjectFile("src/services/PhotoGroupingEngine.js");
+    const jpegRenderer = readProjectFile("src/services/SoftwareJpegRenderer.js");
     const projectService = readProjectFile("src/services/ProjectService.js");
     const thumbnailGrid = readProjectFile("src/components/ThumbnailGrid.jsx");
     const thumbnailCard = readProjectFile("src/components/ThumbnailCard.jsx");
@@ -82,6 +84,13 @@ try {
     check(photoBrowserModel.includes("normalizePhotoStoryOrder"), "manual story-order normalization is missing");
     check(photoBrowserModel.includes("movePhotoInStoryOrder"), "manual story-order movement is missing");
     check(projectService.includes('"photoStoryOrder"'), "project metadata validation omits manual story order");
+    check(photoBrowser.includes("Align camera clocks"), "camera clock correction UI is missing");
+    check(photoBrowser.includes("cameraClockOffsets"), "camera clock correction persistence is not connected");
+    check(photoGroupingEngine.includes("normalizeCameraClockOffsets"), "camera correction normalization is missing");
+    check(photoGroupingEngine.includes("applyCameraClockCorrections"), "camera correction projection is missing");
+    check(jpegRenderer.includes("cameraMake"), "JPEG camera make extraction is missing");
+    check(jpegRenderer.includes("cameraModel"), "JPEG camera model extraction is missing");
+    check(projectService.includes('"cameraClockOffsets"'), "project metadata validation omits camera corrections");
     check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");
