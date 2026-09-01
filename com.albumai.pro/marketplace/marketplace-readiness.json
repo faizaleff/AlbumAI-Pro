@@ -11,20 +11,27 @@
   },
   "listing": {
     "publicName": "AlbumAI Pro",
-    "subtitle": "",
+    "subtitle": "Album workflow automation for Photoshop",
     "supportEmail": "",
     "helpUrl": "",
-    "description": "",
+    "description": "AlbumAI Pro helps photographers and album designers manage project photos, organize ordered PSD templates, place selected photos into Smart Object slots, and render multi-template album workflows in Adobe Photoshop. It includes manual sheet design, Smart Auto-Flow, Smart Typography, transactional PSD and JPEG output, cancellation, recovery, resume, and safe retry. AlbumAI Pro works offline by default and does not require a third-party service.",
     "languages": [
       "en"
     ],
-    "categories": [],
-    "customTags": [],
+    "categories": [
+      "Productivity"
+    ],
+    "customTags": [
+      "album design",
+      "photo workflow",
+      "batch automation",
+      "smart typography"
+    ],
     "privacyPolicyUrl": "",
     "termsOfServiceUrl": "",
     "commerce": "UNDECIDED",
     "requiresThirdPartyService": false,
-    "releaseNotes": ""
+    "releaseNotes": "Introduces the AlbumAI Pro Marketplace candidate with updated original icon artwork. Core album, batch, recovery, and Smart Typography workflows remain aligned with the qualified 1.2.0 release. The plugin remains offline by default."
   },
   "packageIconReview": {
     "operatorApproved": true,

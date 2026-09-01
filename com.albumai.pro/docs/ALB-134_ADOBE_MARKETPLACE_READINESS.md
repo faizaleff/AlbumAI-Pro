@@ -1,6 +1,6 @@
 # ALB-134 — Adobe Marketplace Readiness
 
-Status: **in progress — icon direction approved and candidate assets generated**
+Status: **in progress — candidate icon assets and listing-copy draft generated**
 
 Date: 2026-09-01
 
@@ -56,9 +56,9 @@ Blocking facts:
 3. Operator approval is recorded for the new Option 3 artwork, but the final
    publisher ownership confirmation is still required.
 4. One to five 1360x800 marketplace screenshots are missing.
-5. Subtitle, support email, help URL, description, category, tags, approved
-   privacy URL, approved terms URL, commerce decision, and release notes are
-   incomplete.
+5. The local subtitle, description, proposed category, tags, and release notes
+   are drafted but not operator-approved. Support email, help URL, approved
+   privacy URL, approved terms URL, and commerce decision remain incomplete.
 6. The Marketplace-specific install, minimum/maximum panel, workflow, and
    performance smoke has not been recorded.
 7. A target CCX containing the final marketplace identity and artwork has not
@@ -86,6 +86,15 @@ package 32/64 pixel assets and Marketplace 48/96/192 pixel assets.
   `322ebed5dc0dac1c8b20683280c54a4d66641e76b52be482e090e17746613c4a`
 - The artwork contains no text, UXP label, Adobe/Photoshop symbol, or Adobe
   asset. Publisher ownership confirmation remains a separate factual gate.
+
+## Listing-copy draft
+
+The English listing draft is stored in
+`marketplace/LISTING_COPY_DRAFT.md` and mirrored into the readiness manifest.
+It describes only repository-qualified behavior, keeps the offline posture
+explicit, and makes no generative-AI or third-party-service claim. The proposed
+`Productivity` category must still be confirmed against the live Console
+choices. Copy approval remains separate from Adobe upload or submission.
 
 ## Delivery slices
 

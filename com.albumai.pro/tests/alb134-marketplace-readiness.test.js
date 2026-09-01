@@ -102,6 +102,10 @@ try {
         path.join(PROJECT_ROOT, "docs/ALB-134_ADOBE_MARKETPLACE_READINESS.md"),
         "utf8"
     );
+    const listingDraft = fs.readFileSync(
+        path.join(PROJECT_ROOT, "marketplace/LISTING_COPY_DRAFT.md"),
+        "utf8"
+    );
 
     check(live.status === "BLOCKED", "live Marketplace state must fail closed");
     check(live.currentVersion === "1.2.1", "Marketplace candidate version differs");
@@ -110,6 +114,11 @@ try {
     check(live.blockers.includes("ADOBE_PLUGIN_ID_NOT_CONFIRMED"), "Console ID blocker missing");
     check(live.blockers.includes("PUBLISHER_PROFILE_NOT_APPROVED"), "publisher blocker missing");
     check(live.blockers.includes("EU_TRADER_DECISION_MISSING"), "trader decision blocker missing");
+    check(!live.blockers.includes("LISTING_SUBTITLE_MISSING"), "draft subtitle is missing");
+    check(!live.blockers.includes("LISTING_DESCRIPTION_MISSING"), "draft description is missing");
+    check(!live.blockers.includes("CATEGORIES_MISSING"), "proposed category is missing");
+    check(!live.blockers.includes("CUSTOM_TAGS_MISSING"), "draft tags are missing");
+    check(!live.blockers.includes("RELEASE_NOTES_MISSING"), "draft release notes are missing");
     check(!live.blockers.includes("PLUGIN_ICON_PLACEHOLDER_OR_MISSING"), "approved icon is still classified placeholder");
     check(!live.blockers.includes("MARKETPLACE_ICONS_INVALID"), "generated listing icons are invalid");
     check(live.blockers.includes("PLUGIN_ICON_OWNERSHIP_UNCONFIRMED"), "ownership confirmation blocker missing");
@@ -129,6 +138,10 @@ try {
     check(plan.includes("322ebed5dc0dac1c8b20683280c54a4d66641e76b52be482e090e17746613c4a"), "master icon digest is missing");
     check(plan.includes("No Adobe upload, draft creation, submission, or publication"), "external safety boundary missing");
     check(plan.includes("official-requirement audit") || plan.includes("Official requirements reviewed"), "official audit missing");
+    check(listingDraft.includes("local draft — not uploaded or approved"), "listing approval boundary missing");
+    check(listingDraft.includes(config.listing.subtitle), "listing subtitle differs from readiness data");
+    check(listingDraft.includes("Productivity"), "proposed category is missing from listing draft");
+    check(/does not require a third-party\s+service/.test(listingDraft), "offline service posture is missing");
 
     const requiredGate = childProcess.spawnSync(
         process.execPath,
