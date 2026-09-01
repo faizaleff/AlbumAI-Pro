@@ -14,9 +14,11 @@ import {
     assignPhotosToEventChapter,
     createPhotoDecisionLookup,
     createPhotoEventChapter,
+    deleteEmptyPhotoEventChapter,
     findUnassignedPhotoEventChapterPhotos,
     hasActivePhotoBrowserFilters,
     movePhotosInStoryOrder,
+    mergePhotoEventChapters,
     normalizePhotoDecisions,
     normalizePhotoBrowserPreferences,
     normalizePhotoEventChapters,
@@ -421,6 +423,32 @@ function PhotoBrowserSection({
             direction,
             correctedPhotos
         ));
+    }, [commitEventChapters, correctedPhotos, eventChapters]);
+
+    const handleDeleteEventChapter = useCallback(chapterId => {
+        const chapter = eventChapters.items.find(
+            item => item.chapterId === chapterId
+        );
+        if (!chapter || chapter.photoKeys.length) return;
+        const next = deleteEmptyPhotoEventChapter(
+            eventChapters,
+            chapterId,
+            correctedPhotos
+        );
+        commitEventChapters(next);
+        if (selectedEventId === chapterId) setSelectedEventId("");
+    }, [commitEventChapters, correctedPhotos, eventChapters, selectedEventId]);
+
+    const handleMergeEventChapter = useCallback((chapterId, index) => {
+        const targetChapterId = eventChapters.items[index - 1]?.chapterId;
+        if (!targetChapterId) return;
+        commitEventChapters(mergePhotoEventChapters(
+            eventChapters,
+            chapterId,
+            targetChapterId,
+            correctedPhotos
+        ));
+        setSelectedEventId(targetChapterId);
     }, [commitEventChapters, correctedPhotos, eventChapters]);
 
     const handleAssignEventChapter = useCallback(chapterId => {
@@ -1180,6 +1208,26 @@ function PhotoBrowserSection({
                                         title="Move later"
                                     >
                                         ↓
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="photo-browser-control"
+                                        onClick={() => handleMergeEventChapter(chapter.chapterId, index)}
+                                        disabled={index === 0}
+                                        title={`Merge ${chapter.name} into the previous event`}
+                                    >
+                                        Merge ↑
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="photo-browser-control photo-event-delete-button"
+                                        onClick={() => handleDeleteEventChapter(chapter.chapterId)}
+                                        disabled={chapter.photoKeys.length > 0}
+                                        title={chapter.photoKeys.length
+                                            ? "Move or remove its photos before deleting this event"
+                                            : `Delete empty event ${chapter.name}`}
+                                    >
+                                        Delete empty
                                     </button>
                                 </div>
                             ))}

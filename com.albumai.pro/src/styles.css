@@ -500,7 +500,6 @@ button.photo-browser-control:active:not(:disabled) {
 .album-workspace-project-section,
 .album-sheets-section,
 .template-workspace-section,
-.album-sheet-list,
 .template-registry-scroll {
     overflow-x: hidden;
     overflow-y: auto;
@@ -520,7 +519,6 @@ button.photo-browser-control:active:not(:disabled) {
     max-height: 520px;
 }
 
-.album-sheet-list,
 .template-registry-scroll {
     max-height: 210px;
     padding-right: 4px;
@@ -537,9 +535,6 @@ button.photo-browser-control:active:not(:disabled) {
 .album-workspace-summary,
 .album-workspace-action-row,
 .album-workspace-action-group,
-.album-sheet-row,
-.album-sheet-identity,
-.album-sheet-actions,
 .album-sheet-editor,
 .template-workspace-content,
 .template-setup-row,
@@ -595,58 +590,6 @@ button.photo-browser-control:active:not(:disabled) {
     max-width: 100%;
 }
 
-.album-sheet-list {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.album-sheet-row {
-    gap: 8px;
-    padding: 6px;
-    box-sizing: border-box;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: #252525;
-    font-size: 12px;
-}
-
-.album-sheet-row.is-selected {
-    border-color: #61aef7;
-    background: #3e6586;
-}
-
-.album-sheet-identity {
-    flex: 1 1 330px;
-    gap: 8px;
-}
-
-.album-sheet-order {
-    flex: 0 0 22px;
-    color: #bdbdbd;
-}
-
-.album-sheet-label,
-.album-sheet-template {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.album-sheet-label {
-    flex: 1 1 110px;
-}
-
-.album-sheet-template {
-    flex: 1 1 140px;
-    color: #bdbdbd;
-}
-
-.album-sheet-actions {
-    flex: 0 1 auto;
-    gap: 6px;
-}
-
 .template-workspace-content {
     flex-direction: column;
     align-items: stretch;
@@ -680,9 +623,7 @@ button.photo-browser-control:active:not(:disabled) {
 
 @media (max-width: 720px) {
     .album-workspace-action-group,
-    .template-action-group,
-    .album-sheet-identity,
-    .album-sheet-actions {
+    .template-action-group {
         flex-basis: 100%;
     }
 
@@ -879,6 +820,12 @@ button.photo-browser-control:active:not(:disabled) {
     flex: 0 0 28px;
     width: 28px;
     padding: 3px !important;
+}
+
+.photo-event-delete-button:not(:disabled) {
+    color: #ffb4b4;
+    border-color: #7a3f3f;
+    background: #412323;
 }
 
 @media (max-width: 420px) {

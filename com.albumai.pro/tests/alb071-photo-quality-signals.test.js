@@ -22,8 +22,10 @@ import {
 import {
     assignPhotosToEventChapter,
     createPhotoEventChapter,
+    deleteEmptyPhotoEventChapter,
     findUnassignedPhotoEventChapterPhotos,
     movePhotoEventChapter,
+    mergePhotoEventChapters,
     normalizePhotoEventChapters,
     photoDecisionKey,
     removePhotosFromEventChapters,
@@ -352,6 +354,34 @@ export async function runAlb071Tests() {
         check(!removed.items.some(item => item.photoKeys.includes(secondPhotoKey)), "Removing membership clears the selected photo from every event");
         check(findUnassignedPhotoEventChapterPhotos(removed, photos)[0] === photos[1], "Removed membership returns the photo to the unassigned review in library order");
         check(reassigned.items[1].photoKeys.includes(secondPhotoKey), "Removing membership does not mutate the prior chapter model");
+
+        const guardedDelete = deleteEmptyPhotoEventChapter(
+            reassigned,
+            "chapter-1",
+            photos
+        );
+        check(JSON.stringify(guardedDelete) === JSON.stringify(reassigned), "A non-empty event cannot be deleted");
+
+        const emptyThird = createPhotoEventChapter(reassigned, [], photos);
+        const deleted = deleteEmptyPhotoEventChapter(
+            emptyThird,
+            "chapter-3",
+            photos
+        );
+        check(deleted.items.length === 2, "An empty event can be deleted");
+        check(emptyThird.items.length === 3, "Deleting an empty event does not mutate prior state");
+
+        const merged = mergePhotoEventChapters(
+            reassigned,
+            "chapter-2",
+            "chapter-1",
+            photos
+        );
+        check(merged.items.length === 1, "Merging removes only the source event");
+        check(merged.items[0].chapterId === "chapter-1", "Merging retains the destination identity and name");
+        check(merged.items[0].photoKeys.length === 3, "Merging preserves every unique photo membership");
+        check(new Set(merged.items[0].photoKeys).size === 3, "Merging cannot duplicate photo membership");
+        check(reassigned.items.length === 2, "Merging does not mutate prior state");
 
         const moved = movePhotoEventChapter(reassigned, "chapter-2", "up", photos);
         check(moved.items[0].chapterId === "chapter-2", "Manual events can move earlier");

@@ -252,6 +252,35 @@ export function movePhotoEventChapter(value, chapterId, direction, photos = null
     return normalizePhotoEventChapters({ items }, photos);
 }
 
+export function deleteEmptyPhotoEventChapter(value, chapterId, photos = null) {
+    const current = normalizePhotoEventChapters(value, photos);
+    const chapter = current.items.find(item => item.chapterId === chapterId);
+    if (!chapter || chapter.photoKeys.length) return current;
+    return normalizePhotoEventChapters({
+        items: current.items.filter(item => item.chapterId !== chapterId)
+    }, photos);
+}
+
+export function mergePhotoEventChapters(
+    value,
+    sourceChapterId,
+    targetChapterId,
+    photos = null
+) {
+    const current = normalizePhotoEventChapters(value, photos);
+    if (sourceChapterId === targetChapterId) return current;
+    const source = current.items.find(item => item.chapterId === sourceChapterId);
+    const target = current.items.find(item => item.chapterId === targetChapterId);
+    if (!source || !target) return current;
+    return normalizePhotoEventChapters({
+        items: current.items
+            .filter(item => item.chapterId !== sourceChapterId)
+            .map(item => item.chapterId === targetChapterId
+                ? { ...item, photoKeys: [...item.photoKeys, ...source.photoKeys] }
+                : item)
+    }, photos);
+}
+
 export function assignPhotosToEventChapter(
     value,
     chapterId,

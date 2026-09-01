@@ -309,10 +309,32 @@ the one-photo/one-chapter invariant, saves through `photoEventChapters`, and
 does not write source files or EXIF metadata. Empty named chapters remain valid
 for a story structure that the operator intends to fill later.
 
-This completes the deterministic membership-review loop before future AI event
-proposals are introduced. The next bounded Sort unit is safe chapter lifecycle
-editing—delete an empty chapter and merge reviewed chapters without losing or
-duplicating photo membership.
+#### Safe chapter lifecycle editing
+
+Each chapter row now has two bounded structural actions. **Delete empty** is
+enabled only when the chapter has no photo membership; a non-empty delete is
+rejected by both the UI and immutable domain helper. **Merge ↑** combines the
+current chapter into the immediately preceding chapter, retains the preceding
+chapter's identity and name, appends the source membership in reviewed order,
+and then removes only the source chapter.
+
+Merge runs through the same normalizer as every other manual-event mutation,
+so it cannot lose or duplicate photo keys and the one-photo/one-chapter rule
+remains enforced. The merged destination becomes the active event for immediate
+review, while the persisted `photoEventChapters` snapshot remains path-free and
+source photos stay untouched.
+
+This completes the deterministic manual Sort foundation before future AI event
+proposals are introduced. The next bounded workflow unit is a clear Sort
+completion check and safe handoff into Cull, including an explicit warning when
+manual chapters still contain unassigned photos.
+
+The production bundle was reloaded through Adobe UXP Developer Tools with
+**Plugin Reload Successful** on 2026-09-01. The desktop driver could not surface
+the docked UXP panel after that reload, so no fixture chapter was merged or
+deleted and no unsupported visual-runtime claim is recorded. Delete/merge
+behavior is covered by immutable ALB-071 domain tests and ALB-135 render-contract
+checks; a physical compact-dock click-through remains an operator smoke check.
 
 The ALB-130/131 historical size assertions now inspect the immutable v1.2.0
 bundle inside its published release ZIP instead of incorrectly measuring the
