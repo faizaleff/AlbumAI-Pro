@@ -253,8 +253,7 @@ order are never modified.
 This completes the first manual event-sequencing foundation. Future AI event
 drafting can propose chapters using corrected time plus scene, location, people,
 and outfit continuity, then write into the same reviewable model without
-replacing the deterministic/manual path. The next bounded Sort unit is
-multi-photo story moves plus undo/redo/reset for manual ordering.
+replacing the deterministic/manual path.
 
 Live Photoshop runtime verification on 2026-09-01 used the six-photo REC005
 fixture in the compact dock. Two chapters were created, renamed to **Reception**
@@ -262,6 +261,39 @@ and **Ceremony**, reordered, and displayed in the same order in the event strip.
 After plugin reload and project reopen, both names, the order, and the six-photo
 Reception membership restored from project metadata. The fixture intentionally
 retains these two review chapters as runtime evidence.
+
+#### Multi-photo story moves and session undo
+
+Manual Order now treats the current selection as a movable story block. When
+the dragged photo is part of a multi-selection, every selected photo moves
+together to the drop target while retaining its existing internal order. If the
+dragged photo is not selected, the operation remains a single-photo move; a
+drop onto another member of the moving selection is a safe no-op.
+
+The Manual Order banner provides **Undo**, **Redo**, and **Reset**. Undo/Redo
+retain up to 50 editing steps for the current project session and persist each
+restored order immediately. Reset is also undoable and rebuilds the manual
+sequence from ascending corrected Date Taken, so per-camera clock corrections
+remain respected. The saved current order stays path-free and restores across
+project reopen; the temporary undo stack intentionally starts fresh after a
+reload or photo-library change.
+
+The next bounded Sort unit is a clearer unassigned-photo review and manual
+chapter membership workflow before future AI event proposals are introduced.
+
+Live Photoshop runtime verification on 2026-09-01 confirmed that the compact
+panel shows Undo, Redo, Reset, and Use Date Taken without clipping. Selecting
+all six REC005 photos changed the guidance to **move all 6 together**; Reset
+safely remained a no-op because the saved manual sequence already matched
+corrected Date Taken. The desktop automation driver still cannot synthesize
+UXP's HTML5 `DataTransfer` payload, so the physical block drag remains an
+operator smoke check while deterministic block movement, no-op, immutability,
+and persistence paths are covered by ALB-060 and ALB-135.
+
+To preserve the existing 740 KiB release ceiling, this unit also removed
+unreachable legacy `photo-thumbnail-card`, wizard connector, and wizard banner
+styles. The active `modern-studio-card` and current workspace controls were
+visually rechecked in Photoshop after that cleanup.
 
 The ALB-130/131 historical size assertions now inspect the immutable v1.2.0
 bundle inside its published release ZIP instead of incorrectly measuring the

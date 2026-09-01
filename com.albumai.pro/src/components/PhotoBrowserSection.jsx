@@ -15,7 +15,7 @@ import {
     createPhotoDecisionLookup,
     createPhotoEventChapter,
     hasActivePhotoBrowserFilters,
-    movePhotoInStoryOrder,
+    movePhotosInStoryOrder,
     normalizePhotoDecisions,
     normalizePhotoBrowserPreferences,
     normalizePhotoEventChapters,
@@ -123,6 +123,10 @@ function PhotoBrowserSection({
         photos
     );
     const [storyOrder, setStoryOrder] = useState(readSavedStoryOrder);
+    const [storyOrderHistory, setStoryOrderHistory] = useState(() => ({
+        items: [],
+        index: -1
+    }));
     const [storyOrderError, setStoryOrderError] = useState(null);
     const readSavedCameraClockOffsets = () => normalizeCameraClockOffsets(
         App.project.getProject()?.metadata?.cameraClockOffsets,
@@ -263,6 +267,7 @@ function PhotoBrowserSection({
     useEffect(() => {
         setPreferences(readSavedPreferences());
         setStoryOrder(readSavedStoryOrder());
+        setStoryOrderHistory({ items: [], index: -1 });
         setStoryOrderError(null);
         setCameraClockOffsets(readSavedCameraClockOffsets());
         setCameraTimesOpen(false);
@@ -284,6 +289,7 @@ function PhotoBrowserSection({
     useEffect(() => {
         setDecisions(normalizePhotoDecisions(App.getPhotoDecisions()));
         setStoryOrder(previous => normalizePhotoStoryOrder(previous, photos));
+        setStoryOrderHistory({ items: [], index: -1 });
         setCameraClockOffsets(previous => normalizeCameraClockOffsets(
             previous,
             detectCameras(photos)
@@ -459,7 +465,23 @@ function PhotoBrowserSection({
         }
     }, [activateManualOrder, updateSort]);
 
-    const handleManualReorder = useCallback((sourcePhoto, targetPhoto) => {
+    const commitStoryOrder = (order, nextPreferences = preferences) => {
+        setStoryOrderError(null);
+        setStoryOrder(order);
+        setPreferences(nextPreferences);
+        persistStoryOrder(order, nextPreferences);
+    };
+
+    const recordStoryOrder = (order, nextPreferences = preferences) => {
+        const items = (storyOrderHistory.index < 0
+            ? [storyOrder, order]
+            : [...storyOrderHistory.items.slice(0, storyOrderHistory.index + 1), order]
+        ).slice(-51);
+        setStoryOrderHistory({ items, index: items.length - 1 });
+        commitStoryOrder(order, nextPreferences);
+    };
+
+    const handleManualReorder = (sourcePhoto, targetPhoto) => {
         if (!sourcePhoto || !targetPhoto) return;
         if (filtersActive) {
             setStoryOrderError("Clear filters before editing the full story order.");
@@ -468,21 +490,49 @@ function PhotoBrowserSection({
         const baseline = preferences.sort.field === "manual"
             ? applyPhotoStoryOrder(queryResult.photos, storyOrder)
             : queryResult.photos;
-        const nextOrder = movePhotoInStoryOrder(
+        const selectedIds = App.selection.selectedIds();
+        const selectedPhotos = baseline.filter(photo => selectedIds.has(photo.id));
+        const nextOrder = movePhotosInStoryOrder(
             storyOrder,
             baseline,
             sourcePhoto,
-            targetPhoto
+            targetPhoto,
+            selectedPhotos
         );
         const nextPreferences = normalizePhotoBrowserPreferences({
             ...preferences,
             sort: { field: "manual", direction: "asc" }
         });
-        setStoryOrderError(null);
-        setStoryOrder(nextOrder);
-        setPreferences(nextPreferences);
-        persistStoryOrder(nextOrder, nextPreferences);
-    }, [filtersActive, persistStoryOrder, preferences, queryResult.photos, storyOrder]);
+        if (nextOrder.items.join() === storyOrder.items.join()) return;
+        recordStoryOrder(nextOrder, nextPreferences);
+    };
+
+    const handleStoryOrderTravel = redo => {
+        const index = storyOrderHistory.index + (redo ? 1 : -1);
+        if (index < 0 || index >= storyOrderHistory.items.length) return;
+        setStoryOrderHistory({ ...storyOrderHistory, index });
+        commitStoryOrder(storyOrderHistory.items[index]);
+    };
+
+    const handleStoryOrderReset = () => {
+        if (filtersActive) {
+            setStoryOrderError("Clear filters before resetting the full story order.");
+            return;
+        }
+        const dateTakenPreferences = normalizePhotoBrowserPreferences({
+            ...preferences,
+            sort: { field: "taken", direction: "asc" }
+        });
+        const baseline = queryPhotoBrowser(correctedPhotos, dateTakenPreferences, {
+            decisions,
+            duplicateEvidence
+        }).photos;
+        const nextOrder = normalizePhotoStoryOrder({
+            items: baseline.map(photoDecisionKey).filter(Boolean)
+        }, baseline);
+        if (nextOrder.items.join() === storyOrder.items.join()) return;
+        recordStoryOrder(nextOrder);
+    };
 
     const changePhotoDecision = useCallback((photo, changes) => {
         const revision = ++decisionRevision.current;
@@ -1076,34 +1126,14 @@ function PhotoBrowserSection({
 
             {/* Capture One Style Wedding Event Tabs */}
             {photos.length > 0 && visibleEvents.length > 0 && (
-                <div
-                    className="photo-event-strip"
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "4px 8px",
-                        background: "#161b22",
-                        borderBottom: "1px solid #30363d",
-                        overflowX: "auto",
-                        maxWidth: "100%",
-                        minWidth: 0,
-                        boxSizing: "border-box"
-                    }}
-                >
-                    <span style={{ fontSize: 11, color: "#8b949e", fontWeight: 600, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+                <div className="photo-event-strip">
+                    <span className="photo-event-strip-label">
                         <span>🗓</span> Events:
                     </span>
                     <button
                         type="button"
                         className={`culling-pill${!selectedEventId ? " active" : ""}`}
                         onClick={() => setSelectedEventId("")}
-                        style={{
-                            fontSize: 11,
-                            padding: "3px 10px",
-                            fontWeight: !selectedEventId ? 600 : 400,
-                            borderRadius: 14
-                        }}
                     >
                         All Events ({photos.length})
                     </button>
@@ -1113,34 +1143,13 @@ function PhotoBrowserSection({
                             type="button"
                             className={`culling-pill${selectedEventId === evt.eventId ? " active" : ""}`}
                             onClick={() => setSelectedEventId(selectedEventId === evt.eventId ? "" : evt.eventId)}
-                            style={{
-                                fontSize: 11,
-                                padding: "3px 10px",
-                                whiteSpace: "nowrap",
-                                fontWeight: selectedEventId === evt.eventId ? 600 : 400,
-                                borderRadius: 14
-                            }}
                             title={`${evt.manual ? "Manual event" : `Event ${idx + 1}`}: ${evt.count} photos`}
                         >
                             {evt.label} ({evt.count})
                         </button>
                     ))}
                     {detectedCameras.length > 1 && (
-                        <span
-                            style={{
-                                marginLeft: "auto",
-                                fontSize: 10,
-                                color: "#3fb950",
-                                background: "rgba(56, 139, 253, 0.1)",
-                                border: "1px solid rgba(56, 139, 253, 0.3)",
-                                borderRadius: 12,
-                                padding: "2px 8px",
-                                whiteSpace: "nowrap",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4
-                            }}
-                        >
+                        <span className="photo-event-camera-count">
                             📷 {detectedCameras.length} Cameras
                         </span>
                     )}
@@ -1339,14 +1348,29 @@ function PhotoBrowserSection({
 
             {photos.length > 0 && preferences.sort.field === "manual" && (
                 <div className="photo-manual-order-banner" role="status">
-                    <span><strong>Manual Order</strong> · Drag a photo onto another photo to move it.</span>
-                    <button
-                        type="button"
-                        className="photo-browser-control"
-                        onClick={() => handleSortFieldChange("taken")}
-                    >
-                        Use Date Taken
-                    </button>
+                    <span>
+                        <strong>Manual Order</strong> · {selectedCount > 1
+                            ? `Drag any selected photo to move all ${selectedCount} together.`
+                            : "Drag a photo onto another photo to move it."}
+                    </span>
+                    <div className="photo-manual-order-actions">
+                        {[
+                            ["Undo", () => handleStoryOrderTravel(false), storyOrderHistory.index <= 0],
+                            ["Redo", () => handleStoryOrderTravel(true), storyOrderHistory.index >= storyOrderHistory.items.length - 1],
+                            ["Reset", handleStoryOrderReset, false],
+                            ["Use Date Taken", () => handleSortFieldChange("taken"), false]
+                        ].map(([label, action, disabled]) => (
+                            <button
+                                key={label}
+                                type="button"
+                                className="photo-browser-control"
+                                onClick={action}
+                                disabled={disabled}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
 

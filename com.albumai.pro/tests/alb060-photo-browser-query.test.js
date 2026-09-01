@@ -4,7 +4,7 @@ import {
     applyPhotoStoryOrder,
     createPhotoDecisionLookup,
     hasActivePhotoBrowserFilters,
-    movePhotoInStoryOrder,
+    movePhotosInStoryOrder,
     normalizePhotoDecisions,
     normalizePhotoBrowserPreferences,
     normalizePhotoStoryOrder,
@@ -252,7 +252,7 @@ test("refresh reconciliation retains available decisions and removes stale keys"
 test("manual story order is deterministic, reconciled, and immutable", () => {
     const original = photos.slice(0, 3);
     const initial = normalizePhotoStoryOrder({}, original);
-    const moved = movePhotoInStoryOrder(
+    const moved = movePhotosInStoryOrder(
         initial,
         original,
         original[2],
@@ -279,6 +279,40 @@ test("manual story order drops stale photos and appends newly imported photos", 
         ["two", "square", "unknown"]
     );
     assert.strictEqual(reconciled.items.length, 3);
+});
+
+test("manual story order moves a selected photo block without changing its internal order", () => {
+    const original = photos.slice();
+    const initial = normalizePhotoStoryOrder({}, original);
+    const moved = movePhotosInStoryOrder(
+        initial,
+        original,
+        original[0],
+        original[3],
+        [original[0], original[2]]
+    );
+    assert.deepStrictEqual(
+        applyPhotoStoryOrder(original, moved).map(item => item.id),
+        ["two", "ten", "square", "unknown"]
+    );
+    assert.deepStrictEqual(
+        applyPhotoStoryOrder(original, initial).map(item => item.id),
+        ["ten", "two", "square", "unknown"]
+    );
+});
+
+test("dropping a selected block onto itself is an immutable no-op", () => {
+    const original = photos.slice();
+    const initial = normalizePhotoStoryOrder({}, original);
+    const unchanged = movePhotosInStoryOrder(
+        initial,
+        original,
+        original[0],
+        original[2],
+        [original[0], original[2]]
+    );
+    assert.deepStrictEqual(unchanged.items, initial.items);
+    assert(Object.isFrozen(unchanged.items));
 });
 
 test("manual sort preserves source order until a story order is applied", () => {

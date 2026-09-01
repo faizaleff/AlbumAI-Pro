@@ -75,6 +75,8 @@ try {
     check(plan.includes("six-photo REC005 fixture"), "Import/Sort/Cull runtime evidence is missing");
     check(plan.includes("Persistent manual story order"), "manual story-order implementation record is missing");
     check(plan.includes("path-free ordered list"), "manual order privacy boundary is missing");
+    check(plan.includes("Multi-photo story moves and session undo"), "multi-photo order implementation record is missing");
+    check(plan.includes("move all 6 together"), "multi-photo order runtime evidence is missing");
     check(photoBrowser.includes("secondaryFiltersOpen"), "secondary filter disclosure state is missing");
     check(photoBrowser.includes('aria-controls="photo-browser-secondary-filters"'), "secondary filter disclosure is not connected to its panel");
     check(photoBrowser.includes("Filters{secondaryFilterCount"), "active secondary filter count is missing");
@@ -82,7 +84,10 @@ try {
     check(photoBrowser.includes("onReorderPhoto={handleManualReorder}"), "manual drag reorder is not connected to the photo grid");
     check(photoBrowser.includes("Clear filters before editing the full story order."), "filtered manual-order guard is missing");
     check(photoBrowserModel.includes("normalizePhotoStoryOrder"), "manual story-order normalization is missing");
-    check(photoBrowserModel.includes("movePhotoInStoryOrder"), "manual story-order movement is missing");
+    check(photoBrowserModel.includes("movePhotosInStoryOrder"), "multi-photo story movement is missing");
+    check(photoBrowser.includes("handleStoryOrderTravel"), "manual story-order undo/redo is missing");
+    check(photoBrowser.includes("handleStoryOrderReset"), "manual story-order reset is missing");
+    check(photoBrowser.includes("move all ${selectedCount} together"), "multi-photo move guidance is missing");
     check(projectService.includes('"photoStoryOrder"'), "project metadata validation omits manual story order");
     check(photoBrowser.includes("Align camera clocks"), "camera clock correction UI is missing");
     check(photoBrowser.includes("cameraClockOffsets"), "camera clock correction persistence is not connected");

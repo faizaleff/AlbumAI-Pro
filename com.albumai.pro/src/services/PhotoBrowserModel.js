@@ -121,11 +121,12 @@ export function applyPhotoStoryOrder(photos = [], value = {}) {
     ));
 }
 
-export function movePhotoInStoryOrder(
+export function movePhotosInStoryOrder(
     value,
     photos = [],
     sourcePhoto,
-    targetPhoto
+    targetPhoto,
+    selectedPhotos = []
 ) {
     const ordered = applyPhotoStoryOrder(photos, value);
     const sourceKey = photoDecisionKey(sourcePhoto);
@@ -134,13 +135,23 @@ export function movePhotoInStoryOrder(
     if (!sourceKey || !targetKey || sourceKey === targetKey) {
         return normalizePhotoStoryOrder({ items: keys }, ordered);
     }
-    const sourceIndex = keys.indexOf(sourceKey);
-    if (sourceIndex < 0 || !keys.includes(targetKey)) {
+    if (!keys.includes(sourceKey) || !keys.includes(targetKey)) {
         return normalizePhotoStoryOrder({ items: keys }, ordered);
     }
-    keys.splice(sourceIndex, 1);
-    keys.splice(keys.indexOf(targetKey), 0, sourceKey);
-    return normalizePhotoStoryOrder({ items: keys }, ordered);
+    const selectedKeys = new Set(selectedPhotos
+        .map(photoDecisionKey)
+        .filter(key => keys.includes(key)));
+    const moving = selectedKeys.has(sourceKey)
+        ? keys.filter(key => selectedKeys.has(key))
+        : [sourceKey];
+    if (moving.includes(targetKey)) {
+        return normalizePhotoStoryOrder({ items: keys }, ordered);
+    }
+    const movingSet = new Set(moving);
+    const remaining = keys.filter(key => !movingSet.has(key));
+    const targetIndex = remaining.indexOf(targetKey);
+    remaining.splice(targetIndex, 0, ...moving);
+    return normalizePhotoStoryOrder({ items: remaining }, ordered);
 }
 
 function normalizedEventChapterName(value, fallback) {
