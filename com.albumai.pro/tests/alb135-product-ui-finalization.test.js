@@ -28,6 +28,7 @@ try {
     const packageJson = JSON.parse(readProjectFile("package.json"));
     const identity = readProjectFile("src/config/buildIdentity.js");
     const openFolder = readProjectFile("src/components/OpenFolder.jsx");
+    const panelController = readProjectFile("src/controllers/PanelController.jsx");
     const styles = readProjectFile("src/styles.css");
     const index = fs.readFileSync(
         path.join(REPOSITORY_ROOT, "ALB-116_ENGINEERING_RECORD_INDEX.md"),
@@ -51,7 +52,9 @@ try {
     check(plan.includes("capability-gated by ALB-070"), "future AI gate boundary is missing");
     check(plan.includes("ALB-135.2 implementation progress"), "workspace-shell implementation record is missing");
     check(plan.includes("Plugin Reload Successful"), "updated-bundle reload evidence is missing");
-    check(plan.includes("did not\nsurface a visible panel"), "installed panel-visibility gap is missing");
+    check(plan.includes("Plugin Load Successful"), "clean plugin-load evidence is missing");
+    check(plan.includes("900x700\npanel document"), "runtime panel-mount evidence is missing");
+    check(plan.includes("panel surface still did not appear"), "installed panel-visibility gap is missing");
     check(plan.includes("not visual runtime acceptance"), "runtime acceptance boundary is missing");
     check(openFolder.includes("workspace-brand-mark"), "compact workspace brand mark is missing");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
@@ -61,6 +64,10 @@ try {
     check(styles.includes("grid-template-columns: minmax(170px, auto) minmax(260px, 1fr) auto"), "workspace-shell grid is missing");
     check(styles.includes(".workspace-step-context"), "responsive active-step styling is missing");
     check(styles.includes(".workspace-quick-btn--primary"), "primary header action styling is missing");
+    check(panelController.includes("create(rootNode)"), "Manifest v5 panel create signature is missing");
+    check(panelController.includes("rootNode.appendChild(this[_root])"), "panel content is not attached during create");
+    check(panelController.includes("show(rootNode)"), "Manifest v5 panel show signature is missing");
+    check(panelController.includes("ReactDOM.unmountComponentAtNode"), "panel destroy does not release the React root");
     check(plan.includes("No permanent logo decision and no final Marketplace screenshots"), "visual-asset boundary is missing");
     check(marketplacePlan.includes("Final screenshot capture is explicitly\ndeferred"), "ALB-134 screenshot boundary changed");
     check(supportPlan.includes("temporary Option 3 icon remains candidate-test artwork only"), "temporary-icon boundary changed");

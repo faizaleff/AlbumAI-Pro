@@ -24,9 +24,11 @@ The audit combined:
 Computer Use found the plugin initially **Not loaded** in UXP Developer Tools.
 After the existing local plugin was loaded successfully, selecting **Plugins >
 AlbumAI Pro > AlbumAI Browser** did not surface a visible panel in the captured
-Photoshop workspace. This is an acceptance gap, not yet classified as a plugin
-defect: panel state, workspace placement, reload behavior, and off-screen or
-collapsed placement must be tested deterministically.
+Photoshop workspace. A subsequent Manifest v5 lifecycle correction and clean
+unload/load confirmed that the ALB-135 workspace is mounted in a 900x700 panel
+document. The remaining acceptance gap is the visible Photoshop surface:
+workspace placement, off-screen or collapsed placement, and reopen behavior
+must still be tested deterministically.
 
 No project content, Photoshop document content, Adobe account data, or external
 service was changed by the audit.
@@ -127,13 +129,21 @@ Cull screen work and the reserved Enhance step remain later slices.
 #### Installed Photoshop acceptance check
 
 After the production bundle passed, Adobe UXP Developer Tools reported AlbumAI
-Pro **Loaded** and **Plugin Reload Successful**. In Photoshop 2026, **Plugins >
-AlbumAI Pro > AlbumAI Browser** remained available, but selecting it did not
-surface a visible panel in the captured workspace. The new header therefore
-has automated/build evidence but not visual runtime acceptance. ALB-135.2 stays
-open until panel load/reopen visibility is deterministic and the shell is
-inspected at the acceptance sizes. No project content or Photoshop document
-content was changed during this check.
+Pro **Loaded** and **Plugin Reload Successful**. The panel controller was then
+aligned with the Manifest v5 `rootNode` lifecycle, and a clean unload/load
+reported **Plugin Load Successful**. Runtime inspection confirmed a 900x700
+panel document containing the new `albumai-workspace-layout`, product header,
+and workflow shell. No application exception was reported during load.
+
+In Photoshop 2026, **Plugins > AlbumAI Pro > AlbumAI Browser** remained
+available, but the panel surface still did not appear in the captured primary
+workspace, including after **Bring All to Front**. This proves that the current
+bundle mounts the UI, while visible window/dock placement remains unresolved.
+The new header therefore has automated, build, and runtime-mount evidence, but
+not visual runtime acceptance. ALB-135.2 stays open until panel reopen
+visibility is deterministic and the shell is inspected at the acceptance
+sizes. No project content or Photoshop document content was changed during
+this check.
 
 ## Approved product-workflow foundation
 

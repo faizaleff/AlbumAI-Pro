@@ -28,33 +28,54 @@ export class PanelController {
         [ "create", "show", "hide", "destroy", "invokeMenu" ].forEach(fn => this[fn] = this[fn].bind(this));
     }
 
-    create() {
+    create(rootNode) {
+        if (!rootNode || typeof rootNode.appendChild !== "function") {
+            throw new Error(`Panel ${this[_id] || "unknown"} requires a UXP root node.`);
+        }
+
+        if (this[_root]) {
+            ReactDOM.unmountComponentAtNode(this[_root]);
+            this[_root].remove?.();
+        }
+
+        this[_attachment] = rootNode;
         this[_root] = document.createElement("div");
-        this[_root].style.height = "100vh";
+        this[_root].style.height = "100%";
         this[_root].style.width = "100%";
         this[_root].style.overflow = "hidden";
         this[_root].style.padding = "8px";
         this[_root].style.boxSizing = "border-box";
 
+        rootNode.appendChild(this[_root]);
         ReactDOM.render(this[_Component]({panel: this}), this[_root]);
 
         return this[_root];
     }
 
-    show(event)  {
-        if (!this[_root]) this.create();
-        this[_attachment] = event;
-        this[_attachment].appendChild(this[_root]);
-    }
-
-    hide() {
-        if (this[_attachment] && this[_root]) {
-            this[_attachment].removeChild(this[_root]);
-            this[_attachment] = null;
+    show(rootNode)  {
+        const attachment = rootNode || this[_attachment];
+        if (!this[_root]) {
+            this.create(attachment);
+            return;
+        }
+        if (attachment && this[_root].parentNode !== attachment) {
+            attachment.appendChild(this[_root]);
+            this[_attachment] = attachment;
         }
     }
 
-    destroy() { }
+    hide(rootNode) {
+        this[_attachment] = rootNode || this[_attachment];
+    }
+
+    destroy() {
+        if (this[_root]) {
+            ReactDOM.unmountComponentAtNode(this[_root]);
+            this[_root].remove?.();
+        }
+        this[_root] = null;
+        this[_attachment] = null;
+    }
 
     invokeMenu(id) {
         const menuItem = this[_menuItems].find(c => c.id === id);
