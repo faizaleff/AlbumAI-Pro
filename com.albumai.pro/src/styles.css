@@ -458,6 +458,13 @@ button.photo-browser-control:active:not(:disabled) {
     box-shadow: inset 0 0 0 2px #8ec5ff;
 }
 
+@media (max-width: 360px) {
+    .workspace-brand-title,
+    .workspace-project-badge {
+        display: none;
+    }
+}
+
 @media (max-width: 420px) {
     .photo-browser-toolbar {
         gap: 6px;
@@ -2510,23 +2517,18 @@ button.photo-browser-control:active:not(:disabled) {
 .workspace-quick-btn {
     padding: 4px 10px;
     font-size: 11px;
-    font-weight: 500;
     background: #21262d;
     border: 1px solid #363c4a;
     color: #c9d1d9;
     border-radius: 5px;
-    cursor: pointer;
-    transition: all 100ms ease;
 }
 
 .workspace-quick-btn:hover:not(:disabled) {
     background: #30363d;
-    color: #ffffff;
 }
 
 .workspace-quick-btn:disabled {
     opacity: 0.45;
-    cursor: not-allowed;
 }
 
 .workspace-quick-btn--primary {

@@ -43,7 +43,7 @@ try {
         "utf8"
     );
 
-    check(plan.includes("Status: **implementation in progress — Import/Sort/Cull started**"), "implementation status differs");
+    check(plan.includes("Status: **implementation in progress — responsive runtime qualification started**"), "implementation status differs");
     check(plan.includes("P0 — runtime entry and panel visibility"), "runtime visibility priority is missing");
     check(plan.includes("Developer/diagnostic actions compete"), "Design action-hierarchy finding is missing");
     check(plan.includes("Minimum dock | 320x500"), "minimum-dock acceptance is missing");
@@ -135,6 +135,8 @@ try {
     check(templatePanel.includes('aria-expanded={templateManagementVisible}'), "template management disclosure is missing");
     check(templatePanel.includes("templateManagementRequired || openSettings === 1"), "empty or blocked template management is not forced visible");
     check(templatePanel.includes("Manage Templates"), "compact healthy-registry action is missing");
+    check(templatePanel.includes(">#{index + 1} ·</span>"), "template order is not visually separated from its filename");
+    check(templatePanel.includes(">· {status}</span>"), "template filename is not visually separated from validation status");
     check(templatePanel.includes('aria-expanded={outputSettingsVisible}'), "output settings disclosure is missing");
     check(templatePanel.includes("outputSettingsRequired || openSettings === 2"), "active output settings are not forced visible");
     check(templatePanel.includes("Auto Save {autoSaveEnabled"), "compact output status is missing");
@@ -157,10 +159,14 @@ try {
     check(plan.includes("Advanced Execution** disclosure"), "advanced execution boundary is missing");
     check(plan.includes("Compact template and output management"), "compact template/output implementation record is missing");
     check(plan.includes("idle recovery panel already returns no UI"), "idle recovery visibility boundary is missing");
+    check(plan.includes("ALB-135.5 responsive runtime qualification"), "responsive runtime qualification record is missing");
+    check(plan.includes("approximately 320 pixels"), "minimum-dock runtime evidence is missing");
+    check(plan.includes("#1 · filename · Ready"), "template-row runtime clarity evidence is missing");
     check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");
     check(openFolder.includes("workspace-brand-mark"), "compact workspace brand mark is missing");
+    check(styles.includes(".workspace-brand-title,\n    .workspace-project-badge"), "minimum-dock brand compaction is missing");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
     check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");
     check(!openFolder.includes("<span>✨ AlbumAI Pro</span>"), "legacy emoji product title remains");

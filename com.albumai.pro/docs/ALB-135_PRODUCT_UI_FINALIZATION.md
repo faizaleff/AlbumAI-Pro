@@ -1,6 +1,6 @@
 # ALB-135 — Product UI Finalization
 
-Status: **implementation in progress — Import/Sort/Cull started**
+Status: **implementation in progress — responsive runtime qualification started**
 
 Date: 2026-09-01
 
@@ -476,6 +476,40 @@ full architecture verification (261 assertions), and regression verification
 (1134 assertions), then reloaded through Adobe UXP Developer Tools with
 **Plugin Reload Successful** on 2026-09-02. This was a load-only runtime check;
 no template, output, recovery, Photoshop execution, or project mutation ran.
+
+### ALB-135.5 responsive runtime qualification
+
+The first responsive qualification pass used the existing REC005 disposable
+project in Photoshop 2026. Resetting the Essentials workspace surfaced the
+saved AlbumAI secondary dock; this again confirmed that a hidden panel is a
+workspace-placement condition rather than a plugin-load failure. Adobe UXP
+Developer Tools reported **Plugin Reload Successful** for the final bundle.
+
+At the preferred dock width (approximately 420 pixels), the product mark and
+name, Save/Undo/Redo actions, active workflow context, Import controls, compact
+template/output summaries, Design primary actions, and recovery compatibility
+remained visible without root horizontal scrolling. Opening **Manage
+Templates** exposed all four ordered templates and their movement/removal
+controls. Runtime inspection found that UXP visually compressed flex gaps, so
+order, filename, and validation could merge. Template rows now use explicit
+`#1 · filename · Ready` separators; the same dock then showed both short and
+wrapped long names with unambiguous boundaries.
+
+The dock divider was reduced to approximately 320 pixels for the minimum-width
+check. The initial header allowed the product title and Save button to overlap.
+Below 360 pixels the header now keeps the compact AI mark, Save, Undo, Redo,
+and `Step n of 5 · label` context while hiding only the repeated product title
+and project badge. The reopened REC005 Import and manually entered Design
+states showed no header overlap or root horizontal scroll; **Open Designer
+Manually**, **Create Album Draft**, **Manage Templates**, **Process Project**,
+**Advanced Execution**, and **Output Settings** remained reachable. No render,
+replacement, output, recovery, Photoshop mutation, or explicit project save
+was run.
+
+The 900x700 floating and 1360x800 Marketplace-composition rows remain open.
+Photoshop's panel drag has not produced a stable on-screen floating surface in
+this workspace, and Marketplace screenshot capture remains intentionally
+deferred until the permanent logo and final visual approval.
 
 ## Approved product-workflow foundation
 

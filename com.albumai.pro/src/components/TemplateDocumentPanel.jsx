@@ -1023,7 +1023,7 @@ export default function TemplateDocumentPanel({
 
             <div className="template-workspace-content">
                 <div className="template-setup-row">
-                    <strong>Project Templates</strong>
+                    <strong>Project Templates:</strong>
                     <span>
                         {registeredTemplates.length} registered · {registrySummary.ready} ready
                         {registrySummary.blocking ? ` · ${registrySummary.blocking} blocking` : ""}
@@ -1203,9 +1203,9 @@ export default function TemplateDocumentPanel({
                                         }}
                                         style={{ cursor: registryLocked ? "not-allowed" : "grab", touchAction: "none", pointerEvents: "auto", userSelect: "none" }}
                                     >☰</div>
-                                    <span aria-label={`Order ${index + 1}`}>{index + 1}</span>
+                                    <span aria-label={`Order ${index + 1}`}>#{index + 1} ·</span>
                                     <span style={{ flex: 1 }}>{entry.name}</span>
-                                    <span title={`Validation status: ${status}`} aria-label={`Status ${status}`} style={{ fontSize: 11, color: statusBlocked ? "#ff9999" : "#9ee6a5" }}>{status}</span>
+                                    <span title={`Validation status: ${status}`} aria-label={`Status ${status}`} style={{ fontSize: 11, color: statusBlocked ? "#ff9999" : "#9ee6a5" }}>· {status}</span>
                                     <button title={`Move ${entry.name} up`} aria-label={`Move ${entry.name} up`} disabled={registryLocked || index === 0} onClick={event => { event.stopPropagation(); moveRegisteredTemplate(entry.id, index - 1, "keyboard"); }}>↑</button>
                                     <button title={`Move ${entry.name} down`} aria-label={`Move ${entry.name} down`} disabled={registryLocked || index === registeredTemplates.length - 1} onClick={event => { event.stopPropagation(); moveRegisteredTemplate(entry.id, index + 1, "keyboard"); }}>↓</button>
                                     <button title={`Remove ${entry.name}`} aria-label={`Remove ${entry.name}`} disabled={registryLocked} onClick={event => { event.stopPropagation(); removeSelectedRegisteredTemplate(entry.id); }}>×</button>
@@ -1288,7 +1288,7 @@ export default function TemplateDocumentPanel({
                 />
 
                 <div className="template-output-row">
-                    <strong>Output</strong>
+                    <strong>Output:</strong>
                     <span>
                         Auto Save {autoSaveEnabled ? "On" : "Off"} · Export {exportEnabled ? exportFormat : "Off"}
                     </span>
