@@ -447,6 +447,36 @@ This completes the first ALB-135.4 hierarchy pass. The next bounded unit is
 template-registry and output/recovery clarity: simplify template rows and keep
 normal Design state compact while retaining actionable failure diagnostics.
 
+#### Compact template and output management
+
+The Design workspace now presents a one-line **Project Templates** summary in
+its normal healthy state. **Manage Templates** reveals the existing PSD picker,
+registration, revalidation, ordered registry, drag handles, keyboard move
+buttons, validation status, and safe removal controls. An empty or blocking
+registry stays expanded automatically, so required setup and remediation cannot
+be hidden. Template-open errors and the active document's typography controls
+remain outside the disclosure and therefore stay visible while work is active.
+
+Output configuration now follows the same progressive pattern. The normal
+both-disabled state reads **Auto Save Off · Export Off** and keeps the detailed
+selectors behind **Output Settings**. Enabling either output keeps its controls
+expanded, including the non-reversible overwrite warning, until the operator
+turns it off. The disclosure only changes local presentation state; it does not
+change an output preference, execute Photoshop, or modify the project.
+
+Recovery behavior remains safety-first. The idle recovery panel already returns no UI,
+while running, cancelled, completed, and failed batches continue to show
+their progress, warnings, output-transaction state, and cancellation action.
+Recovery compatibility also remains outside template management. This makes the
+normal Design state shorter without concealing an actionable recovery or output
+condition.
+
+The production bundle passed the focused ALB-135 suite (141 assertions), the
+full architecture verification (261 assertions), and regression verification
+(1134 assertions), then reloaded through Adobe UXP Developer Tools with
+**Plugin Reload Successful** on 2026-09-02. This was a load-only runtime check;
+no template, output, recovery, Photoshop execution, or project mutation ran.
+
 ## Approved product-workflow foundation
 
 The pre-implementation prototype review selected one progressive six-step

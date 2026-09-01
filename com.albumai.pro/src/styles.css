@@ -592,23 +592,12 @@ button.photo-browser-control:active:not(:disabled) {
     gap: 8px;
 }
 
-.template-setup-row,
-.template-execution-row,
-.template-output-row {
-    align-items: center;
-}
-
 .template-action-group {
     flex: 0 1 auto;
 }
 
 .template-output-row .template-action-group {
     flex: 1 1 235px;
-}
-
-.template-action-group--primary {
-    border-color: transparent;
-    background: transparent;
 }
 
 .template-render-sheet-button:not(:disabled) {

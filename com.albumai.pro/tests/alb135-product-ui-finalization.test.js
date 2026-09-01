@@ -132,6 +132,13 @@ try {
     check(templatePanel.includes('aria-expanded={advancedExecutionOpen}'), "advanced execution disclosure is missing");
     check(templatePanel.includes("advancedExecutionOpen &&"), "advanced execution controls are not collapsed by default");
     check(templatePanel.indexOf("Process Project") < templatePanel.indexOf("Advanced Execution"), "production processing is not presented before advanced execution");
+    check(templatePanel.includes('aria-expanded={templateManagementVisible}'), "template management disclosure is missing");
+    check(templatePanel.includes("templateManagementRequired || openSettings === 1"), "empty or blocked template management is not forced visible");
+    check(templatePanel.includes("Manage Templates"), "compact healthy-registry action is missing");
+    check(templatePanel.includes('aria-expanded={outputSettingsVisible}'), "output settings disclosure is missing");
+    check(templatePanel.includes("outputSettingsRequired || openSettings === 2"), "active output settings are not forced visible");
+    check(templatePanel.includes("Auto Save {autoSaveEnabled"), "compact output status is missing");
+    check(templatePanel.indexOf("Project Templates") < templatePanel.indexOf("Process Project"), "template summary is not presented before processing");
     check(projectService.includes('"photoEventChapters"'), "project metadata validation omits manual events");
     check(plan.includes("Manual event chapters"), "manual event chapter implementation record is missing");
     check(plan.includes("Reception membership restored"), "manual event runtime persistence evidence is missing");
@@ -148,6 +155,8 @@ try {
     check(plan.includes("never falls back from Kept Photos to unrated photos"), "strict Auto-Flow source boundary is missing");
     check(plan.includes("Design primary-action hierarchy"), "Design hierarchy implementation record is missing");
     check(plan.includes("Advanced Execution** disclosure"), "advanced execution boundary is missing");
+    check(plan.includes("Compact template and output management"), "compact template/output implementation record is missing");
+    check(plan.includes("idle recovery panel already returns no UI"), "idle recovery visibility boundary is missing");
     check(thumbnailGrid.includes("handleReorderDrop"), "manual reorder drop routing is missing");
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");

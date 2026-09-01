@@ -129,6 +129,7 @@ export default function TemplateDocumentPanel({
     );
     const [projectExecutionSummary, setProjectExecutionSummary] = useState(null);
     const [recoveryVersion, setRecoveryVersion] = useState(0);
+    const [openSettings, setOpenSettings] = useState(0);
     const [advancedExecutionOpen, setAdvancedExecutionOpen] = useState(false);
     const currentRecoveryState = readCurrentRecoveryState(
         getBatchRecoveryState
@@ -179,6 +180,10 @@ export default function TemplateDocumentPanel({
         registeredTemplates,
         registryPreflightState
     );
+    const templateManagementRequired = !registeredTemplates.length || registryBlocked;
+    const templateManagementVisible = templateManagementRequired || openSettings === 1;
+    const outputSettingsRequired = autoSaveEnabled || exportEnabled;
+    const outputSettingsVisible = outputSettingsRequired || openSettings === 2;
     const activePhotoshopDocument = getActivePhotoshopDocument?.() || null;
     const activePsdTarget = activePhotoshopDocument ||
         (selectedName ? templates.find(item => item.name === selectedName) : null) ||
@@ -223,6 +228,7 @@ export default function TemplateDocumentPanel({
         setRevalidationMessage(empty.message);
         setRevalidateBusy(empty.busy);
         setTemplatesWorkspaceAvailable(empty.workspaceAvailable);
+        setOpenSettings(0);
         setAdvancedExecutionOpen(false);
         draggedTemplateIdRef.current = null;
         dragStateRef.current = null;
@@ -1017,6 +1023,22 @@ export default function TemplateDocumentPanel({
 
             <div className="template-workspace-content">
                 <div className="template-setup-row">
+                    <strong>Project Templates</strong>
+                    <span>
+                        {registeredTemplates.length} registered · {registrySummary.ready} ready
+                        {registrySummary.blocking ? ` · ${registrySummary.blocking} blocking` : ""}
+                    </span>
+                    <button
+                        aria-expanded={templateManagementVisible}
+                        disabled={templateManagementRequired}
+                        onClick={() => setOpenSettings(openSettings === 1 ? 0 : 1)}
+                    >
+                        {templateManagementRequired ? "Templates Need Setup" : "Manage Templates"}
+                    </button>
+                </div>
+
+                {templateManagementVisible && <>
+                <div className="template-setup-row">
                     <div className="template-action-group">
 
                 <UxpDropdown
@@ -1063,9 +1085,6 @@ export default function TemplateDocumentPanel({
                 >
                     Add Current PSD
                 </button>
-                <span style={{ fontSize: 12, color: "#b8b8b8" }}>
-                    Registered: {registeredTemplates.length}
-                </span>
                 <button
                     onClick={revalidateTemplatesRequest}
                     disabled={!canRevalidateTemplates({
@@ -1080,6 +1099,7 @@ export default function TemplateDocumentPanel({
                 </button>
                     </div>
                 </div>
+                </>}
 
                 {templateOpenError && (
                     <div style={{ marginTop: 8, fontSize: 12, color: "#ff9999" }}>
@@ -1109,21 +1129,12 @@ export default function TemplateDocumentPanel({
                     </div>
                 )}
 
-                <div style={{ fontSize: 12, color: registryBlocked ? "#ffcc88" : "#9ee6a5" }}>
-                    Ready: {registrySummary.ready} · Blocking: {registrySummary.blocking}
-                    {registryBlocked && " — Template registry needs attention before processing."}
-                </div>
+                {templateManagementVisible && <>
                 {revalidationMessage && (
                     <div style={{ fontSize: 12, color: revalidationMessage.includes("could not") ? "#ff9999" : "#b8dca0" }}>
                         {revalidationMessage}
                     </div>
                 )}
-                {recoverySnapshot && recoveryCompatibility && (
-                    <div style={{ fontSize: 12, color: recoveryCompatibility === "COMPATIBLE" ? "#9ee6a5" : "#ffcc88" }}>
-                        Recovery compatibility: {recoveryCompatibilityLabel(recoveryCompatibility)}
-                    </div>
-                )}
-
                 <div
                     ref={templateListRef}
                     className="template-registry-scroll"
@@ -1204,6 +1215,13 @@ export default function TemplateDocumentPanel({
                         );
                     })}
                 </div>
+                </>}
+
+                {recoverySnapshot && recoveryCompatibility && (
+                    <div style={{ fontSize: 12, color: recoveryCompatibility === "COMPATIBLE" ? "#9ee6a5" : "#ffcc88" }}>
+                        Recovery compatibility: {recoveryCompatibilityLabel(recoveryCompatibility)}
+                    </div>
+                )}
 
                 <div className="template-execution-row">
                     <div className="template-action-group template-action-group--primary">
@@ -1270,6 +1288,21 @@ export default function TemplateDocumentPanel({
                 />
 
                 <div className="template-output-row">
+                    <strong>Output</strong>
+                    <span>
+                        Auto Save {autoSaveEnabled ? "On" : "Off"} · Export {exportEnabled ? exportFormat : "Off"}
+                    </span>
+                    <button
+                        aria-expanded={outputSettingsVisible}
+                        disabled={outputSettingsRequired}
+                        onClick={() => setOpenSettings(openSettings === 2 ? 0 : 2)}
+                    >
+                        {outputSettingsRequired ? "Output Active" : "Output Settings"}
+                    </button>
+                </div>
+
+                {outputSettingsVisible && (
+                <div className="template-output-row">
                     <div className="template-action-group">
                 <label style={{ fontSize: 12 }}>
                     <input
@@ -1330,6 +1363,7 @@ export default function TemplateDocumentPanel({
                 />
                     </div>
                 </div>
+                )}
             </div>
 
         </section>
