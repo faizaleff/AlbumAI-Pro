@@ -41,6 +41,12 @@ try {
     check(plan.includes("Marketplace review | 1360x800"), "Marketplace-size acceptance is missing");
     check(plan.includes("ALB-135.2 — workspace shell"), "next implementation slice is missing");
     check(plan.includes("ALB-135.5 — responsive runtime qualification"), "runtime qualification slice is missing");
+    check(plan.includes("Import → Sort → Cull → Enhance → Design → Export"), "approved workflow foundation is missing");
+    check(plan.includes("per-camera clock offsets"), "multi-camera clock correction provision is missing");
+    check(plan.includes("bride/groom and\n  outfit continuity"), "future visual story evidence is missing");
+    check(plan.includes("cover, wrapper, index, story spreads"), "future album-structure provision is missing");
+    check(plan.includes("Approved PSD templates remain the deterministic design source"), "template fallback boundary is missing");
+    check(plan.includes("capability-gated by ALB-070"), "future AI gate boundary is missing");
     check(plan.includes("No permanent logo decision and no final Marketplace screenshots"), "visual-asset boundary is missing");
     check(marketplacePlan.includes("Final screenshot capture is explicitly\ndeferred"), "ALB-134 screenshot boundary changed");
     check(supportPlan.includes("temporary Option 3 icon remains candidate-test artwork only"), "temporary-icon boundary changed");

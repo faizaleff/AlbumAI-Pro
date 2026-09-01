@@ -108,6 +108,42 @@ focus order.
 5. **ALB-135.5 — responsive runtime qualification:** test the acceptance matrix
    in Photoshop with disposable fixtures and record final UI evidence.
 
+## Approved product-workflow foundation
+
+The pre-implementation prototype review selected one progressive six-step
+workflow: **Import → Sort → Cull → Enhance → Design → Export**. The steps are
+operator checkpoints, not six mandatory manual jobs. A future automatic path
+may prepare a reviewable draft across multiple steps, while every decision
+remains editable and the existing deterministic/manual path stays available.
+
+### Story ordering and multi-camera work
+
+- Sort must support an automatic base order followed by persistent visual
+  drag/reorder of one or multiple photos, with Undo, Redo, and reset.
+- Multi-camera timestamps are supporting evidence only. The workflow must allow
+  per-camera clock offsets and must not assume EXIF dates are correct.
+- The non-AI path must let the operator create, rename, reorder, and review
+  event chapters from the beginning to the end of the story.
+- A future AI-assisted draft may use location/scene changes, bride/groom and
+  outfit continuity, ceremony/event cues, visual continuity, and timestamps.
+  Its output is a proposal; it cannot lock order, reject photos, or start a
+  Photoshop mutation without explicit review and approval.
+
+### Editing and album design provisions
+
+- Enhance reserves a non-destructive review surface for future color grading,
+  portrait retouch, background extension, and object removal. Originals remain
+  unchanged; manual controls and reset remain available.
+- Design reserves a reviewable album-structure draft covering page count,
+  cover, wrapper, index, story spreads, template/slot matching, crop, and
+  typography.
+- Approved PSD templates remain the deterministic design source and fallback.
+  Future generated layouts are an optional, separately qualified source rather
+  than a prerequisite for the workflow.
+- Future AI integration remains capability-gated by ALB-070. Prototype labels
+  and reserved controls do not constitute model integration or a shipped AI
+  claim.
+
 ## Safety and scope boundaries
 
 - No feature behavior, project schema, output transaction, or recovery policy
