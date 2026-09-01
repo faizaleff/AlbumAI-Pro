@@ -561,6 +561,28 @@ ceiling. The complete test suite, ALB-135's 154 focused assertions, the
 verification all passed. Runtime Photoshop visual qualification remains a
 separate check before this structural unit is considered visually approved.
 
+#### Canonical header and workflow navigation alignment
+
+The production header now follows the approved prototype's two-row hierarchy:
+brand, project identity, and Undo/Redo/Save occupy the top row; the six workflow
+steps occupy a dedicated tab row below it. Tabs use the prototype's numbered
+labels, calm completed state, and active underline instead of circular markers
+and the former neon outlined pill. The project label is removed only at compact
+dock widths where the project summary remains available immediately below.
+
+Photoshop UXP runtime testing exposed that CSS Grid collapsed the workflow tab
+container in the compact dock even though the active-step context remained
+visible. The tab row was changed to an equivalent UXP-safe Flex layout. After
+**Plugin Reload Successful**, the live compact AlbumAI Browser showed Import,
+Sort, Cull, and Enhance directly, with Design and Export reachable through the
+row's horizontal overflow. The active Import underline, completed Sort state,
+brand/actions row, and project content remained visible without root horizontal
+scrolling. Opening the REC005 disposable fixture was the only project action;
+no render, replacement, export, or Photoshop document mutation was run.
+The production bundle remained within the release ceiling at **756,018 bytes**;
+the full regression suite, 162 focused ALB-135 assertions, architecture checks,
+and active-file coverage all passed.
+
 ### Story ordering and multi-camera work
 
 - Sort must support an automatic base order followed by persistent visual

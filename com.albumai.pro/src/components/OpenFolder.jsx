@@ -1110,21 +1110,26 @@ export default function OpenFolder() {
             <header className="workspace-top-bar">
                 <div className="workspace-brand-group">
                     <span className="workspace-brand-mark" aria-hidden="true">AI</span>
-                    <span className="workspace-brand-title">
-                        AlbumAI Pro ·
-                    </span>
-                    <span className={`workspace-project-badge ${hasProject ? "active" : ""}`}>
-                        {hasProject ? project.metadata.name : `v${ALBUMAI_VERSION}`}
+                    <span
+                        className="workspace-brand-title"
+                        data-runtime-version={`v${ALBUMAI_VERSION}`}
+                    >
+                        AlbumAI Pro
                     </span>
                 </div>
 
                 {hasProject && (
                     <>
+                        <div className="workspace-project-group">
+                            <span>Project</span>
+                            <strong>{project.metadata.name}</strong>
+                        </div>
+
                         <div className="workspace-workflow-group">
                             <span className="workspace-step-context">
                                 Step {activeWizardStep.id} of {WIZARD_STEPS.length} · {activeWizardStep.label}
                             </span>
-                            <nav className="wizard-step-bar" role="navigation" aria-label="Workflow Steps">
+                            <nav className="wizard-step-bar" role="tablist" aria-label="Album workflow">
                                 {WIZARD_STEPS.map(step => {
                                     const isActive = step.id === wizardStep;
                                     const isCompleted = wizardCompletedSteps?.has(step.id);
@@ -1154,11 +1159,10 @@ export default function OpenFolder() {
                                                 ? lockedTitle
                                                 : `${step.id}. ${step.label} (${step.description})`}
                                             aria-current={isActive ? "step" : undefined}
+                                            aria-selected={isActive}
+                                            role="tab"
                                         >
-                                            <span className="wizard-step-icon" aria-hidden="true">
-                                                {isCompleted ? "✓" : step.id}
-                                            </span>
-                                            <span className="wizard-step-label">{step.label}</span>
+                                            <span className="wizard-step-label">{step.id} · {step.label}</span>
                                         </button>
                                     );
                                 })}
@@ -1166,15 +1170,6 @@ export default function OpenFolder() {
                         </div>
 
                         <div className="workspace-quick-actions">
-                            <button
-                                type="button"
-                                className="workspace-quick-btn workspace-quick-btn--primary"
-                                onClick={saveProject}
-                                disabled={!hasProject || Boolean(projectAction)}
-                                title="Save Project Metadata"
-                            >
-                                {projectAction === "SAVING" ? "Saving…" : "Save"}
-                            </button>
                             <button
                                 type="button"
                                 className="workspace-quick-btn"
@@ -1192,6 +1187,15 @@ export default function OpenFolder() {
                                 title="Redo Sheet Change"
                             >
                                 Redo
+                            </button>
+                            <button
+                                type="button"
+                                className="workspace-quick-btn workspace-quick-btn--primary"
+                                onClick={saveProject}
+                                disabled={!hasProject || Boolean(projectAction)}
+                                title="Save Project Metadata"
+                            >
+                                {projectAction === "SAVING" ? "Saving…" : "Save"}
                             </button>
                         </div>
                     </>

@@ -53,6 +53,9 @@ try {
     check(plan.includes("ALB-135.2 — workspace shell"), "next implementation slice is missing");
     check(plan.includes("ALB-135.5 — responsive runtime qualification"), "runtime qualification slice is missing");
     check(plan.includes("Import → Sort → Cull → Enhance → Design → Export"), "approved workflow foundation is missing");
+    check(plan.includes("Canonical prototype recovery and priority reset"), "canonical prototype recovery record is missing");
+    check(plan.includes("Canonical header and workflow navigation alignment"), "prototype shell-alignment record is missing");
+    check(plan.includes("equivalent UXP-safe Flex layout"), "live workflow-tab fallback evidence is missing");
     check(plan.includes("per-camera clock offsets"), "multi-camera clock correction provision is missing");
     check(plan.includes("bride/groom and\n  outfit continuity"), "future visual story evidence is missing");
     check(plan.includes("cover, wrapper, index, story spreads"), "future album-structure provision is missing");
@@ -172,8 +175,13 @@ try {
     check(thumbnailCard.includes("is-reorder-target"), "manual reorder target feedback is missing");
     check(styles.includes(".photo-filter-panel"), "secondary filter panel styling is missing");
     check(openFolder.includes("workspace-brand-mark"), "compact workspace brand mark is missing");
-    check(openFolder.includes("AlbumAI Pro ·"), "product name is not visually separated from the project badge");
-    check(styles.includes(".workspace-brand-title,\n    .workspace-project-badge"), "minimum-dock brand compaction is missing");
+    check(openFolder.includes('className="workspace-project-group"'), "prototype project identity group is missing");
+    check(openFolder.includes('role="tablist" aria-label="Album workflow"'), "prototype workflow tablist is missing");
+    check(openFolder.includes("aria-selected={isActive}"), "workflow tab selection state is missing");
+    check(!openFolder.includes("wizard-step-icon"), "legacy circular workflow markers remain rendered");
+    check(styles.includes(".workspace-project-group {\n        display: none;"), "compact-dock project compaction is missing");
+    check(styles.includes("border-bottom-color: #58a6ff"), "prototype active-tab underline is missing");
+    check(styles.includes(".wizard-step-bar {\n    display: flex;"), "workflow tabs do not use the UXP-safe flex layout");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
     check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");
     check(!openFolder.includes("<span>✨ AlbumAI Pro</span>"), "legacy emoji product title remains");

@@ -459,8 +459,13 @@ button.photo-browser-control:active:not(:disabled) {
 }
 
 @media (max-width: 360px) {
-    .workspace-brand-title,
-    .workspace-project-badge {
+    .workspace-brand-title {
+        display: none;
+    }
+}
+
+@media (max-width: 520px) {
+    .workspace-project-group {
         display: none;
     }
 }
@@ -2434,14 +2439,13 @@ button.photo-browser-control:active:not(:disabled) {
     display: flex;
     align-items: center;
     flex: 0 0 auto;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     width: 100%;
     box-sizing: border-box;
-    min-height: 48px;
-    padding: 8px 12px;
+    padding: 8px 12px 0;
     background: #16181d;
     border-bottom: 1px solid #282c35;
-    gap: 12px;
+    gap: 8px 12px;
     z-index: 10;
 }
 
@@ -2450,6 +2454,7 @@ button.photo-browser-control:active:not(:disabled) {
     align-items: center;
     gap: 8px;
     min-width: 0;
+    flex: 0 0 auto;
 }
 
 .workspace-brand-mark {
@@ -2468,43 +2473,46 @@ button.photo-browser-control:active:not(:disabled) {
 
 .workspace-brand-title {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     color: #f0f3f6;
     white-space: nowrap;
 }
 
-.workspace-project-badge {
+.workspace-project-group {
+    display: flex;
+    align-items: center;
+    flex: 1 1 220px;
+    gap: 8px;
     min-width: 0;
-    max-width: 180px;
+    color: #8b949e;
+    font-size: 11px;
+}
+
+.workspace-project-group strong {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 11px;
     font-weight: 500;
-    padding: 3px 8px;
-    border-radius: 12px;
-    background: #232730;
-    color: #a0a6b5;
-    border: 1px solid #363c4a;
-}
-
-.workspace-project-badge.active {
-    background: #182a44;
-    color: #58a6ff;
-    border-color: #234876;
+    color: #f0f3f6;
 }
 
 .workspace-quick-actions {
     display: flex;
     align-items: center;
     gap: 6px;
+    margin-left: auto;
 }
 
 .workspace-workflow-group {
+    order: 3;
     display: flex;
     align-items: center;
+    flex: 1 0 calc(100% + 24px);
+    width: calc(100% + 24px);
     min-width: 0;
-    gap: 8px;
+    margin: 0 -12px;
+    padding: 0 12px;
+    border-top: 1px solid #282c35;
 }
 
 .workspace-step-context {
@@ -2698,15 +2706,20 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 
     .workspace-workflow-group {
         order: 3 !important;
-        flex: 1 0 100% !important;
+        flex: 1 0 calc(100% + 16px) !important;
         display: flex !important;
-        align-items: center !important;
-        width: 100% !important;
-        gap: 6px !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: calc(100% + 16px) !important;
+        margin: 0 -8px !important;
+        padding: 0 8px !important;
+        gap: 0 !important;
     }
 
     .workspace-step-context {
-        display: inline !important;
+        display: block !important;
+        padding: 4px 0 1px !important;
+        text-align: center !important;
     }
 
     .wizard-step-bar {
@@ -2910,11 +2923,11 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 ═══════════════════════════════════════════════════════ */
 
 .wizard-step-bar {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(64px, 1fr));
+    display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 0;
     flex: 1;
+    width: 100%;
     min-width: 0;
     max-width: 100%;
     overflow-x: auto;
@@ -2924,18 +2937,18 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 }
 
 .wizard-step {
-    display: grid;
-    grid-template-columns: 20px minmax(0, auto);
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    min-height: 34px;
-    padding: 5px 7px;
-    border: 1px solid transparent;
+    flex: 1 1 0;
+    min-height: 38px;
+    padding: 8px 7px 6px;
+    border: 0;
+    border-bottom: 3px solid transparent;
     background: transparent;
     cursor: pointer;
     color: #8b949e;
-    border-radius: 6px;
+    border-radius: 0;
     transition: all 0.15s ease;
     min-width: 0;
     position: relative;
@@ -2948,26 +2961,12 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 }
 
 .wizard-step--completed {
-    color: #c9d1d9;
+    color: #55c98b;
 }
 
 .wizard-step--locked {
     opacity: 0.38;
     cursor: not-allowed;
-}
-
-.wizard-step-icon {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    border: 1px solid #30363d;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    background: #161b22;
-    transition: all 0.15s ease;
-    flex-shrink: 0;
 }
 
 .wizard-step-label {
@@ -3008,12 +3007,6 @@ html, body, .albumai-workspace-layout, .workspace-view-container {
 /* ═══════════════════════════════════════════════════════
    ULTIMATE PRO HYBRID: NEON GLOW & POLISHED WORKSPACE
 ═══════════════════════════════════════════════════════ */
-
-.wizard-step--completed .wizard-step-icon {
-    background: #238636 !important;
-    color: #ffffff !important;
-    border-color: #2ea043 !important;
-}
 
 /* Event Tab Button Hover & Active Glow */
 .photo-event-strip button.culling-pill {
@@ -3071,19 +3064,11 @@ body, .albumai-workspace-layout {
     background: #162338;
 }
 
-/* Glowing Top Wizard Progress Bar */
 .wizard-step--active {
     color: #ffffff !important;
-    background: rgba(0, 210, 255, 0.12) !important;
-    border: 1px solid #00d2ff !important;
+    background: #172d49 !important;
+    border-bottom-color: #58a6ff !important;
     font-weight: 600 !important;
-}
-
-.wizard-step--active .wizard-step-icon {
-    background: #00d2ff !important;
-    color: #0b0e14 !important;
-    border-color: #ffffff !important;
-    font-weight: 800 !important;
 }
 
 /* ═══════════════════════════════════════════════════════
