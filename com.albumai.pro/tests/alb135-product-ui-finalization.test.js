@@ -50,6 +50,9 @@ try {
     check(plan.includes("Approved PSD templates remain the deterministic design source"), "template fallback boundary is missing");
     check(plan.includes("capability-gated by ALB-070"), "future AI gate boundary is missing");
     check(plan.includes("ALB-135.2 implementation progress"), "workspace-shell implementation record is missing");
+    check(plan.includes("Plugin Reload Successful"), "updated-bundle reload evidence is missing");
+    check(plan.includes("did not\nsurface a visible panel"), "installed panel-visibility gap is missing");
+    check(plan.includes("not visual runtime acceptance"), "runtime acceptance boundary is missing");
     check(openFolder.includes("workspace-brand-mark"), "compact workspace brand mark is missing");
     check(openFolder.includes("Step {activeWizardStep.id} of {WIZARD_STEPS.length}"), "docked active-step context is missing");
     check(openFolder.includes("workspace-quick-btn workspace-quick-btn--primary"), "Save action hierarchy is missing");

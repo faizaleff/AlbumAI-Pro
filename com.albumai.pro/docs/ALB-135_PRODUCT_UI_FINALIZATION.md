@@ -124,6 +124,17 @@ This pass does not change wizard eligibility, photo state, album state,
 Photoshop execution, persistence, output, or recovery behavior. Import/Sort/
 Cull screen work and the reserved Enhance step remain later slices.
 
+#### Installed Photoshop acceptance check
+
+After the production bundle passed, Adobe UXP Developer Tools reported AlbumAI
+Pro **Loaded** and **Plugin Reload Successful**. In Photoshop 2026, **Plugins >
+AlbumAI Pro > AlbumAI Browser** remained available, but selecting it did not
+surface a visible panel in the captured workspace. The new header therefore
+has automated/build evidence but not visual runtime acceptance. ALB-135.2 stays
+open until panel load/reopen visibility is deterministic and the shell is
+inspected at the acceptance sizes. No project content or Photoshop document
+content was changed during this check.
+
 ## Approved product-workflow foundation
 
 The pre-implementation prototype review selected one progressive six-step
