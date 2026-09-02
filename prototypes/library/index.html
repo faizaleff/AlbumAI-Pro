@@ -239,6 +239,7 @@
     #albumai-library-prototype .aip-photo[data-label="red"] { --aip-label-color: var(--aip-red); }
     #albumai-library-prototype .aip-photo[data-label="yellow"] { --aip-label-color: var(--aip-yellow); }
     #albumai-library-prototype .aip-photo[data-label="green"] { --aip-label-color: var(--aip-green); }
+    #albumai-library-prototype .aip-photo[data-label]:not([data-label=""])::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: var(--aip-label-color); pointer-events: none; }
     #albumai-library-prototype .aip-photo-media { position: relative; aspect-ratio: 4 / 3; background: #0b0d11; overflow: hidden; }
     #albumai-library-prototype .aip-photo-art { width: 100%; height: 100%; background-repeat: no-repeat; display: block; }
     #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-art { opacity: .52; }
@@ -272,12 +273,11 @@
     #albumai-library-prototype .aip-hover-tools button[aria-pressed="true"] { background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,.42); }
     #albumai-library-prototype .aip-favorite-button { color: #ff769a; font-size: 17px; }
     #albumai-library-prototype .aip-color-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
-    #albumai-library-prototype .aip-photo-info { min-height: 52px; padding: 8px 9px 0; display: grid; gap: 4px; }
+    #albumai-library-prototype .aip-photo-info { min-height: 52px; padding: 8px 9px; display: grid; gap: 4px; }
     #albumai-library-prototype .aip-photo-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #albumai-library-prototype .aip-persistent-meta { min-height: 16px; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--aip-muted); }
     #albumai-library-prototype .aip-persistent-stars { color: var(--aip-yellow); letter-spacing: -1px; }
     #albumai-library-prototype .aip-persistent-favorite { color: #ff769a; font-size: 13px; }
-    #albumai-library-prototype .aip-label-bar { grid-column: 1 / -1; min-height: 18px; margin: 3px -9px 0; padding: 2px 9px; display: flex; align-items: center; justify-content: space-between; gap: 6px; background: var(--aip-label-color); color: #101318; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
     #albumai-library-prototype .aip-burst-review { margin-left: auto; min-height: 20px; padding: 0 6px; border: 1px solid var(--aip-line); border-radius: 5px; background: var(--aip-panel-3); color: var(--aip-muted); font-size: 10px; cursor: pointer; }
     #albumai-library-prototype .aip-burst-review[aria-pressed="true"] { border-color: var(--aip-green); color: var(--aip-green); background: rgba(83,201,139,.1); }
     #albumai-library-prototype .aip-burst-filter { margin: 2px 8px 8px; padding: 8px; border: 1px solid var(--aip-line-soft); border-radius: 7px; background: var(--aip-panel); }
@@ -292,7 +292,7 @@
     #albumai-library-prototype .aip-grid.is-list .aip-photo-info { display: contents; }
     #albumai-library-prototype .aip-grid.is-list .aip-photo-name { grid-column: 2; }
     #albumai-library-prototype .aip-grid.is-list .aip-persistent-meta { display: none; }
-    #albumai-library-prototype .aip-grid.is-list .aip-label-bar,
+    #albumai-library-prototype .aip-grid.is-list .aip-photo::after,
     #albumai-library-prototype .aip-grid.is-list .aip-burst-review { display: none; }
     #albumai-library-prototype .aip-grid.is-list .aip-list-cell { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--aip-muted); font-size: 11px; }
     #albumai-library-prototype .aip-grid.is-list .aip-list-rating { color: var(--aip-yellow); letter-spacing: -1px; }
@@ -646,7 +646,6 @@
         const favorite = p.favorite ? '<span class="aip-persistent-favorite" aria-label="Favorite">♥</span>' : '';
         const badge = p.decision==='keep'?'✓ KEEP':p.decision==='reject'?'× REJECT':'REVIEW';
         const labelNames = {red:'Select',yellow:'Review',green:'Approved'};
-        const labelBar = p.label ? `<span class="aip-label-bar"><span>${labelNames[p.label]}</span><span>${p.label}</span></span>` : '';
         const burstReview = p.type==='Burst photo' ? `<button class="aip-burst-review" data-burst-verify aria-pressed="${p.burstVerified}" aria-label="${p.burstVerified?'Mark burst as pending verification':'Manually verify burst photo'}">${p.burstVerified?'✓ Verified':'Verify burst'}</button>` : '';
         return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''} ${state.focused===p.id?'is-focused':''}" role="listitem" data-photo-id="${p.id}" data-label="${p.label}" data-decision="${p.decision}" draggable="true" tabindex="${state.focused===p.id?'0':'-1'}" aria-label="${p.name}, ${state.selected.has(p.id)?'selected, ':''}${p.favorite?'favorite, ':''}${p.rating} stars, ${p.label?p.label+' label, ':''}${p.decision||'review'}">
           <div class="aip-photo-media"><div class="aip-photo-art" role="img" aria-label="${p.name}" style="${frameStyle(p)}"></div>
@@ -657,7 +656,7 @@
               <span class="aip-colors-edit" aria-label="Color label"><button data-photo-label="red" aria-label="Red label" aria-pressed="${p.label==='red'}"><span class="aip-color-dot" style="background:var(--aip-red)"></span></button><button data-photo-label="yellow" aria-label="Yellow label" aria-pressed="${p.label==='yellow'}"><span class="aip-color-dot" style="background:var(--aip-yellow)"></span></button><button data-photo-label="green" aria-label="Green label" aria-pressed="${p.label==='green'}"><span class="aip-color-dot" style="background:var(--aip-green)"></span></button></span>
             </div>
           </div>
-          <div class="aip-photo-info"><span class="aip-photo-name">${p.name}</span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span>${p.event}</span>${burstReview}</span>${labelBar}<span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating">${p.rating?'★'.repeat(p.rating):'Unrated'}</span><span class="aip-list-cell">${p.label?labelNames[p.label]:'—'}</span><span class="aip-list-cell">${p.event}</span></div>
+          <div class="aip-photo-info"><span class="aip-photo-name">${p.name}</span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span>${p.event}</span>${burstReview}</span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating">${p.rating?'★'.repeat(p.rating):'Unrated'}</span><span class="aip-list-cell">${p.label?labelNames[p.label]:'—'}</span><span class="aip-list-cell">${p.event}</span></div>
         </article>`;
       }
 
