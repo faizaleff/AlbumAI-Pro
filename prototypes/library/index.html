@@ -279,6 +279,7 @@
     #albumai-library-prototype .aip-photo-info { min-height: 52px; padding: 8px 9px; display: grid; align-content: start; flex: 1; gap: 4px; transition: background-color 100ms ease; }
     #albumai-library-prototype .aip-photo[data-label]:not([data-label=""]) .aip-photo-info { background: var(--aip-label-tint); }
     #albumai-library-prototype .aip-photo-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #albumai-library-prototype .aip-list-actions { display: none; }
     #albumai-library-prototype .aip-persistent-meta { min-height: 16px; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--aip-muted); }
     #albumai-library-prototype .aip-persistent-stars { color: var(--aip-yellow); letter-spacing: -1px; }
     #albumai-library-prototype .aip-persistent-favorite { color: #ff769a; font-size: 13px; }
@@ -295,14 +296,30 @@
     #albumai-library-prototype .aip-grid.is-list .aip-photo-media { width: 38px; aspect-ratio: 4 / 3; grid-column: 1; }
     #albumai-library-prototype .aip-grid.is-list .aip-photo-info { display: contents; }
     #albumai-library-prototype .aip-grid.is-list .aip-photo-name { grid-column: 2; }
+    #albumai-library-prototype .aip-grid.is-list .aip-photo-name { display: flex; align-items: center; gap: 7px; overflow: visible; }
+    #albumai-library-prototype .aip-grid.is-list .aip-photo-filename { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    #albumai-library-prototype .aip-grid.is-list .aip-list-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; }
+    #albumai-library-prototype .aip-grid.is-list .aip-list-actions button { width: 21px; height: 21px; padding: 0; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--aip-muted); cursor: pointer; }
+    #albumai-library-prototype .aip-grid.is-list .aip-list-actions button:hover { background: var(--aip-panel-3); color: var(--aip-text); }
+    #albumai-library-prototype .aip-grid.is-list .aip-list-actions button[aria-pressed="true"] { border-color: currentColor; background: var(--aip-panel-3); }
+    #albumai-library-prototype .aip-grid.is-list .aip-list-actions [data-photo-favorite] { color: #ff769a; }
+    #albumai-library-prototype .aip-grid.is-list .aip-list-actions [data-photo-action="keep"] { color: var(--aip-green); }
+    #albumai-library-prototype .aip-grid.is-list .aip-list-actions [data-photo-action="reject"] { color: var(--aip-red); }
     #albumai-library-prototype .aip-grid.is-list .aip-persistent-meta { display: none; }
     #albumai-library-prototype .aip-grid.is-list .aip-burst-review { display: none; }
     #albumai-library-prototype .aip-grid.is-list .aip-list-cell { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--aip-muted); font-size: 11px; }
     #albumai-library-prototype .aip-grid.is-list .aip-list-rating { color: var(--aip-yellow); letter-spacing: -1px; }
+    #albumai-library-prototype .aip-list-stars-edit { display: inline-flex; gap: 0; }
+    #albumai-library-prototype .aip-list-stars-edit button { width: 15px; min-height: 24px; padding: 0; border: 0; background: transparent; color: var(--aip-yellow); cursor: pointer; font-size: 12px; }
+    #albumai-library-prototype .aip-list-stars-edit button:hover { transform: scale(1.16); }
     #albumai-library-prototype .aip-list-label { display: inline-flex; align-items: center; min-height: 20px; padding: 0 7px; border-radius: 10px; font-size: 10px; font-weight: 700; }
     #albumai-library-prototype .aip-list-label[data-color="red"] { color: #ff9da4; background: rgba(255,91,101,.16); box-shadow: inset 0 0 0 1px rgba(255,91,101,.28); }
     #albumai-library-prototype .aip-list-label[data-color="yellow"] { color: #ffe17a; background: rgba(244,194,13,.14); box-shadow: inset 0 0 0 1px rgba(244,194,13,.25); }
     #albumai-library-prototype .aip-list-label[data-color="green"] { color: #9ce4bd; background: rgba(83,201,139,.15); box-shadow: inset 0 0 0 1px rgba(83,201,139,.27); }
+    #albumai-library-prototype .aip-list-label-select { width: 100%; min-height: 25px; padding: 0 5px; border: 1px solid var(--aip-line); border-radius: 6px; background: var(--aip-panel-3); color: var(--aip-text); font-size: 10px; cursor: pointer; }
+    #albumai-library-prototype .aip-list-label-select:has(option[value="red"]:checked) { border-color: rgba(255,91,101,.45); background: rgba(255,91,101,.16); color: #ffafb5; }
+    #albumai-library-prototype .aip-list-label-select:has(option[value="yellow"]:checked) { border-color: rgba(244,194,13,.42); background: rgba(244,194,13,.14); color: #ffe17a; }
+    #albumai-library-prototype .aip-list-label-select:has(option[value="green"]:checked) { border-color: rgba(83,201,139,.44); background: rgba(83,201,139,.15); color: #9ce4bd; }
     #albumai-library-prototype .aip-grid.is-list .aip-hover-tools { display: none; }
 
     #albumai-library-prototype .aip-empty { display: none; place-items: center; min-height: 280px; color: var(--aip-muted); text-align: center; }
@@ -675,7 +692,7 @@
               <span class="aip-colors-edit" aria-label="Color label"><button data-photo-label="red" aria-label="Red label" aria-pressed="${p.label==='red'}"><span class="aip-color-dot" style="background:var(--aip-red)"></span></button><button data-photo-label="yellow" aria-label="Yellow label" aria-pressed="${p.label==='yellow'}"><span class="aip-color-dot" style="background:var(--aip-yellow)"></span></button><button data-photo-label="green" aria-label="Green label" aria-pressed="${p.label==='green'}"><span class="aip-color-dot" style="background:var(--aip-green)"></span></button></span>
             </div>
           </div>
-          <div class="aip-photo-info"><span class="aip-photo-name">${p.name}</span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span>${p.event}</span>${burstReview}</span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating">${p.rating?'★'.repeat(p.rating):'Unrated'}</span><span class="aip-list-cell">${p.label?`<span class="aip-list-label" data-color="${p.label}">${labelNames[p.label]}</span>`:'—'}</span><span class="aip-list-cell">${p.event}</span></div>
+          <div class="aip-photo-info"><span class="aip-photo-name"><span class="aip-photo-filename">${p.name}</span><span class="aip-list-actions" aria-label="Review actions"><button data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button data-photo-action="reject" aria-label="Reject" aria-pressed="${p.decision==='reject'}">×</button><button data-photo-action="keep" aria-label="Keep" aria-pressed="${p.decision==='keep'}">✓</button></span></span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span>${p.event}</span>${burstReview}</span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating"><span class="aip-list-stars-edit" aria-label="Edit star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="Set ${n} stars" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span></span><span class="aip-list-cell"><select class="aip-list-label-select" data-photo-label-select aria-label="Edit color label"><option value="" ${!p.label?'selected':''}>No label</option><option value="red" ${p.label==='red'?'selected':''}>Select</option><option value="yellow" ${p.label==='yellow'?'selected':''}>Review</option><option value="green" ${p.label==='green'?'selected':''}>Approved</option></select></span><span class="aip-list-cell">${p.event}</span></div>
         </article>`;
       }
 
@@ -793,6 +810,7 @@
         const inspector=event.target.closest('[data-inspector-message]'); if(inspector){showToast(`${inspector.dataset.inspectorMessage} is available in a later workspace stage.`);return;}
         const actionButton=event.target.closest('[data-action]'); if(actionButton){showToast(actionButton.dataset.action==='new-event'?'New event creation is ready for the implementation stage.':'Camera detection and clock alignment are provisioned.');return;}
       });
+      root.addEventListener('change', event => { const select=event.target.closest('[data-photo-label-select]'); if(!select)return; const card=select.closest('[data-photo-id]'); const id=+card.dataset.photoId; if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;} if(select.value)setLabel(select.value);else mutateSelected(p=>p.label=''); });
 
       root.querySelector('#aip-search').addEventListener('input',e=>{state.search=e.target.value;render();});
       root.querySelector('#aip-sort').addEventListener('change',e=>{state.sort=e.target.value;render();});
