@@ -1,0 +1,626 @@
+<div id="albumai-library-prototype" class="aip-shell" aria-label="AlbumAI Pro Library prototype">
+  <style>
+    #albumai-library-prototype {
+      --aip-bg: #101319;
+      --aip-top: #151922;
+      --aip-panel: #181d26;
+      --aip-panel-2: #1d2430;
+      --aip-panel-3: #252d39;
+      --aip-line: #313a49;
+      --aip-line-soft: #262e3a;
+      --aip-text: #eef3fb;
+      --aip-muted: #9ba6b7;
+      --aip-blue: #3182f6;
+      --aip-blue-soft: #1d3d68;
+      --aip-green: #38c978;
+      --aip-red: #fa5f67;
+      --aip-yellow: #f5c451;
+      --aip-purple: #af7cf4;
+      --aip-cyan: #43b9e8;
+      background: var(--aip-bg);
+      color: var(--aip-text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      width: 100%;
+      min-width: 320px;
+      overflow: hidden;
+    }
+
+    #albumai-library-prototype * { box-sizing: border-box; }
+    #albumai-library-prototype button,
+    #albumai-library-prototype input,
+    #albumai-library-prototype select { font: inherit; }
+    #albumai-library-prototype button { color: inherit; }
+
+    #albumai-library-prototype .aip-appbar {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 18px;
+      background: var(--aip-top);
+      border-bottom: 1px solid var(--aip-line);
+    }
+
+    #albumai-library-prototype .aip-brand { display: flex; align-items: center; gap: 10px; min-width: 250px; }
+    #albumai-library-prototype .aip-mark {
+      width: 36px; height: 36px; display: grid; place-items: center;
+      background: var(--aip-blue); border-radius: 10px; font-weight: 700;
+    }
+    #albumai-library-prototype .aip-brand-copy { display: grid; gap: 2px; }
+    #albumai-library-prototype .aip-brand-copy strong { font-size: 15px; font-weight: 600; }
+    #albumai-library-prototype .aip-brand-copy span { font-size: 12px; color: var(--aip-muted); }
+
+    #albumai-library-prototype .aip-history { display: flex; gap: 6px; margin-left: auto; }
+    #albumai-library-prototype .aip-icon-button,
+    #albumai-library-prototype .aip-toolbar-button,
+    #albumai-library-prototype .aip-text-button {
+      border: 1px solid var(--aip-line);
+      background: var(--aip-panel-2);
+      border-radius: 8px;
+      min-height: 36px;
+      padding: 0 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-weight: 600;
+    }
+    #albumai-library-prototype .aip-icon-button { width: 38px; padding: 0; }
+    #albumai-library-prototype .aip-primary { background: var(--aip-blue); border-color: var(--aip-blue); }
+    #albumai-library-prototype button:disabled { opacity: .42; cursor: default; }
+
+    #albumai-library-prototype .aip-workflow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(90px, 1fr));
+      border-bottom: 1px solid var(--aip-line);
+      background: var(--aip-top);
+    }
+    #albumai-library-prototype .aip-workflow button {
+      min-height: 48px; border: 0; border-bottom: 3px solid transparent;
+      background: transparent; color: var(--aip-muted); font-weight: 600; cursor: pointer;
+    }
+    #albumai-library-prototype .aip-workflow button[aria-selected="true"] {
+      background: var(--aip-blue-soft); color: var(--aip-text); border-bottom-color: var(--aip-blue);
+    }
+
+    #albumai-library-prototype .aip-photo-tabs {
+      display: grid; grid-template-columns: repeat(3, 1fr); background: var(--aip-bg);
+      border-bottom: 1px solid var(--aip-line);
+    }
+    #albumai-library-prototype .aip-photo-tabs button {
+      min-height: 44px; background: transparent; border: 0; color: var(--aip-muted);
+      border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer;
+    }
+    #albumai-library-prototype .aip-photo-tabs button[aria-selected="true"] {
+      color: var(--aip-text); border-bottom-color: var(--aip-blue);
+    }
+
+    #albumai-library-prototype .aip-stage {
+      display: grid;
+      grid-template-columns: 220px minmax(430px, 1fr) 270px;
+      min-height: 720px;
+      background: var(--aip-bg);
+    }
+
+    #albumai-library-prototype .aip-sidebar,
+    #albumai-library-prototype .aip-inspector { background: #12171e; }
+    #albumai-library-prototype .aip-sidebar { border-right: 1px solid var(--aip-line); }
+    #albumai-library-prototype .aip-inspector { border-left: 1px solid var(--aip-line); }
+
+    #albumai-library-prototype .aip-sidebar-title,
+    #albumai-library-prototype .aip-inspector-title {
+      min-height: 42px; padding: 0 14px; display: flex; align-items: center;
+      justify-content: space-between; border-bottom: 1px solid var(--aip-line-soft); font-weight: 600;
+    }
+
+    #albumai-library-prototype .aip-facet { border-bottom: 1px solid var(--aip-line-soft); }
+    #albumai-library-prototype .aip-facet-heading {
+      width: 100%; min-height: 40px; padding: 0 12px; display: flex; align-items: center;
+      justify-content: space-between; border: 0; background: transparent; cursor: pointer; font-weight: 600;
+    }
+    #albumai-library-prototype .aip-facet-heading span:last-child { color: var(--aip-muted); }
+    #albumai-library-prototype .aip-facet-list { padding: 2px 8px 10px; display: grid; gap: 3px; }
+    #albumai-library-prototype .aip-facet.is-collapsed .aip-facet-list { display: none; }
+    #albumai-library-prototype .aip-facet-option {
+      width: 100%; min-height: 32px; padding: 0 9px; border: 0; border-radius: 7px;
+      background: transparent; color: var(--aip-muted); text-align: left; cursor: pointer;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #albumai-library-prototype .aip-facet-option:hover { background: var(--aip-panel); color: var(--aip-text); }
+    #albumai-library-prototype .aip-facet-option[aria-pressed="true"] { background: var(--aip-blue-soft); color: var(--aip-text); }
+    #albumai-library-prototype .aip-facet-count { color: var(--aip-muted); font-size: 12px; }
+    #albumai-library-prototype .aip-facet-action { color: #74afff; font-weight: 600; }
+
+    #albumai-library-prototype .aip-rating-panel { padding-bottom: 12px; }
+    #albumai-library-prototype .aip-rating-mode { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px 8px 8px; }
+    #albumai-library-prototype .aip-rating-mode button,
+    #albumai-library-prototype .aip-rating-row button,
+    #albumai-library-prototype .aip-label-row button {
+      min-height: 31px; border: 1px solid transparent; background: transparent; border-radius: 7px; cursor: pointer;
+    }
+    #albumai-library-prototype .aip-rating-mode button[aria-pressed="true"],
+    #albumai-library-prototype .aip-rating-row button[aria-pressed="true"],
+    #albumai-library-prototype .aip-label-row button[aria-pressed="true"] { border-color: var(--aip-blue); background: var(--aip-blue-soft); }
+    #albumai-library-prototype .aip-rating-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 0 8px 8px; }
+    #albumai-library-prototype .aip-rating-row button { color: var(--aip-yellow); }
+    #albumai-library-prototype .aip-label-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 0 8px; }
+    #albumai-library-prototype .aip-label-swatch { width: 15px; height: 15px; border-radius: 50%; display: inline-block; }
+
+    #albumai-library-prototype .aip-center { min-width: 0; display: grid; grid-template-rows: auto auto minmax(420px, 1fr) auto; }
+    #albumai-library-prototype .aip-heading-row {
+      min-height: 54px; display: flex; align-items: center; gap: 12px; padding: 8px 14px;
+      border-bottom: 1px solid var(--aip-line); background: var(--aip-bg);
+    }
+    #albumai-library-prototype .aip-heading-row h2 { font-size: 18px; margin: 0; font-weight: 600; }
+    #albumai-library-prototype .aip-heading-row p { color: var(--aip-muted); margin: 0 0 0 auto; font-size: 13px; }
+
+    #albumai-library-prototype .aip-tools { background: var(--aip-panel); border-bottom: 1px solid var(--aip-line); }
+    #albumai-library-prototype .aip-tools-primary,
+    #albumai-library-prototype .aip-tools-secondary {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px;
+    }
+    #albumai-library-prototype .aip-tools-secondary { border-top: 1px solid var(--aip-line-soft); }
+    #albumai-library-prototype .aip-view-toggle { display: inline-flex; gap: 4px; }
+    #albumai-library-prototype .aip-search {
+      margin-left: auto; width: min(260px, 100%); height: 36px; border: 1px solid var(--aip-line);
+      background: var(--aip-panel-3); color: var(--aip-text); border-radius: 8px; padding: 0 11px;
+    }
+    #albumai-library-prototype .aip-select {
+      height: 36px; min-width: 155px; border: 1px solid var(--aip-line); background: var(--aip-panel-3);
+      color: var(--aip-text); border-radius: 8px; padding: 0 10px;
+    }
+    #albumai-library-prototype .aip-decision-toggle { display: inline-flex; gap: 3px; background: var(--aip-panel-3); padding: 3px; border-radius: 8px; }
+    #albumai-library-prototype .aip-decision-toggle button {
+      min-height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; cursor: pointer;
+    }
+    #albumai-library-prototype .aip-decision-toggle button[aria-pressed="true"] { background: var(--aip-blue-soft); }
+
+    #albumai-library-prototype .aip-library-viewport { min-height: 0; overflow: auto; padding: 12px; background: #20242a; }
+    #albumai-library-prototype .aip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    #albumai-library-prototype .aip-grid.is-list { display: grid; grid-template-columns: 1fr; gap: 5px; }
+    #albumai-library-prototype .aip-photo {
+      position: relative; min-width: 0; background: var(--aip-panel); border: 2px solid transparent;
+      border-radius: 8px; overflow: hidden; cursor: pointer; user-select: none;
+      transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+    }
+    #albumai-library-prototype .aip-photo:hover { transform: translateY(-1px); }
+    #albumai-library-prototype .aip-photo.is-selected { border-color: var(--aip-blue); box-shadow: 0 0 0 1px var(--aip-blue); }
+    #albumai-library-prototype .aip-photo[data-label="red"] { border-color: var(--aip-red); }
+    #albumai-library-prototype .aip-photo[data-label="yellow"] { border-color: var(--aip-yellow); }
+    #albumai-library-prototype .aip-photo[data-label="green"] { border-color: var(--aip-green); }
+    #albumai-library-prototype .aip-photo.is-selected[data-label] { box-shadow: 0 0 0 2px var(--aip-blue), 0 0 0 4px currentColor; }
+    #albumai-library-prototype .aip-photo-media { position: relative; aspect-ratio: 4 / 3; background: #0b0d11; overflow: hidden; }
+    #albumai-library-prototype .aip-photo-art { width: 100%; height: 100%; background-repeat: no-repeat; display: block; }
+    #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-art { opacity: .52; }
+    #albumai-library-prototype .aip-photo-badge {
+      position: absolute; top: 7px; left: 7px; min-height: 22px; padding: 0 7px; border-radius: 5px;
+      display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; background: rgba(8,11,15,.78);
+    }
+    #albumai-library-prototype .aip-photo[data-decision="keep"] .aip-photo-badge { background: #168349; }
+    #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-badge { background: #b6373d; }
+    #albumai-library-prototype .aip-selection-mark {
+      position: absolute; top: 7px; right: 7px; width: 23px; height: 23px; border-radius: 50%;
+      display: none; place-items: center; background: var(--aip-blue); font-size: 13px; font-weight: 700;
+    }
+    #albumai-library-prototype .aip-photo.is-selected .aip-selection-mark { display: grid; }
+    #albumai-library-prototype .aip-hover-tools {
+      position: absolute; left: 7px; right: 7px; bottom: 7px; display: flex; align-items: center;
+      justify-content: space-between; gap: 5px; opacity: 0; transform: translateY(4px); pointer-events: none;
+      transition: opacity 100ms ease, transform 100ms ease;
+    }
+    #albumai-library-prototype .aip-photo:hover .aip-hover-tools,
+    #albumai-library-prototype .aip-photo:focus-within .aip-hover-tools { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    #albumai-library-prototype .aip-mini-actions,
+    #albumai-library-prototype .aip-stars-edit,
+    #albumai-library-prototype .aip-colors-edit { display: flex; gap: 2px; background: rgba(7,10,14,.82); border-radius: 6px; padding: 3px; }
+    #albumai-library-prototype .aip-hover-tools button { width: 24px; height: 24px; border: 0; background: transparent; padding: 0; cursor: pointer; border-radius: 4px; }
+    #albumai-library-prototype .aip-hover-tools button:hover { background: rgba(255,255,255,.14); }
+    #albumai-library-prototype .aip-stars-edit button { color: var(--aip-yellow); }
+    #albumai-library-prototype .aip-color-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
+    #albumai-library-prototype .aip-photo-info { min-height: 52px; padding: 8px 9px; display: grid; gap: 4px; }
+    #albumai-library-prototype .aip-photo-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #albumai-library-prototype .aip-persistent-meta { min-height: 16px; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--aip-muted); }
+    #albumai-library-prototype .aip-persistent-stars { color: var(--aip-yellow); letter-spacing: -1px; }
+    #albumai-library-prototype .aip-grid.is-list .aip-photo { display: grid; grid-template-columns: 94px 1fr; }
+    #albumai-library-prototype .aip-grid.is-list .aip-photo-media { aspect-ratio: 4 / 3; }
+    #albumai-library-prototype .aip-grid.is-list .aip-photo-info { align-content: center; }
+
+    #albumai-library-prototype .aip-empty { display: none; place-items: center; min-height: 280px; color: var(--aip-muted); text-align: center; }
+    #albumai-library-prototype .aip-empty.is-visible { display: grid; }
+
+    #albumai-library-prototype .aip-status {
+      min-height: 38px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+      padding: 7px 12px; background: var(--aip-panel); border-top: 1px solid var(--aip-line); color: var(--aip-muted); font-size: 12px;
+    }
+    #albumai-library-prototype .aip-status strong { color: var(--aip-text); }
+    #albumai-library-prototype .aip-status-sep { width: 1px; height: 15px; background: var(--aip-line); }
+
+    #albumai-library-prototype .aip-preview { padding: 10px; }
+    #albumai-library-prototype .aip-preview-image { width: 100%; aspect-ratio: 4 / 3; background-color: #090b0e; background-repeat: no-repeat; display: block; }
+    #albumai-library-prototype .aip-preview-copy { padding: 12px 4px; display: grid; gap: 7px; }
+    #albumai-library-prototype .aip-preview-copy strong { font-size: 14px; }
+    #albumai-library-prototype .aip-metadata { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px 14px; }
+    #albumai-library-prototype .aip-metadata div { padding: 9px; background: var(--aip-panel); border-radius: 7px; }
+    #albumai-library-prototype .aip-metadata span { display: block; color: var(--aip-muted); font-size: 11px; margin-bottom: 3px; }
+    #albumai-library-prototype .aip-shortcuts { border-top: 1px solid var(--aip-line-soft); padding: 12px 14px; color: var(--aip-muted); font-size: 12px; line-height: 1.7; }
+    #albumai-library-prototype kbd { background: var(--aip-panel-3); border: 1px solid var(--aip-line); padding: 1px 5px; border-radius: 4px; color: var(--aip-text); }
+
+    #albumai-library-prototype .aip-lightbox {
+      position: absolute; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center;
+      background: rgba(4,6,9,.72); backdrop-filter: blur(4px); padding: 6%;
+    }
+    #albumai-library-prototype .aip-lightbox.is-visible { display: flex; animation: aip-pop 120ms ease-out; }
+    #albumai-library-prototype .aip-lightbox-inner {
+      width: min(780px, 82%); max-height: 78%; display: grid; grid-template-columns: minmax(0, 1fr) 190px;
+      background: var(--aip-panel); border: 1px solid var(--aip-line); border-radius: 12px; overflow: hidden;
+      box-shadow: 0 24px 70px rgba(0,0,0,.45);
+    }
+    #albumai-library-prototype .aip-lightbox-image { width: 100%; min-height: 460px; max-height: 560px; background-color: #090b0e; background-repeat: no-repeat; }
+    #albumai-library-prototype .aip-lightbox-info { padding: 18px; display: grid; align-content: start; gap: 12px; }
+    #albumai-library-prototype .aip-lightbox-info span { color: var(--aip-muted); font-size: 12px; }
+    @keyframes aip-pop { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: scale(1); } }
+
+    #albumai-library-prototype .aip-toast {
+      position: absolute; left: 50%; bottom: 54px; z-index: 40; transform: translateX(-50%) translateY(8px);
+      background: var(--aip-panel-3); border: 1px solid var(--aip-line); border-radius: 8px;
+      padding: 9px 13px; opacity: 0; pointer-events: none; transition: 140ms ease;
+    }
+    #albumai-library-prototype .aip-toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #albumai-library-prototype .aip-relative { position: relative; }
+
+    @media (max-width: 980px) {
+      #albumai-library-prototype .aip-stage { grid-template-columns: 190px minmax(360px, 1fr); }
+      #albumai-library-prototype .aip-inspector { display: none; }
+      #albumai-library-prototype .aip-search { order: 5; margin-left: 0; flex: 1 1 200px; }
+    }
+    @media (max-width: 700px) {
+      #albumai-library-prototype .aip-appbar { flex-wrap: wrap; }
+      #albumai-library-prototype .aip-brand { min-width: 0; flex: 1; }
+      #albumai-library-prototype .aip-workflow { grid-template-columns: repeat(2, 1fr); }
+      #albumai-library-prototype .aip-stage { grid-template-columns: 1fr; }
+      #albumai-library-prototype .aip-sidebar { border-right: 0; border-bottom: 1px solid var(--aip-line); }
+      #albumai-library-prototype .aip-facets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #albumai-library-prototype .aip-rating-panel { grid-column: 1 / -1; }
+      #albumai-library-prototype .aip-heading-row { align-items: flex-start; flex-wrap: wrap; }
+      #albumai-library-prototype .aip-heading-row p { margin-left: 0; width: 100%; }
+      #albumai-library-prototype .aip-lightbox-inner { width: 95%; grid-template-columns: 1fr; }
+      #albumai-library-prototype .aip-lightbox-info { display: none; }
+    }
+  </style>
+
+  <div class="aip-relative">
+    <header class="aip-appbar">
+      <div class="aip-brand">
+        <div class="aip-mark">AI</div>
+        <div class="aip-brand-copy"><strong>AlbumAI Pro</strong><span>REC005 · Wedding album</span></div>
+      </div>
+      <div class="aip-history">
+        <button id="aip-undo" class="aip-icon-button" aria-label="Undo" data-tooltip="Undo (Ctrl/⌘ Z)"><i data-lucide="undo-2" aria-hidden="true"></i></button>
+        <button id="aip-redo" class="aip-icon-button" aria-label="Redo" data-tooltip="Redo"><i data-lucide="redo-2" aria-hidden="true"></i></button>
+        <button id="aip-save" class="aip-toolbar-button aip-primary"><i data-lucide="save" aria-hidden="true"></i> Save</button>
+      </div>
+    </header>
+
+    <nav class="aip-workflow" aria-label="Main workflow">
+      <button aria-selected="true">1 · Photos</button>
+      <button data-future="Enhance">2 · Enhance</button>
+      <button data-future="Design">3 · Design</button>
+      <button data-future="Export">4 · Export</button>
+    </nav>
+
+    <nav class="aip-photo-tabs" aria-label="Photo workflow">
+      <button aria-selected="true">Library</button>
+      <button data-future="Sequence">Sequence</button>
+      <button data-future="Album Selects">Album Selects</button>
+    </nav>
+
+    <main class="aip-stage">
+      <aside class="aip-sidebar" aria-label="Library filters">
+        <div class="aip-sidebar-title"><span>Library</span><i data-lucide="sliders-horizontal" aria-hidden="true"></i></div>
+        <div id="aip-facets" class="aip-facets"></div>
+      </aside>
+
+      <section class="aip-center" aria-label="Photo browser">
+        <div class="aip-heading-row">
+          <h2>Review the Library</h2>
+          <p id="aip-heading-count">12 photos · 1 selected</p>
+          <button id="aip-continue" class="aip-toolbar-button aip-primary">Continue to Sequence <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+        </div>
+
+        <div class="aip-tools">
+          <div class="aip-tools-primary">
+            <div class="aip-view-toggle" aria-label="View">
+              <button id="aip-grid-view" class="aip-icon-button" aria-pressed="true" data-tooltip="Grid view"><i data-lucide="grid-3x3" aria-hidden="true"></i></button>
+              <button id="aip-list-view" class="aip-icon-button" aria-pressed="false" data-tooltip="List view"><i data-lucide="list" aria-hidden="true"></i></button>
+            </div>
+            <button id="aip-add-folder" class="aip-toolbar-button"><i data-lucide="folder-plus" aria-hidden="true"></i> Add Folder</button>
+            <button id="aip-change-folder" class="aip-toolbar-button"><i data-lucide="folder-open" aria-hidden="true"></i> Change</button>
+            <button id="aip-refresh" class="aip-icon-button" data-tooltip="Refresh folder"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
+            <input id="aip-search" class="aip-search" type="search" aria-label="Search filename" placeholder="Search filename…">
+          </div>
+          <div class="aip-tools-secondary">
+            <select id="aip-sort" class="aip-select" aria-label="Sort photos">
+              <option value="manual">Manual order</option>
+              <option value="name-asc">Filename · A–Z</option>
+              <option value="name-desc">Filename · Z–A</option>
+              <option value="time-asc">Capture time · Oldest</option>
+              <option value="time-desc">Capture time · Newest</option>
+              <option value="rating-desc">Rating · Highest</option>
+            </select>
+            <div class="aip-decision-toggle" aria-label="Decision filter">
+              <button data-decision-filter="all" aria-pressed="true">All</button>
+              <button data-decision-filter="keep" aria-pressed="false">✓ Keep</button>
+              <button data-decision-filter="reject" aria-pressed="false">× Reject</button>
+            </div>
+            <button id="aip-clear-filters" class="aip-text-button">Clear filters</button>
+          </div>
+        </div>
+
+        <div id="aip-viewport" class="aip-library-viewport">
+          <div id="aip-photo-grid" class="aip-grid" aria-live="polite"></div>
+          <div id="aip-empty" class="aip-empty"><div><strong>No matching photos</strong><br><span>Clear filters to see the full library.</span></div></div>
+        </div>
+
+        <footer class="aip-status" aria-live="polite">
+          <span><strong>Results</strong> <span id="aip-results">12 / 12</span></span><span class="aip-status-sep"></span>
+          <span><strong>Selected</strong> <span id="aip-selected-count">1</span></span><span class="aip-status-sep"></span>
+          <span><strong>View</strong> <span id="aip-view-status">Grid</span></span><span class="aip-status-sep"></span>
+          <span><strong>Sort</strong> <span id="aip-sort-status">Manual order</span></span>
+        </footer>
+      </section>
+
+      <aside class="aip-inspector" aria-label="Inspector preview">
+        <div class="aip-inspector-title"><span>Inspector</span><span class="aip-facet-count">JPG</span></div>
+        <div class="aip-preview"><div id="aip-preview-image" class="aip-preview-image" role="img" aria-label="Selected photo preview"></div><div class="aip-preview-copy"><strong id="aip-preview-name"></strong><span id="aip-preview-context" class="aip-facet-count"></span></div></div>
+        <div class="aip-metadata">
+          <div><span>Capture</span><strong id="aip-preview-time"></strong></div>
+          <div><span>Camera</span><strong id="aip-preview-camera"></strong></div>
+          <div><span>Dimensions</span><strong>7008 × 4672</strong></div>
+          <div><span>File</span><strong>24.8 MB</strong></div>
+        </div>
+        <div class="aip-shortcuts"><strong>Fast review</strong><br><kbd>← ↑ ↓ →</kbd> navigate · <kbd>Space</kbd> preview<br><kbd>K</kbd> keep · <kbd>R</kbd> reject · <kbd>0–5</kbd> stars<br><kbd>6–8</kbd> labels · <kbd>9</kbd> clear label</div>
+      </aside>
+    </main>
+
+    <div id="aip-lightbox" class="aip-lightbox" role="dialog" aria-modal="true" aria-label="Quick preview">
+      <div class="aip-lightbox-inner"><div id="aip-lightbox-image" class="aip-lightbox-image" role="img" aria-label="Quick preview"></div><div class="aip-lightbox-info"><strong id="aip-lightbox-name"></strong><span id="aip-lightbox-event"></span><span id="aip-lightbox-camera"></span><span id="aip-lightbox-rating"></span><span>Release <kbd>Space</kbd> to close</span></div></div>
+    </div>
+    <div id="aip-toast" class="aip-toast" aria-live="polite"></div>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById('albumai-library-prototype');
+      const demoSheet = './albumai-library-assets/demo-wedding-contact-sheet.png';
+      const photos = [
+        ['ZSA00181.jpg','Getting Ready','Camera A','Single photo',4,'green','keep','09:12 AM'],
+        ['ZSA00184.jpg','Getting Ready','Camera B','Single photo',5,'yellow','keep','09:13 AM'],
+        ['ZSA00187.jpg','Ceremony','Camera A','Burst photo',4,'red','keep','10:41 AM'],
+        ['ZSA00193.jpg','Ceremony','Camera C','Burst photo',3,'','', '10:42 AM'],
+        ['ZSA00209.jpg','Ceremony','Camera B','Single photo',5,'green','keep','10:48 AM'],
+        ['ZSA00223.jpg','Family Groups','Camera A','Single photo',4,'yellow','keep','11:25 AM'],
+        ['ZSA00224.jpg','Family Groups','Camera C','Burst photo',2,'red','reject','11:25 AM'],
+        ['ZSA00227.jpg','Family Groups','Camera B','Single photo',5,'green','keep','11:28 AM'],
+        ['ZSA00230.jpg','Reception','Camera D','Single photo',0,'','', '06:45 PM'],
+        ['ZSA00236.jpg','Reception','Camera A','Burst photo',3,'yellow','keep','06:51 PM'],
+        ['ZSA00237.jpg','Reception','Camera D','Burst photo',2,'red','reject','06:52 PM'],
+        ['ZSA00282.jpg','Reception','Camera B','Single photo',4,'green','keep','07:18 PM']
+      ].map((p, index) => ({ id: index + 1, name:p[0], frame:index, event:p[1], camera:p[2], type:p[3], rating:p[4], label:p[5], decision:p[6], time:p[7], order:index }));
+
+      const state = {
+        photos,
+        selected: new Set([1]), anchor: 1, focused: 1,
+        view: 'grid', search: '', sort: 'manual', decision: 'all',
+        facets: { event:new Set(), camera:new Set(), type:new Set() },
+        ratingMode: '=', rating: null, label: null,
+        history: [], future: []
+      };
+
+      const grid = root.querySelector('#aip-photo-grid');
+      const viewport = root.querySelector('#aip-viewport');
+      const toast = root.querySelector('#aip-toast');
+      let toastTimer;
+      let spaceDown = false;
+
+      function cloneSnapshot() {
+        return state.photos.map(p => ({id:p.id,rating:p.rating,label:p.label,decision:p.decision,event:p.event,camera:p.camera}));
+      }
+      function remember() { state.history.push(cloneSnapshot()); if (state.history.length > 50) state.history.shift(); state.future = []; updateHistory(); }
+      function restore(snapshot) { snapshot.forEach(s => Object.assign(state.photos.find(p=>p.id===s.id), s)); render(); }
+      function undo() { if (!state.history.length) return; state.future.push(cloneSnapshot()); restore(state.history.pop()); updateHistory(); }
+      function redo() { if (!state.future.length) return; state.history.push(cloneSnapshot()); restore(state.future.pop()); updateHistory(); }
+      function updateHistory() { root.querySelector('#aip-undo').disabled = !state.history.length; root.querySelector('#aip-redo').disabled = !state.future.length; }
+
+      function showToast(message) { clearTimeout(toastTimer); toast.textContent = message; toast.classList.add('is-visible'); toastTimer = setTimeout(()=>toast.classList.remove('is-visible'), 1500); }
+      function unique(field) { return [...new Set(state.photos.map(p=>p[field]))]; }
+      function count(field, value) { return state.photos.filter(p=>p[field]===value).length; }
+      function facetGroup(key, title, allLabel, action) {
+        const values = unique(key);
+        const selected = state.facets[key];
+        return `<section class="aip-facet" data-facet-section="${key}">
+          <button class="aip-facet-heading" data-collapse="${key}"><span>${title}</span><span>−</span></button>
+          <div class="aip-facet-list">
+            <button class="aip-facet-option" data-facet="${key}" data-value="__all" aria-pressed="${!selected.size}"><span>${allLabel}</span><span class="aip-facet-count">${state.photos.length}</span></button>
+            ${values.map(value=>`<button class="aip-facet-option" data-facet="${key}" data-value="${value}" aria-pressed="${selected.has(value)}"><span>${value}</span><span class="aip-facet-count">${count(key,value)}</span></button>`).join('')}
+            ${action ? `<button class="aip-facet-option aip-facet-action" data-action="${action}"><span>+ ${action==='new-event'?'New event':'Add / align camera'}</span></button>` : ''}
+          </div></section>`;
+      }
+
+      function renderFacets() {
+        root.querySelector('#aip-facets').innerHTML = facetGroup('event','Events','All photos','new-event') + facetGroup('camera','Cameras','All cameras','new-camera') + facetGroup('type','Photo type','All types','') + `
+          <section class="aip-facet aip-rating-panel" data-facet-section="ratings">
+            <button class="aip-facet-heading" data-collapse="ratings"><span>Ratings & Labels</span><span>−</span></button>
+            <div class="aip-facet-list">
+              <div class="aip-rating-mode">
+                ${['=','≥','≤'].map(m=>`<button data-rating-mode="${m}" aria-pressed="${state.ratingMode===m}">${m}</button>`).join('')}
+              </div>
+              <div class="aip-rating-row">
+                <button data-rating-filter="0" aria-pressed="${state.rating===0}">Unrated</button>
+                ${[1,2,3,4,5].map(n=>`<button data-rating-filter="${n}" aria-pressed="${state.rating===n}">${n}★</button>`).join('')}
+              </div>
+              <div class="aip-label-row">
+                <button data-label-filter="none" aria-label="No color label" aria-pressed="${state.label==='none'}">None</button>
+                <button data-label-filter="red" aria-label="Red label" aria-pressed="${state.label==='red'}"><span class="aip-label-swatch" style="background:var(--aip-red)"></span></button>
+                <button data-label-filter="yellow" aria-label="Yellow label" aria-pressed="${state.label==='yellow'}"><span class="aip-label-swatch" style="background:var(--aip-yellow)"></span></button>
+                <button data-label-filter="green" aria-label="Green label" aria-pressed="${state.label==='green'}"><span class="aip-label-swatch" style="background:var(--aip-green)"></span></button>
+              </div>
+            </div>
+          </section>`;
+      }
+
+      function filtered() {
+        let list = state.photos.filter(p => {
+          const facetPass = Object.entries(state.facets).every(([key,set]) => !set.size || set.has(p[key]));
+          const searchPass = !state.search || p.name.toLowerCase().includes(state.search.toLowerCase());
+          const decisionPass = state.decision==='all' || p.decision===state.decision;
+          let ratingPass = true;
+          if (state.rating !== null) ratingPass = state.ratingMode==='=' ? p.rating===state.rating : state.ratingMode==='≥' ? p.rating>=state.rating : p.rating<=state.rating;
+          const labelPass = state.label===null || (state.label==='none' ? !p.label : p.label===state.label);
+          return facetPass && searchPass && decisionPass && ratingPass && labelPass;
+        });
+        const sorters = {
+          'name-asc':(a,b)=>a.name.localeCompare(b.name),'name-desc':(a,b)=>b.name.localeCompare(a.name),
+          'time-asc':(a,b)=>a.time.localeCompare(b.time),'time-desc':(a,b)=>b.time.localeCompare(a.time),
+          'rating-desc':(a,b)=>b.rating-a.rating,'manual':(a,b)=>a.order-b.order
+        };
+        return list.sort(sorters[state.sort]);
+      }
+
+      function frameStyle(p) {
+        const column = p.frame % 4;
+        const row = Math.floor(p.frame / 4);
+        return `background-image:url('${demoSheet}');background-size:400% 300%;background-position:${column * 100 / 3}% ${row * 100 / 2}%`;
+      }
+
+      function applyFrame(element, p) {
+        element.style.cssText = frameStyle(p);
+        element.setAttribute('aria-label', `${p.name}, ${p.event}`);
+      }
+
+      function photoCard(p) {
+        const stars = p.rating ? '★'.repeat(p.rating) : '';
+        const badge = p.decision==='keep'?'✓ KEEP':p.decision==='reject'?'× REJECT':'REVIEW';
+        return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''}" data-photo-id="${p.id}" data-label="${p.label}" data-decision="${p.decision}" draggable="true" aria-label="${p.name}, ${p.rating} stars, ${p.decision||'review'}">
+          <div class="aip-photo-media"><div class="aip-photo-art" role="img" aria-label="${p.name}" style="${frameStyle(p)}"></div>
+            <span class="aip-photo-badge">${badge}</span><span class="aip-selection-mark">✓</span>
+            <div class="aip-hover-tools">
+              <span class="aip-mini-actions"><button data-photo-action="reject" aria-label="Reject">×</button><button data-photo-action="keep" aria-label="Keep">✓</button></span>
+              <span class="aip-stars-edit">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="${n} stars">${n<=p.rating?'★':'☆'}</button>`).join('')}</span>
+              <span class="aip-colors-edit"><button data-photo-label="red" aria-label="Red label"><span class="aip-color-dot" style="background:var(--aip-red)"></span></button><button data-photo-label="yellow" aria-label="Yellow label"><span class="aip-color-dot" style="background:var(--aip-yellow)"></span></button><button data-photo-label="green" aria-label="Green label"><span class="aip-color-dot" style="background:var(--aip-green)"></span></button></span>
+            </div>
+          </div>
+          <div class="aip-photo-info"><span class="aip-photo-name">${p.name}</span><span class="aip-persistent-meta"><span class="aip-persistent-stars">${stars}</span><span>${p.event}</span></span></div>
+        </article>`;
+      }
+
+      function render() {
+        renderFacets();
+        const list = filtered();
+        grid.innerHTML = list.map(photoCard).join('');
+        grid.classList.toggle('is-list', state.view==='list');
+        root.querySelector('#aip-empty').classList.toggle('is-visible', !list.length);
+        root.querySelector('#aip-results').textContent = `${list.length} / ${state.photos.length}`;
+        root.querySelector('#aip-selected-count').textContent = state.selected.size;
+        root.querySelector('#aip-heading-count').textContent = `${list.length} photos · ${state.selected.size} selected`;
+        root.querySelector('#aip-view-status').textContent = state.view==='grid'?'Grid':'List';
+        root.querySelector('#aip-sort-status').textContent = root.querySelector('#aip-sort').selectedOptions[0].textContent;
+        root.querySelector('#aip-grid-view').setAttribute('aria-pressed', state.view==='grid');
+        root.querySelector('#aip-list-view').setAttribute('aria-pressed', state.view==='list');
+        root.querySelectorAll('[data-decision-filter]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.decisionFilter===state.decision));
+        updateInspector(); updateHistory();
+        if (window.lucide) lucide.createIcons({ attrs:{width:16,height:16} });
+      }
+
+      function currentPhoto() { return state.photos.find(p=>p.id===state.focused) || state.photos[0]; }
+      function updateInspector() {
+        const p = currentPhoto();
+        applyFrame(root.querySelector('#aip-preview-image'), p); root.querySelector('#aip-preview-name').textContent = p.name;
+        root.querySelector('#aip-preview-context').textContent = `${p.event} · ${p.rating || 'Unrated'}${p.rating?'★':''}`;
+        root.querySelector('#aip-preview-time').textContent = p.time; root.querySelector('#aip-preview-camera').textContent = p.camera;
+      }
+      function setSelection(id, event) {
+        const visible = filtered().map(p=>p.id);
+        if (event.shiftKey && state.anchor) {
+          const a=visible.indexOf(state.anchor), b=visible.indexOf(id); if(a>=0&&b>=0){ state.selected=new Set(visible.slice(Math.min(a,b),Math.max(a,b)+1)); }
+        } else if (event.ctrlKey || event.metaKey) {
+          state.selected.has(id)?state.selected.delete(id):state.selected.add(id); state.anchor=id;
+        } else { state.selected = new Set([id]); state.anchor=id; }
+        state.focused=id; render();
+      }
+      function targetIds() { return state.selected.size ? [...state.selected] : [state.focused]; }
+      function mutateSelected(mutator) { remember(); targetIds().forEach(id=>mutator(state.photos.find(p=>p.id===id))); render(); }
+      function setDecision(decision) { mutateSelected(p=>p.decision=p.decision===decision?'':decision); }
+      function setRating(rating) { mutateSelected(p=>p.rating=p.rating===rating?0:rating); }
+      function setLabel(label) { mutateSelected(p=>p.label=p.label===label?'':label); }
+
+      function moveFocus(delta, extend=false, additive=false) {
+        const visible = filtered(); if (!visible.length) return;
+        let index = visible.findIndex(p=>p.id===state.focused); if(index<0) index=0;
+        const columns = state.view==='list'?1:Math.max(1,Math.floor(grid.clientWidth/162));
+        const next = Math.max(0,Math.min(visible.length-1,index+delta(columns)));
+        const id=visible[next].id;
+        if(extend){ const a=visible.findIndex(p=>p.id===state.anchor), b=next; state.selected=new Set(visible.slice(Math.min(a,b),Math.max(a,b)+1).map(p=>p.id)); }
+        else if(additive){ state.selected.add(id); state.anchor=id; }
+        else { state.selected=new Set([id]); state.anchor=id; }
+        state.focused=id; render();
+        requestAnimationFrame(()=>root.querySelector(`[data-photo-id="${id}"]`)?.scrollIntoView({block:'nearest',inline:'nearest'}));
+      }
+
+      function openPreview() {
+        const p=currentPhoto(), box=root.querySelector('#aip-lightbox');
+        applyFrame(root.querySelector('#aip-lightbox-image'), p); root.querySelector('#aip-lightbox-name').textContent=p.name;
+        root.querySelector('#aip-lightbox-event').textContent=`Event · ${p.event}`; root.querySelector('#aip-lightbox-camera').textContent=`Camera · ${p.camera}`;
+        root.querySelector('#aip-lightbox-rating').textContent=`Rating · ${p.rating?p.rating+' stars':'Unrated'}`; box.classList.add('is-visible');
+      }
+      function closePreview(){ root.querySelector('#aip-lightbox').classList.remove('is-visible'); }
+
+      root.addEventListener('click', event => {
+        const card=event.target.closest('[data-photo-id]');
+        const action=event.target.closest('[data-photo-action]'); const rating=event.target.closest('[data-photo-rating]'); const label=event.target.closest('[data-photo-label]');
+        if(card && (action||rating||label)) { if(!state.selected.has(+card.dataset.photoId)){state.selected=new Set([+card.dataset.photoId]);state.focused=+card.dataset.photoId;} if(action)setDecision(action.dataset.photoAction); if(rating)setRating(+rating.dataset.photoRating); if(label)setLabel(label.dataset.photoLabel); return; }
+        if(card){setSelection(+card.dataset.photoId,event);return;}
+        const facet=event.target.closest('[data-facet]');
+        if(facet){ const key=facet.dataset.facet,value=facet.dataset.value,set=state.facets[key]; if(value==='__all'){set.clear();} else if(event.ctrlKey||event.metaKey){set.has(value)?set.delete(value):set.add(value);} else if(set.size===1&&set.has(value)){set.clear();} else {set.clear();set.add(value);} render(); return; }
+        const collapse=event.target.closest('[data-collapse]'); if(collapse){const section=collapse.closest('.aip-facet');section.classList.toggle('is-collapsed');collapse.lastElementChild.textContent=section.classList.contains('is-collapsed')?'+':'−';return;}
+        const mode=event.target.closest('[data-rating-mode]'); if(mode){state.ratingMode=state.ratingMode===mode.dataset.ratingMode?'=':mode.dataset.ratingMode;render();return;}
+        const rf=event.target.closest('[data-rating-filter]'); if(rf){const n=+rf.dataset.ratingFilter;state.rating=state.rating===n?null:n;render();return;}
+        const lf=event.target.closest('[data-label-filter]'); if(lf){state.label=state.label===lf.dataset.labelFilter?null:lf.dataset.labelFilter;render();return;}
+        const df=event.target.closest('[data-decision-filter]'); if(df){state.decision=df.dataset.decisionFilter;render();return;}
+        const future=event.target.closest('[data-future]'); if(future){showToast(`${future.dataset.future} is reserved for the next prototype stage.`);return;}
+        const actionButton=event.target.closest('[data-action]'); if(actionButton){showToast(actionButton.dataset.action==='new-event'?'New event creation is ready for the implementation stage.':'Camera detection and clock alignment are provisioned.');return;}
+      });
+
+      root.querySelector('#aip-search').addEventListener('input',e=>{state.search=e.target.value;render();});
+      root.querySelector('#aip-sort').addEventListener('change',e=>{state.sort=e.target.value;render();});
+      root.querySelector('#aip-grid-view').addEventListener('click',()=>{state.view='grid';render();});
+      root.querySelector('#aip-list-view').addEventListener('click',()=>{state.view='list';render();});
+      root.querySelector('#aip-clear-filters').addEventListener('click',()=>{state.search='';root.querySelector('#aip-search').value='';state.decision='all';state.rating=null;state.label=null;Object.values(state.facets).forEach(s=>s.clear());render();});
+      root.querySelector('#aip-undo').addEventListener('click',undo); root.querySelector('#aip-redo').addEventListener('click',redo);
+      root.querySelector('#aip-save').addEventListener('click',()=>showToast('Prototype state saved for this session.'));
+      root.querySelector('#aip-add-folder').addEventListener('click',()=>showToast('Add Folder includes optional subfolders.'));
+      root.querySelector('#aip-change-folder').addEventListener('click',()=>showToast('Change Folder keeps ratings until you confirm.'));
+      root.querySelector('#aip-refresh').addEventListener('click',()=>showToast('Folder refreshed · 12 photos'));
+      root.querySelector('#aip-continue').addEventListener('click',()=>showToast('Sequence stays locked until the Library prototype is approved.'));
+
+      root.addEventListener('dragstart',e=>{const card=e.target.closest('[data-photo-id]');if(card)e.dataTransfer.setData('text/plain',card.dataset.photoId);});
+      root.addEventListener('dragover',e=>{if(e.target.closest('[data-facet="event"]'))e.preventDefault();});
+      root.addEventListener('drop',e=>{const target=e.target.closest('[data-facet="event"]');if(!target||target.dataset.value==='__all')return;e.preventDefault();const id=+e.dataTransfer.getData('text/plain');remember();state.photos.find(p=>p.id===id).event=target.dataset.value;render();showToast(`Moved to ${target.dataset.value}`);});
+
+      document.addEventListener('keydown',e=>{
+        if(!root.isConnected||['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
+        const key=e.key.toLowerCase();
+        if((e.ctrlKey||e.metaKey)&&key==='a'){e.preventDefault();state.selected=new Set(filtered().map(p=>p.id));render();return;}
+        if((e.ctrlKey||e.metaKey)&&key==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
+        const nav={arrowleft:c=>-1,arrowright:c=>1,arrowup:c=>-c,arrowdown:c=>c}; if(nav[key]){e.preventDefault();moveFocus(nav[key],e.shiftKey,e.ctrlKey||e.metaKey);return;}
+        if(key==='k'){e.preventDefault();setDecision('keep');return;} if(key==='r'){e.preventDefault();setDecision('reject');return;}
+        if(/^[0-5]$/.test(key)){e.preventDefault();setRating(+key);return;} if(/^[6-8]$/.test(key)){e.preventDefault();setLabel({6:'red',7:'yellow',8:'green'}[key]);return;} if(key==='9'){e.preventDefault();mutateSelected(p=>p.label='');return;}
+        if(e.code==='Space'&&!spaceDown){e.preventDefault();spaceDown=true;openPreview();}
+      });
+      document.addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();spaceDown=false;closePreview();}});
+      window.addEventListener('blur',()=>{spaceDown=false;closePreview();});
+
+      render();
+    })();
+  </script>
+</div>
