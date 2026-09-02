@@ -35,11 +35,15 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Keyboard: K and R
    - Repeat the same decision to clear it
 4. Star ratings
+   - Review Filters presents Exact, At least and At most as named controls
+   - Rating and color choices show live photo counts before filtering
+   - The active filter summary and one-click Reset prevent hidden filter states
    - Keyboard 1–5 assigns that rating
    - Keyboard 0 clears the rating
    - Repeating the current rating clears it
    - Filter comparison supports =, ≥ and ≤
 5. Color labels
+   - Labels use named workflow meanings: Select, Review and Approved
    - Keyboard 6, 7 and 8 assigns red, yellow and green
    - Keyboard 9 clears the label
    - Repeating the current label clears it
