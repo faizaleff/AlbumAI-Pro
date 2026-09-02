@@ -316,6 +316,30 @@ function ThumbnailGrid({
         });
     }, [calculateWindow]);
 
+    useEffect(() => {
+        const viewport = viewportRef.current;
+        if (!viewport || !focusedPhotoId) return;
+        const index = photos.findIndex(photo => photo?.id === focusedPhotoId);
+        if (index < 0) return;
+
+        const row = viewMode === "list"
+            ? index
+            : Math.floor(index / Math.max(1, windowRef.current.columns));
+        const itemTop = viewMode === "list"
+            ? row * LIST_ROW_HEIGHT
+            : ICON_PADDING + row * ICON_ROW_HEIGHT;
+        const itemHeight = viewMode === "list" ? LIST_ROW_HEIGHT : ICON_HEIGHT;
+        const itemBottom = itemTop + itemHeight;
+        const viewportTop = viewport.scrollTop;
+        const viewportBottom = viewportTop + viewport.clientHeight;
+
+        if (itemTop < viewportTop) viewport.scrollTop = itemTop;
+        else if (itemBottom > viewportBottom) {
+            viewport.scrollTop = Math.max(0, itemBottom - viewport.clientHeight);
+        } else return;
+        scheduleWindow();
+    }, [focusedPhotoId, photos, scheduleWindow, viewMode]);
+
     const handleResize = useCallback(entries => {
         const entry = entries?.[0];
         const width = Math.round(entry?.contentRect?.width ??

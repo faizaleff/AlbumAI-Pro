@@ -170,6 +170,11 @@ function PhotoBrowserSection({
     const [albumSelectsLocked, setAlbumSelectsLocked] = useState(true);
     const [quickPreviewPhoto, setQuickPreviewPhoto] = useState(null);
     const decisionRevision = useRef(0);
+    const focusedPhotoIdRef = useRef(focusedPhotoId);
+
+    useEffect(() => {
+        focusedPhotoIdRef.current = focusedPhotoId;
+    }, [focusedPhotoId]);
 
     const detectedCameras = useMemo(() => {
         if (!photos || photos.length === 0) return [];
@@ -814,6 +819,7 @@ function PhotoBrowserSection({
 
     const focusPhoto = useCallback(photo => {
         if (!photo?.id) return;
+        focusedPhotoIdRef.current = photo.id;
         onFocusPhoto?.(photo.id);
     }, [onFocusPhoto]);
 
@@ -855,23 +861,25 @@ function PhotoBrowserSection({
             } else if (event.key === "Escape") {
                 App.selection.clear();
             } else if (visiblePhotos.length) {
-                const currentIndex = Math.max(0, visiblePhotos.findIndex(
-                    photo => photo?.id === focusedPhotoId
-                ));
+                const currentIndex = visiblePhotos.findIndex(
+                    photo => photo?.id === focusedPhotoIdRef.current
+                );
                 const pageSize = 10;
                 let nextIndex = null;
+                const navigationKey = event.key || event.code;
 
-                switch (event.key) {
+                switch (navigationKey) {
                     case "ArrowLeft":
                     case "ArrowUp":
-                        nextIndex = Math.max(0, currentIndex - 1);
+                        nextIndex = currentIndex < 0
+                            ? 0
+                            : Math.max(0, currentIndex - 1);
                         break;
                     case "ArrowRight":
                     case "ArrowDown":
-                        nextIndex = Math.min(
-                            visiblePhotos.length - 1,
-                            currentIndex + 1
-                        );
+                        nextIndex = currentIndex < 0
+                            ? 0
+                            : Math.min(visiblePhotos.length - 1, currentIndex + 1);
                         break;
                     case "Home":
                         nextIndex = 0;
@@ -880,17 +888,19 @@ function PhotoBrowserSection({
                         nextIndex = visiblePhotos.length - 1;
                         break;
                     case "PageUp":
-                        nextIndex = Math.max(0, currentIndex - pageSize);
+                        nextIndex = currentIndex < 0
+                            ? 0
+                            : Math.max(0, currentIndex - pageSize);
                         break;
                     case "PageDown":
-                        nextIndex = Math.min(
-                            visiblePhotos.length - 1,
-                            currentIndex + pageSize
-                        );
+                        nextIndex = currentIndex < 0
+                            ? 0
+                            : Math.min(visiblePhotos.length - 1, currentIndex + pageSize);
                         break;
                     case " ":
-                    case "Spacebar": {
-                        const focused = visiblePhotos[currentIndex];
+                    case "Spacebar":
+                    case "Space": {
+                        const focused = visiblePhotos[currentIndex < 0 ? 0 : currentIndex];
                         if (focused) {
                             event.preventDefault();
                             focusPhoto(focused);
@@ -923,7 +933,7 @@ function PhotoBrowserSection({
         // the focused browser/control while intercepting the host shortcut.
         document.addEventListener("keydown", handleKeyDown, true);
         const handleKeyUp = event => {
-            if (event.key === " " || event.key === "Spacebar") {
+            if (event.key === " " || event.key === "Spacebar" || event.code === "Space") {
                 setQuickPreviewPhoto(null);
             }
         };
@@ -990,11 +1000,11 @@ function PhotoBrowserSection({
                 <aside className="photo-prep-sidebar" aria-label="Photo library filters">
                     <section className="photo-facet-group">
                         <button type="button" className="photo-facet-heading" onClick={() => toggleFacetGroup("events")} aria-expanded={!collapsedFacetGroups.events}>
-                            <span>Events</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.events ? "+" : "−"}</span>
+                            <span>Events</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.events ? "  +" : "  −"}</span>
                         </button>
                         {!collapsedFacetGroups.events && <div className="photo-facet-options">
                             <button type="button" className={!selectedEventFilters.length ? "is-active" : ""} onClick={() => setSelectedEventFilters([])}>
-                                <span>All photos</span><span className="photo-facet-count">{workflowPhotoCount}</span>
+                                <span>All photos</span><span className="photo-facet-count">· {workflowPhotoCount}</span>
                             </button>
                             {visibleEvents.map(event => (
                                 <button
@@ -1005,7 +1015,7 @@ function PhotoBrowserSection({
                                     onClick={click => toggleFacetSelection(setSelectedEventFilters, event.eventId, click.ctrlKey || click.metaKey)}
                                     title="Click again for all photos. Hold Ctrl or Command to combine events."
                                 >
-                                    <span>{event.label}</span><span className="photo-facet-count">{event.count}</span>
+                                    <span>{event.label}</span><span className="photo-facet-count">· {event.count}</span>
                                 </button>
                             ))}
                             <button type="button" className="photo-facet-action" onClick={handleCreateEventChapter}>+ New event</button>
@@ -1014,11 +1024,11 @@ function PhotoBrowserSection({
 
                     <section className="photo-facet-group">
                         <button type="button" className="photo-facet-heading" onClick={() => toggleFacetGroup("cameras")} aria-expanded={!collapsedFacetGroups.cameras}>
-                            <span>Cameras</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.cameras ? "+" : "−"}</span>
+                            <span>Cameras</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.cameras ? "  +" : "  −"}</span>
                         </button>
                         {!collapsedFacetGroups.cameras && <div className="photo-facet-options">
                             <button type="button" className={!selectedCameraFilters.length ? "is-active" : ""} onClick={() => setSelectedCameraFilters([])}>
-                                <span>All cameras</span><span className="photo-facet-count">{workflowPhotoCount}</span>
+                                <span>All cameras</span><span className="photo-facet-count">· {workflowPhotoCount}</span>
                             </button>
                             {facetCameras.map(camera => (
                                 <button
@@ -1029,7 +1039,7 @@ function PhotoBrowserSection({
                                     onClick={click => toggleFacetSelection(setSelectedCameraFilters, camera.cameraKey, click.ctrlKey || click.metaKey)}
                                     title="Click again for all cameras. Hold Ctrl or Command to combine cameras."
                                 >
-                                    <span>{camera.cameraKey === "unknown" ? "Unidentified" : camera.label}</span><span className="photo-facet-count">{camera.photoCount}</span>
+                                    <span>{camera.cameraKey === "unknown" ? "Unidentified" : camera.label}</span><span className="photo-facet-count">· {camera.photoCount}</span>
                                 </button>
                             ))}
                             {workflowStep === 2 && <button type="button" className="photo-facet-action" onClick={() => setCameraTimesOpen(true)}>+ Add / align camera</button>}
@@ -1038,40 +1048,15 @@ function PhotoBrowserSection({
 
                     <section className="photo-facet-group">
                         <button type="button" className="photo-facet-heading" onClick={() => toggleFacetGroup("types")} aria-expanded={!collapsedFacetGroups.types}>
-                            <span>Photo type</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.types ? "+" : "−"}</span>
+                            <span>Photo type</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.types ? "  +" : "  −"}</span>
                         </button>
                         {!collapsedFacetGroups.types && <div className="photo-facet-options">
-                            <button type="button" className={!selectedPhotoKinds.length ? "is-active" : ""} onClick={() => setSelectedPhotoKinds([])}><span>All types</span><span className="photo-facet-count">{workflowPhotoCount}</span></button>
-                            <button type="button" className={selectedPhotoKinds.includes("single") ? "is-active" : ""} onClick={click => toggleFacetSelection(setSelectedPhotoKinds, "single", click.ctrlKey || click.metaKey)}><span>Single photos</span><span className="photo-facet-count">{Math.max(0, workflowPhotoCount - facetBurstPhotoCount)}</span></button>
-                            <button type="button" className={selectedPhotoKinds.includes("burst") ? "is-active" : ""} onClick={click => toggleFacetSelection(setSelectedPhotoKinds, "burst", click.ctrlKey || click.metaKey)}><span>Burst photos</span><span className="photo-facet-count">{facetBurstPhotoCount}</span></button>
+                            <button type="button" className={!selectedPhotoKinds.length ? "is-active" : ""} onClick={() => setSelectedPhotoKinds([])}><span>All types</span><span className="photo-facet-count">· {workflowPhotoCount}</span></button>
+                            <button type="button" className={selectedPhotoKinds.includes("single") ? "is-active" : ""} onClick={click => toggleFacetSelection(setSelectedPhotoKinds, "single", click.ctrlKey || click.metaKey)}><span>Single photos</span><span className="photo-facet-count">· {Math.max(0, workflowPhotoCount - facetBurstPhotoCount)}</span></button>
+                            <button type="button" className={selectedPhotoKinds.includes("burst") ? "is-active" : ""} onClick={click => toggleFacetSelection(setSelectedPhotoKinds, "burst", click.ctrlKey || click.metaKey)}><span>Burst photos</span><span className="photo-facet-count">· {facetBurstPhotoCount}</span></button>
                         </div>}
                     </section>
 
-                    <section className="photo-facet-group">
-                        <button type="button" className="photo-facet-heading" onClick={() => toggleFacetGroup("ratings")} aria-expanded={!collapsedFacetGroups.ratings}>
-                            <span>Ratings & Labels</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.ratings ? "+" : "−"}</span>
-                        </button>
-                        {!collapsedFacetGroups.ratings && <div className="photo-facet-rating-panel">
-                            <div className="photo-rating-filter-row">
-                                {[{ value: "exact", label: "=" }, { value: "above", label: "≥" }, { value: "below", label: "≤" }].map(mode => (
-                                    <button key={mode.value} type="button" className={`photo-rating-filter-button${preferences.ratingFilterActive && preferences.ratingComparison === mode.value ? " is-active" : ""}`} onClick={() => updatePreferences({ ratingFilterActive: !(preferences.ratingFilterActive && preferences.ratingComparison === mode.value), ratingComparison: mode.value })}>{mode.label}</button>
-                                ))}
-                            </div>
-                            <div className="photo-facet-stars">
-                                {[0, 1, 2, 3, 4, 5].map(value => (
-                                    <button key={value} type="button" className={`photo-rating-filter-button is-star${preferences.ratingFilterActive && preferences.ratingValue === value ? " is-active" : ""}`} onClick={() => updatePreferences({ ratingFilterActive: !(preferences.ratingFilterActive && preferences.ratingValue === value), ratingValue: value })} title={value === 0 ? "Unrated photos (0)" : `${value}-star photos`}>
-                                        {value === 0 ? "Unrated" : `${value}★`}
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="photo-color-filter-row">
-                                <button type="button" className={`photo-color-filter-button${!preferences.colorLabel ? " is-active" : ""}`} onClick={() => updatePreferences({ colorLabel: 0 })}>None</button>
-                                {PHOTO_COLOR_LABELS.map(label => (
-                                    <button key={label.value} type="button" className={`photo-color-filter-button${preferences.colorLabel === label.value ? " is-active" : ""}`} onClick={() => updatePreferences({ colorLabel: preferences.colorLabel === label.value ? 0 : label.value })} title={`${label.label} label (${label.value})`}><span style={{ background: label.color }} />{label.value}</button>
-                                ))}
-                            </div>
-                        </div>}
-                    </section>
                 </aside>
 
                 <div className="photo-prep-main">
@@ -1651,12 +1636,22 @@ function PhotoBrowserSection({
                         <div className="photo-quick-preview-image">
                             <PhotoImage
                                 photo={quickPreviewPhoto}
+                                profile="thumbnail"
+                                priority={0}
+                                role="preview"
+                                alt={quickPreviewPhoto.name}
+                                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                            />
+                            <div className="photo-quick-preview-full-resolution">
+                            <PhotoImage
+                                photo={quickPreviewPhoto}
                                 profile="preview"
                                 priority={0}
                                 role="preview"
                                 alt={quickPreviewPhoto.name}
                                 style={{ width: "100%", height: "100%", objectFit: "contain" }}
                             />
+                            </div>
                         </div>
                         <div className="photo-quick-preview-meta">
                             <strong>{quickPreviewPhoto.name}</strong>
@@ -1734,6 +1729,29 @@ function PhotoBrowserSection({
                                                 : preferences.sort.field}{" "}
                     {preferences.sort.direction === "asc" ? "↑" : "↓"}
                 </span>
+                {workflowStep === 1 && <section className="photo-library-rating-strip" aria-label="Ratings and labels">
+                    <span className="photo-library-rating-title">Ratings & Labels</span>
+                    <div className="photo-library-rating-controls">
+                        <div className="photo-rating-filter-row">
+                            {[{ value: "exact", label: "=" }, { value: "above", label: "≥" }, { value: "below", label: "≤" }].map(mode => (
+                                <button key={mode.value} type="button" className={`photo-rating-filter-button${preferences.ratingFilterActive && preferences.ratingComparison === mode.value ? " is-active" : ""}`} onClick={() => updatePreferences({ ratingFilterActive: !(preferences.ratingFilterActive && preferences.ratingComparison === mode.value), ratingComparison: mode.value })}>{mode.label}</button>
+                            ))}
+                        </div>
+                        <div className="photo-facet-stars">
+                            {[0, 1, 2, 3, 4, 5].map(value => (
+                                <button key={value} type="button" className={`photo-rating-filter-button is-star${preferences.ratingFilterActive && preferences.ratingValue === value ? " is-active" : ""}`} onClick={() => updatePreferences({ ratingFilterActive: !(preferences.ratingFilterActive && preferences.ratingValue === value), ratingValue: value })} title={value === 0 ? "Unrated photos (0)" : `${value}-star photos`}>
+                                    {value === 0 ? "Unrated" : `${value}★`}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="photo-color-filter-row">
+                            <button type="button" className={`photo-color-filter-button${!preferences.colorLabel ? " is-active" : ""}`} onClick={() => updatePreferences({ colorLabel: 0 })}>None</button>
+                            {PHOTO_COLOR_LABELS.map(label => (
+                                <button key={label.value} type="button" className={`photo-color-filter-button${preferences.colorLabel === label.value ? " is-active" : ""}`} onClick={() => updatePreferences({ colorLabel: preferences.colorLabel === label.value ? 0 : label.value })} title={`${label.label} label (${label.value})`}><span style={{ background: label.color }} />{label.value}</button>
+                            ))}
+                        </div>
+                    </div>
+                </section>}
             </div>
                 </div>
             </div>

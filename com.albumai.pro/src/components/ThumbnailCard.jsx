@@ -103,10 +103,10 @@ function ThumbnailCard({
                 display: "flex",
                 flexDirection: "column",
                 background: selected ? "#162338" : "#151b23",
-                border: selected ? "1px solid #00d2ff" : "1px solid #30363d",
-                boxShadow: selected
-                    ? `0 0 10px rgba(0, 210, 255, 0.4)${colorStroke ? `, inset 0 0 0 3px ${colorStroke}` : ""}`
-                    : colorStroke ? `inset 0 0 0 3px ${colorStroke}` : "none",
+                border: colorStroke
+                    ? `3px solid ${colorStroke}`
+                    : selected ? "2px solid #00d2ff" : "1px solid #30363d",
+                boxShadow: selected ? "0 0 0 2px rgba(0, 210, 255, 0.9)" : "none",
                 borderRadius: 6,
                 overflow: "hidden",
                 cursor: "pointer",
@@ -200,7 +200,7 @@ function ThumbnailCard({
                     <div
                         style={{
                             position: "absolute",
-                            top: 4,
+                            bottom: 5,
                             right: 4,
                             width: 18,
                             height: 18,
