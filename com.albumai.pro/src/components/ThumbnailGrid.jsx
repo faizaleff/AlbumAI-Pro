@@ -22,10 +22,10 @@ const LIST_RATING_OPTIONS = Object.freeze(
     }))
 );
 
-const ICON_WIDTH = 104;
-const ICON_HEIGHT = 122;
-const ICON_GAP = 8;
-const ICON_PADDING = 6;
+const ICON_WIDTH = 136;
+const ICON_HEIGHT = 164;
+const ICON_GAP = 10;
+const ICON_PADDING = 10;
 const ICON_ROW_HEIGHT = ICON_HEIGHT + ICON_GAP;
 const ICON_OVERSCAN_ROWS = 1;
 const LIST_ROW_HEIGHT = 38;

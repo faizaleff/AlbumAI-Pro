@@ -40,9 +40,9 @@ html, body {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 5px 8px;
+    gap: 0;
     min-width: 0;
-    padding: 5px 8px;
+    padding: 7px 10px;
     margin-bottom: 0;
     overflow: visible;
     background: #1c1f26;
@@ -56,9 +56,17 @@ html, body {
     flex: 0 0 auto;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 5px;
+    gap: 0;
     min-width: 0;
     max-width: 100%;
+}
+
+.photo-browser-toolbar-group + .photo-browser-toolbar-group {
+    margin-left: 14px;
+}
+
+.photo-browser-toolbar-group > * + * {
+    margin-left: 6px !important;
 }
 
 .photo-browser-shell {
@@ -82,8 +90,8 @@ html, body {
 }
 
 .photo-prep-sidebar {
-    flex: 0 0 196px;
-    width: 196px;
+    flex: 0 0 214px;
+    width: 214px;
     min-height: 0;
     overflow-y: auto;
     border-right: 1px solid #30363d;
@@ -109,7 +117,8 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 0;
+    margin: 0 !important;
     border: 0;
     background: transparent;
     color: #b7c0cb;
@@ -117,22 +126,63 @@ html, body {
 }
 
 .photo-facet-heading {
-    min-height: 34px;
-    padding: 8px 10px;
+    min-height: 38px !important;
+    height: 38px;
+    padding: 0 12px !important;
     color: #f0f3f6;
-    font-size: 11px;
+    font-size: 11px !important;
     font-weight: 700;
+    line-height: 16px !important;
+}
+
+.photo-facet-heading > span:first-child,
+.photo-facet-options > button > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.photo-facet-toggle-mark,
+.photo-facet-count {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding-left: 10px;
+    text-align: right;
+}
+
+.photo-facet-toggle-mark {
+    width: 22px;
+    color: #7f8a98;
+    font-size: 14px;
+}
+
+.photo-facet-count {
+    min-width: 24px;
+    color: #7f8a98;
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+}
+
+.photo-facet-options > button.is-active .photo-facet-count {
+    color: #b9d9ff;
 }
 
 .photo-facet-options {
-    padding: 0 6px 8px;
+    padding: 0 8px 10px;
 }
 
 .photo-facet-options > button {
-    min-height: 28px;
-    padding: 5px 8px;
+    min-height: 30px !important;
+    height: 30px;
+    padding: 0 10px !important;
     border-radius: 5px;
-    font-size: 10px;
+    font-size: 10px !important;
+    line-height: 16px !important;
+}
+
+.photo-facet-options > button + button {
+    margin-top: 3px !important;
 }
 
 .photo-facet-options > button:hover,
@@ -146,13 +196,13 @@ html, body {
 }
 
 .photo-facet-options > .photo-facet-action {
-    margin-top: 4px;
+    margin-top: 7px !important;
     color: #79b8ff;
     justify-content: flex-start;
 }
 
 .photo-facet-rating-panel {
-    padding: 0 8px 10px;
+    padding: 2px 10px 12px;
 }
 
 .photo-facet-rating-panel .photo-rating-filter-row,
@@ -160,8 +210,14 @@ html, body {
 .photo-facet-rating-panel .photo-color-filter-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 3px;
+    gap: 0;
     margin-bottom: 6px;
+}
+
+.photo-facet-rating-panel .photo-rating-filter-row > * + *,
+.photo-facet-stars > * + *,
+.photo-facet-rating-panel .photo-color-filter-row > * + * {
+    margin-left: 3px !important;
 }
 
 .photo-facet-stars .photo-rating-filter-button {
@@ -179,15 +235,15 @@ html, body {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 16px;
-    padding: 14px 16px 12px;
+    gap: 0;
+    padding: 12px 16px;
     border-bottom: 1px solid #282c35;
     background: #101318;
 }
 
 .photo-stage-switch {
     display: flex;
-    padding: 8px 16px 0;
+    padding: 7px 16px 0;
 }
 
 .photo-stage-switch button {
@@ -216,10 +272,14 @@ html, body {
     align-items: center;
     justify-content: flex-end;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 0;
     color: #8b949e;
     font-size: 11px;
     text-align: right;
+}
+
+.photo-workflow-intro-actions > * + * {
+    margin-left: 12px;
 }
 
 .photo-workflow-mode-note {
@@ -239,17 +299,19 @@ html, body {
 .photo-browser-control {
     flex: 0 0 auto;
     min-width: 0;
-    min-height: 28px;
+    min-height: 28px !important;
+    height: 28px;
     box-sizing: border-box;
-    padding: 4px 8px;
+    padding: 4px 9px !important;
     border: 1px solid #606060;
     border-radius: 5px;
     color: #f4f4f4;
     background: #383838;
     font-family: inherit;
-    font-size: 11px;
+    font-size: 11px !important;
     font-weight: 600;
-    line-height: 18px;
+    line-height: 16px !important;
+    margin: 0;
     white-space: nowrap;
     transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 80ms ease;
 }
@@ -315,6 +377,10 @@ button.photo-browser-control:active:not(:disabled) {
     color: #fff;
     background: #343434;
     font-weight: 500;
+}
+
+.photo-browser-search-group {
+    margin-left: auto !important;
 }
 
 .photo-browser-search-input::placeholder {
@@ -538,10 +604,10 @@ button.photo-browser-control:active:not(:disabled) {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 5px 16px;
+    gap: 0;
     min-height: 28px;
     box-sizing: border-box;
-    padding: 5px 9px;
+    padding: 6px 10px;
     color: #bdbdbd;
     background: #292929;
     border: 1px solid #424242;
@@ -549,9 +615,23 @@ button.photo-browser-control:active:not(:disabled) {
     font-size: 10px;
 }
 
-.photo-browser-statusbar strong {
+.photo-browser-status-item {
+    display: inline-flex;
+    align-items: center;
+    color: #9ba4af;
+    white-space: nowrap;
+}
+
+.photo-browser-status-item + .photo-browser-status-item {
+    margin-left: 14px;
+    padding-left: 14px;
+    border-left: 1px solid #454b55;
+}
+
+.photo-browser-status-item strong {
     color: #ededed;
     font-weight: 600;
+    margin-right: 5px;
 }
 
 .photo-list-row {
@@ -768,7 +848,7 @@ button.photo-browser-control:active:not(:disabled) {
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 6px 10px;
+    gap: 0;
     padding: 5px 8px;
     background: #181b22;
     border-left: 1px solid #2d333f;
@@ -779,6 +859,10 @@ button.photo-browser-control:active:not(:disabled) {
     width: 100%;
     max-width: 100%;
     min-width: 0;
+}
+
+.photo-culling-toolbar > * + * {
+    margin-left: 12px;
 }
 
 .photo-culling-pills {
@@ -2578,9 +2662,13 @@ button.photo-browser-control:active:not(:disabled) {
 .workspace-brand-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0;
     min-width: 0;
     flex: 0 0 auto;
+}
+
+.workspace-brand-group > * + * {
+    margin-left: 9px;
 }
 
 .workspace-brand-mark {
@@ -2608,10 +2696,14 @@ button.photo-browser-control:active:not(:disabled) {
     display: flex;
     align-items: center;
     flex: 1 1 220px;
-    gap: 8px;
+    gap: 0;
     min-width: 0;
     color: #8b949e;
     font-size: 11px;
+}
+
+.workspace-project-group > * + * {
+    margin-left: 8px;
 }
 
 .workspace-project-group strong {
@@ -2634,8 +2726,12 @@ button.photo-browser-control:active:not(:disabled) {
 .workspace-quick-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 0;
     margin-left: auto;
+}
+
+.workspace-quick-actions > * + * {
+    margin-left: 6px;
 }
 
 .workspace-workflow-group {

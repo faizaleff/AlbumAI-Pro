@@ -990,11 +990,11 @@ function PhotoBrowserSection({
                 <aside className="photo-prep-sidebar" aria-label="Photo library filters">
                     <section className="photo-facet-group">
                         <button type="button" className="photo-facet-heading" onClick={() => toggleFacetGroup("events")} aria-expanded={!collapsedFacetGroups.events}>
-                            <span>Events</span><span>{collapsedFacetGroups.events ? "+" : "−"}</span>
+                            <span>Events</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.events ? "+" : "−"}</span>
                         </button>
                         {!collapsedFacetGroups.events && <div className="photo-facet-options">
                             <button type="button" className={!selectedEventFilters.length ? "is-active" : ""} onClick={() => setSelectedEventFilters([])}>
-                                <span>All photos</span><span>{workflowPhotoCount}</span>
+                                <span>All photos</span><span className="photo-facet-count">{workflowPhotoCount}</span>
                             </button>
                             {visibleEvents.map(event => (
                                 <button
@@ -1005,7 +1005,7 @@ function PhotoBrowserSection({
                                     onClick={click => toggleFacetSelection(setSelectedEventFilters, event.eventId, click.ctrlKey || click.metaKey)}
                                     title="Click again for all photos. Hold Ctrl or Command to combine events."
                                 >
-                                    <span>{event.label}</span><span>{event.count}</span>
+                                    <span>{event.label}</span><span className="photo-facet-count">{event.count}</span>
                                 </button>
                             ))}
                             <button type="button" className="photo-facet-action" onClick={handleCreateEventChapter}>+ New event</button>
@@ -1014,11 +1014,11 @@ function PhotoBrowserSection({
 
                     <section className="photo-facet-group">
                         <button type="button" className="photo-facet-heading" onClick={() => toggleFacetGroup("cameras")} aria-expanded={!collapsedFacetGroups.cameras}>
-                            <span>Cameras</span><span>{collapsedFacetGroups.cameras ? "+" : "−"}</span>
+                            <span>Cameras</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.cameras ? "+" : "−"}</span>
                         </button>
                         {!collapsedFacetGroups.cameras && <div className="photo-facet-options">
                             <button type="button" className={!selectedCameraFilters.length ? "is-active" : ""} onClick={() => setSelectedCameraFilters([])}>
-                                <span>All cameras</span><span>{workflowPhotoCount}</span>
+                                <span>All cameras</span><span className="photo-facet-count">{workflowPhotoCount}</span>
                             </button>
                             {facetCameras.map(camera => (
                                 <button
@@ -1029,7 +1029,7 @@ function PhotoBrowserSection({
                                     onClick={click => toggleFacetSelection(setSelectedCameraFilters, camera.cameraKey, click.ctrlKey || click.metaKey)}
                                     title="Click again for all cameras. Hold Ctrl or Command to combine cameras."
                                 >
-                                    <span>{camera.cameraKey === "unknown" ? "Unidentified" : camera.label}</span><span>{camera.photoCount}</span>
+                                    <span>{camera.cameraKey === "unknown" ? "Unidentified" : camera.label}</span><span className="photo-facet-count">{camera.photoCount}</span>
                                 </button>
                             ))}
                             {workflowStep === 2 && <button type="button" className="photo-facet-action" onClick={() => setCameraTimesOpen(true)}>+ Add / align camera</button>}
@@ -1038,18 +1038,18 @@ function PhotoBrowserSection({
 
                     <section className="photo-facet-group">
                         <button type="button" className="photo-facet-heading" onClick={() => toggleFacetGroup("types")} aria-expanded={!collapsedFacetGroups.types}>
-                            <span>Photo type</span><span>{collapsedFacetGroups.types ? "+" : "−"}</span>
+                            <span>Photo type</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.types ? "+" : "−"}</span>
                         </button>
                         {!collapsedFacetGroups.types && <div className="photo-facet-options">
-                            <button type="button" className={!selectedPhotoKinds.length ? "is-active" : ""} onClick={() => setSelectedPhotoKinds([])}><span>All types</span><span>{workflowPhotoCount}</span></button>
-                            <button type="button" className={selectedPhotoKinds.includes("single") ? "is-active" : ""} onClick={click => toggleFacetSelection(setSelectedPhotoKinds, "single", click.ctrlKey || click.metaKey)}><span>Single photos</span><span>{Math.max(0, workflowPhotoCount - facetBurstPhotoCount)}</span></button>
-                            <button type="button" className={selectedPhotoKinds.includes("burst") ? "is-active" : ""} onClick={click => toggleFacetSelection(setSelectedPhotoKinds, "burst", click.ctrlKey || click.metaKey)}><span>Burst photos</span><span>{facetBurstPhotoCount}</span></button>
+                            <button type="button" className={!selectedPhotoKinds.length ? "is-active" : ""} onClick={() => setSelectedPhotoKinds([])}><span>All types</span><span className="photo-facet-count">{workflowPhotoCount}</span></button>
+                            <button type="button" className={selectedPhotoKinds.includes("single") ? "is-active" : ""} onClick={click => toggleFacetSelection(setSelectedPhotoKinds, "single", click.ctrlKey || click.metaKey)}><span>Single photos</span><span className="photo-facet-count">{Math.max(0, workflowPhotoCount - facetBurstPhotoCount)}</span></button>
+                            <button type="button" className={selectedPhotoKinds.includes("burst") ? "is-active" : ""} onClick={click => toggleFacetSelection(setSelectedPhotoKinds, "burst", click.ctrlKey || click.metaKey)}><span>Burst photos</span><span className="photo-facet-count">{facetBurstPhotoCount}</span></button>
                         </div>}
                     </section>
 
                     <section className="photo-facet-group">
                         <button type="button" className="photo-facet-heading" onClick={() => toggleFacetGroup("ratings")} aria-expanded={!collapsedFacetGroups.ratings}>
-                            <span>Ratings & Labels</span><span>{collapsedFacetGroups.ratings ? "+" : "−"}</span>
+                            <span>Ratings & Labels</span><span className="photo-facet-toggle-mark">{collapsedFacetGroups.ratings ? "+" : "−"}</span>
                         </button>
                         {!collapsedFacetGroups.ratings && <div className="photo-facet-rating-panel">
                             <div className="photo-rating-filter-row">
@@ -1710,10 +1710,10 @@ function PhotoBrowserSection({
             )}
 
             <div className="photo-browser-statusbar" role="status" aria-label="Photo browser status">
-                <span><strong>Results:</strong> {queryResult.counts.matched}/{queryResult.counts.total}</span>
-                <span><strong>Selected:</strong> {selectedCount}</span>
-                <span><strong>View:</strong> {viewMode === "icons" ? "Icons" : "List"}</span>
-                <span>
+                <span className="photo-browser-status-item"><strong>Results</strong><span>{queryResult.counts.matched}/{queryResult.counts.total}</span></span>
+                <span className="photo-browser-status-item"><strong>Selected</strong><span>{selectedCount}</span></span>
+                <span className="photo-browser-status-item"><strong>View</strong><span>{viewMode === "icons" ? "Icons" : "List"}</span></span>
+                <span className="photo-browser-status-item">
                     <strong>Sort:</strong>{" "}
                     {preferences.sort.field === "name"
                         ? "Name"

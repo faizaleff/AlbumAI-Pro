@@ -27,7 +27,7 @@ function ThumbnailCard({
     const [hoverStar, setHoverStar] = useState(0);
     const [reorderTarget, setReorderTarget] = useState(false);
 
-    const imageHeight = compact ? 74 : 100;
+    const imageHeight = compact ? 112 : 132;
     const rating = decision?.rating || 0;
     const colorLabel = Number(decision?.colorLabel) || 0;
     const colorStroke = COLOR_LABELS[colorLabel] || null;
@@ -245,10 +245,10 @@ function ThumbnailCard({
             {/* Card Footer: Row 1 = Filename, Row 2 = 5 Stars + Heart */}
             <div
                 style={{
-                    padding: "3px 6px",
+                    padding: "6px 8px",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 1,
+                    gap: 3,
                     background: selected ? "#162338" : "#151b23",
                     minWidth: 0,
                     boxSizing: "border-box"
@@ -258,13 +258,13 @@ function ThumbnailCard({
                 <div
                     title={photo.name}
                     style={{
-                        fontSize: 10,
+                        fontSize: 11,
                         color: selected ? "#ffffff" : "#c9d1d9",
                         fontWeight: selected ? 600 : 400,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        lineHeight: 1.2
+                        lineHeight: 1.25
                     }}
                 >
                     {photo.name}
