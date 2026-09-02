@@ -164,18 +164,30 @@
     #albumai-library-prototype .aip-facet-action { color: #74afff; font-weight: 600; }
 
     #albumai-library-prototype .aip-rating-panel { padding-bottom: 12px; }
-    #albumai-library-prototype .aip-rating-mode { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px 8px 8px; }
+    #albumai-library-prototype .aip-review-filter-summary { margin: 3px 8px 9px; padding: 9px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid var(--aip-line); border-radius: 8px; background: linear-gradient(135deg, rgba(49,130,246,.14), rgba(67,185,232,.05)); }
+    #albumai-library-prototype .aip-review-filter-summary span { display: grid; gap: 2px; min-width: 0; }
+    #albumai-library-prototype .aip-review-filter-summary small { color: var(--aip-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; }
+    #albumai-library-prototype .aip-review-filter-summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    #albumai-library-prototype .aip-review-filter-summary button { min-height: 27px; padding: 0 8px; border: 1px solid var(--aip-line); border-radius: 6px; background: var(--aip-panel-3); color: var(--aip-muted); cursor: pointer; }
+    #albumai-library-prototype .aip-rating-caption { padding: 0 9px 6px; color: var(--aip-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+    #albumai-library-prototype .aip-rating-mode { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin: 0 8px 10px; padding: 3px; border-radius: 8px; background: var(--aip-panel); }
     #albumai-library-prototype .aip-rating-mode button,
     #albumai-library-prototype .aip-rating-row button,
     #albumai-library-prototype .aip-label-row button {
-      min-height: 31px; border: 1px solid transparent; background: transparent; border-radius: 7px; cursor: pointer;
+      min-height: 32px; border: 1px solid transparent; background: transparent; border-radius: 6px; cursor: pointer;
     }
     #albumai-library-prototype .aip-rating-mode button[aria-pressed="true"],
     #albumai-library-prototype .aip-rating-row button[aria-pressed="true"],
     #albumai-library-prototype .aip-label-row button[aria-pressed="true"] { border-color: var(--aip-blue); background: var(--aip-blue-soft); }
-    #albumai-library-prototype .aip-rating-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 0 8px 8px; }
-    #albumai-library-prototype .aip-rating-row button { color: var(--aip-yellow); }
-    #albumai-library-prototype .aip-label-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 0 8px; }
+    #albumai-library-prototype .aip-rating-mode button { color: var(--aip-muted); font-size: 11px; font-weight: 650; }
+    #albumai-library-prototype .aip-rating-mode button[aria-pressed="true"] { color: var(--aip-text); }
+    #albumai-library-prototype .aip-rating-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 8px 11px; }
+    #albumai-library-prototype .aip-rating-row button { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 8px; color: var(--aip-yellow); background: var(--aip-panel); }
+    #albumai-library-prototype .aip-rating-row button:first-child { color: var(--aip-muted); }
+    #albumai-library-prototype .aip-filter-count { color: var(--aip-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+    #albumai-library-prototype .aip-label-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 8px; }
+    #albumai-library-prototype .aip-label-row button { display: flex; align-items: center; gap: 7px; padding: 0 8px; color: var(--aip-muted); background: var(--aip-panel); }
+    #albumai-library-prototype .aip-label-row button .aip-filter-count { margin-left: auto; }
     #albumai-library-prototype .aip-label-swatch { width: 15px; height: 15px; border-radius: 50%; display: inline-block; }
 
     #albumai-library-prototype .aip-center { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto minmax(240px, 1fr) auto; }
@@ -546,6 +558,8 @@
       }
       function unique(field) { return [...new Set(state.photos.map(p=>p[field]))]; }
       function count(field, value) { return state.photos.filter(p=>p[field]===value).length; }
+      function ratingCount(value) { return state.photos.filter(p=>p.rating===value).length; }
+      function labelCount(value) { return state.photos.filter(p=>value==='none'?!p.label:p.label===value).length; }
       function facetGroup(key, title, allLabel, action) {
         const values = unique(key);
         const selected = state.facets[key];
@@ -559,22 +573,28 @@
       }
 
       function renderFacets() {
+        const modeName={'=':'Exact','≥':'At least','≤':'At most'}[state.ratingMode];
+        const ratingName=state.rating===null?'Any rating':state.rating===0?'Unrated':`${modeName} ${state.rating} star${state.rating===1?'':'s'}`;
+        const labelName=state.label===null?'Any color':state.label==='none'?'No color':`${state.label[0].toUpperCase()+state.label.slice(1)} label`;
+        const reviewActive=state.rating!==null||state.label!==null;
         root.querySelector('#aip-facets').innerHTML = facetGroup('event','Events','All photos','new-event') + facetGroup('camera','Cameras','All cameras','new-camera') + facetGroup('type','Photo type','All types','') + `
           <section class="aip-facet aip-rating-panel ${state.collapsed.has('ratings')?'is-collapsed':''}" data-facet-section="ratings">
-            <button class="aip-facet-heading" data-collapse="ratings" aria-expanded="${!state.collapsed.has('ratings')}"><span>Ratings & Labels</span><span>${state.collapsed.has('ratings')?'+':'−'}</span></button>
+            <button class="aip-facet-heading" data-collapse="ratings" aria-expanded="${!state.collapsed.has('ratings')}"><span>Review Filters</span><span>${state.collapsed.has('ratings')?'+':'−'}</span></button>
             <div class="aip-facet-list">
+              <div class="aip-review-filter-summary"><span><small>Showing</small><strong>${ratingName} · ${labelName}</strong></span><button data-clear-review aria-label="Clear rating and color filters" ${reviewActive?'':'disabled'}>Reset</button></div>
+              <div class="aip-rating-caption">Rating match</div>
               <div class="aip-rating-mode">
-                ${['=','≥','≤'].map(m=>`<button data-rating-mode="${m}" aria-pressed="${state.ratingMode===m}">${m}</button>`).join('')}
+                ${[['=','Exact'],['≥','At least'],['≤','At most']].map(([m,name])=>`<button data-rating-mode="${m}" aria-pressed="${state.ratingMode===m}">${name}</button>`).join('')}
               </div>
+              <div class="aip-rating-caption">Stars</div>
               <div class="aip-rating-row">
-                <button data-rating-filter="0" aria-pressed="${state.rating===0}">Unrated</button>
-                ${[1,2,3,4,5].map(n=>`<button data-rating-filter="${n}" aria-pressed="${state.rating===n}">${n}★</button>`).join('')}
+                <button data-rating-filter="0" aria-pressed="${state.rating===0}"><span>Unrated</span><span class="aip-filter-count">${ratingCount(0)}</span></button>
+                ${[1,2,3,4,5].map(n=>`<button data-rating-filter="${n}" aria-label="${n} star rating" aria-pressed="${state.rating===n}"><span>${'★'.repeat(n)}</span><span class="aip-filter-count">${ratingCount(n)}</span></button>`).join('')}
               </div>
+              <div class="aip-rating-caption">Color label</div>
               <div class="aip-label-row">
-                <button data-label-filter="none" aria-label="No color label" aria-pressed="${state.label==='none'}">None</button>
-                <button data-label-filter="red" aria-label="Red label" aria-pressed="${state.label==='red'}"><span class="aip-label-swatch" style="background:var(--aip-red)"></span></button>
-                <button data-label-filter="yellow" aria-label="Yellow label" aria-pressed="${state.label==='yellow'}"><span class="aip-label-swatch" style="background:var(--aip-yellow)"></span></button>
-                <button data-label-filter="green" aria-label="Green label" aria-pressed="${state.label==='green'}"><span class="aip-label-swatch" style="background:var(--aip-green)"></span></button>
+                <button data-label-filter="none" aria-label="No color label" aria-pressed="${state.label==='none'}"><span class="aip-label-swatch" style="border:1px solid var(--aip-muted)"></span><span>None</span><span class="aip-filter-count">${labelCount('none')}</span></button>
+                ${[['red','Select'],['yellow','Review'],['green','Approved']].map(([color,name])=>`<button data-label-filter="${color}" aria-label="${name}, ${color} label" aria-pressed="${state.label===color}"><span class="aip-label-swatch" style="background:var(--aip-${color})"></span><span>${name}</span><span class="aip-filter-count">${labelCount(color)}</span></button>`).join('')}
               </div>
             </div>
           </section>`;
@@ -734,6 +754,7 @@
         const mode=event.target.closest('[data-rating-mode]'); if(mode){state.ratingMode=state.ratingMode===mode.dataset.ratingMode?'=':mode.dataset.ratingMode;render();return;}
         const rf=event.target.closest('[data-rating-filter]'); if(rf){const n=+rf.dataset.ratingFilter;state.rating=state.rating===n?null:n;render();return;}
         const lf=event.target.closest('[data-label-filter]'); if(lf){state.label=state.label===lf.dataset.labelFilter?null:lf.dataset.labelFilter;render();return;}
+        const clearReview=event.target.closest('[data-clear-review]'); if(clearReview){state.rating=null;state.label=null;state.ratingMode='=';render();return;}
         const df=event.target.closest('[data-decision-filter]'); if(df){state.decision=df.dataset.decisionFilter;render();return;}
         const future=event.target.closest('[data-future]'); if(future){showToast(`${future.dataset.future} is reserved for the next prototype stage.`);return;}
         const inspector=event.target.closest('[data-inspector-message]'); if(inspector){showToast(`${inspector.dataset.inspectorMessage} is available in a later workspace stage.`);return;}
