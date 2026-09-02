@@ -47,7 +47,7 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Keyboard 6, 7 and 8 assigns red, yellow and green
    - Keyboard 9 clears the label
    - Repeating the current label clears it
-   - Applied label remains visible as a thin full-width color shade at the bottom of the thumbnail information area, without extra text or height
+   - Applied label lightly tints the full filename and rating information area, without extra text, bars or height
 6. Burst verification
    - Burst photos expose an explicit manual Verify action in the thumbnail information area
    - Pending and Verified burst filters are available within Photo type
@@ -68,6 +68,7 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Bridge-inspired compact grid, detailed list columns and bottom thumbnail-size control
    - Filename search
    - Manual, filename, capture-time, rating, color-label, type, size and dimensions sort options
+   - List headers sort by Name, Date Created, Size, Type, Rating, Label and Keywords; repeat click reverses direction
 10. Persistent information
    - Bridge-inspired Preview panel, metadata summary and collapsible File Properties
    - Results, Selected, View and Sort status remains visible
