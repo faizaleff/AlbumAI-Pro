@@ -22,33 +22,36 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Optional subfolder import is provisioned
 2. Dynamic facets
    - Events detected from imported photos
-   - Cameras detected from metadata
+   - Cameras detected from metadata and assigned stable color identities C1, C2, C3…
+   - Camera colors live in the Cameras facet; Add / align camera is available for metadata or clock corrections
+   - The camera tag automatically supplies the light thumbnail-information tint and the sortable List camera tag
    - Photo types detected from analysis
    - Click again resets a single facet to All
    - Ctrl/Cmd-click combines several facet values
    - Event targets accept dragged photos
 3. Photo decisions
-   - Favorite is an independent heart state, separate from Keep/Reject
+   - Every imported photo is Included by default; only rejected photos carry an explicit decision
+   - Reject toggles to Unreject and restores the photo to Included
+   - Review toolbar filters: All, Included and Rejected
+   - Favorite is an independent heart state, separate from rejection
    - Hover control and keyboard F toggle Favorite
    - Favorites-only filter is available in the review toolbar
-   - Hover controls: Keep and Reject
-   - Keyboard: K and R
-   - Repeat the same decision to clear it
+   - Hover and List controls expose Reject / Unreject only
+   - Keyboard R toggles Reject / Unreject
 4. Star ratings
    - Review Filters presents Exact, At least and At most as named controls
-   - Rating and color choices show live photo counts before filtering
+   - Rating choices show live photo counts before filtering
    - The active filter summary and one-click Reset prevent hidden filter states
    - Keyboard 1–5 assigns that rating
    - Keyboard 0 clears the rating
    - Repeating the current rating clears it
    - Filter comparison supports =, ≥ and ≤
-5. Color labels
-   - Labels are presented visually as neutral, red, yellow and green controls without workflow-name text
-   - Keyboard 6, 7 and 8 assigns red, yellow and green
-   - Keyboard 9 clears the label
-   - Repeating the current label clears it
-   - Applied label lightly tints the full filename and rating information area, without extra text, bars or height
-   - The tinted information area stretches to the card bottom so equal-height grid rows never expose an unlabelled dark gap
+5. Camera identity tags
+   - Camera color tagging is automatic rather than a manual photo rating
+   - Each detected camera receives a stable C1, C2, C3… tag and distinct professional color
+   - Grid thumbnails use a light full-width camera tint below the image, with a slim color anchor at the bottom
+   - List view shows a compact C-number tag in the Camera Tag column
+   - Manual color-label filters and Approved / Review / Select workflow names are removed
 6. Burst verification
    - Burst photos expose an explicit manual Verify action in the thumbnail information area
    - Pending and Verified burst filters are available within Photo type
@@ -68,32 +71,31 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Grid and List views
    - Bridge-inspired compact grid, detailed list columns and bottom thumbnail-size control
    - Filename search
-   - Manual, filename, capture-time, rating, color-label, type, size and dimensions sort options
-   - List headers sort by Name, Date Created, Size, Type, Rating, Label and Keywords; repeat click reverses direction
-   - Filter, thumbnail and List label controls use the same compact color-only language
-   - List rows are editable for Favorite, Keep/Reject, 0–5 stars and color labels, including multi-selection and Undo/Redo
+   - Manual, filename, capture-time, rating, camera-tag, type, size and dimensions sort options
+   - List headers sort by Name, Date Created, Size, Type, Rating, Camera Tag and Keywords; repeat click reverses direction
+   - List rows are editable for Favorite, Reject/Unreject and 0–5 stars, including multi-selection and Undo/Redo
    - List column headers remain frozen while rows scroll
    - Internal scrollbars stay hidden until hover, then appear as slim neutral-grey controls
 10. Persistent information
    - Bridge-inspired Preview panel, metadata summary and collapsible File Properties
    - Results, Selected, View and Sort status remains visible
-   - Rating and color state remains visible without hover
+   - Rating, rejection and automatic camera identity remain visible without hover
 11. Safety and history
-   - Undo and Redo for decisions, ratings, labels and event changes
+   - Undo and Redo for rejection, ratings, favorites, burst verification and event changes
    - Save action is explicit
 
 ## Approval checklist
 
-Cloud QA completed 2026-09-02. All gates are implemented and ready for owner approval; checkboxes remain open until approved by the owner. Favorite, star-rating and color-label polish plus the Adobe Bridge reference pass are implemented after owner feedback.
+Cloud QA completed 2026-09-02. All gates are implemented and ready for owner approval; checkboxes remain open until approved by the owner. Favorite and star-rating polish, automatic camera identity tags, simplified Reject/Unreject decisions and the Adobe Bridge reference pass are implemented after owner feedback.
 
 - [ ] Visual hierarchy and spacing — QA pass
 - [ ] Smooth hover without flicker — QA pass
 - [ ] Fast arrow-key navigation — QA pass
 - [ ] Bounded Space preview — QA pass
 - [ ] Selection and multi-selection — QA pass
-- [ ] Keep/Reject — QA pass
+- [ ] Reject/Unreject — QA pass
 - [ ] Star ratings — QA pass
-- [ ] Color labels and filters — QA pass
+- [ ] Automatic camera tags and filters — QA pass
 - [ ] Dynamic facets and multi-photo event assignment — QA pass
 - [ ] Responsive layouts — QA pass
 
