@@ -47,28 +47,32 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Keyboard 6, 7 and 8 assigns red, yellow and green
    - Keyboard 9 clears the label
    - Repeating the current label clears it
-   - Applied label remains visible as a thumbnail border
-6. Selection and navigation
+   - Applied label remains visible as a full-width named color bar below filename and star metadata
+6. Burst verification
+   - Burst photos expose an explicit manual Verify action in the thumbnail information area
+   - Pending and Verified burst filters are available within Photo type
+   - Keyboard V toggles verification for selected Burst photos
+7. Selection and navigation
    - Click selects one photo
    - Ctrl/Cmd-click toggles photos
    - Shift-click selects a range
    - Ctrl/Cmd+A selects all currently visible photos
    - Arrow keys navigate and keep the active photo visible
    - Shift+Arrow extends the selected range
-7. Quick preview
+8. Quick preview
    - Hold Space to show a bounded preview inside the plugin surface
    - Release Space to close it
    - Filename, event, camera and rating appear with the preview
-8. Views and search
+9. Views and search
    - Grid and List views
    - Bridge-inspired compact grid, detailed list columns and bottom thumbnail-size control
    - Filename search
    - Manual, filename, capture-time, rating, color-label, type, size and dimensions sort options
-9. Persistent information
+10. Persistent information
    - Bridge-inspired Preview panel, metadata summary and collapsible File Properties
    - Results, Selected, View and Sort status remains visible
    - Rating and color state remains visible without hover
-10. Safety and history
+11. Safety and history
    - Undo and Redo for decisions, ratings, labels and event changes
    - Save action is explicit
 
