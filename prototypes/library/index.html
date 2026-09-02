@@ -206,10 +206,9 @@
     #albumai-library-prototype .aip-rating-row button { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 8px; color: var(--aip-yellow); background: var(--aip-panel); }
     #albumai-library-prototype .aip-rating-row button:first-child { color: var(--aip-muted); }
     #albumai-library-prototype .aip-filter-count { color: var(--aip-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
-    #albumai-library-prototype .aip-label-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 8px; }
-    #albumai-library-prototype .aip-label-row button { display: flex; align-items: center; gap: 7px; padding: 0 8px; color: var(--aip-muted); background: var(--aip-panel); }
-    #albumai-library-prototype .aip-label-row button .aip-filter-count { margin-left: auto; }
-    #albumai-library-prototype .aip-label-swatch { width: 15px; height: 15px; border-radius: 50%; display: inline-block; }
+    #albumai-library-prototype .aip-label-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 0 8px; }
+    #albumai-library-prototype .aip-label-row button { display: grid; place-items: center; padding: 0; background: var(--aip-panel); }
+    #albumai-library-prototype .aip-label-swatch { width: 26px; height: 9px; border-radius: 999px; display: inline-block; }
 
     #albumai-library-prototype .aip-center { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto minmax(240px, 1fr) auto; }
     #albumai-library-prototype .aip-heading-row {
@@ -341,6 +340,11 @@
     #albumai-library-prototype .aip-list-label-select:has(option[value="red"]:checked) { border-color: rgba(255,91,101,.45); background: rgba(255,91,101,.16); color: #ffafb5; }
     #albumai-library-prototype .aip-list-label-select:has(option[value="yellow"]:checked) { border-color: rgba(244,194,13,.42); background: rgba(244,194,13,.14); color: #ffe17a; }
     #albumai-library-prototype .aip-list-label-select:has(option[value="green"]:checked) { border-color: rgba(83,201,139,.44); background: rgba(83,201,139,.15); color: #9ce4bd; }
+    #albumai-library-prototype .aip-list-colors-edit { display: inline-flex; align-items: center; gap: 3px; }
+    #albumai-library-prototype .aip-list-colors-edit button { width: 18px; height: 24px; padding: 0; display: grid; place-items: center; border: 1px solid transparent; border-radius: 5px; background: transparent; cursor: pointer; }
+    #albumai-library-prototype .aip-list-colors-edit button:hover { background: var(--aip-panel-3); }
+    #albumai-library-prototype .aip-list-colors-edit button[aria-pressed="true"] { border-color: var(--aip-blue); background: var(--aip-blue-soft); }
+    #albumai-library-prototype .aip-list-color-dot { width: 12px; height: 7px; border-radius: 999px; }
     #albumai-library-prototype .aip-grid.is-list .aip-hover-tools { display: none; }
 
     #albumai-library-prototype .aip-empty { display: none; place-items: center; min-height: 280px; color: var(--aip-muted); text-align: center; }
@@ -654,8 +658,8 @@
               </div>
               <div class="aip-rating-caption">Color label</div>
               <div class="aip-label-row">
-                <button data-label-filter="none" aria-label="No color label" aria-pressed="${state.label==='none'}"><span class="aip-label-swatch" style="border:1px solid var(--aip-muted)"></span><span>None</span><span class="aip-filter-count">${labelCount('none')}</span></button>
-                ${[['red','Select'],['yellow','Review'],['green','Approved']].map(([color,name])=>`<button data-label-filter="${color}" aria-label="${name}, ${color} label" aria-pressed="${state.label===color}"><span class="aip-label-swatch" style="background:var(--aip-${color})"></span><span>${name}</span><span class="aip-filter-count">${labelCount(color)}</span></button>`).join('')}
+                <button data-label-filter="none" aria-label="No color label, ${labelCount('none')} photos" title="No color label · ${labelCount('none')}" aria-pressed="${state.label==='none'}"><span class="aip-label-swatch" style="border:1px solid var(--aip-muted)"></span></button>
+                ${['red','yellow','green'].map(color=>`<button data-label-filter="${color}" aria-label="${color} label, ${labelCount(color)} photos" title="${color} label · ${labelCount(color)}" aria-pressed="${state.label===color}"><span class="aip-label-swatch" style="background:var(--aip-${color})"></span></button>`).join('')}
               </div>
             </div>
           </section>`;
@@ -702,7 +706,6 @@
         const stars = p.rating ? '★'.repeat(p.rating) : '';
         const favorite = p.favorite ? '<span class="aip-persistent-favorite" aria-label="Favorite">♥</span>' : '';
         const badge = p.decision==='keep'?'✓ KEEP':p.decision==='reject'?'× REJECT':'REVIEW';
-        const labelNames = {red:'Select',yellow:'Review',green:'Approved'};
         const burstReview = p.type==='Burst photo' ? `<button class="aip-burst-review" data-burst-verify aria-pressed="${p.burstVerified}" aria-label="${p.burstVerified?'Mark burst as pending verification':'Manually verify burst photo'}">${p.burstVerified?'✓ Verified':'Verify burst'}</button>` : '';
         return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''} ${state.focused===p.id?'is-focused':''}" role="listitem" data-photo-id="${p.id}" data-label="${p.label}" data-decision="${p.decision}" draggable="true" tabindex="${state.focused===p.id?'0':'-1'}" aria-label="${p.name}, ${state.selected.has(p.id)?'selected, ':''}${p.favorite?'favorite, ':''}${p.rating} stars, ${p.label?p.label+' label, ':''}${p.decision||'review'}">
           <div class="aip-photo-media"><div class="aip-photo-art" role="img" aria-label="${p.name}" style="${frameStyle(p)}"></div>
@@ -713,7 +716,7 @@
               <span class="aip-colors-edit" aria-label="Color label"><button data-photo-label="red" aria-label="Red label" aria-pressed="${p.label==='red'}"><span class="aip-color-dot" style="background:var(--aip-red)"></span></button><button data-photo-label="yellow" aria-label="Yellow label" aria-pressed="${p.label==='yellow'}"><span class="aip-color-dot" style="background:var(--aip-yellow)"></span></button><button data-photo-label="green" aria-label="Green label" aria-pressed="${p.label==='green'}"><span class="aip-color-dot" style="background:var(--aip-green)"></span></button></span>
             </div>
           </div>
-          <div class="aip-photo-info"><span class="aip-photo-name"><span class="aip-photo-filename">${p.name}</span><span class="aip-list-actions" aria-label="Review actions"><button data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button data-photo-action="reject" aria-label="Reject" aria-pressed="${p.decision==='reject'}">×</button><button data-photo-action="keep" aria-label="Keep" aria-pressed="${p.decision==='keep'}">✓</button></span></span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span>${p.event}</span>${burstReview}</span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating"><span class="aip-list-stars-edit" aria-label="Edit star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="Set ${n} stars" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span></span><span class="aip-list-cell"><select class="aip-list-label-select" data-photo-label-select aria-label="Edit color label"><option value="" ${!p.label?'selected':''}>No label</option><option value="red" ${p.label==='red'?'selected':''}>Select</option><option value="yellow" ${p.label==='yellow'?'selected':''}>Review</option><option value="green" ${p.label==='green'?'selected':''}>Approved</option></select></span><span class="aip-list-cell">${p.event}</span></div>
+          <div class="aip-photo-info"><span class="aip-photo-name"><span class="aip-photo-filename">${p.name}</span><span class="aip-list-actions" aria-label="Review actions"><button data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button data-photo-action="reject" aria-label="Reject" aria-pressed="${p.decision==='reject'}">×</button><button data-photo-action="keep" aria-label="Keep" aria-pressed="${p.decision==='keep'}">✓</button></span></span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span>${p.event}</span>${burstReview}</span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating"><span class="aip-list-stars-edit" aria-label="Edit star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="Set ${n} stars" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span></span><span class="aip-list-cell"><span class="aip-list-colors-edit" aria-label="Edit color label"><button data-photo-label-clear aria-label="Clear color label" title="No color label" aria-pressed="${!p.label}"><span class="aip-list-color-dot" style="border:1px solid var(--aip-muted)"></span></button>${['red','yellow','green'].map(color=>`<button data-photo-label="${color}" aria-label="Set ${color} label" title="${color} label" aria-pressed="${p.label===color}"><span class="aip-list-color-dot" style="background:var(--aip-${color})"></span></button>`).join('')}</span></span><span class="aip-list-cell">${p.event}</span></div>
         </article>`;
       }
 
@@ -815,8 +818,8 @@
 
       root.addEventListener('click', event => {
         const card=event.target.closest('[data-photo-id]');
-        const action=event.target.closest('[data-photo-action]'); const favorite=event.target.closest('[data-photo-favorite]'); const rating=event.target.closest('[data-photo-rating]'); const label=event.target.closest('[data-photo-label]'); const burstVerify=event.target.closest('[data-burst-verify]');
-        if(card && (action||favorite||rating||label||burstVerify)) { const id=+card.dataset.photoId;if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;} if(action)setDecision(action.dataset.photoAction); if(favorite)setFavorite(); if(rating)setRating(+rating.dataset.photoRating); if(label)setLabel(label.dataset.photoLabel); if(burstVerify)setBurstVerified(); return; }
+        const action=event.target.closest('[data-photo-action]'); const favorite=event.target.closest('[data-photo-favorite]'); const rating=event.target.closest('[data-photo-rating]'); const label=event.target.closest('[data-photo-label]'); const clearLabel=event.target.closest('[data-photo-label-clear]'); const burstVerify=event.target.closest('[data-burst-verify]');
+        if(card && (action||favorite||rating||label||clearLabel||burstVerify)) { const id=+card.dataset.photoId;if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;} if(action)setDecision(action.dataset.photoAction); if(favorite)setFavorite(); if(rating)setRating(+rating.dataset.photoRating); if(label)setLabel(label.dataset.photoLabel); if(clearLabel)mutateSelected(p=>p.label=''); if(burstVerify)setBurstVerified(); return; }
         if(card){setSelection(+card.dataset.photoId,event);return;}
         const facet=event.target.closest('[data-facet]');
         if(facet){ const key=facet.dataset.facet,value=facet.dataset.value,set=state.facets[key]; if(value==='__all'){set.clear();} else if(event.ctrlKey||event.metaKey){set.has(value)?set.delete(value):set.add(value);} else if(set.size===1&&set.has(value)){set.clear();} else {set.clear();set.add(value);} render(); return; }
@@ -831,7 +834,6 @@
         const inspector=event.target.closest('[data-inspector-message]'); if(inspector){showToast(`${inspector.dataset.inspectorMessage} is available in a later workspace stage.`);return;}
         const actionButton=event.target.closest('[data-action]'); if(actionButton){showToast(actionButton.dataset.action==='new-event'?'New event creation is ready for the implementation stage.':'Camera detection and clock alignment are provisioned.');return;}
       });
-      root.addEventListener('change', event => { const select=event.target.closest('[data-photo-label-select]'); if(!select)return; const card=select.closest('[data-photo-id]'); const id=+card.dataset.photoId; if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;} if(select.value)setLabel(select.value);else mutateSelected(p=>p.label=''); });
 
       root.querySelector('#aip-search').addEventListener('input',e=>{state.search=e.target.value;render();});
       root.querySelector('#aip-sort').addEventListener('change',e=>{state.sort=e.target.value;render();});
