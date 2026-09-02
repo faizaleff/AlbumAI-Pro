@@ -9,6 +9,7 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const read = relative => fs.readFileSync(path.join(root, relative), "utf8");
 const browser = read("src/components/PhotoBrowserSection.jsx");
+const openFolder = read("src/components/OpenFolder.jsx");
 const card = read("src/components/ThumbnailCard.jsx");
 const grid = read("src/components/ThumbnailGrid.jsx");
 const model = read("src/services/PhotoBrowserModel.js");
@@ -45,5 +46,16 @@ check(model.includes('new Set(["exact", "above", "below"])'), "rating comparison
 check(model.includes("new Set([6, 7, 8])"), "approved color-label model is missing");
 check(styles.includes(".photo-rating-label-filter"), "compact rating/label filter styling is missing");
 check(styles.includes(".photo-quick-preview"), "quick-preview styling is missing");
+check(browser.includes("photo-prep-sidebar"), "persistent photo-preparation left panel is missing");
+check(browser.includes("Events") && browser.includes("Cameras") && browser.includes("Photo type") && browser.includes("Ratings & Labels"), "left-panel facet groups are incomplete");
+check(browser.includes("selectedEventFilters") && browser.includes("selectedCameraFilters") && browser.includes("selectedPhotoKinds"), "dynamic left-panel filter state is incomplete");
+check(browser.includes("click.ctrlKey || click.metaKey"), "multi-select facet behavior is missing");
+check(browser.includes("Click again for all cameras") && browser.includes("Click again for all photos"), "repeat-click facet reset behavior is missing");
+check(browser.includes("getCameraKey(photo)"), "camera filtering is not connected to photo metadata");
+check(browser.includes("burstPhotoIds.has(photo.id)"), "burst/single filtering is not connected");
+check(browser.includes("workflowPhotoCount"), "selected-photo workflow count is missing");
+check(browser.includes("onRefreshPhotoFolder"), "photo-folder refresh control is missing");
+check(openFolder.includes("async function refreshPhotoFolder()") && openFolder.includes("await App.refreshPhotos()"), "photo-folder refresh action is not connected");
+check(styles.includes(".photo-prep-workspace") && styles.includes(".photo-facet-group"), "left-panel layout styling is missing");
 
 console.info(`PASS ALB-136: Photos workflow UI (${assertions} assertions)`);

@@ -73,7 +73,7 @@ try {
         Boolean(testBoundary) && Number(testBoundary[1]) >= 95,
         "README test boundary regressed below ALB-095"
     );
-    check(readme.includes("above 740 KiB"), "README bundle budget is stale");
+    check(readme.includes("above 748 KiB"), "README bundle budget is stale");
 
     const roadmap = fs.readFileSync(path.join(PROJECT_ROOT, "docs/ROADMAP.md"), "utf8");
     const roadmapVersion = roadmap.match(/\*\*(\d+\.\d+\.\d+) stable — released/)?.[1];

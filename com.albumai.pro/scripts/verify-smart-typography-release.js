@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-const MAX_BUNDLE_BYTES = 740 * 1024;
+const MAX_BUNDLE_BYTES = 748 * 1024;
 const MIN_BUNDLE_BYTES = 700 * 1024;
 const SMART_TYPOGRAPHY_TICKETS = Object.freeze(
     Array.from({ length: 11 }, (_, index) => 118 + index)

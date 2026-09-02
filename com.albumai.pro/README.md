@@ -63,7 +63,7 @@ dependency graph recorded in `package-lock.json`.
 GitHub Actions runs on every pull request and every push to `main` using the
 toolchain pinned by `.nvmrc`. CI performs a clean lockfile install, checks
 committed diff whitespace, runs all deterministic tests, rejects webpack
-warnings or a production entrypoint above 740 KiB, audits both the complete and
+warnings or a production entrypoint above 748 KiB, audits both the complete and
 production dependency trees, validates the installed graph, and confirms that
 the committed `dist/` bundle is reproducible.
 

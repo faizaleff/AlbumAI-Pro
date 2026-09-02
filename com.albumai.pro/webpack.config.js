@@ -81,10 +81,11 @@ module.exports = (_env, argv = {}) => {
         // placement; ALB-124 adds independent template-local font and style
         // presets; ALB-125 adds offline suggestions and ALB-126 adds the
         // project-local custom preset catalog and management UI. Keep a tight
-        // 740 KiB ceiling rather than silently accepting
+        // ALB-136 adds the persistent photo-preparation facet sidebar. Keep a
+        // narrow 748 KiB ceiling rather than silently accepting
         // unbounded runtime growth.
-        maxAssetSize: 740 * 1024,
-        maxEntrypointSize: 740 * 1024
+        maxAssetSize: 748 * 1024,
+        maxEntrypointSize: 748 * 1024
     }
     };
 };

@@ -73,6 +73,108 @@ html, body {
     scrollbar-width: auto;
 }
 
+.photo-prep-workspace {
+    flex: 1 1 auto;
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.photo-prep-sidebar {
+    flex: 0 0 196px;
+    width: 196px;
+    min-height: 0;
+    overflow-y: auto;
+    border-right: 1px solid #30363d;
+    background: #12161c;
+}
+
+.photo-prep-main {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.photo-facet-group {
+    border-bottom: 1px solid #282e36;
+}
+
+.photo-facet-heading,
+.photo-facet-options > button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border: 0;
+    background: transparent;
+    color: #b7c0cb;
+    text-align: left;
+}
+
+.photo-facet-heading {
+    min-height: 34px;
+    padding: 8px 10px;
+    color: #f0f3f6;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.photo-facet-options {
+    padding: 0 6px 8px;
+}
+
+.photo-facet-options > button {
+    min-height: 28px;
+    padding: 5px 8px;
+    border-radius: 5px;
+    font-size: 10px;
+}
+
+.photo-facet-options > button:hover,
+.photo-facet-options > button.is-active {
+    background: #1b3557;
+    color: #ffffff;
+}
+
+.photo-facet-options > button.is-active {
+    box-shadow: inset 2px 0 #58a6ff;
+}
+
+.photo-facet-options > .photo-facet-action {
+    margin-top: 4px;
+    color: #79b8ff;
+    justify-content: flex-start;
+}
+
+.photo-facet-rating-panel {
+    padding: 0 8px 10px;
+}
+
+.photo-facet-rating-panel .photo-rating-filter-row,
+.photo-facet-stars,
+.photo-facet-rating-panel .photo-color-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-bottom: 6px;
+}
+
+.photo-facet-stars .photo-rating-filter-button {
+    flex: 1 0 47px;
+}
+
+@media (max-width: 820px) {
+    .photo-prep-sidebar {
+        flex-basis: 170px;
+        width: 170px;
+    }
+}
+
 .photo-workflow-intro {
     display: flex;
     align-items: flex-end;

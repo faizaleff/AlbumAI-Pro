@@ -13,7 +13,7 @@ const VERSION = "1.2.0";
 const BUILD_ID = "ALB-131-v1.2.0-release-v1";
 const RUNTIME_REVISION_ID = "ALB-131-v1.2.0-publication-ready-v1";
 const RELEASE_URL = "https://github.com/faizaleff/AlbumAI-Pro/releases/tag/v1.2.0";
-const MAX_BUNDLE_BYTES = 740 * 1024;
+const MAX_BUNDLE_BYTES = 748 * 1024;
 const MIN_BUNDLE_HEADROOM_BYTES = 16 * 1024;
 let assertions = 0;
 
@@ -58,7 +58,7 @@ try {
     check(packageJson.version === packageLock.version && packageLock.packages?.[""]?.version === packageJson.version, "package and lockfile versions differ");
     check(sourceManifest.version === packageJson.version && builtManifest.version === packageJson.version, "manifest version differs");
     check(details.includes("ALBUMAI_RELEASE_URL ||"), "candidate-safe release fallback was removed");
-    check(bundle.length <= MAX_BUNDLE_BYTES, "release bundle exceeds 740 KiB");
+    check(bundle.length <= MAX_BUNDLE_BYTES, "release bundle exceeds 748 KiB");
     check(MAX_BUNDLE_BYTES - bundle.length >= MIN_BUNDLE_HEADROOM_BYTES, "release bundle headroom is below 16 KiB");
     check(record.includes("Status: local qualification complete"), "publication-readiness record status differs");
     check(releaseNotes.includes("Status: released 2026-08-31"), "release notes published status differs");

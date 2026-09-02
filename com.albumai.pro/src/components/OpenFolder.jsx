@@ -484,6 +484,21 @@ export default function OpenFolder() {
 
     }
 
+    async function refreshPhotoFolder() {
+        if (!hasProject || !photoFolderAvailable || isImportingPhotos) return;
+        try {
+            setIsImportingPhotos(true);
+            const refreshed = await App.refreshPhotos();
+            setImportedPhotoCount(refreshed?.length || 0);
+            setPhotoFolderMessage(null);
+            forceRefresh(value => value + 1);
+        } catch (error) {
+            setPhotoFolderMessage("Unable to refresh the photo folder. Try opening it again.");
+        } finally {
+            setIsImportingPhotos(false);
+        }
+    }
+
     const onPhotoClick = useCallback((photo, event) => {
 
         setFocusedPhotoId(photo?.id || null);
@@ -1206,6 +1221,7 @@ export default function OpenFolder() {
                                 folderMessage={photoFolderMessage}
                                 onOpenFolder={openFolder}
                                 onChangePhotoFolder={changePhotoFolder}
+                                onRefreshPhotoFolder={refreshPhotoFolder}
                                 isLoading={isImportingPhotos}
                                 loadingPhotoCount={importedPhotoCount}
                                 photoFolderChange={{
