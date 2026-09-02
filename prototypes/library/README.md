@@ -52,10 +52,14 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Grid thumbnails use a light full-width camera tint below the image, with a slim color anchor at the bottom
    - List view shows a compact C-number tag in the Camera Tag column
    - Manual color-label filters and Approved / Review / Select workflow names are removed
-6. Burst verification
-   - Burst photos expose an explicit manual Verify action in the thumbnail information area
-   - Pending and Verified burst filters are available within Photo type
-   - Keyboard V toggles verification for selected Burst photos
+6. Burst Review
+   - AlbumAI groups a burst sequence and automatically selects one strongest frame (for example, one best photo from five)
+   - The AI pick remains the default; manual review is optional
+   - Burst Review shows all frames together with quality confidence and the AI recommendation
+   - Choosing another frame records it as the Manual Pick
+   - Reset to AI Pick restores the original recommendation
+   - Needs review and Reviewed group filters are available within Photo type
+   - Keyboard V opens Burst Review
 7. Selection and navigation
    - Click selects one photo
    - Ctrl/Cmd-click toggles photos
@@ -64,9 +68,15 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Arrow keys navigate and keep the active photo visible
    - Shift+Arrow extends the selected range
 8. Quick preview
-   - Hold Space to show a bounded preview inside the plugin surface
-   - Release Space to close it
-   - Filename, event, camera and rating appear with the preview
+   - Space toggles a bounded Bridge-style preview inside the plugin surface; Escape also closes it
+   - After Ctrl/Cmd+A, the preview queue contains all selected visible photos
+   - For a smaller multi-selection, only those selected photos enter the preview queue
+   - With one selected photo, navigation uses the current filtered library
+   - Arrow keys and visible Previous / Next controls navigate the queue
+   - Keyboard 1–5 rates the current preview photo; 0 clears its rating
+   - Keyboard F and the visible Favorite button toggle Favorite for the current preview photo
+   - Preview rating and Favorite never apply accidentally to the whole selected queue
+   - Filename, queue position, event, camera and rating remain visible with the preview
 9. Views and search
    - Grid and List views
    - Bridge-inspired compact grid, detailed list columns and bottom thumbnail-size control
@@ -81,7 +91,7 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Results, Selected, View and Sort status remains visible
    - Rating, rejection and automatic camera identity remain visible without hover
 11. Safety and history
-   - Undo and Redo for rejection, ratings, favorites, burst verification and event changes
+   - Undo and Redo for rejection, ratings, favorites, burst choices and event changes
    - Save action is explicit
 
 ## Approval checklist
