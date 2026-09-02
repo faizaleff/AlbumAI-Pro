@@ -310,8 +310,6 @@ function PhotoBrowserSection({
         setDuplicateEvidence(normalizePhotoDuplicateEvidence(
             App.getPhotoDuplicateEvidence()
         ));
-        setDuplicateBusy(false);
-        setDuplicateError(null);
         setSecondaryFiltersOpen(false);
         decisionRevision.current += 1;
     }, [projectId]);
