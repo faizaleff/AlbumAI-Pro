@@ -43,7 +43,7 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Repeating the current rating clears it
    - Filter comparison supports =, ≥ and ≤
 5. Color labels
-   - Labels use named workflow meanings: Select, Review and Approved
+   - Labels are presented visually as neutral, red, yellow and green controls without workflow-name text
    - Keyboard 6, 7 and 8 assigns red, yellow and green
    - Keyboard 9 clears the label
    - Repeating the current label clears it
@@ -70,7 +70,7 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Filename search
    - Manual, filename, capture-time, rating, color-label, type, size and dimensions sort options
    - List headers sort by Name, Date Created, Size, Type, Rating, Label and Keywords; repeat click reverses direction
-   - List labels use subtle red, yellow and green pills while retaining Select, Review and Approved text
+   - Filter, thumbnail and List label controls use the same compact color-only language
    - List rows are editable for Favorite, Keep/Reject, 0–5 stars and color labels, including multi-selection and Undo/Redo
    - List column headers remain frozen while rows scroll
    - Internal scrollbars stay hidden until hover, then appear as slim neutral-grey controls
