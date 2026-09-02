@@ -193,22 +193,17 @@
     #albumai-library-prototype .aip-rating-caption { padding: 0 9px 6px; color: var(--aip-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
     #albumai-library-prototype .aip-rating-mode { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin: 0 8px 10px; padding: 3px; border-radius: 8px; background: var(--aip-panel); }
     #albumai-library-prototype .aip-rating-mode button,
-    #albumai-library-prototype .aip-rating-row button,
-    #albumai-library-prototype .aip-label-row button {
+    #albumai-library-prototype .aip-rating-row button {
       min-height: 32px; border: 1px solid transparent; background: transparent; border-radius: 6px; cursor: pointer;
     }
     #albumai-library-prototype .aip-rating-mode button[aria-pressed="true"],
-    #albumai-library-prototype .aip-rating-row button[aria-pressed="true"],
-    #albumai-library-prototype .aip-label-row button[aria-pressed="true"] { border-color: var(--aip-blue); background: var(--aip-blue-soft); }
+    #albumai-library-prototype .aip-rating-row button[aria-pressed="true"] { border-color: var(--aip-blue); background: var(--aip-blue-soft); }
     #albumai-library-prototype .aip-rating-mode button { color: var(--aip-muted); font-size: 11px; font-weight: 650; }
     #albumai-library-prototype .aip-rating-mode button[aria-pressed="true"] { color: var(--aip-text); }
     #albumai-library-prototype .aip-rating-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 8px 11px; }
     #albumai-library-prototype .aip-rating-row button { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 8px; color: var(--aip-yellow); background: var(--aip-panel); }
     #albumai-library-prototype .aip-rating-row button:first-child { color: var(--aip-muted); }
     #albumai-library-prototype .aip-filter-count { color: var(--aip-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
-    #albumai-library-prototype .aip-label-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 0 8px; }
-    #albumai-library-prototype .aip-label-row button { display: grid; place-items: center; padding: 0; background: var(--aip-panel); }
-    #albumai-library-prototype .aip-label-swatch { width: 26px; height: 9px; border-radius: 999px; display: inline-block; }
 
     #albumai-library-prototype .aip-center { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto minmax(240px, 1fr) auto; }
     #albumai-library-prototype .aip-heading-row {
@@ -239,6 +234,8 @@
       min-height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; cursor: pointer;
     }
     #albumai-library-prototype .aip-decision-toggle button[aria-pressed="true"] { background: var(--aip-blue-soft); }
+    #albumai-library-prototype .aip-decision-toggle button[data-decision-filter="included"][aria-pressed="true"] { color: #a6e7c3; background: rgba(83,201,139,.13); box-shadow: inset 0 0 0 1px rgba(83,201,139,.35); }
+    #albumai-library-prototype .aip-decision-toggle button[data-decision-filter="reject"][aria-pressed="true"] { color: #ffabb1; background: rgba(255,91,101,.14); box-shadow: inset 0 0 0 1px rgba(255,91,101,.35); }
     #albumai-library-prototype .aip-favorite-filter { min-height: 36px; align-items: center; border: 0; color: var(--aip-muted); cursor: pointer; padding: 0 10px; }
     #albumai-library-prototype .aip-favorite-filter[aria-pressed="true"] { background: rgba(255,92,132,.16); color: #ff769a; box-shadow: inset 0 0 0 1px rgba(255,118,154,.5); }
 
@@ -254,15 +251,12 @@
     #albumai-library-prototype .aip-photo {
       position: relative; min-width: 0; display: flex; flex-direction: column; background: var(--aip-panel); border: 2px solid transparent;
       border-radius: 8px; overflow: hidden; cursor: pointer; user-select: none;
-      --aip-label-color: transparent; --aip-label-tint: transparent;
+      --aip-camera-color: var(--aip-cyan); --aip-camera-tint: rgba(67,185,232,.12);
       transition: border-color 100ms ease, box-shadow 100ms ease, background-color 100ms ease;
     }
     #albumai-library-prototype .aip-photo:hover { background: #202733; box-shadow: 0 8px 22px rgba(0,0,0,.24); }
     #albumai-library-prototype .aip-photo.is-selected { border-color: var(--aip-blue); box-shadow: 0 0 0 1px var(--aip-blue); }
     #albumai-library-prototype .aip-photo.is-focused { box-shadow: 0 0 0 1px var(--aip-blue), 0 0 0 3px rgba(67,185,232,.46); }
-    #albumai-library-prototype .aip-photo[data-label="red"] { --aip-label-color: var(--aip-red); --aip-label-tint: rgba(255,91,101,.18); }
-    #albumai-library-prototype .aip-photo[data-label="yellow"] { --aip-label-color: var(--aip-yellow); --aip-label-tint: rgba(244,194,13,.16); }
-    #albumai-library-prototype .aip-photo[data-label="green"] { --aip-label-color: var(--aip-green); --aip-label-tint: rgba(83,201,139,.18); }
     #albumai-library-prototype .aip-photo-media { position: relative; aspect-ratio: 4 / 3; background: #0b0d11; overflow: hidden; }
     #albumai-library-prototype .aip-photo-art { width: 100%; height: 100%; background-repeat: no-repeat; display: block; }
     #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-art { opacity: .52; }
@@ -270,7 +264,6 @@
       position: absolute; top: 7px; left: 7px; min-height: 22px; padding: 0 7px; border-radius: 5px;
       display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; background: rgba(8,11,15,.78);
     }
-    #albumai-library-prototype .aip-photo[data-decision="keep"] .aip-photo-badge { background: #168349; }
     #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-badge { background: #b6373d; }
     #albumai-library-prototype .aip-selection-mark {
       position: absolute; top: 7px; right: 7px; width: 23px; height: 23px; border-radius: 50%;
@@ -285,24 +278,23 @@
     #albumai-library-prototype .aip-photo:hover .aip-hover-tools,
     #albumai-library-prototype .aip-photo:focus-within .aip-hover-tools { opacity: 1; pointer-events: auto; }
     #albumai-library-prototype .aip-mini-actions,
-    #albumai-library-prototype .aip-stars-edit,
-    #albumai-library-prototype .aip-colors-edit { display: flex; gap: 2px; background: rgba(7,10,14,.82); border-radius: 6px; padding: 3px; }
+    #albumai-library-prototype .aip-stars-edit { display: flex; gap: 2px; background: rgba(7,10,14,.82); border-radius: 6px; padding: 3px; }
     #albumai-library-prototype .aip-mini-actions { grid-column: 2; grid-row: 1; }
     #albumai-library-prototype .aip-stars-edit { grid-column: 1 / -1; grid-row: 3; justify-self: center; }
-    #albumai-library-prototype .aip-colors-edit { grid-column: 1 / -1; grid-row: 4; justify-self: center; }
     #albumai-library-prototype .aip-hover-tools button { width: 22px; height: 22px; border: 0; background: transparent; padding: 0; cursor: pointer; border-radius: 4px; }
     #albumai-library-prototype .aip-hover-tools button:hover { background: rgba(255,255,255,.14); }
     #albumai-library-prototype .aip-stars-edit button { color: var(--aip-yellow); }
     #albumai-library-prototype .aip-hover-tools button[aria-pressed="true"] { background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,.42); }
     #albumai-library-prototype .aip-favorite-button { color: #ff769a; font-size: 17px; }
-    #albumai-library-prototype .aip-color-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
     #albumai-library-prototype .aip-photo-info { min-height: 52px; padding: 8px 9px; display: grid; align-content: start; flex: 1; gap: 4px; transition: background-color 100ms ease; }
-    #albumai-library-prototype .aip-photo[data-label]:not([data-label=""]) .aip-photo-info { background: var(--aip-label-tint); }
+    #albumai-library-prototype .aip-photo-info { background: var(--aip-camera-tint); box-shadow: inset 0 -3px 0 var(--aip-camera-color); }
     #albumai-library-prototype .aip-photo-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #albumai-library-prototype .aip-list-actions { display: none; }
     #albumai-library-prototype .aip-persistent-meta { min-height: 16px; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--aip-muted); }
     #albumai-library-prototype .aip-persistent-stars { color: var(--aip-yellow); letter-spacing: -1px; }
     #albumai-library-prototype .aip-persistent-favorite { color: #ff769a; font-size: 13px; }
+    #albumai-library-prototype .aip-grid-camera-tag { display: inline-flex; align-items: center; gap: 3px; color: var(--aip-text); font-weight: 700; }
+    #albumai-library-prototype .aip-grid-camera-tag .aip-camera-swatch { width: 7px; height: 7px; }
     #albumai-library-prototype .aip-burst-review { margin-left: auto; min-height: 20px; padding: 0 6px; border: 1px solid var(--aip-line); border-radius: 5px; background: var(--aip-panel-3); color: var(--aip-muted); font-size: 10px; cursor: pointer; }
     #albumai-library-prototype .aip-burst-review[aria-pressed="true"] { border-color: var(--aip-green); color: var(--aip-green); background: rgba(83,201,139,.1); }
     #albumai-library-prototype .aip-burst-filter { margin: 2px 8px 8px; padding: 8px; border: 1px solid var(--aip-line-soft); border-radius: 7px; background: var(--aip-panel); }
@@ -323,7 +315,6 @@
     #albumai-library-prototype .aip-grid.is-list .aip-list-actions button:hover { background: var(--aip-panel-3); color: var(--aip-text); }
     #albumai-library-prototype .aip-grid.is-list .aip-list-actions button[aria-pressed="true"] { border-color: currentColor; background: var(--aip-panel-3); }
     #albumai-library-prototype .aip-grid.is-list .aip-list-actions [data-photo-favorite] { color: #ff769a; }
-    #albumai-library-prototype .aip-grid.is-list .aip-list-actions [data-photo-action="keep"] { color: var(--aip-green); }
     #albumai-library-prototype .aip-grid.is-list .aip-list-actions [data-photo-action="reject"] { color: var(--aip-red); }
     #albumai-library-prototype .aip-grid.is-list .aip-persistent-meta { display: none; }
     #albumai-library-prototype .aip-grid.is-list .aip-burst-review { display: none; }
@@ -332,19 +323,10 @@
     #albumai-library-prototype .aip-list-stars-edit { display: inline-flex; gap: 0; }
     #albumai-library-prototype .aip-list-stars-edit button { width: 15px; min-height: 24px; padding: 0; border: 0; background: transparent; color: var(--aip-yellow); cursor: pointer; font-size: 12px; }
     #albumai-library-prototype .aip-list-stars-edit button:hover { transform: scale(1.16); }
-    #albumai-library-prototype .aip-list-label { display: inline-flex; align-items: center; min-height: 20px; padding: 0 7px; border-radius: 10px; font-size: 10px; font-weight: 700; }
-    #albumai-library-prototype .aip-list-label[data-color="red"] { color: #ff9da4; background: rgba(255,91,101,.16); box-shadow: inset 0 0 0 1px rgba(255,91,101,.28); }
-    #albumai-library-prototype .aip-list-label[data-color="yellow"] { color: #ffe17a; background: rgba(244,194,13,.14); box-shadow: inset 0 0 0 1px rgba(244,194,13,.25); }
-    #albumai-library-prototype .aip-list-label[data-color="green"] { color: #9ce4bd; background: rgba(83,201,139,.15); box-shadow: inset 0 0 0 1px rgba(83,201,139,.27); }
-    #albumai-library-prototype .aip-list-label-select { width: 100%; min-height: 25px; padding: 0 5px; border: 1px solid var(--aip-line); border-radius: 6px; background: var(--aip-panel-3); color: var(--aip-text); font-size: 10px; cursor: pointer; }
-    #albumai-library-prototype .aip-list-label-select:has(option[value="red"]:checked) { border-color: rgba(255,91,101,.45); background: rgba(255,91,101,.16); color: #ffafb5; }
-    #albumai-library-prototype .aip-list-label-select:has(option[value="yellow"]:checked) { border-color: rgba(244,194,13,.42); background: rgba(244,194,13,.14); color: #ffe17a; }
-    #albumai-library-prototype .aip-list-label-select:has(option[value="green"]:checked) { border-color: rgba(83,201,139,.44); background: rgba(83,201,139,.15); color: #9ce4bd; }
-    #albumai-library-prototype .aip-list-colors-edit { display: inline-flex; align-items: center; gap: 3px; }
-    #albumai-library-prototype .aip-list-colors-edit button { width: 18px; height: 24px; padding: 0; display: grid; place-items: center; border: 1px solid transparent; border-radius: 5px; background: transparent; cursor: pointer; }
-    #albumai-library-prototype .aip-list-colors-edit button:hover { background: var(--aip-panel-3); }
-    #albumai-library-prototype .aip-list-colors-edit button[aria-pressed="true"] { border-color: var(--aip-blue); background: var(--aip-blue-soft); }
-    #albumai-library-prototype .aip-list-color-dot { width: 12px; height: 7px; border-radius: 999px; }
+    #albumai-library-prototype .aip-camera-tag { display: inline-flex; align-items: center; gap: 5px; min-height: 22px; padding: 0 7px; border-radius: 999px; color: var(--aip-text); background: var(--aip-camera-tint); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aip-camera-color) 55%, transparent); font-size: 10px; font-weight: 700; }
+    #albumai-library-prototype .aip-camera-swatch { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--aip-camera-color); }
+    #albumai-library-prototype .aip-camera-facet-label { display: inline-flex; align-items: center; min-width: 0; gap: 6px; }
+    #albumai-library-prototype .aip-camera-code { color: var(--aip-text); font-weight: 700; }
     #albumai-library-prototype .aip-grid.is-list .aip-hover-tools { display: none; }
 
     #albumai-library-prototype .aip-empty { display: none; place-items: center; min-height: 280px; color: var(--aip-muted); text-align: center; }
@@ -506,8 +488,8 @@
               <option value="date-desc">Date created · Newest</option>
               <option value="rating-asc">Rating · Lowest</option>
               <option value="rating-desc">Rating · Highest</option>
-              <option value="label-asc">Color label</option>
-              <option value="label-desc">Color label · Reverse</option>
+              <option value="camera-asc">Camera tag · C1–C9</option>
+              <option value="camera-desc">Camera tag · Reverse</option>
               <option value="type-asc">Photo type</option>
               <option value="type-desc">Photo type · Reverse</option>
               <option value="size-asc">File size · Smallest</option>
@@ -518,8 +500,8 @@
             </select>
             <div class="aip-decision-toggle" aria-label="Decision filter">
               <button data-decision-filter="all" aria-pressed="true">All</button>
-              <button data-decision-filter="keep" aria-pressed="false">✓ Keep</button>
-              <button data-decision-filter="reject" aria-pressed="false">× Reject</button>
+              <button data-decision-filter="included" aria-pressed="false">Included</button>
+              <button data-decision-filter="reject" aria-pressed="false">Rejected</button>
             </div>
             <button id="aip-favorite-filter" class="aip-favorite-filter" aria-pressed="false" aria-label="Show favorites only">♥ Favorites</button>
             <button id="aip-clear-filters" class="aip-text-button">Clear filters</button>
@@ -527,7 +509,7 @@
         </div>
 
         <div id="aip-viewport" class="aip-library-viewport">
-          <div class="aip-list-head" aria-label="Sortable photo columns"><span></span><button data-list-sort="name" aria-sort="none">Name</button><button data-list-sort="date" aria-sort="none">Date created</button><button data-list-sort="size" aria-sort="none">Size</button><button data-list-sort="type" aria-sort="none">Type</button><button data-list-sort="rating" aria-sort="none">Rating</button><button data-list-sort="label" aria-sort="none">Label</button><button data-list-sort="keywords" aria-sort="none">Keywords</button></div>
+          <div class="aip-list-head" aria-label="Sortable photo columns"><span></span><button data-list-sort="name" aria-sort="none">Name</button><button data-list-sort="date" aria-sort="none">Date created</button><button data-list-sort="size" aria-sort="none">Size</button><button data-list-sort="type" aria-sort="none">Type</button><button data-list-sort="rating" aria-sort="none">Rating</button><button data-list-sort="camera" aria-sort="none">Camera tag</button><button data-list-sort="keywords" aria-sort="none">Keywords</button></div>
           <div id="aip-photo-grid" class="aip-grid" role="list" aria-live="polite"></div>
           <div id="aip-empty" class="aip-empty"><div><strong>No matching photos</strong><br><span>Clear filters to see the full library.</span></div></div>
         </div>
@@ -560,7 +542,7 @@
           <button class="aip-properties-heading" id="aip-properties-toggle" aria-expanded="true"><span aria-hidden="true">⌄</span> File Properties</button>
           <div class="aip-properties-body"><span>Filename</span><strong id="aip-property-name"></strong><span>Document type</span><strong>JPEG image</strong><span>Date created</span><strong id="aip-property-date"></strong><span>File size</span><strong>24.8 MB</strong><span>Dimensions</span><strong>7008 × 4672</strong><span>Resolution</span><strong>300 ppi</strong><span>Bit depth</span><strong>8</strong><span>Color mode</span><strong>RGB</strong></div>
         </section>
-        <div class="aip-shortcuts"><strong>Fast review</strong><br><kbd>← ↑ ↓ →</kbd> navigate · <kbd>Space</kbd> preview<br><kbd>F</kbd> favorite · <kbd>K</kbd> keep · <kbd>R</kbd> reject<br><kbd>0–5</kbd> stars · <kbd>6–8</kbd> labels · <kbd>9</kbd> clear label<br><kbd>V</kbd> verify selected Burst photos</div>
+        <div class="aip-shortcuts"><strong>Fast review</strong><br><kbd>← ↑ ↓ →</kbd> navigate · <kbd>Space</kbd> preview<br><kbd>F</kbd> favorite · <kbd>R</kbd> reject / unreject<br><kbd>0–5</kbd> stars · <kbd>V</kbd> verify selected Burst photos</div>
       </aside>
     </main>
 
@@ -574,27 +556,45 @@
     (() => {
       const root = document.getElementById('albumai-library-prototype');
       const demoSheet = './albumai-library-assets/demo-wedding-contact-sheet.png';
-      const photos = [
-        ['ZSA00181.jpg','Getting Ready','Camera A','Single photo',4,'green','keep','09:12 AM'],
-        ['ZSA00184.jpg','Getting Ready','Camera B','Single photo',5,'yellow','keep','09:13 AM'],
-        ['ZSA00187.jpg','Ceremony','Camera A','Burst photo',4,'red','keep','10:41 AM'],
-        ['ZSA00193.jpg','Ceremony','Camera C','Burst photo',3,'','', '10:42 AM'],
-        ['ZSA00209.jpg','Ceremony','Camera B','Single photo',5,'green','keep','10:48 AM'],
-        ['ZSA00223.jpg','Family Groups','Camera A','Single photo',4,'yellow','keep','11:25 AM'],
-        ['ZSA00224.jpg','Family Groups','Camera C','Burst photo',2,'red','reject','11:25 AM'],
-        ['ZSA00227.jpg','Family Groups','Camera B','Single photo',5,'green','keep','11:28 AM'],
-        ['ZSA00230.jpg','Reception','Camera D','Single photo',0,'','', '06:45 PM'],
-        ['ZSA00236.jpg','Reception','Camera A','Burst photo',3,'yellow','keep','06:51 PM'],
-        ['ZSA00237.jpg','Reception','Camera D','Burst photo',2,'red','reject','06:52 PM'],
-        ['ZSA00282.jpg','Reception','Camera B','Single photo',4,'green','keep','07:18 PM']
-      ].map((p, index) => ({ id: index + 1, name:p[0], frame:index, event:p[1], camera:p[2], type:p[3], rating:p[4], label:p[5], decision:p[6], time:p[7], order:index, favorite:[1,2,5,8].includes(index + 1), burstVerified:[3,10].includes(index + 1), date:'Sep 02, 2026', size:18.6 + index * .7, pixels:32.7 + index * .4 }));
+      const cameraPalette = [
+        { tag:'C1', color:'#43b9e8', tint:'rgba(67,185,232,.15)' },
+        { tag:'C2', color:'#f4c20d', tint:'rgba(244,194,13,.14)' },
+        { tag:'C3', color:'#53c98b', tint:'rgba(83,201,139,.15)' },
+        { tag:'C4', color:'#b58cff', tint:'rgba(181,140,255,.15)' },
+        { tag:'C5', color:'#ff7d96', tint:'rgba(255,125,150,.15)' },
+        { tag:'C6', color:'#ff9f43', tint:'rgba(255,159,67,.15)' }
+      ];
+      const photoRows = [
+        ['ZSA00181.jpg','Getting Ready','Camera A','Single photo',4,'','09:12 AM'],
+        ['ZSA00184.jpg','Getting Ready','Camera B','Single photo',5,'','09:13 AM'],
+        ['ZSA00187.jpg','Ceremony','Camera A','Burst photo',4,'','10:41 AM'],
+        ['ZSA00193.jpg','Ceremony','Camera C','Burst photo',3,'','10:42 AM'],
+        ['ZSA00209.jpg','Ceremony','Camera B','Single photo',5,'','10:48 AM'],
+        ['ZSA00223.jpg','Family Groups','Camera A','Single photo',4,'','11:25 AM'],
+        ['ZSA00224.jpg','Family Groups','Camera C','Burst photo',2,'reject','11:25 AM'],
+        ['ZSA00227.jpg','Family Groups','Camera B','Single photo',5,'','11:28 AM'],
+        ['ZSA00230.jpg','Reception','Camera D','Single photo',0,'','06:45 PM'],
+        ['ZSA00236.jpg','Reception','Camera A','Burst photo',3,'','06:51 PM'],
+        ['ZSA00237.jpg','Reception','Camera D','Burst photo',2,'reject','06:52 PM'],
+        ['ZSA00282.jpg','Reception','Camera B','Single photo',4,'','07:18 PM']
+      ];
+      const cameraNames = [...new Set(photoRows.map(photo=>photo[2]))];
+      function cameraMeta(camera) {
+        const index = Math.max(0, cameraNames.indexOf(camera));
+        const base = cameraPalette[index % cameraPalette.length];
+        return { ...base, tag:`C${index + 1}` };
+      }
+      const photos = photoRows.map((p, index) => {
+        const camera = cameraMeta(p[2]);
+        return { id:index + 1, name:p[0], frame:index, event:p[1], camera:p[2], cameraTag:camera.tag, cameraColor:camera.color, cameraTint:camera.tint, type:p[3], rating:p[4], decision:p[5], time:p[6], order:index, favorite:[1,2,5,8].includes(index + 1), burstVerified:[3,10].includes(index + 1), date:'Sep 02, 2026', size:18.6 + index * .7, pixels:32.7 + index * .4 };
+      });
 
       const state = {
         photos,
         selected: new Set([1]), anchor: 1, focused: 1,
         view: 'grid', search: '', sort: 'manual', decision: 'all', favoriteOnly: false,
         facets: { event:new Set(), camera:new Set(), type:new Set() },
-        ratingMode: '=', rating: null, label: null, burstReview: 'all',
+        ratingMode: '=', rating: null, burstReview: 'all',
         collapsed: new Set(),
         history: [], future: []
       };
@@ -606,7 +606,7 @@
       let spaceDown = false;
 
       function cloneSnapshot() {
-        return state.photos.map(p => ({id:p.id,rating:p.rating,label:p.label,decision:p.decision,event:p.event,camera:p.camera,favorite:p.favorite,burstVerified:p.burstVerified}));
+        return state.photos.map(p => ({id:p.id,rating:p.rating,decision:p.decision,event:p.event,camera:p.camera,favorite:p.favorite,burstVerified:p.burstVerified}));
       }
       function remember() { state.history.push(cloneSnapshot()); if (state.history.length > 50) state.history.shift(); state.future = []; updateHistory(); }
       function restore(snapshot) { snapshot.forEach(s => Object.assign(state.photos.find(p=>p.id===s.id), s)); render(); }
@@ -623,7 +623,6 @@
       function unique(field) { return [...new Set(state.photos.map(p=>p[field]))]; }
       function count(field, value) { return state.photos.filter(p=>p[field]===value).length; }
       function ratingCount(value) { return state.photos.filter(p=>p.rating===value).length; }
-      function labelCount(value) { return state.photos.filter(p=>value==='none'?!p.label:p.label===value).length; }
       function facetGroup(key, title, allLabel, action) {
         const values = unique(key);
         const selected = state.facets[key];
@@ -631,7 +630,7 @@
           <button class="aip-facet-heading" data-collapse="${key}" aria-expanded="${!state.collapsed.has(key)}"><span>${title}</span><span>${state.collapsed.has(key)?'+':'−'}</span></button>
           <div class="aip-facet-list">
             <button class="aip-facet-option" data-facet="${key}" data-value="__all" aria-pressed="${!selected.size}"><span>${allLabel}</span><span class="aip-facet-count">${state.photos.length}</span></button>
-            ${values.map(value=>`<button class="aip-facet-option" data-facet="${key}" data-value="${value}" aria-pressed="${selected.has(value)}"><span>${value}</span><span class="aip-facet-count">${count(key,value)}</span></button>`).join('')}
+            ${values.map(value=>{ const camera=key==='camera'?cameraMeta(value):null; const label=camera?`<span class="aip-camera-facet-label" style="--aip-camera-color:${camera.color}"><span class="aip-camera-swatch"></span><span class="aip-camera-code">${camera.tag}</span><span>· ${value}</span></span>`:`<span>${value}</span>`; return `<button class="aip-facet-option" data-facet="${key}" data-value="${value}" aria-pressed="${selected.has(value)}">${label}<span class="aip-facet-count">${count(key,value)}</span></button>`; }).join('')}
             ${key==='type' ? `<div class="aip-burst-filter"><strong>Burst manual verification</strong><div><button data-burst-filter="pending" aria-pressed="${state.burstReview==='pending'}">Pending · ${state.photos.filter(p=>p.type==='Burst photo'&&!p.burstVerified).length}</button><button data-burst-filter="verified" aria-pressed="${state.burstReview==='verified'}">Verified · ${state.photos.filter(p=>p.type==='Burst photo'&&p.burstVerified).length}</button></div></div>` : ''}
             ${action ? `<button class="aip-facet-option aip-facet-action" data-action="${action}"><span>+ ${action==='new-event'?'New event':'Add / align camera'}</span></button>` : ''}
           </div></section>`;
@@ -640,13 +639,12 @@
       function renderFacets() {
         const modeName={'=':'Exact','≥':'At least','≤':'At most'}[state.ratingMode];
         const ratingName=state.rating===null?'Any rating':state.rating===0?'Unrated':`${modeName} ${state.rating} star${state.rating===1?'':'s'}`;
-        const labelName=state.label===null?'Any color':state.label==='none'?'No color':`${state.label[0].toUpperCase()+state.label.slice(1)} label`;
-        const reviewActive=state.rating!==null||state.label!==null;
+        const reviewActive=state.rating!==null;
         root.querySelector('#aip-facets').innerHTML = facetGroup('event','Events','All photos','new-event') + facetGroup('camera','Cameras','All cameras','new-camera') + facetGroup('type','Photo type','All types','') + `
           <section class="aip-facet aip-rating-panel ${state.collapsed.has('ratings')?'is-collapsed':''}" data-facet-section="ratings">
             <button class="aip-facet-heading" data-collapse="ratings" aria-expanded="${!state.collapsed.has('ratings')}"><span>Review Filters</span><span>${state.collapsed.has('ratings')?'+':'−'}</span></button>
             <div class="aip-facet-list">
-              <div class="aip-review-filter-summary"><span><small>Showing</small><strong>${ratingName} · ${labelName}</strong></span><button data-clear-review aria-label="Clear rating and color filters" ${reviewActive?'':'disabled'}>Reset</button></div>
+              <div class="aip-review-filter-summary"><span><small>Showing</small><strong>${ratingName}</strong></span><button data-clear-review aria-label="Clear rating filter" ${reviewActive?'':'disabled'}>Reset</button></div>
               <div class="aip-rating-caption">Rating match</div>
               <div class="aip-rating-mode">
                 ${[['=','Exact'],['≥','At least'],['≤','At most']].map(([m,name])=>`<button data-rating-mode="${m}" aria-pressed="${state.ratingMode===m}">${name}</button>`).join('')}
@@ -656,11 +654,6 @@
                 <button data-rating-filter="0" aria-pressed="${state.rating===0}"><span>Unrated</span><span class="aip-filter-count">${ratingCount(0)}</span></button>
                 ${[1,2,3,4,5].map(n=>`<button data-rating-filter="${n}" aria-label="${n} star rating" aria-pressed="${state.rating===n}"><span>${'★'.repeat(n)}</span><span class="aip-filter-count">${ratingCount(n)}</span></button>`).join('')}
               </div>
-              <div class="aip-rating-caption">Color label</div>
-              <div class="aip-label-row">
-                <button data-label-filter="none" aria-label="No color label, ${labelCount('none')} photos" title="No color label · ${labelCount('none')}" aria-pressed="${state.label==='none'}"><span class="aip-label-swatch" style="border:1px solid var(--aip-muted)"></span></button>
-                ${['red','yellow','green'].map(color=>`<button data-label-filter="${color}" aria-label="${color} label, ${labelCount(color)} photos" title="${color} label · ${labelCount(color)}" aria-pressed="${state.label===color}"><span class="aip-label-swatch" style="background:var(--aip-${color})"></span></button>`).join('')}
-              </div>
             </div>
           </section>`;
       }
@@ -669,20 +662,19 @@
         let list = state.photos.filter(p => {
           const facetPass = Object.entries(state.facets).every(([key,set]) => !set.size || set.has(p[key]));
           const searchPass = !state.search || p.name.toLowerCase().includes(state.search.toLowerCase());
-          const decisionPass = state.decision==='all' || p.decision===state.decision;
+          const decisionPass = state.decision==='all' || (state.decision==='included' ? p.decision!=='reject' : p.decision==='reject');
           const favoritePass = !state.favoriteOnly || p.favorite;
           let ratingPass = true;
           if (state.rating !== null) ratingPass = state.ratingMode==='=' ? p.rating===state.rating : state.ratingMode==='≥' ? p.rating>=state.rating : p.rating<=state.rating;
-          const labelPass = state.label===null || (state.label==='none' ? !p.label : p.label===state.label);
           const burstPass = state.burstReview==='all' || (p.type==='Burst photo' && (state.burstReview==='verified' ? p.burstVerified : !p.burstVerified));
-          return facetPass && searchPass && decisionPass && favoritePass && ratingPass && labelPass && burstPass;
+          return facetPass && searchPass && decisionPass && favoritePass && ratingPass && burstPass;
         });
         const sorters = {
           'name-asc':(a,b)=>a.name.localeCompare(b.name),'name-desc':(a,b)=>b.name.localeCompare(a.name),
           'time-asc':(a,b)=>a.time.localeCompare(b.time),'time-desc':(a,b)=>b.time.localeCompare(a.time),
           'date-asc':(a,b)=>a.order-b.order,'date-desc':(a,b)=>b.order-a.order,
           'rating-asc':(a,b)=>a.rating-b.rating,'rating-desc':(a,b)=>b.rating-a.rating,
-          'label-asc':(a,b)=>(a.label||'zzz').localeCompare(b.label||'zzz'),'label-desc':(a,b)=>(b.label||'').localeCompare(a.label||''),
+          'camera-asc':(a,b)=>a.cameraTag.localeCompare(b.cameraTag,undefined,{numeric:true}),'camera-desc':(a,b)=>b.cameraTag.localeCompare(a.cameraTag,undefined,{numeric:true}),
           'type-asc':(a,b)=>a.type.localeCompare(b.type),'type-desc':(a,b)=>b.type.localeCompare(a.type),
           'size-asc':(a,b)=>a.size-b.size,'size-desc':(a,b)=>b.size-a.size,
           'keywords-asc':(a,b)=>a.event.localeCompare(b.event),'keywords-desc':(a,b)=>b.event.localeCompare(a.event),
@@ -705,18 +697,19 @@
       function photoCard(p) {
         const stars = p.rating ? '★'.repeat(p.rating) : '';
         const favorite = p.favorite ? '<span class="aip-persistent-favorite" aria-label="Favorite">♥</span>' : '';
-        const badge = p.decision==='keep'?'✓ KEEP':p.decision==='reject'?'× REJECT':'REVIEW';
+        const badge = p.decision==='reject'?'<span class="aip-photo-badge">× REJECTED</span>':'';
         const burstReview = p.type==='Burst photo' ? `<button class="aip-burst-review" data-burst-verify aria-pressed="${p.burstVerified}" aria-label="${p.burstVerified?'Mark burst as pending verification':'Manually verify burst photo'}">${p.burstVerified?'✓ Verified':'Verify burst'}</button>` : '';
-        return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''} ${state.focused===p.id?'is-focused':''}" role="listitem" data-photo-id="${p.id}" data-label="${p.label}" data-decision="${p.decision}" draggable="true" tabindex="${state.focused===p.id?'0':'-1'}" aria-label="${p.name}, ${state.selected.has(p.id)?'selected, ':''}${p.favorite?'favorite, ':''}${p.rating} stars, ${p.label?p.label+' label, ':''}${p.decision||'review'}">
+        const rejectLabel = p.decision==='reject'?'Unreject':'Reject';
+        const cameraStyle = `--aip-camera-color:${p.cameraColor};--aip-camera-tint:${p.cameraTint}`;
+        return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''} ${state.focused===p.id?'is-focused':''}" role="listitem" data-photo-id="${p.id}" data-camera-tag="${p.cameraTag}" data-decision="${p.decision}" style="${cameraStyle}" draggable="true" tabindex="${state.focused===p.id?'0':'-1'}" aria-label="${p.name}, ${state.selected.has(p.id)?'selected, ':''}${p.favorite?'favorite, ':''}${p.rating} stars, ${p.cameraTag}, ${p.camera}, ${p.decision==='reject'?'rejected':'included'}">
           <div class="aip-photo-media"><div class="aip-photo-art" role="img" aria-label="${p.name}" style="${frameStyle(p)}"></div>
-            <span class="aip-photo-badge">${badge}</span><span class="aip-selection-mark">✓</span>
+            ${badge}<span class="aip-selection-mark">✓</span>
             <div class="aip-hover-tools">
-              <span class="aip-mini-actions"><button class="aip-favorite-button" data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button data-photo-action="reject" aria-label="Reject" aria-pressed="${p.decision==='reject'}">×</button><button data-photo-action="keep" aria-label="Keep" aria-pressed="${p.decision==='keep'}">✓</button></span>
+              <span class="aip-mini-actions"><button class="aip-favorite-button" data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button data-photo-action="reject" aria-label="${rejectLabel}" title="${rejectLabel}" aria-pressed="${p.decision==='reject'}">×</button></span>
               <span class="aip-stars-edit" aria-label="Star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="${n} stars${p.rating===n?', selected':''}" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span>
-              <span class="aip-colors-edit" aria-label="Color label"><button data-photo-label="red" aria-label="Red label" aria-pressed="${p.label==='red'}"><span class="aip-color-dot" style="background:var(--aip-red)"></span></button><button data-photo-label="yellow" aria-label="Yellow label" aria-pressed="${p.label==='yellow'}"><span class="aip-color-dot" style="background:var(--aip-yellow)"></span></button><button data-photo-label="green" aria-label="Green label" aria-pressed="${p.label==='green'}"><span class="aip-color-dot" style="background:var(--aip-green)"></span></button></span>
             </div>
           </div>
-          <div class="aip-photo-info"><span class="aip-photo-name"><span class="aip-photo-filename">${p.name}</span><span class="aip-list-actions" aria-label="Review actions"><button data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button data-photo-action="reject" aria-label="Reject" aria-pressed="${p.decision==='reject'}">×</button><button data-photo-action="keep" aria-label="Keep" aria-pressed="${p.decision==='keep'}">✓</button></span></span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span>${p.event}</span>${burstReview}</span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating"><span class="aip-list-stars-edit" aria-label="Edit star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="Set ${n} stars" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span></span><span class="aip-list-cell"><span class="aip-list-colors-edit" aria-label="Edit color label"><button data-photo-label-clear aria-label="Clear color label" title="No color label" aria-pressed="${!p.label}"><span class="aip-list-color-dot" style="border:1px solid var(--aip-muted)"></span></button>${['red','yellow','green'].map(color=>`<button data-photo-label="${color}" aria-label="Set ${color} label" title="${color} label" aria-pressed="${p.label===color}"><span class="aip-list-color-dot" style="background:var(--aip-${color})"></span></button>`).join('')}</span></span><span class="aip-list-cell">${p.event}</span></div>
+          <div class="aip-photo-info"><span class="aip-photo-name"><span class="aip-photo-filename">${p.name}</span><span class="aip-list-actions" aria-label="Review actions"><button data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button data-photo-action="reject" aria-label="${rejectLabel}" title="${rejectLabel}" aria-pressed="${p.decision==='reject'}">×</button></span></span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span class="aip-grid-camera-tag" title="${p.camera}"><span class="aip-camera-swatch"></span>${p.cameraTag}</span><span>${p.event}</span>${burstReview}</span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating"><span class="aip-list-stars-edit" aria-label="Edit star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="Set ${n} stars" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span></span><span class="aip-list-cell"><span class="aip-camera-tag" style="${cameraStyle}" title="${p.camera}"><span class="aip-camera-swatch"></span>${p.cameraTag}</span></span><span class="aip-list-cell">${p.event}</span></div>
         </article>`;
       }
 
@@ -728,7 +721,7 @@
         const element=document.activeElement;
         if(!element||!root.contains(element))return null;
         if(element.id)return {id:element.id};
-        const attributes=['data-facet','data-rating-mode','data-rating-filter','data-label-filter','data-burst-filter','data-decision-filter','data-collapse'];
+        const attributes=['data-facet','data-rating-mode','data-rating-filter','data-burst-filter','data-decision-filter','data-collapse'];
         const name=attributes.find(attribute=>element.hasAttribute?.(attribute));
         return name?{name,value:element.getAttribute(name),detail:element.getAttribute('data-value')}:null;
       }
@@ -755,7 +748,7 @@
         root.querySelector('#aip-heading-count').textContent = `${list.length} photos · ${state.selected.size} selected`;
         root.querySelector('#aip-view-status').textContent = state.view==='grid'?'Grid':state.view==='compact'?'Compact':'List';
         root.querySelector('#aip-sort-status').textContent = root.querySelector('#aip-sort').selectedOptions[0].textContent;
-        root.querySelectorAll('[data-list-sort]').forEach(button=>{ const active=state.sort.startsWith(`${button.dataset.listSort}-`); button.setAttribute('aria-sort',active?(state.sort.endsWith('-asc')?'ascending':'descending'):'none'); button.textContent=`${button.dataset.listSort==='date'?'Date created':button.dataset.listSort[0].toUpperCase()+button.dataset.listSort.slice(1)}${active?(state.sort.endsWith('-asc')?' ↑':' ↓'):''}`; });
+        root.querySelectorAll('[data-list-sort]').forEach(button=>{ const active=state.sort.startsWith(`${button.dataset.listSort}-`); const names={date:'Date created',camera:'Camera tag'}; button.setAttribute('aria-sort',active?(state.sort.endsWith('-asc')?'ascending':'descending'):'none'); button.textContent=`${names[button.dataset.listSort]||button.dataset.listSort[0].toUpperCase()+button.dataset.listSort.slice(1)}${active?(state.sort.endsWith('-asc')?' ↑':' ↓'):''}`; });
         root.querySelector('#aip-grid-view').setAttribute('aria-pressed', state.view==='grid');
         root.querySelector('#aip-compact-view').setAttribute('aria-pressed', state.view==='compact');
         root.querySelector('#aip-list-view').setAttribute('aria-pressed', state.view==='list');
@@ -771,8 +764,8 @@
       function updateInspector() {
         const p = currentPhoto();
         applyFrame(root.querySelector('#aip-preview-image'), p); root.querySelector('#aip-preview-name').textContent = p.name;
-        root.querySelector('#aip-preview-context').textContent = `${p.event} · ${p.rating || 'Unrated'}${p.rating?'★':''}`;
-        root.querySelector('#aip-preview-time').textContent = p.time; root.querySelector('#aip-preview-camera').textContent = p.camera;
+        root.querySelector('#aip-preview-context').textContent = `${p.event} · ${p.cameraTag} · ${p.rating || 'Unrated'}${p.rating?'★':''}`;
+        root.querySelector('#aip-preview-time').textContent = p.time; root.querySelector('#aip-preview-camera').textContent = `${p.cameraTag} · ${p.camera}`;
         root.querySelector('#aip-property-name').textContent = p.name; root.querySelector('#aip-property-date').textContent = `${p.date} · ${p.time}`;
       }
       function setSelection(id, event) {
@@ -787,10 +780,9 @@
       function targetIds() { return state.selected.size ? [...state.selected] : [state.focused]; }
       function targetPhotos() { return targetIds().map(id=>state.photos.find(p=>p.id===id)).filter(Boolean); }
       function mutateSelected(mutator) { remember(); targetIds().forEach(id=>mutator(state.photos.find(p=>p.id===id))); render({focusCard:true}); }
-      function setDecision(decision) { const clear=targetPhotos().every(p=>p.decision===decision);mutateSelected(p=>p.decision=clear?'':decision); }
+      function toggleReject() { const clear=targetPhotos().every(p=>p.decision==='reject');mutateSelected(p=>p.decision=clear?'':'reject'); }
       function setFavorite() { const clear=targetPhotos().every(p=>p.favorite);mutateSelected(p=>p.favorite=!clear); }
       function setRating(rating) { const clear=targetPhotos().every(p=>p.rating===rating);mutateSelected(p=>p.rating=clear?0:rating); }
-      function setLabel(label) { const clear=targetPhotos().every(p=>p.label===label);mutateSelected(p=>p.label=clear?'':label); }
       function setBurstVerified() { const bursts=targetPhotos().filter(p=>p.type==='Burst photo'); if(!bursts.length){showToast('Manual verification is available for Burst photos.');return;} const verified=bursts.every(p=>p.burstVerified); remember();bursts.forEach(p=>p.burstVerified=!verified);render({focusCard:true}); }
 
       function moveFocus(delta, extend=false, additive=false) {
@@ -811,24 +803,23 @@
       function openPreview() {
         const p=currentPhoto(), box=root.querySelector('#aip-lightbox');
         applyFrame(root.querySelector('#aip-lightbox-image'), p); root.querySelector('#aip-lightbox-name').textContent=p.name;
-        root.querySelector('#aip-lightbox-event').textContent=`Event · ${p.event}`; root.querySelector('#aip-lightbox-camera').textContent=`Camera · ${p.camera}`;
+        root.querySelector('#aip-lightbox-event').textContent=`Event · ${p.event}`; root.querySelector('#aip-lightbox-camera').textContent=`Camera · ${p.cameraTag} · ${p.camera}`;
         root.querySelector('#aip-lightbox-rating').textContent=`Rating · ${p.rating?p.rating+' stars':'Unrated'}`; box.classList.add('is-visible'); box.setAttribute('aria-hidden','false');
       }
       function closePreview(){ const box=root.querySelector('#aip-lightbox'); box.classList.remove('is-visible'); box.setAttribute('aria-hidden','true'); }
 
       root.addEventListener('click', event => {
         const card=event.target.closest('[data-photo-id]');
-        const action=event.target.closest('[data-photo-action]'); const favorite=event.target.closest('[data-photo-favorite]'); const rating=event.target.closest('[data-photo-rating]'); const label=event.target.closest('[data-photo-label]'); const clearLabel=event.target.closest('[data-photo-label-clear]'); const burstVerify=event.target.closest('[data-burst-verify]');
-        if(card && (action||favorite||rating||label||clearLabel||burstVerify)) { const id=+card.dataset.photoId;if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;} if(action)setDecision(action.dataset.photoAction); if(favorite)setFavorite(); if(rating)setRating(+rating.dataset.photoRating); if(label)setLabel(label.dataset.photoLabel); if(clearLabel)mutateSelected(p=>p.label=''); if(burstVerify)setBurstVerified(); return; }
+        const action=event.target.closest('[data-photo-action]'); const favorite=event.target.closest('[data-photo-favorite]'); const rating=event.target.closest('[data-photo-rating]'); const burstVerify=event.target.closest('[data-burst-verify]');
+        if(card && (action||favorite||rating||burstVerify)) { const id=+card.dataset.photoId;if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;} if(action)toggleReject(); if(favorite)setFavorite(); if(rating)setRating(+rating.dataset.photoRating); if(burstVerify)setBurstVerified(); return; }
         if(card){setSelection(+card.dataset.photoId,event);return;}
         const facet=event.target.closest('[data-facet]');
         if(facet){ const key=facet.dataset.facet,value=facet.dataset.value,set=state.facets[key]; if(value==='__all'){set.clear();} else if(event.ctrlKey||event.metaKey){set.has(value)?set.delete(value):set.add(value);} else if(set.size===1&&set.has(value)){set.clear();} else {set.clear();set.add(value);} render(); return; }
         const collapse=event.target.closest('[data-collapse]'); if(collapse){const key=collapse.dataset.collapse;state.collapsed.has(key)?state.collapsed.delete(key):state.collapsed.add(key);render();root.querySelector(`[data-collapse="${key}"]`)?.focus();return;}
         const mode=event.target.closest('[data-rating-mode]'); if(mode){state.ratingMode=state.ratingMode===mode.dataset.ratingMode?'=':mode.dataset.ratingMode;render();return;}
         const rf=event.target.closest('[data-rating-filter]'); if(rf){const n=+rf.dataset.ratingFilter;state.rating=state.rating===n?null:n;render();return;}
-        const lf=event.target.closest('[data-label-filter]'); if(lf){state.label=state.label===lf.dataset.labelFilter?null:lf.dataset.labelFilter;render();return;}
         const bf=event.target.closest('[data-burst-filter]'); if(bf){state.burstReview=state.burstReview===bf.dataset.burstFilter?'all':bf.dataset.burstFilter;render();return;}
-        const clearReview=event.target.closest('[data-clear-review]'); if(clearReview){state.rating=null;state.label=null;state.ratingMode='=';render();return;}
+        const clearReview=event.target.closest('[data-clear-review]'); if(clearReview){state.rating=null;state.ratingMode='=';render();return;}
         const df=event.target.closest('[data-decision-filter]'); if(df){state.decision=df.dataset.decisionFilter;render();return;}
         const future=event.target.closest('[data-future]'); if(future){showToast(`${future.dataset.future} is reserved for the next prototype stage.`);return;}
         const inspector=event.target.closest('[data-inspector-message]'); if(inspector){showToast(`${inspector.dataset.inspectorMessage} is available in a later workspace stage.`);return;}
@@ -837,14 +828,14 @@
 
       root.querySelector('#aip-search').addEventListener('input',e=>{state.search=e.target.value;render();});
       root.querySelector('#aip-sort').addEventListener('change',e=>{state.sort=e.target.value;render();});
-      root.querySelector('.aip-list-head').addEventListener('click',e=>{const button=e.target.closest('[data-list-sort]');if(!button)return;const field=button.dataset.listSort;const defaults={name:'asc',date:'desc',size:'desc',type:'asc',rating:'desc',label:'asc',keywords:'asc'};const direction=state.sort===`${field}-asc`?'desc':state.sort===`${field}-desc`?'asc':defaults[field];state.sort=`${field}-${direction}`;root.querySelector('#aip-sort').value=state.sort;render();});
+      root.querySelector('.aip-list-head').addEventListener('click',e=>{const button=e.target.closest('[data-list-sort]');if(!button)return;const field=button.dataset.listSort;const defaults={name:'asc',date:'desc',size:'desc',type:'asc',rating:'desc',camera:'asc',keywords:'asc'};const direction=state.sort===`${field}-asc`?'desc':state.sort===`${field}-desc`?'asc':defaults[field];state.sort=`${field}-${direction}`;root.querySelector('#aip-sort').value=state.sort;render();});
       root.querySelector('#aip-grid-view').addEventListener('click',()=>{state.view='grid';root.style.setProperty('--aip-thumb-size','172px');root.querySelector('#aip-thumb-size').value=172;render();});
       root.querySelector('#aip-compact-view').addEventListener('click',()=>{state.view='compact';root.style.setProperty('--aip-thumb-size','132px');root.querySelector('#aip-thumb-size').value=132;render();});
       root.querySelector('#aip-list-view').addEventListener('click',()=>{state.view='list';render();});
       root.querySelector('#aip-thumb-size').addEventListener('input',e=>{root.style.setProperty('--aip-thumb-size',`${e.target.value}px`);if(state.view==='list')state.view='grid';else state.view=+e.target.value<=140?'compact':'grid';render();});
       root.querySelector('#aip-properties-toggle').addEventListener('click',e=>{const section=root.querySelector('#aip-properties');const collapsed=section.classList.toggle('is-collapsed');e.currentTarget.setAttribute('aria-expanded',!collapsed);});
       root.querySelector('#aip-favorite-filter').addEventListener('click',()=>{state.favoriteOnly=!state.favoriteOnly;render();});
-      root.querySelector('#aip-clear-filters').addEventListener('click',()=>{state.search='';root.querySelector('#aip-search').value='';state.decision='all';state.favoriteOnly=false;state.rating=null;state.label=null;state.burstReview='all';Object.values(state.facets).forEach(s=>s.clear());render();});
+      root.querySelector('#aip-clear-filters').addEventListener('click',()=>{state.search='';root.querySelector('#aip-search').value='';state.decision='all';state.favoriteOnly=false;state.rating=null;state.burstReview='all';Object.values(state.facets).forEach(s=>s.clear());render();});
       root.querySelector('#aip-undo').addEventListener('click',undo); root.querySelector('#aip-redo').addEventListener('click',redo);
       root.querySelector('#aip-save').addEventListener('click',()=>showToast('Prototype state saved for this session.'));
       root.querySelector('#aip-add-folder').addEventListener('click',()=>showToast('Add Folder includes optional subfolders.'));
@@ -869,8 +860,8 @@
         if((e.ctrlKey||e.metaKey)&&key==='a'){e.preventDefault();state.selected=new Set(filtered().map(p=>p.id));render();return;}
         if((e.ctrlKey||e.metaKey)&&key==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
         const nav={arrowleft:c=>-1,arrowright:c=>1,arrowup:c=>-c,arrowdown:c=>c}; if(nav[key]){e.preventDefault();moveFocus(nav[key],e.shiftKey,e.ctrlKey||e.metaKey);return;}
-        if(key==='f'){e.preventDefault();setFavorite();return;} if(key==='k'){e.preventDefault();setDecision('keep');return;} if(key==='r'){e.preventDefault();setDecision('reject');return;} if(key==='v'){e.preventDefault();setBurstVerified();return;}
-        if(/^[0-5]$/.test(key)){e.preventDefault();setRating(+key);return;} if(/^[6-8]$/.test(key)){e.preventDefault();setLabel({6:'red',7:'yellow',8:'green'}[key]);return;} if(key==='9'){e.preventDefault();mutateSelected(p=>p.label='');return;}
+        if(key==='f'){e.preventDefault();setFavorite();return;} if(key==='r'){e.preventDefault();toggleReject();return;} if(key==='v'){e.preventDefault();setBurstVerified();return;}
+        if(/^[0-5]$/.test(key)){e.preventDefault();setRating(+key);return;}
         if(e.code==='Space'&&active?.tagName==='BUTTON')return;
         if(e.code==='Space'&&!spaceDown){e.preventDefault();spaceDown=true;openPreview();return;}
         if(key==='escape'){spaceDown=false;closePreview();}
