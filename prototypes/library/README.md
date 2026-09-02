@@ -53,12 +53,14 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - List view shows a compact C-number tag in the Camera Tag column
    - Manual color-label filters and Approved / Review / Select workflow names are removed
 6. Burst Review
-   - AlbumAI groups a burst sequence and automatically selects one strongest frame (for example, one best photo from five)
-   - The AI pick remains the default; manual review is optional
-   - Burst Review shows all frames together with quality confidence and the AI recommendation
-   - Choosing another frame records it as the Manual Pick
-   - Reset to AI Pick restores the original recommendation
-   - Needs review and Reviewed group filters are available within Photo type
+   - The demo contains four genuine same-moment burst groups across three cameras: Bride Aisle, Ring Exchange, Family Group and Reception Dance
+   - Each demo group contains six consecutive frames; the production rule supports groups of five to eight frames from one camera
+   - AlbumAI automatically includes one strongest AI frame per group and classifies every unselected frame as a Burst Duplicate in Rejected
+   - Manual Review provides a large preview for every frame and allows one or more photos to remain selected
+   - Selecting an additional frame immediately includes it; deselecting it returns it to Rejected
+   - At least one photo must remain selected in every burst group
+   - Reset to AI Pick restores the original recommendation and automatic duplicate rejections for that group
+   - Needs review and Reviewed counts operate across all four groups within Photo type
    - Keyboard V opens Burst Review
 7. Selection and navigation
    - Click selects one photo
@@ -96,7 +98,7 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
 
 ## Approval checklist
 
-Cloud QA completed 2026-09-02. All gates are implemented and ready for owner approval; checkboxes remain open until approved by the owner. Favorite and star-rating polish, automatic camera identity tags, simplified Reject/Unreject decisions and the Adobe Bridge reference pass are implemented after owner feedback.
+Cloud QA completed 2026-09-02. All gates are implemented and ready for owner approval; checkboxes remain open until approved by the owner. Favorite and star-rating polish, automatic camera identity tags, simplified Reject/Unreject decisions, the Adobe Bridge reference pass and four-group guided Burst Review are implemented after owner feedback.
 
 - [ ] Visual hierarchy and spacing — QA pass
 - [ ] Smooth hover without flicker — QA pass
