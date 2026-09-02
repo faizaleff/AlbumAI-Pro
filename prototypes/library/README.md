@@ -64,20 +64,22 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Undo and Redo for decisions, ratings, labels and event changes
    - Save action is explicit
 
-## Approval gates
+## Approval checklist
 
-1. Visual hierarchy and spacing
-2. Smooth hover without flicker
-3. Fast arrow-key navigation
-4. Space preview size and animation
-5. Selection and multi-selection
-6. Keep/Reject
-7. Star ratings
-8. Color labels and filters
-9. Dynamic facets and event assignment
-10. Responsive layouts
+Cloud QA completed 2026-09-02. All gates are implemented and ready for owner approval; checkboxes remain open until approved by the owner.
 
-Production implementation begins only after all ten Library gates are approved.
+- [ ] Visual hierarchy and spacing — QA pass
+- [ ] Smooth hover without flicker — QA pass
+- [ ] Fast arrow-key navigation — QA pass
+- [ ] Bounded Space preview — QA pass
+- [ ] Selection and multi-selection — QA pass
+- [ ] Keep/Reject — QA pass
+- [ ] Star ratings — QA pass
+- [ ] Color labels and filters — QA pass
+- [ ] Dynamic facets and multi-photo event assignment — QA pass
+- [ ] Responsive layouts — QA pass
+
+Production implementation remains blocked until all ten Library gates are owner-approved.
 
 ## Repository checkpoints
 
@@ -89,7 +91,7 @@ Production implementation begins only after all ten Library gates are approved.
 
 Use this prompt in a new task after the prototype branch is pushed:
 
-> Continue AlbumAI Library prototype from branch `prototype/albumai-library-ui`. Read `prototypes/library/ALBUMAI_LIBRARY_PROTOTYPE_HANDOFF.md` first. Do not modify production plugin code until the Library approval checklist is complete.
+> Continue AlbumAI Library prototype from branch `prototype/albumai-library-ui`. Read `prototypes/library/README.md` first. Do not modify production plugin code until the Library approval checklist is complete.
 
 ## Cloud plan
 

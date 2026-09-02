@@ -1,4 +1,16 @@
-<div id="albumai-library-prototype" class="aip-shell" aria-label="AlbumAI Pro Library prototype">
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AlbumAI Pro · Library Prototype</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #101319; overflow: hidden; }
+    @media (max-width: 700px) { html, body { overflow: auto; } }
+  </style>
+</head>
+<body>
+<div id="albumai-library-prototype" class="aip-shell" aria-label="AlbumAI Pro Library prototype" tabindex="0">
   <style>
     #albumai-library-prototype {
       --aip-bg: #101319;
@@ -21,8 +33,10 @@
       color: var(--aip-text);
       font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       width: 100%;
+      height: 100dvh;
       min-width: 320px;
       overflow: hidden;
+      outline: none;
     }
 
     #albumai-library-prototype * { box-sizing: border-box; }
@@ -30,9 +44,17 @@
     #albumai-library-prototype input,
     #albumai-library-prototype select { font: inherit; }
     #albumai-library-prototype button { color: inherit; }
+    #albumai-library-prototype [data-lucide] { font-style: normal; line-height: 1; }
+    #albumai-library-prototype button:focus-visible,
+    #albumai-library-prototype input:focus-visible,
+    #albumai-library-prototype select:focus-visible,
+    #albumai-library-prototype [tabindex]:focus-visible {
+      outline: 2px solid var(--aip-cyan);
+      outline-offset: 2px;
+    }
 
     #albumai-library-prototype .aip-appbar {
-      min-height: 64px;
+      min-height: 58px;
       display: flex;
       align-items: center;
       gap: 16px;
@@ -69,6 +91,8 @@
     #albumai-library-prototype .aip-icon-button { width: 38px; padding: 0; }
     #albumai-library-prototype .aip-primary { background: var(--aip-blue); border-color: var(--aip-blue); }
     #albumai-library-prototype button:disabled { opacity: .42; cursor: default; }
+    #albumai-library-prototype .aip-locked { color: #727d8e; cursor: not-allowed; }
+    #albumai-library-prototype .aip-lock { display: inline-block; width: 13px; height: 13px; margin-left: 5px; vertical-align: -2px; font-size: 11px; }
 
     #albumai-library-prototype .aip-workflow {
       display: grid;
@@ -77,7 +101,7 @@
       background: var(--aip-top);
     }
     #albumai-library-prototype .aip-workflow button {
-      min-height: 48px; border: 0; border-bottom: 3px solid transparent;
+      min-height: 42px; border: 0; border-bottom: 3px solid transparent;
       background: transparent; color: var(--aip-muted); font-weight: 600; cursor: pointer;
     }
     #albumai-library-prototype .aip-workflow button[aria-selected="true"] {
@@ -89,7 +113,7 @@
       border-bottom: 1px solid var(--aip-line);
     }
     #albumai-library-prototype .aip-photo-tabs button {
-      min-height: 44px; background: transparent; border: 0; color: var(--aip-muted);
+      min-height: 40px; background: transparent; border: 0; color: var(--aip-muted);
       border-bottom: 2px solid transparent; font-weight: 600; cursor: pointer;
     }
     #albumai-library-prototype .aip-photo-tabs button[aria-selected="true"] {
@@ -99,12 +123,13 @@
     #albumai-library-prototype .aip-stage {
       display: grid;
       grid-template-columns: 220px minmax(430px, 1fr) 270px;
-      min-height: 720px;
+      min-height: 0;
       background: var(--aip-bg);
+      overflow: hidden;
     }
 
     #albumai-library-prototype .aip-sidebar,
-    #albumai-library-prototype .aip-inspector { background: #12171e; }
+    #albumai-library-prototype .aip-inspector { background: #12171e; min-height: 0; overflow: auto; }
     #albumai-library-prototype .aip-sidebar { border-right: 1px solid var(--aip-line); }
     #albumai-library-prototype .aip-inspector { border-left: 1px solid var(--aip-line); }
 
@@ -112,6 +137,10 @@
     #albumai-library-prototype .aip-inspector-title {
       min-height: 42px; padding: 0 14px; display: flex; align-items: center;
       justify-content: space-between; border-bottom: 1px solid var(--aip-line-soft); font-weight: 600;
+    }
+    #albumai-library-prototype .aip-filter-toggle {
+      display: none; min-height: 32px; border: 1px solid var(--aip-line); border-radius: 7px;
+      background: var(--aip-panel-2); padding: 0 10px; cursor: pointer;
     }
 
     #albumai-library-prototype .aip-facet { border-bottom: 1px solid var(--aip-line-soft); }
@@ -129,6 +158,7 @@
     }
     #albumai-library-prototype .aip-facet-option:hover { background: var(--aip-panel); color: var(--aip-text); }
     #albumai-library-prototype .aip-facet-option[aria-pressed="true"] { background: var(--aip-blue-soft); color: var(--aip-text); }
+    #albumai-library-prototype .aip-facet-option.is-drop-target { background: #234d3a; color: var(--aip-text); box-shadow: inset 0 0 0 1px var(--aip-green); }
     #albumai-library-prototype .aip-facet-count { color: var(--aip-muted); font-size: 12px; }
     #albumai-library-prototype .aip-facet-action { color: #74afff; font-weight: 600; }
 
@@ -147,7 +177,7 @@
     #albumai-library-prototype .aip-label-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 0 8px; }
     #albumai-library-prototype .aip-label-swatch { width: 15px; height: 15px; border-radius: 50%; display: inline-block; }
 
-    #albumai-library-prototype .aip-center { min-width: 0; display: grid; grid-template-rows: auto auto minmax(420px, 1fr) auto; }
+    #albumai-library-prototype .aip-center { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto minmax(240px, 1fr) auto; }
     #albumai-library-prototype .aip-heading-row {
       min-height: 54px; display: flex; align-items: center; gap: 12px; padding: 8px 14px;
       border-bottom: 1px solid var(--aip-line); background: var(--aip-bg);
@@ -177,19 +207,23 @@
     #albumai-library-prototype .aip-decision-toggle button[aria-pressed="true"] { background: var(--aip-blue-soft); }
 
     #albumai-library-prototype .aip-library-viewport { min-height: 0; overflow: auto; padding: 12px; background: #20242a; }
-    #albumai-library-prototype .aip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    #albumai-library-prototype .aip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); gap: 12px; }
     #albumai-library-prototype .aip-grid.is-list { display: grid; grid-template-columns: 1fr; gap: 5px; }
     #albumai-library-prototype .aip-photo {
       position: relative; min-width: 0; background: var(--aip-panel); border: 2px solid transparent;
       border-radius: 8px; overflow: hidden; cursor: pointer; user-select: none;
-      transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+      --aip-label-color: transparent;
+      transition: border-color 100ms ease, box-shadow 100ms ease, background-color 100ms ease;
     }
-    #albumai-library-prototype .aip-photo:hover { transform: translateY(-1px); }
+    #albumai-library-prototype .aip-photo:hover { background: #202733; box-shadow: 0 8px 22px rgba(0,0,0,.24); }
     #albumai-library-prototype .aip-photo.is-selected { border-color: var(--aip-blue); box-shadow: 0 0 0 1px var(--aip-blue); }
-    #albumai-library-prototype .aip-photo[data-label="red"] { border-color: var(--aip-red); }
-    #albumai-library-prototype .aip-photo[data-label="yellow"] { border-color: var(--aip-yellow); }
-    #albumai-library-prototype .aip-photo[data-label="green"] { border-color: var(--aip-green); }
-    #albumai-library-prototype .aip-photo.is-selected[data-label] { box-shadow: 0 0 0 2px var(--aip-blue), 0 0 0 4px currentColor; }
+    #albumai-library-prototype .aip-photo.is-focused { box-shadow: 0 0 0 1px var(--aip-blue), 0 0 0 3px rgba(67,185,232,.46); }
+    #albumai-library-prototype .aip-photo[data-label="red"] { --aip-label-color: var(--aip-red); }
+    #albumai-library-prototype .aip-photo[data-label="yellow"] { --aip-label-color: var(--aip-yellow); }
+    #albumai-library-prototype .aip-photo[data-label="green"] { --aip-label-color: var(--aip-green); }
+    #albumai-library-prototype .aip-photo[data-label]:not([data-label=""])::after {
+      content: ""; position: absolute; inset: 3px; border: 2px solid var(--aip-label-color); border-radius: 5px; pointer-events: none;
+    }
     #albumai-library-prototype .aip-photo-media { position: relative; aspect-ratio: 4 / 3; background: #0b0d11; overflow: hidden; }
     #albumai-library-prototype .aip-photo-art { width: 100%; height: 100%; background-repeat: no-repeat; display: block; }
     #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-art { opacity: .52; }
@@ -205,16 +239,19 @@
     }
     #albumai-library-prototype .aip-photo.is-selected .aip-selection-mark { display: grid; }
     #albumai-library-prototype .aip-hover-tools {
-      position: absolute; left: 7px; right: 7px; bottom: 7px; display: flex; align-items: center;
-      justify-content: space-between; gap: 5px; opacity: 0; transform: translateY(4px); pointer-events: none;
+      position: absolute; inset: 7px; display: grid; grid-template-columns: 1fr auto;
+      grid-template-rows: auto 1fr auto; align-items: start; gap: 5px; opacity: 0; pointer-events: none;
       transition: opacity 100ms ease, transform 100ms ease;
     }
     #albumai-library-prototype .aip-photo:hover .aip-hover-tools,
-    #albumai-library-prototype .aip-photo:focus-within .aip-hover-tools { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    #albumai-library-prototype .aip-photo:focus-within .aip-hover-tools { opacity: 1; pointer-events: auto; }
     #albumai-library-prototype .aip-mini-actions,
     #albumai-library-prototype .aip-stars-edit,
     #albumai-library-prototype .aip-colors-edit { display: flex; gap: 2px; background: rgba(7,10,14,.82); border-radius: 6px; padding: 3px; }
-    #albumai-library-prototype .aip-hover-tools button { width: 24px; height: 24px; border: 0; background: transparent; padding: 0; cursor: pointer; border-radius: 4px; }
+    #albumai-library-prototype .aip-mini-actions { grid-column: 2; grid-row: 1; }
+    #albumai-library-prototype .aip-stars-edit { grid-column: 1; grid-row: 3; justify-self: start; }
+    #albumai-library-prototype .aip-colors-edit { grid-column: 2; grid-row: 3; justify-self: end; }
+    #albumai-library-prototype .aip-hover-tools button { width: 22px; height: 22px; border: 0; background: transparent; padding: 0; cursor: pointer; border-radius: 4px; }
     #albumai-library-prototype .aip-hover-tools button:hover { background: rgba(255,255,255,.14); }
     #albumai-library-prototype .aip-stars-edit button { color: var(--aip-yellow); }
     #albumai-library-prototype .aip-color-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
@@ -252,11 +289,12 @@
     }
     #albumai-library-prototype .aip-lightbox.is-visible { display: flex; animation: aip-pop 120ms ease-out; }
     #albumai-library-prototype .aip-lightbox-inner {
-      width: min(780px, 82%); max-height: 78%; display: grid; grid-template-columns: minmax(0, 1fr) 190px;
+      width: min(780px, 86%); max-width: calc(100% - 32px); max-height: calc(100% - 32px);
+      display: grid; grid-template-columns: minmax(0, 1fr) 190px;
       background: var(--aip-panel); border: 1px solid var(--aip-line); border-radius: 12px; overflow: hidden;
       box-shadow: 0 24px 70px rgba(0,0,0,.45);
     }
-    #albumai-library-prototype .aip-lightbox-image { width: 100%; min-height: 460px; max-height: 560px; background-color: #090b0e; background-repeat: no-repeat; }
+    #albumai-library-prototype .aip-lightbox-image { width: 100%; aspect-ratio: 4 / 3; min-height: 0; max-height: min(560px, calc(100dvh - 64px)); background-color: #090b0e; background-repeat: no-repeat; }
     #albumai-library-prototype .aip-lightbox-info { padding: 18px; display: grid; align-content: start; gap: 12px; }
     #albumai-library-prototype .aip-lightbox-info span { color: var(--aip-muted); font-size: 12px; }
     @keyframes aip-pop { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: scale(1); } }
@@ -267,7 +305,10 @@
       padding: 9px 13px; opacity: 0; pointer-events: none; transition: 140ms ease;
     }
     #albumai-library-prototype .aip-toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-    #albumai-library-prototype .aip-relative { position: relative; }
+    #albumai-library-prototype .aip-relative {
+      position: relative; height: 100%; display: grid;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+    }
 
     @media (max-width: 980px) {
       #albumai-library-prototype .aip-stage { grid-template-columns: 190px minmax(360px, 1fr); }
@@ -275,17 +316,35 @@
       #albumai-library-prototype .aip-search { order: 5; margin-left: 0; flex: 1 1 200px; }
     }
     @media (max-width: 700px) {
+      #albumai-library-prototype { height: auto; min-height: 100dvh; overflow: visible; }
+      #albumai-library-prototype .aip-relative { min-height: 100dvh; height: auto; display: block; }
       #albumai-library-prototype .aip-appbar { flex-wrap: wrap; }
       #albumai-library-prototype .aip-brand { min-width: 0; flex: 1; }
       #albumai-library-prototype .aip-workflow { grid-template-columns: repeat(2, 1fr); }
-      #albumai-library-prototype .aip-stage { grid-template-columns: 1fr; }
+      #albumai-library-prototype .aip-stage { grid-template-columns: 1fr; overflow: visible; }
       #albumai-library-prototype .aip-sidebar { border-right: 0; border-bottom: 1px solid var(--aip-line); }
-      #albumai-library-prototype .aip-facets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #albumai-library-prototype .aip-filter-toggle { display: inline-flex; align-items: center; gap: 6px; }
+      #albumai-library-prototype .aip-facets { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #albumai-library-prototype .aip-sidebar.is-open .aip-facets { display: grid; }
       #albumai-library-prototype .aip-rating-panel { grid-column: 1 / -1; }
       #albumai-library-prototype .aip-heading-row { align-items: flex-start; flex-wrap: wrap; }
       #albumai-library-prototype .aip-heading-row p { margin-left: 0; width: 100%; }
       #albumai-library-prototype .aip-lightbox-inner { width: 95%; grid-template-columns: 1fr; }
       #albumai-library-prototype .aip-lightbox-info { display: none; }
+      #albumai-library-prototype .aip-lightbox-image { max-height: calc(100dvh - 32px); }
+      #albumai-library-prototype .aip-library-viewport { min-height: 58dvh; }
+    }
+    @media (max-width: 460px) {
+      #albumai-library-prototype .aip-appbar { padding: 9px 12px; }
+      #albumai-library-prototype .aip-history { width: 100%; margin-left: 0; justify-content: flex-end; }
+      #albumai-library-prototype .aip-workflow button { font-size: 13px; }
+      #albumai-library-prototype .aip-photo-tabs button { font-size: 13px; }
+      #albumai-library-prototype .aip-facets { grid-template-columns: 1fr; }
+      #albumai-library-prototype .aip-rating-panel { grid-column: auto; }
+      #albumai-library-prototype .aip-tools-primary,
+      #albumai-library-prototype .aip-tools-secondary { align-items: stretch; }
+      #albumai-library-prototype .aip-search { flex-basis: 100%; order: 10; }
+      #albumai-library-prototype .aip-select { width: 100%; }
     }
   </style>
 
@@ -304,20 +363,20 @@
 
     <nav class="aip-workflow" aria-label="Main workflow">
       <button aria-selected="true">1 · Photos</button>
-      <button data-future="Enhance">2 · Enhance</button>
-      <button data-future="Design">3 · Design</button>
-      <button data-future="Export">4 · Export</button>
+      <button class="aip-locked" data-future="Enhance" aria-disabled="true">2 · Enhance <i class="aip-lock" data-lucide="lock" aria-hidden="true"></i></button>
+      <button class="aip-locked" data-future="Design" aria-disabled="true">3 · Design <i class="aip-lock" data-lucide="lock" aria-hidden="true"></i></button>
+      <button class="aip-locked" data-future="Export" aria-disabled="true">4 · Export <i class="aip-lock" data-lucide="lock" aria-hidden="true"></i></button>
     </nav>
 
     <nav class="aip-photo-tabs" aria-label="Photo workflow">
       <button aria-selected="true">Library</button>
-      <button data-future="Sequence">Sequence</button>
-      <button data-future="Album Selects">Album Selects</button>
+      <button class="aip-locked" data-future="Sequence" aria-disabled="true">Sequence <i class="aip-lock" data-lucide="lock" aria-hidden="true"></i></button>
+      <button class="aip-locked" data-future="Album Selects" aria-disabled="true">Album Selects <i class="aip-lock" data-lucide="lock" aria-hidden="true"></i></button>
     </nav>
 
     <main class="aip-stage">
       <aside class="aip-sidebar" aria-label="Library filters">
-        <div class="aip-sidebar-title"><span>Library</span><i data-lucide="sliders-horizontal" aria-hidden="true"></i></div>
+        <div class="aip-sidebar-title"><span>Library filters</span><button id="aip-filter-toggle" class="aip-filter-toggle" aria-expanded="false"><i data-lucide="sliders-horizontal" aria-hidden="true"></i> Show</button></div>
         <div id="aip-facets" class="aip-facets"></div>
       </aside>
 
@@ -325,18 +384,18 @@
         <div class="aip-heading-row">
           <h2>Review the Library</h2>
           <p id="aip-heading-count">12 photos · 1 selected</p>
-          <button id="aip-continue" class="aip-toolbar-button aip-primary">Continue to Sequence <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+          <button id="aip-continue" class="aip-toolbar-button aip-locked" aria-disabled="true">Sequence locked <i data-lucide="lock" aria-hidden="true"></i></button>
         </div>
 
         <div class="aip-tools">
           <div class="aip-tools-primary">
             <div class="aip-view-toggle" aria-label="View">
-              <button id="aip-grid-view" class="aip-icon-button" aria-pressed="true" data-tooltip="Grid view"><i data-lucide="grid-3x3" aria-hidden="true"></i></button>
-              <button id="aip-list-view" class="aip-icon-button" aria-pressed="false" data-tooltip="List view"><i data-lucide="list" aria-hidden="true"></i></button>
+              <button id="aip-grid-view" class="aip-icon-button" aria-label="Grid view" aria-pressed="true" data-tooltip="Grid view"><i data-lucide="grid-3x3" aria-hidden="true"></i></button>
+              <button id="aip-list-view" class="aip-icon-button" aria-label="List view" aria-pressed="false" data-tooltip="List view"><i data-lucide="list" aria-hidden="true"></i></button>
             </div>
             <button id="aip-add-folder" class="aip-toolbar-button"><i data-lucide="folder-plus" aria-hidden="true"></i> Add Folder</button>
             <button id="aip-change-folder" class="aip-toolbar-button"><i data-lucide="folder-open" aria-hidden="true"></i> Change</button>
-            <button id="aip-refresh" class="aip-icon-button" data-tooltip="Refresh folder"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
+            <button id="aip-refresh" class="aip-icon-button" aria-label="Refresh folder" data-tooltip="Refresh folder"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
             <input id="aip-search" class="aip-search" type="search" aria-label="Search filename" placeholder="Search filename…">
           </div>
           <div class="aip-tools-secondary">
@@ -358,7 +417,7 @@
         </div>
 
         <div id="aip-viewport" class="aip-library-viewport">
-          <div id="aip-photo-grid" class="aip-grid" aria-live="polite"></div>
+          <div id="aip-photo-grid" class="aip-grid" role="list" aria-live="polite"></div>
           <div id="aip-empty" class="aip-empty"><div><strong>No matching photos</strong><br><span>Clear filters to see the full library.</span></div></div>
         </div>
 
@@ -383,7 +442,7 @@
       </aside>
     </main>
 
-    <div id="aip-lightbox" class="aip-lightbox" role="dialog" aria-modal="true" aria-label="Quick preview">
+    <div id="aip-lightbox" class="aip-lightbox" role="dialog" aria-modal="true" aria-label="Quick preview" aria-hidden="true">
       <div class="aip-lightbox-inner"><div id="aip-lightbox-image" class="aip-lightbox-image" role="img" aria-label="Quick preview"></div><div class="aip-lightbox-info"><strong id="aip-lightbox-name"></strong><span id="aip-lightbox-event"></span><span id="aip-lightbox-camera"></span><span id="aip-lightbox-rating"></span><span>Release <kbd>Space</kbd> to close</span></div></div>
     </div>
     <div id="aip-toast" class="aip-toast" aria-live="polite"></div>
@@ -414,6 +473,7 @@
         view: 'grid', search: '', sort: 'manual', decision: 'all',
         facets: { event:new Set(), camera:new Set(), type:new Set() },
         ratingMode: '=', rating: null, label: null,
+        collapsed: new Set(),
         history: [], future: []
       };
 
@@ -433,13 +493,18 @@
       function updateHistory() { root.querySelector('#aip-undo').disabled = !state.history.length; root.querySelector('#aip-redo').disabled = !state.future.length; }
 
       function showToast(message) { clearTimeout(toastTimer); toast.textContent = message; toast.classList.add('is-visible'); toastTimer = setTimeout(()=>toast.classList.remove('is-visible'), 1500); }
+      function installIconFallbacks() {
+        if (window.lucide) return;
+        const icons = {'undo-2':'↶','redo-2':'↷',save:'▣',lock:'🔒','sliders-horizontal':'≡','grid-3x3':'▦',list:'☷','folder-plus':'⊕','folder-open':'▱','refresh-cw':'↻'};
+        root.querySelectorAll('[data-lucide]').forEach(icon=>{icon.textContent=icons[icon.dataset.lucide]||'•';});
+      }
       function unique(field) { return [...new Set(state.photos.map(p=>p[field]))]; }
       function count(field, value) { return state.photos.filter(p=>p[field]===value).length; }
       function facetGroup(key, title, allLabel, action) {
         const values = unique(key);
         const selected = state.facets[key];
-        return `<section class="aip-facet" data-facet-section="${key}">
-          <button class="aip-facet-heading" data-collapse="${key}"><span>${title}</span><span>−</span></button>
+        return `<section class="aip-facet ${state.collapsed.has(key)?'is-collapsed':''}" data-facet-section="${key}">
+          <button class="aip-facet-heading" data-collapse="${key}" aria-expanded="${!state.collapsed.has(key)}"><span>${title}</span><span>${state.collapsed.has(key)?'+':'−'}</span></button>
           <div class="aip-facet-list">
             <button class="aip-facet-option" data-facet="${key}" data-value="__all" aria-pressed="${!selected.size}"><span>${allLabel}</span><span class="aip-facet-count">${state.photos.length}</span></button>
             ${values.map(value=>`<button class="aip-facet-option" data-facet="${key}" data-value="${value}" aria-pressed="${selected.has(value)}"><span>${value}</span><span class="aip-facet-count">${count(key,value)}</span></button>`).join('')}
@@ -449,8 +514,8 @@
 
       function renderFacets() {
         root.querySelector('#aip-facets').innerHTML = facetGroup('event','Events','All photos','new-event') + facetGroup('camera','Cameras','All cameras','new-camera') + facetGroup('type','Photo type','All types','') + `
-          <section class="aip-facet aip-rating-panel" data-facet-section="ratings">
-            <button class="aip-facet-heading" data-collapse="ratings"><span>Ratings & Labels</span><span>−</span></button>
+          <section class="aip-facet aip-rating-panel ${state.collapsed.has('ratings')?'is-collapsed':''}" data-facet-section="ratings">
+            <button class="aip-facet-heading" data-collapse="ratings" aria-expanded="${!state.collapsed.has('ratings')}"><span>Ratings & Labels</span><span>${state.collapsed.has('ratings')?'+':'−'}</span></button>
             <div class="aip-facet-list">
               <div class="aip-rating-mode">
                 ${['=','≥','≤'].map(m=>`<button data-rating-mode="${m}" aria-pressed="${state.ratingMode===m}">${m}</button>`).join('')}
@@ -501,7 +566,7 @@
       function photoCard(p) {
         const stars = p.rating ? '★'.repeat(p.rating) : '';
         const badge = p.decision==='keep'?'✓ KEEP':p.decision==='reject'?'× REJECT':'REVIEW';
-        return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''}" data-photo-id="${p.id}" data-label="${p.label}" data-decision="${p.decision}" draggable="true" aria-label="${p.name}, ${p.rating} stars, ${p.decision||'review'}">
+        return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''} ${state.focused===p.id?'is-focused':''}" role="listitem" data-photo-id="${p.id}" data-label="${p.label}" data-decision="${p.decision}" draggable="true" tabindex="${state.focused===p.id?'0':'-1'}" aria-label="${p.name}, ${state.selected.has(p.id)?'selected, ':''}${p.rating} stars, ${p.decision||'review'}">
           <div class="aip-photo-media"><div class="aip-photo-art" role="img" aria-label="${p.name}" style="${frameStyle(p)}"></div>
             <span class="aip-photo-badge">${badge}</span><span class="aip-selection-mark">✓</span>
             <div class="aip-hover-tools">
@@ -514,9 +579,32 @@
         </article>`;
       }
 
-      function render() {
+      function focusActiveCard() {
+        requestAnimationFrame(()=>root.querySelector(`[data-photo-id="${state.focused}"]`)?.focus({preventScroll:true}));
+      }
+
+      function captureControlFocus() {
+        const element=document.activeElement;
+        if(!element||!root.contains(element))return null;
+        if(element.id)return {id:element.id};
+        const attributes=['data-facet','data-rating-mode','data-rating-filter','data-label-filter','data-decision-filter','data-collapse'];
+        const name=attributes.find(attribute=>element.hasAttribute?.(attribute));
+        return name?{name,value:element.getAttribute(name),detail:element.getAttribute('data-value')}:null;
+      }
+
+      function restoreControlFocus(snapshot) {
+        if(!snapshot)return;
+        requestAnimationFrame(()=>{
+          const element=snapshot.id?root.querySelector(`#${snapshot.id}`):[...root.querySelectorAll(`[${snapshot.name}]`)].find(candidate=>candidate.getAttribute(snapshot.name)===snapshot.value&&candidate.getAttribute('data-value')===snapshot.detail);
+          element?.focus({preventScroll:true});
+        });
+      }
+
+      function render(options={}) {
+        const controlFocus=options.focusCard?null:captureControlFocus();
         renderFacets();
         const list = filtered();
+        if (list.length && !list.some(p=>p.id===state.focused)) state.focused=list[0].id;
         grid.innerHTML = list.map(photoCard).join('');
         grid.classList.toggle('is-list', state.view==='list');
         root.querySelector('#aip-empty').classList.toggle('is-visible', !list.length);
@@ -530,6 +618,8 @@
         root.querySelectorAll('[data-decision-filter]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.decisionFilter===state.decision));
         updateInspector(); updateHistory();
         if (window.lucide) lucide.createIcons({ attrs:{width:16,height:16} });
+        if (options.focusCard) focusActiveCard();
+        else restoreControlFocus(controlFocus);
       }
 
       function currentPhoto() { return state.photos.find(p=>p.id===state.focused) || state.photos[0]; }
@@ -546,10 +636,10 @@
         } else if (event.ctrlKey || event.metaKey) {
           state.selected.has(id)?state.selected.delete(id):state.selected.add(id); state.anchor=id;
         } else { state.selected = new Set([id]); state.anchor=id; }
-        state.focused=id; render();
+        state.focused=id; render({focusCard:true});
       }
       function targetIds() { return state.selected.size ? [...state.selected] : [state.focused]; }
-      function mutateSelected(mutator) { remember(); targetIds().forEach(id=>mutator(state.photos.find(p=>p.id===id))); render(); }
+      function mutateSelected(mutator) { remember(); targetIds().forEach(id=>mutator(state.photos.find(p=>p.id===id))); render({focusCard:true}); }
       function setDecision(decision) { mutateSelected(p=>p.decision=p.decision===decision?'':decision); }
       function setRating(rating) { mutateSelected(p=>p.rating=p.rating===rating?0:rating); }
       function setLabel(label) { mutateSelected(p=>p.label=p.label===label?'':label); }
@@ -557,13 +647,15 @@
       function moveFocus(delta, extend=false, additive=false) {
         const visible = filtered(); if (!visible.length) return;
         let index = visible.findIndex(p=>p.id===state.focused); if(index<0) index=0;
-        const columns = state.view==='list'?1:Math.max(1,Math.floor(grid.clientWidth/162));
+        const cards=[...grid.querySelectorAll('[data-photo-id]')];
+        const firstTop=cards[0]?.offsetTop;
+        const columns = state.view==='list'?1:Math.max(1,cards.filter(card=>Math.abs(card.offsetTop-firstTop)<2).length);
         const next = Math.max(0,Math.min(visible.length-1,index+delta(columns)));
         const id=visible[next].id;
         if(extend){ const a=visible.findIndex(p=>p.id===state.anchor), b=next; state.selected=new Set(visible.slice(Math.min(a,b),Math.max(a,b)+1).map(p=>p.id)); }
         else if(additive){ state.selected.add(id); state.anchor=id; }
         else { state.selected=new Set([id]); state.anchor=id; }
-        state.focused=id; render();
+        state.focused=id; render({focusCard:true});
         requestAnimationFrame(()=>root.querySelector(`[data-photo-id="${id}"]`)?.scrollIntoView({block:'nearest',inline:'nearest'}));
       }
 
@@ -571,9 +663,9 @@
         const p=currentPhoto(), box=root.querySelector('#aip-lightbox');
         applyFrame(root.querySelector('#aip-lightbox-image'), p); root.querySelector('#aip-lightbox-name').textContent=p.name;
         root.querySelector('#aip-lightbox-event').textContent=`Event · ${p.event}`; root.querySelector('#aip-lightbox-camera').textContent=`Camera · ${p.camera}`;
-        root.querySelector('#aip-lightbox-rating').textContent=`Rating · ${p.rating?p.rating+' stars':'Unrated'}`; box.classList.add('is-visible');
+        root.querySelector('#aip-lightbox-rating').textContent=`Rating · ${p.rating?p.rating+' stars':'Unrated'}`; box.classList.add('is-visible'); box.setAttribute('aria-hidden','false');
       }
-      function closePreview(){ root.querySelector('#aip-lightbox').classList.remove('is-visible'); }
+      function closePreview(){ const box=root.querySelector('#aip-lightbox'); box.classList.remove('is-visible'); box.setAttribute('aria-hidden','true'); }
 
       root.addEventListener('click', event => {
         const card=event.target.closest('[data-photo-id]');
@@ -582,7 +674,7 @@
         if(card){setSelection(+card.dataset.photoId,event);return;}
         const facet=event.target.closest('[data-facet]');
         if(facet){ const key=facet.dataset.facet,value=facet.dataset.value,set=state.facets[key]; if(value==='__all'){set.clear();} else if(event.ctrlKey||event.metaKey){set.has(value)?set.delete(value):set.add(value);} else if(set.size===1&&set.has(value)){set.clear();} else {set.clear();set.add(value);} render(); return; }
-        const collapse=event.target.closest('[data-collapse]'); if(collapse){const section=collapse.closest('.aip-facet');section.classList.toggle('is-collapsed');collapse.lastElementChild.textContent=section.classList.contains('is-collapsed')?'+':'−';return;}
+        const collapse=event.target.closest('[data-collapse]'); if(collapse){const key=collapse.dataset.collapse;state.collapsed.has(key)?state.collapsed.delete(key):state.collapsed.add(key);render();root.querySelector(`[data-collapse="${key}"]`)?.focus();return;}
         const mode=event.target.closest('[data-rating-mode]'); if(mode){state.ratingMode=state.ratingMode===mode.dataset.ratingMode?'=':mode.dataset.ratingMode;render();return;}
         const rf=event.target.closest('[data-rating-filter]'); if(rf){const n=+rf.dataset.ratingFilter;state.rating=state.rating===n?null:n;render();return;}
         const lf=event.target.closest('[data-label-filter]'); if(lf){state.label=state.label===lf.dataset.labelFilter?null:lf.dataset.labelFilter;render();return;}
@@ -602,25 +694,37 @@
       root.querySelector('#aip-change-folder').addEventListener('click',()=>showToast('Change Folder keeps ratings until you confirm.'));
       root.querySelector('#aip-refresh').addEventListener('click',()=>showToast('Folder refreshed · 12 photos'));
       root.querySelector('#aip-continue').addEventListener('click',()=>showToast('Sequence stays locked until the Library prototype is approved.'));
+      root.querySelector('#aip-filter-toggle').addEventListener('click',event=>{const sidebar=root.querySelector('.aip-sidebar');const open=sidebar.classList.toggle('is-open');event.currentTarget.setAttribute('aria-expanded',open);event.currentTarget.lastChild.textContent=open?' Hide':' Show';});
 
-      root.addEventListener('dragstart',e=>{const card=e.target.closest('[data-photo-id]');if(card)e.dataTransfer.setData('text/plain',card.dataset.photoId);});
-      root.addEventListener('dragover',e=>{if(e.target.closest('[data-facet="event"]'))e.preventDefault();});
-      root.addEventListener('drop',e=>{const target=e.target.closest('[data-facet="event"]');if(!target||target.dataset.value==='__all')return;e.preventDefault();const id=+e.dataTransfer.getData('text/plain');remember();state.photos.find(p=>p.id===id).event=target.dataset.value;render();showToast(`Moved to ${target.dataset.value}`);});
+      function clearDropTargets(){root.querySelectorAll('.is-drop-target').forEach(el=>el.classList.remove('is-drop-target'));}
+      root.addEventListener('dragstart',e=>{const card=e.target.closest('[data-photo-id]');if(!card)return;const id=+card.dataset.photoId;if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;}e.dataTransfer.setData('text/plain',JSON.stringify([...state.selected]));e.dataTransfer.effectAllowed='move';});
+      root.addEventListener('dragover',e=>{const target=e.target.closest('[data-facet="event"]');if(target&&target.dataset.value!=='__all'){e.preventDefault();e.dataTransfer.dropEffect='move';clearDropTargets();target.classList.add('is-drop-target');}});
+      root.addEventListener('dragleave',e=>{if(!root.contains(e.relatedTarget))clearDropTargets();});
+      root.addEventListener('dragend',clearDropTargets);
+      root.addEventListener('drop',e=>{const target=e.target.closest('[data-facet="event"]');clearDropTargets();if(!target||target.dataset.value==='__all')return;e.preventDefault();let ids=[];try{ids=JSON.parse(e.dataTransfer.getData('text/plain'));}catch{ids=[];}if(!ids.length)return;remember();ids.forEach(id=>{const photo=state.photos.find(p=>p.id===+id);if(photo)photo.event=target.dataset.value;});render();showToast(`${ids.length} photo${ids.length===1?'':'s'} moved to ${target.dataset.value}`);});
 
       document.addEventListener('keydown',e=>{
-        if(!root.isConnected||['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
+        const active=document.activeElement;
+        if(!root.isConnected||['INPUT','SELECT','TEXTAREA'].includes(active?.tagName))return;
+        const shortcutContext=!active||active===document.body||active===root||!!active.closest?.('.aip-photo')||!!active.closest?.('.aip-library-viewport');
+        if(!shortcutContext)return;
         const key=e.key.toLowerCase();
         if((e.ctrlKey||e.metaKey)&&key==='a'){e.preventDefault();state.selected=new Set(filtered().map(p=>p.id));render();return;}
         if((e.ctrlKey||e.metaKey)&&key==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
         const nav={arrowleft:c=>-1,arrowright:c=>1,arrowup:c=>-c,arrowdown:c=>c}; if(nav[key]){e.preventDefault();moveFocus(nav[key],e.shiftKey,e.ctrlKey||e.metaKey);return;}
         if(key==='k'){e.preventDefault();setDecision('keep');return;} if(key==='r'){e.preventDefault();setDecision('reject');return;}
         if(/^[0-5]$/.test(key)){e.preventDefault();setRating(+key);return;} if(/^[6-8]$/.test(key)){e.preventDefault();setLabel({6:'red',7:'yellow',8:'green'}[key]);return;} if(key==='9'){e.preventDefault();mutateSelected(p=>p.label='');return;}
-        if(e.code==='Space'&&!spaceDown){e.preventDefault();spaceDown=true;openPreview();}
+        if(e.code==='Space'&&active?.tagName==='BUTTON')return;
+        if(e.code==='Space'&&!spaceDown){e.preventDefault();spaceDown=true;openPreview();return;}
+        if(key==='escape'){spaceDown=false;closePreview();}
       });
       document.addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();spaceDown=false;closePreview();}});
       window.addEventListener('blur',()=>{spaceDown=false;closePreview();});
 
+      installIconFallbacks();
       render();
     })();
   </script>
 </div>
+</body>
+</html>
