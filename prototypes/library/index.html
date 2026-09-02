@@ -288,8 +288,10 @@
     #albumai-library-prototype .aip-review-actions .aip-stars-edit button { width: clamp(14px, calc(var(--aip-thumb-size) / 10), 20px); height: 22px; }
     #albumai-library-prototype .aip-hover-tools button[aria-pressed="true"] { background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,.42); }
     #albumai-library-prototype .aip-favorite-button { color: #ff769a; font-size: 17px; }
-    #albumai-library-prototype .aip-reject-button { color: var(--aip-red) !important; }
-    #albumai-library-prototype .aip-reject-button svg { width: 15px; height: 15px; display: block; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+    #albumai-library-prototype .aip-reject-button { color: #ff646d !important; }
+    #albumai-library-prototype .aip-reject-button:hover,
+    #albumai-library-prototype .aip-reject-button[aria-pressed="true"] { background: rgba(255,91,101,.2) !important; box-shadow: inset 0 0 0 1px rgba(255,100,109,.55) !important; }
+    #albumai-library-prototype .aip-reject-button svg { width: 17px; height: 17px; display: block; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; }
     #albumai-library-prototype .aip-photo-info { min-height: 52px; padding: 8px 9px; display: grid; align-content: start; flex: 1; gap: 4px; transition: background-color 100ms ease; }
     #albumai-library-prototype .aip-photo-info { background: var(--aip-camera-tint); box-shadow: inset 0 -3px 0 var(--aip-camera-color); }
     #albumai-library-prototype .aip-photo-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -300,8 +302,8 @@
     #albumai-library-prototype .aip-grid-camera-tag { display: inline-flex; align-items: center; gap: 3px; color: var(--aip-text); font-weight: 700; }
     #albumai-library-prototype .aip-grid-camera-tag .aip-camera-swatch { width: 7px; height: 7px; }
     #albumai-library-prototype .aip-burst-review { margin-left: auto; min-height: 20px; padding: 0 6px; border: 1px solid var(--aip-line); border-radius: 5px; background: var(--aip-panel-3); color: var(--aip-muted); font-size: 10px; cursor: pointer; }
-    #albumai-library-prototype .aip-burst-review[data-pick="auto"] { border-color: rgba(67,185,232,.48); color: #8ddcff; background: rgba(67,185,232,.12); }
-    #albumai-library-prototype .aip-burst-review[data-pick="confirmed"] { border-color: rgba(67,185,232,.58); color: #8ddcff; background: rgba(67,185,232,.16); }
+    #albumai-library-prototype .aip-burst-review[data-pick="auto"] { border-color: rgba(244,194,13,.48); color: #f4c20d; background: rgba(244,194,13,.1); }
+    #albumai-library-prototype .aip-burst-review[data-pick="confirmed"] { border-color: rgba(83,201,139,.52); color: #78dba6; background: rgba(83,201,139,.12); }
     #albumai-library-prototype .aip-burst-review[data-pick="manual"] { border-color: rgba(83,201,139,.48); color: #9ce4bd; background: rgba(83,201,139,.12); }
     #albumai-library-prototype .aip-burst-filter { margin: 2px 8px 8px; padding: 8px; border: 1px solid var(--aip-line-soft); border-radius: 7px; background: var(--aip-panel); }
     #albumai-library-prototype .aip-burst-filter strong { display: block; margin-bottom: 3px; font-size: 11px; }
@@ -310,6 +312,13 @@
     #albumai-library-prototype .aip-burst-group-list { margin-bottom: 6px; display: grid; grid-template-columns: 1fr; gap: 4px; }
     #albumai-library-prototype .aip-burst-group-list .aip-open-burst { margin: 0; padding: 5px 7px; display: flex; justify-content: space-between; gap: 6px; text-align: left; }
     #albumai-library-prototype .aip-burst-group-list small { color: var(--aip-muted); font-weight: 400; }
+    #albumai-library-prototype .aip-burst-group-list .aip-open-burst[data-review-state="pending"] { border-color: rgba(244,194,13,.48); background: rgba(244,194,13,.08); }
+    #albumai-library-prototype .aip-burst-group-list .aip-open-burst[data-review-state="reviewed"] { border-color: rgba(83,201,139,.48); background: rgba(83,201,139,.09); }
+    #albumai-library-prototype .aip-burst-state { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+    #albumai-library-prototype [data-review-state="pending"] .aip-burst-state { color: #f4c20d; }
+    #albumai-library-prototype [data-review-state="reviewed"] .aip-burst-state { color: #78dba6; }
+    #albumai-library-prototype .aip-burst-filter [data-burst-filter="pending"] { color: #f4c20d; }
+    #albumai-library-prototype .aip-burst-filter [data-burst-filter="reviewed"] { color: #78dba6; }
     #albumai-library-prototype .aip-burst-filter button { min-height: 28px; border: 1px solid var(--aip-line); border-radius: 5px; background: var(--aip-panel-3); color: var(--aip-muted); cursor: pointer; font-size: 10px; }
     #albumai-library-prototype .aip-burst-filter button[aria-pressed="true"] { border-color: var(--aip-blue); background: var(--aip-blue-soft); color: var(--aip-text); }
     #albumai-library-prototype .aip-burst-filter .aip-open-burst { width: 100%; margin-bottom: 5px; border-color: rgba(67,185,232,.4); color: var(--aip-text); background: rgba(67,185,232,.1); font-weight: 700; }
@@ -408,21 +417,38 @@
     #albumai-library-prototype .aip-preview-close { min-height: 30px; border: 1px solid var(--aip-line); border-radius: 6px; background: var(--aip-panel-3); cursor: pointer; }
     #albumai-library-prototype .aip-burst-dialog { position: absolute; inset: 0; z-index: 35; display: none; align-items: center; justify-content: center; padding: 4%; background: rgba(4,6,9,.78); backdrop-filter: blur(5px); }
     #albumai-library-prototype .aip-burst-dialog.is-visible { display: flex; animation: aip-pop 120ms ease-out; }
-    #albumai-library-prototype .aip-burst-dialog-inner { width: min(980px, 96%); max-height: calc(100% - 24px); overflow: auto; border: 1px solid var(--aip-line); border-radius: 13px; background: #151a22; box-shadow: 0 24px 70px rgba(0,0,0,.48); }
+    #albumai-library-prototype .aip-burst-dialog-inner { width: min(1120px, 97%); max-height: calc(100% - 24px); overflow: auto; border: 1px solid var(--aip-line); border-radius: 13px; background: #151a22; box-shadow: 0 24px 70px rgba(0,0,0,.48); }
     #albumai-library-prototype .aip-burst-dialog-head { min-height: 58px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--aip-line); }
     #albumai-library-prototype .aip-burst-dialog-head div { display: grid; gap: 3px; }
     #albumai-library-prototype .aip-burst-dialog-head span { color: var(--aip-muted); font-size: 11px; }
     #albumai-library-prototype .aip-burst-dialog-head button { margin-left: auto; width: 30px; height: 30px; border: 1px solid var(--aip-line); border-radius: 6px; background: var(--aip-panel-3); cursor: pointer; }
     #albumai-library-prototype .aip-burst-summary { margin: 12px 14px 0; padding: 10px 12px; display: flex; align-items: center; gap: 9px; border: 1px solid rgba(67,185,232,.28); border-radius: 8px; color: var(--aip-muted); background: rgba(67,185,232,.08); font-size: 12px; }
     #albumai-library-prototype .aip-burst-summary strong { color: var(--aip-text); }
-    #albumai-library-prototype .aip-burst-preview { margin: 12px 14px 0; min-height: 250px; display: grid; grid-template-columns: minmax(280px,480px) 1fr; overflow: hidden; border: 1px solid var(--aip-line); border-radius: 9px; background: #090c11; }
-    #albumai-library-prototype .aip-burst-preview-art { width: 100%; aspect-ratio: 1 / 1; min-height: 250px; background-repeat: no-repeat; }
-    #albumai-library-prototype .aip-burst-preview-copy { padding: 14px; display: grid; align-content: center; gap: 7px; background: var(--aip-panel); }
-    #albumai-library-prototype .aip-burst-preview-copy span { color: var(--aip-muted); font-size: 11px; }
-    #albumai-library-prototype .aip-burst-options { padding: 12px 14px; display: grid; grid-template-columns: repeat(6, minmax(125px, 1fr)); gap: 9px; overflow-x: auto; }
-    #albumai-library-prototype .aip-burst-option { min-width: 125px; padding: 0; overflow: hidden; border: 2px solid transparent; border-radius: 8px; color: var(--aip-text); background: var(--aip-panel); text-align: left; }
+    #albumai-library-prototype .aip-burst-preview { margin: 12px 14px 0; min-height: 330px; display: grid; grid-template-columns: minmax(360px,1.7fr) minmax(250px,.8fr); overflow: hidden; border: 1px solid var(--aip-line); border-radius: 10px; background: #090c11; box-shadow: inset 0 0 0 1px rgba(255,255,255,.02); }
+    #albumai-library-prototype .aip-burst-preview-stage { min-width: 0; display: grid; place-items: center; padding: 10px; background: radial-gradient(circle at 50% 40%,#171e28 0,#090c11 70%); }
+    #albumai-library-prototype .aip-burst-preview-art { width: min(100%,560px); aspect-ratio: 1 / 1; min-height: 0; background-repeat: no-repeat; box-shadow: 0 12px 35px rgba(0,0,0,.36); }
+    #albumai-library-prototype .aip-burst-preview-copy { padding: 16px; display: grid; align-content: start; gap: 11px; border-left: 1px solid var(--aip-line); background: var(--aip-panel); }
+    #albumai-library-prototype .aip-burst-preview-copy > span { color: var(--aip-muted); font-size: 11px; }
+    #albumai-library-prototype .aip-burst-frame-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    #albumai-library-prototype .aip-burst-frame-status { padding: 3px 6px; border: 1px solid var(--aip-line); border-radius: 999px; color: var(--aip-muted); font-size: 9px; font-weight: 700; }
+    #albumai-library-prototype .aip-burst-frame-status[data-state="selected"] { border-color: rgba(83,201,139,.45); color: #78dba6; background: rgba(83,201,139,.1); }
+    #albumai-library-prototype .aip-burst-frame-status[data-state="rejected"] { border-color: rgba(255,91,101,.42); color: #ff858c; background: rgba(255,91,101,.1); }
+    #albumai-library-prototype .aip-burst-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding-top: 4px; border-top: 1px solid var(--aip-line-soft); }
+    #albumai-library-prototype .aip-burst-meta div { min-width: 0; padding: 8px; display: grid; gap: 3px; border-radius: 6px; background: #191f29; }
+    #albumai-library-prototype .aip-burst-meta span { color: var(--aip-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
+    #albumai-library-prototype .aip-burst-meta strong { overflow: hidden; text-overflow: ellipsis; color: var(--aip-text); font-size: 11px; white-space: nowrap; }
+    #albumai-library-prototype .aip-burst-strip-head { padding: 11px 14px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    #albumai-library-prototype .aip-burst-strip-head span { color: var(--aip-muted); font-size: 10px; }
+    #albumai-library-prototype .aip-burst-options { margin: 0 14px; padding: 10px 0 8px; display: flex; gap: 9px; overflow-x: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+    #albumai-library-prototype .aip-burst-options:hover { scrollbar-color: #68717d transparent; }
+    #albumai-library-prototype .aip-burst-options::-webkit-scrollbar { height: 6px; }
+    #albumai-library-prototype .aip-burst-options::-webkit-scrollbar-track { background: transparent; }
+    #albumai-library-prototype .aip-burst-options::-webkit-scrollbar-thumb { border-radius: 999px; background: transparent; }
+    #albumai-library-prototype .aip-burst-options:hover::-webkit-scrollbar-thumb { background: #68717d; }
+    #albumai-library-prototype .aip-burst-option { min-width: 190px; padding: 0; overflow: hidden; border: 2px solid transparent; border-radius: 8px; color: var(--aip-text); background: var(--aip-panel); text-align: left; }
     #albumai-library-prototype .aip-burst-option:hover { border-color: var(--aip-line); transform: translateY(-1px); }
     #albumai-library-prototype .aip-burst-option[data-selected="true"] { border-color: var(--aip-blue); box-shadow: 0 0 0 1px var(--aip-blue); }
+    #albumai-library-prototype .aip-burst-option[data-preview-active="true"] { box-shadow: 0 0 0 2px rgba(255,255,255,.68); }
     #albumai-library-prototype .aip-burst-option-art { position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; padding: 0; border: 0; background-repeat: no-repeat; cursor: pointer; }
     #albumai-library-prototype .aip-burst-option-badge { position: absolute; top: 6px; left: 6px; padding: 3px 5px; border-radius: 4px; background: rgba(6,10,15,.82); color: #8ddcff; font-size: 9px; font-weight: 700; }
     #albumai-library-prototype .aip-burst-option-copy { padding: 8px; display: grid; gap: 4px; }
@@ -480,8 +506,8 @@
       #albumai-library-prototype .aip-burst-dialog { padding: 8px; }
       #albumai-library-prototype .aip-burst-dialog-inner { width: 100%; max-height: calc(100dvh - 16px); }
       #albumai-library-prototype .aip-burst-preview { grid-template-columns: 1fr; }
-      #albumai-library-prototype .aip-burst-preview-copy { display: none; }
-      #albumai-library-prototype .aip-burst-options { grid-template-columns: repeat(6, 150px); }
+      #albumai-library-prototype .aip-burst-preview-copy { border-left: 0; border-top: 1px solid var(--aip-line); }
+      #albumai-library-prototype .aip-burst-option { min-width: 150px; }
       #albumai-library-prototype .aip-library-viewport { min-height: 58dvh; }
       #albumai-library-prototype .aip-view-controls { width: 100%; margin-left: 0; justify-content: flex-end; }
     }
@@ -624,9 +650,10 @@
       <div class="aip-burst-dialog-inner">
         <div class="aip-burst-dialog-head"><div><strong id="aip-burst-title">Burst Review</strong><span id="aip-burst-subtitle">Preview every frame, then keep one or more.</span></div><button data-close-burst aria-label="Close Burst Review">×</button></div>
         <div id="aip-burst-summary" class="aip-burst-summary"></div>
-        <div class="aip-burst-preview"><div id="aip-burst-preview-art" class="aip-burst-preview-art" role="img"></div><div class="aip-burst-preview-copy"><strong id="aip-burst-preview-name"></strong><span id="aip-burst-preview-score"></span><span>Use Preview on any frame to compare it at a larger size. Select one or more frames to include.</span></div></div>
+        <div class="aip-burst-preview"><div class="aip-burst-preview-stage"><div id="aip-burst-preview-art" class="aip-burst-preview-art" role="img"></div></div><aside class="aip-burst-preview-copy" aria-label="Frame details"><div class="aip-burst-frame-head"><strong id="aip-burst-preview-name"></strong><span id="aip-burst-frame-status" class="aip-burst-frame-status"></span></div><span id="aip-burst-preview-score"></span><div class="aip-burst-meta"><div><span>Capture</span><strong id="aip-burst-meta-capture"></strong></div><div><span>Camera</span><strong id="aip-burst-meta-camera"></strong></div><div><span>Frame</span><strong id="aip-burst-meta-frame"></strong></div><div><span>Event</span><strong id="aip-burst-meta-event"></strong></div><div><span>Dimensions</span><strong>7008 × 4672</strong></div><div><span>File size</span><strong id="aip-burst-meta-size"></strong></div><div><span>Rating</span><strong id="aip-burst-meta-rating"></strong></div><div><span>Decision</span><strong id="aip-burst-meta-decision"></strong></div></div></aside></div>
+        <div class="aip-burst-strip-head"><strong>Burst frames</strong><span>Preview each frame · select one or more</span></div>
         <div id="aip-burst-options" class="aip-burst-options"></div>
-        <div class="aip-burst-dialog-foot"><button data-reset-burst>Reset to AI Pick</button><button class="aip-burst-done" data-close-burst>Done</button></div>
+        <div class="aip-burst-dialog-foot"><button data-reset-burst>Reset to AI Pick</button><button class="aip-burst-done" data-complete-burst>Apply Review</button></div>
       </div>
     </div>
     <div id="aip-toast" class="aip-toast" aria-live="polite"></div>
@@ -635,7 +662,7 @@
   <script>
     (() => {
       const root = document.getElementById('albumai-library-prototype');
-      const rejectIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M6 6l12 12"></path></svg>';
+      const rejectIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"></circle><path d="M5.3 5.3l13.4 13.4"></path></svg>';
       const cameraPalette = [
         { tag:'C1', color:'#43b9e8', tint:'rgba(67,185,232,.15)' },
         { tag:'C2', color:'#f4c20d', tint:'rgba(244,194,13,.14)' },
@@ -665,7 +692,7 @@
 
       const state = {
         photos,
-        selected: new Set([1]), anchor: 1, focused: 1,
+        selected: new Set(), anchor: 1, focused: 1,
         view: 'grid', search: '', sort: 'manual', decision: 'all', favoriteOnly: false,
         facets: { event:new Set(), camera:new Set(), type:new Set() },
         ratingMode: '=', rating: null, burstReview: 'all',
@@ -711,7 +738,7 @@
           <div class="aip-facet-list">
             <button class="aip-facet-option" data-facet="${key}" data-value="__all" aria-pressed="${!selected.size}"><span>${allLabel}</span><span class="aip-facet-count">${state.photos.length}</span></button>
             ${values.map(value=>{ const camera=key==='camera'?cameraMeta(value):null; const label=camera?`<span class="aip-camera-facet-label" style="--aip-camera-color:${camera.color}"><span class="aip-camera-swatch"></span><span class="aip-camera-code">${camera.tag}</span><span>· ${value}</span></span>`:`<span>${value}</span>`; return `<button class="aip-facet-option" data-facet="${key}" data-value="${value}" aria-pressed="${selected.has(value)}">${label}<span class="aip-facet-count">${count(key,value)}</span></button>`; }).join('')}
-            ${key==='type' ? `<div class="aip-burst-filter"><strong>Burst Review</strong><p>4 groups · 3 cameras · AI picked one best frame per group.</p><section class="aip-burst-group-list">${burstGroups.map(group=>`<button class="aip-open-burst" data-open-burst="${group.id}"><span>${group.id} · ${group.label}</span><small>${burstSelections(group.id).length} selected / 6</small></button>`).join('')}</section><div><button data-burst-filter="pending" aria-pressed="${state.burstReview==='pending'}">Needs review · ${burstGroups.filter(group=>!burstReviewed(group.id)).length}</button><button data-burst-filter="reviewed" aria-pressed="${state.burstReview==='reviewed'}">Reviewed · ${burstGroups.filter(group=>burstReviewed(group.id)).length}</button></div></div>` : ''}
+            ${key==='type' ? `<div class="aip-burst-filter"><strong>Burst Review</strong><p>4 groups · 3 cameras · AI picked one best frame per group.</p><section class="aip-burst-group-list">${burstGroups.map(group=>{const reviewed=burstReviewed(group.id);return `<button class="aip-open-burst" data-open-burst="${group.id}" data-review-state="${reviewed?'reviewed':'pending'}"><span>${group.id} · ${group.label}</span><small><span class="aip-burst-state">● ${reviewed?'Reviewed':'Needs review'}</span><br>${burstSelections(group.id).length} selected / ${burstPhotos(group.id).length}</small></button>`;}).join('')}</section><div><button data-burst-filter="pending" aria-pressed="${state.burstReview==='pending'}">● Needs review · ${burstGroups.filter(group=>!burstReviewed(group.id)).length}</button><button data-burst-filter="reviewed" aria-pressed="${state.burstReview==='reviewed'}">● Reviewed · ${burstGroups.filter(group=>burstReviewed(group.id)).length}</button></div></div>` : ''}
             ${action ? `<button class="aip-facet-option aip-facet-action" data-action="${action}"><span>+ ${action==='new-event'?'New event':'Add / align camera'}</span></button>` : ''}
           </div></section>`;
       }
@@ -862,7 +889,8 @@
       function setRating(rating,ids=targetIds()) { const photos=photosFor(ids), clear=photos.every(p=>p.rating===rating);mutatePhotos(ids,p=>p.rating=clear?0:rating); }
       function togglePreviewFavorite() { remember();const p=currentPhoto();p.favorite=!p.favorite;updateLightbox();updateInspector();updateHistory(); }
       function setPreviewRating(rating) { remember();const p=currentPhoto();p.rating=p.rating===rating?0:rating;updateLightbox();updateInspector();updateHistory(); }
-      function chooseBurstPhoto(id) { const photos=burstPhotos(), target=photos.find(p=>p.id===id);if(!target)return;if(target.burstSelected&&burstSelections().length===1){showToast('Keep at least one photo from the burst.');return;}remember();target.burstSelected=!target.burstSelected;photos.forEach(p=>{p.burstReviewed=true;p.decision=p.burstSelected?'':'reject';p.burstAutoRejected=!p.burstSelected;});state.focused=id;state.selected=new Set(burstSelections().map(p=>p.id));render();renderBurstDialog();showToast(`${burstSelections().length} selected · ${photos.length-burstSelections().length} moved to Rejected.`); }
+      function chooseBurstPhoto(id) { const photos=burstPhotos(), target=photos.find(p=>p.id===id);if(!target)return;if(target.burstSelected&&burstSelections().length===1){showToast('Keep at least one photo from the burst.');return;}remember();target.burstSelected=!target.burstSelected;photos.forEach(p=>{p.decision=p.burstSelected?'':'reject';p.burstAutoRejected=!p.burstSelected;});state.focused=id;state.selected=new Set(burstSelections().map(p=>p.id));render();renderBurstDialog();showToast(`${burstSelections().length} selected · ${photos.length-burstSelections().length} in Rejected.`); }
+      function completeBurstReview() { const photos=burstPhotos(), alreadyReviewed=burstReviewed();if(!alreadyReviewed)remember();photos.forEach(p=>{p.burstReviewed=true;p.decision=p.burstSelected?'':'reject';p.burstAutoRejected=!p.burstSelected;});render();closeBurstReview();showToast(`${burstSelections().length} selected · ${photos.length-burstSelections().length} rejected · Review complete.`); }
       function resetBurstSelection() { const auto=burstAutoPick();remember();burstPhotos().forEach(p=>{p.burstSelected=p.id===auto.id;p.burstReviewed=false;p.decision=p.id===auto.id?'':'reject';p.burstAutoRejected=p.id!==auto.id;});state.focused=auto.id;state.selected=new Set([auto.id]);activeBurstPreviewId=auto.id;render();renderBurstDialog();showToast('AI burst selection restored.'); }
 
       function moveFocus(delta, extend=false, additive=false) {
@@ -885,22 +913,24 @@
         applyFrame(root.querySelector('#aip-lightbox-image'), p); root.querySelector('#aip-lightbox-name').textContent=p.name;
         root.querySelector('#aip-lightbox-event').textContent=`Event · ${p.event}`; root.querySelector('#aip-lightbox-camera').textContent=`Camera · ${p.cameraTag} · ${p.camera}`;
         root.querySelector('#aip-lightbox-rating').textContent=`Rating · ${p.rating?p.rating+' stars':'Unrated'}`;
-        root.querySelector('#aip-preview-counter').textContent=`${index+1} / ${queue.length} ${state.selected.size>1?'selected':'visible'}`;
+        root.querySelector('#aip-preview-counter').textContent=`${index+1} / ${queue.length} ${state.selected.size?'checked':'visible'}`;
         const favorite=root.querySelector('#aip-preview-favorite');favorite.setAttribute('aria-pressed',p.favorite);favorite.textContent=`${p.favorite?'♥':'♡'} ${p.favorite?'Favorite':'Add Favorite'}`;
         root.querySelector('#aip-preview-stars').innerHTML=[1,2,3,4,5].map(n=>`<button data-preview-rating="${n}" aria-label="Set ${n} stars" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('');
         root.querySelectorAll('[data-preview-nav]').forEach(button=>button.disabled=queue.length<2);
       }
-      function openPreview() { const visible=filtered();const queue=state.selected.size>1?visible.filter(p=>state.selected.has(p.id)):visible;previewIds=(queue.length?queue:[currentPhoto()]).map(p=>p.id);if(!previewIds.includes(state.focused))state.focused=previewIds[0];updateLightbox();const box=root.querySelector('#aip-lightbox');box.classList.add('is-visible');box.setAttribute('aria-hidden','false');requestAnimationFrame(()=>box.focus()); }
+      function openPreview() { const visible=filtered();const checked=visible.filter(p=>state.selected.has(p.id)), queue=state.selected.size?checked:visible;previewIds=(queue.length?queue:[currentPhoto()]).map(p=>p.id);if(!previewIds.includes(state.focused))state.focused=previewIds[0];updateLightbox();const box=root.querySelector('#aip-lightbox');box.classList.add('is-visible');box.setAttribute('aria-hidden','false');requestAnimationFrame(()=>box.focus()); }
       function navigatePreview(step) { const queue=previewQueue();if(queue.length<2)return;let index=queue.findIndex(p=>p.id===state.focused);index=(index+step+queue.length)%queue.length;state.focused=queue[index].id;updateLightbox();updateInspector(); }
       function closePreview(){ const box=root.querySelector('#aip-lightbox');box.classList.remove('is-visible');box.setAttribute('aria-hidden','true');render({focusCard:true}); }
       function renderBurstDialog() {
         const group=burstGroups.find(item=>item.id===activeBurstGroup), photos=burstPhotos(), selected=burstSelections(), reviewed=burstReviewed(), preview=photos.find(p=>p.id===activeBurstPreviewId)||selected[0]||photos[0];activeBurstPreviewId=preview.id;
         root.querySelector('#aip-burst-title').textContent=`${group.id} · ${group.label}`;
         root.querySelector('#aip-burst-subtitle').textContent=`${group.camera} · ${photos.length} consecutive frames · preview and select one or more`;
-        root.querySelector('#aip-burst-summary').innerHTML = `<span>✦</span><span><strong>${reviewed?`${selected.length} selected · ${photos.length-selected.length} rejected`:`AI selected ${selected[0].name} as the strongest frame.`}</strong><br>${reviewed?'Every unselected frame is now in the Rejected list.':'Preview the sequence; you can keep the AI pick or select additional frames.'}</span>`;
+        root.querySelector('#aip-burst-summary').innerHTML = `<span>✦</span><span><strong>${reviewed?`Reviewed · ${selected.length} selected · ${photos.length-selected.length} rejected`:`Needs review · AI selected ${selected[0].name}`}</strong><br>${reviewed?'Every unselected frame is in the Rejected list. You can revise and apply again.':'Preview the full sequence, adjust the selection, then apply the review.'}</span>`;
         applyFrame(root.querySelector('#aip-burst-preview-art'),preview);root.querySelector('#aip-burst-preview-name').textContent=preview.name;root.querySelector('#aip-burst-preview-score').textContent=`AI score ${preview.burstScore}% · ${preview.burstReason}`;
-        root.querySelector('#aip-burst-options').innerHTML = photos.map(p=>{const badge=p.burstSelected?(p.burstAutoPick?'AI Pick':'Selected'):'Rejected';return `<article class="aip-burst-option" data-selected="${p.burstSelected}" aria-label="${p.name}, ${badge}"><button class="aip-burst-option-art" data-burst-preview="${p.id}" style="${frameStyle(p)}" aria-label="Preview ${p.name}"><span class="aip-burst-option-badge">${badge}</span></button><span class="aip-burst-option-copy"><strong>${p.name}</strong><span>${p.burstScore}% · ${p.burstReason}</span><span class="aip-burst-option-actions"><button data-burst-preview="${p.id}">Preview</button><button data-burst-choice="${p.id}" aria-pressed="${p.burstSelected}">${p.burstSelected?'✓ Selected':'Select'}</button></span></span></article>`;}).join('');
-        root.querySelector('[data-reset-burst]').disabled=!reviewed;
+        const frameStatus=root.querySelector('#aip-burst-frame-status');frameStatus.dataset.state=preview.burstSelected?'selected':'rejected';frameStatus.textContent=preview.burstSelected?(preview.burstAutoPick?'AI Pick · Selected':'Selected'):'Rejected';
+        root.querySelector('#aip-burst-meta-capture').textContent=preview.time;root.querySelector('#aip-burst-meta-camera').textContent=`${preview.cameraTag} · ${preview.camera}`;root.querySelector('#aip-burst-meta-frame').textContent=`${preview.frame+1} of ${photos.length}`;root.querySelector('#aip-burst-meta-event').textContent=preview.event;root.querySelector('#aip-burst-meta-size').textContent=`${preview.size.toFixed(1)} MB`;root.querySelector('#aip-burst-meta-rating').textContent=preview.rating?`${preview.rating} stars`:'Unrated';root.querySelector('#aip-burst-meta-decision').textContent=preview.burstSelected?'Included':'Rejected';
+        root.querySelector('#aip-burst-options').innerHTML = photos.map(p=>{const badge=p.burstSelected?(p.burstAutoPick?'AI Pick':'Selected'):'Rejected';return `<article class="aip-burst-option" data-selected="${p.burstSelected}" data-preview-active="${p.id===preview.id}" aria-label="${p.name}, ${badge}"><button class="aip-burst-option-art" data-burst-preview="${p.id}" style="${frameStyle(p)}" aria-label="Preview ${p.name}"><span class="aip-burst-option-badge">${badge}</span></button><span class="aip-burst-option-copy"><strong>${p.name}</strong><span>${p.burstScore}% · ${p.burstReason}</span><span class="aip-burst-option-actions"><button data-burst-preview="${p.id}">Preview</button><button data-burst-choice="${p.id}" aria-pressed="${p.burstSelected}">${p.burstSelected?'✓ Selected':'Select'}</button></span></span></article>`;}).join('');
+        root.querySelector('[data-reset-burst]').disabled=!(reviewed||selected.length!==1||!selected[0].burstAutoPick);
       }
       function openBurstReview(groupId='B1') { activeBurstGroup=groupId;activeBurstPreviewId=(burstSelections(groupId)[0]||burstPhotos(groupId)[0]).id;renderBurstDialog();const box=root.querySelector('#aip-burst-dialog');box.classList.add('is-visible');box.setAttribute('aria-hidden','false');requestAnimationFrame(()=>box.querySelector('[data-close-burst]')?.focus()); }
       function closeBurstReview() { const box=root.querySelector('#aip-burst-dialog');box.classList.remove('is-visible');box.setAttribute('aria-hidden','true');focusActiveCard(); }
@@ -915,6 +945,7 @@
         const burstPreview=event.target.closest('[data-burst-preview]'); if(burstPreview){activeBurstPreviewId=+burstPreview.dataset.burstPreview;renderBurstDialog();return;}
         const burstChoice=event.target.closest('[data-burst-choice]'); if(burstChoice){chooseBurstPhoto(+burstChoice.dataset.burstChoice);return;}
         const burstReset=event.target.closest('[data-reset-burst]'); if(burstReset){resetBurstSelection();return;}
+        const burstComplete=event.target.closest('[data-complete-burst]'); if(burstComplete){completeBurstReview();return;}
         const burstClose=event.target.closest('[data-close-burst]'); if(burstClose){closeBurstReview();return;}
         const burstOpen=event.target.closest('[data-open-burst]');
         const action=event.target.closest('[data-photo-action]'); const favorite=event.target.closest('[data-photo-favorite]'); const rating=event.target.closest('[data-photo-rating]');

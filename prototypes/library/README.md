@@ -61,6 +61,9 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - At least one photo must remain selected in every burst group
    - Reset to AI Pick restores the original recommendation and automatic duplicate rejections for that group
    - Needs review and Reviewed counts operate across all four groups within Photo type
+   - Needs Review groups use amber status styling; completed groups change to green Reviewed only after Apply Review
+   - The polished review workspace pairs a large active-frame preview with right-side EXIF-style details
+   - Burst frames use a dedicated horizontal thumbnail strip with a sleek hover-only grey scrollbar
    - Keyboard V opens Burst Review
 7. Selection and navigation
    - The persistent top-right checkbox is the only pointer control that selects or unselects a photo
@@ -73,9 +76,9 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Shift+Arrow extends the selected range; Ctrl/Cmd+Arrow toggles the focused photo in the selection
 8. Quick preview
    - Space toggles a bounded Bridge-style preview inside the plugin surface; Escape also closes it
+   - With no checked photos, Space previews the current filtered Library from the active thumbnail
+   - With one or more checked photos, Space previews only that checked queue without selection overlays
    - After Ctrl/Cmd+A, the preview queue contains all selected visible photos
-   - For a smaller multi-selection, only those selected photos enter the preview queue
-   - With one selected photo, navigation uses the current filtered library
    - Arrow keys and visible Previous / Next controls navigate the queue
    - Keyboard 1–5 rates the current preview photo; 0 clears its rating
    - Keyboard F and the visible Favorite button toggle Favorite for the current preview photo
