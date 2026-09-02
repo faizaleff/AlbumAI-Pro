@@ -47,7 +47,7 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Keyboard 6, 7 and 8 assigns red, yellow and green
    - Keyboard 9 clears the label
    - Repeating the current label clears it
-   - Applied label remains visible as a full-width named color bar below filename and star metadata
+   - Applied label remains visible as a thin full-width color shade at the bottom of the thumbnail information area, without extra text or height
 6. Burst verification
    - Burst photos expose an explicit manual Verify action in the thumbnail information area
    - Pending and Verified burst filters are available within Photo type
