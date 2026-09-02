@@ -131,6 +131,27 @@
 
     #albumai-library-prototype .aip-sidebar,
     #albumai-library-prototype .aip-inspector { background: #12171e; min-height: 0; overflow: auto; }
+    #albumai-library-prototype .aip-sidebar,
+    #albumai-library-prototype .aip-inspector,
+    #albumai-library-prototype .aip-library-viewport { scrollbar-width: thin; scrollbar-color: transparent transparent; scrollbar-gutter: stable; }
+    #albumai-library-prototype .aip-sidebar:hover,
+    #albumai-library-prototype .aip-inspector:hover,
+    #albumai-library-prototype .aip-library-viewport:hover { scrollbar-color: #626b78 transparent; }
+    #albumai-library-prototype .aip-sidebar::-webkit-scrollbar,
+    #albumai-library-prototype .aip-inspector::-webkit-scrollbar,
+    #albumai-library-prototype .aip-library-viewport::-webkit-scrollbar { width: 6px; height: 6px; }
+    #albumai-library-prototype .aip-sidebar::-webkit-scrollbar-track,
+    #albumai-library-prototype .aip-inspector::-webkit-scrollbar-track,
+    #albumai-library-prototype .aip-library-viewport::-webkit-scrollbar-track { background: transparent; }
+    #albumai-library-prototype .aip-sidebar::-webkit-scrollbar-thumb,
+    #albumai-library-prototype .aip-inspector::-webkit-scrollbar-thumb,
+    #albumai-library-prototype .aip-library-viewport::-webkit-scrollbar-thumb { border-radius: 999px; background: transparent; }
+    #albumai-library-prototype .aip-sidebar:hover::-webkit-scrollbar-thumb,
+    #albumai-library-prototype .aip-inspector:hover::-webkit-scrollbar-thumb,
+    #albumai-library-prototype .aip-library-viewport:hover::-webkit-scrollbar-thumb { background: #626b78; }
+    #albumai-library-prototype .aip-sidebar::-webkit-scrollbar-thumb:hover,
+    #albumai-library-prototype .aip-inspector::-webkit-scrollbar-thumb:hover,
+    #albumai-library-prototype .aip-library-viewport::-webkit-scrollbar-thumb:hover { background: #7c8796; }
     #albumai-library-prototype .aip-sidebar { border-right: 1px solid var(--aip-line); }
     #albumai-library-prototype .aip-inspector { border-left: 1px solid var(--aip-line); }
 
@@ -224,7 +245,7 @@
 
     #albumai-library-prototype .aip-library-viewport { min-height: 0; overflow: auto; padding: 12px; background: #20242a; }
     #albumai-library-prototype .aip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--aip-thumb-size), 1fr)); gap: 12px; }
-    #albumai-library-prototype .aip-list-head { display: none; min-width: 760px; grid-template-columns: 44px minmax(150px,1.4fr) 100px 82px 96px 90px 64px 120px; gap: 10px; align-items: center; min-height: 34px; padding: 0 10px; color: var(--aip-muted); border-bottom: 1px solid var(--aip-line); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    #albumai-library-prototype .aip-list-head { display: none; position: sticky; top: -12px; z-index: 8; min-width: 760px; grid-template-columns: 44px minmax(150px,1.4fr) 100px 82px 96px 90px 64px 120px; gap: 10px; align-items: center; min-height: 42px; margin-bottom: 6px; padding: 8px 10px 0; color: var(--aip-muted); background: #20242a; border-bottom: 1px solid var(--aip-line); box-shadow: 0 5px 10px rgba(10,13,18,.2); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
     #albumai-library-prototype .aip-list-head button { min-width: 0; min-height: 28px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-align: left; cursor: pointer; white-space: nowrap; }
     #albumai-library-prototype .aip-list-head button:hover { color: var(--aip-text); }
     #albumai-library-prototype .aip-list-head button[aria-sort="ascending"],
