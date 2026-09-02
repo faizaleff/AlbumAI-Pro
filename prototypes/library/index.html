@@ -250,13 +250,14 @@
     #albumai-library-prototype .aip-grid.is-list { display: grid; grid-template-columns: 1fr; gap: 5px; }
     #albumai-library-prototype .aip-photo {
       position: relative; min-width: 0; display: flex; flex-direction: column; background: var(--aip-panel); border: 2px solid transparent;
-      border-radius: 8px; overflow: hidden; cursor: pointer; user-select: none;
+      border-radius: 8px; overflow: hidden; cursor: default; user-select: none;
       --aip-camera-color: var(--aip-cyan); --aip-camera-tint: rgba(67,185,232,.12);
       transition: border-color 100ms ease, box-shadow 100ms ease, background-color 100ms ease;
     }
     #albumai-library-prototype .aip-photo:hover { background: #202733; box-shadow: 0 8px 22px rgba(0,0,0,.24); }
     #albumai-library-prototype .aip-photo.is-selected { border-color: var(--aip-blue); box-shadow: 0 0 0 1px var(--aip-blue); }
-    #albumai-library-prototype .aip-photo.is-focused { box-shadow: 0 0 0 1px var(--aip-blue), 0 0 0 3px rgba(67,185,232,.46); }
+    #albumai-library-prototype .aip-photo.is-focused:not(.is-selected) { border-color: #778394; box-shadow: 0 0 0 1px rgba(171,183,199,.34); }
+    #albumai-library-prototype .aip-photo.is-focused.is-selected { box-shadow: 0 0 0 1px var(--aip-blue), 0 0 0 3px rgba(67,185,232,.46); }
     #albumai-library-prototype .aip-photo-media { position: relative; aspect-ratio: 1 / 1; background: #0b0d11; overflow: hidden; }
     #albumai-library-prototype .aip-photo-art { width: 100%; height: 100%; background-repeat: no-repeat; display: block; }
     #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-art { opacity: .52; }
@@ -267,9 +268,11 @@
     #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-badge { background: #b6373d; }
     #albumai-library-prototype .aip-selection-mark {
       position: absolute; top: 7px; right: 7px; width: 23px; height: 23px; border-radius: 50%;
-      display: none; place-items: center; background: var(--aip-blue); font-size: 13px; font-weight: 700;
+      z-index: 4; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.62);
+      color: transparent; background: rgba(7,10,14,.58); cursor: pointer; font-size: 13px; font-weight: 700;
     }
-    #albumai-library-prototype .aip-photo.is-selected .aip-selection-mark { display: grid; }
+    #albumai-library-prototype .aip-selection-mark:hover { border-color: #fff; background: rgba(25,34,46,.9); }
+    #albumai-library-prototype .aip-selection-mark[aria-pressed="true"] { color: #fff; border-color: var(--aip-blue); background: var(--aip-blue); }
     #albumai-library-prototype .aip-hover-tools {
       position: absolute; inset: 7px; display: grid; grid-template-columns: 1fr auto;
       grid-template-rows: auto 1fr auto auto; align-items: start; gap: 4px; opacity: 0; pointer-events: none;
@@ -277,15 +280,16 @@
     }
     #albumai-library-prototype .aip-photo:hover .aip-hover-tools,
     #albumai-library-prototype .aip-photo:focus-within .aip-hover-tools { opacity: 1; pointer-events: auto; }
-    #albumai-library-prototype .aip-mini-actions,
-    #albumai-library-prototype .aip-stars-edit { display: flex; gap: 2px; background: rgba(7,10,14,.82); border-radius: 6px; padding: 3px; }
-    #albumai-library-prototype .aip-mini-actions { grid-column: 2; grid-row: 1; }
-    #albumai-library-prototype .aip-stars-edit { grid-column: 1 / -1; grid-row: 3; justify-self: center; }
+    #albumai-library-prototype .aip-review-actions { grid-column: 1 / -1; grid-row: 3; justify-self: stretch; display: grid; grid-template-columns: 20px minmax(0,1fr) 20px; align-items: center; gap: 2px; padding: 3px; border-radius: 6px; background: rgba(7,10,14,.82); }
+    #albumai-library-prototype .aip-stars-edit { min-width: 0; display: flex; justify-content: center; gap: 1px; }
     #albumai-library-prototype .aip-hover-tools button { width: 22px; height: 22px; border: 0; background: transparent; padding: 0; cursor: pointer; border-radius: 4px; }
     #albumai-library-prototype .aip-hover-tools button:hover { background: rgba(255,255,255,.14); }
     #albumai-library-prototype .aip-stars-edit button { color: var(--aip-yellow); }
+    #albumai-library-prototype .aip-review-actions .aip-stars-edit button { width: clamp(14px, calc(var(--aip-thumb-size) / 10), 20px); height: 22px; }
     #albumai-library-prototype .aip-hover-tools button[aria-pressed="true"] { background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,.42); }
     #albumai-library-prototype .aip-favorite-button { color: #ff769a; font-size: 17px; }
+    #albumai-library-prototype .aip-reject-button { color: var(--aip-red) !important; }
+    #albumai-library-prototype .aip-reject-button svg { width: 15px; height: 15px; display: block; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
     #albumai-library-prototype .aip-photo-info { min-height: 52px; padding: 8px 9px; display: grid; align-content: start; flex: 1; gap: 4px; transition: background-color 100ms ease; }
     #albumai-library-prototype .aip-photo-info { background: var(--aip-camera-tint); box-shadow: inset 0 -3px 0 var(--aip-camera-color); }
     #albumai-library-prototype .aip-photo-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -631,6 +635,7 @@
   <script>
     (() => {
       const root = document.getElementById('albumai-library-prototype');
+      const rejectIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M6 6l12 12"></path></svg>';
       const cameraPalette = [
         { tag:'C1', color:'#43b9e8', tint:'rgba(67,185,232,.15)' },
         { tag:'C2', color:'#f4c20d', tint:'rgba(244,194,13,.14)' },
@@ -778,13 +783,10 @@
         const cameraStyle = `--aip-camera-color:${p.cameraColor};--aip-camera-tint:${p.cameraTint}`;
         return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''} ${state.focused===p.id?'is-focused':''}" role="listitem" data-photo-id="${p.id}" data-camera-tag="${p.cameraTag}" data-decision="${p.decision}" style="${cameraStyle}" draggable="true" tabindex="${state.focused===p.id?'0':'-1'}" aria-label="${p.name}, ${state.selected.has(p.id)?'selected, ':''}${p.favorite?'favorite, ':''}${p.rating} stars, ${p.cameraTag}, ${p.camera}, ${p.decision==='reject'?'rejected':'included'}">
           <div class="aip-photo-media"><div class="aip-photo-art" role="img" aria-label="${p.name}" style="${frameStyle(p)}"></div>
-            ${badge}<span class="aip-selection-mark">✓</span>
-            <div class="aip-hover-tools">
-              <span class="aip-mini-actions"><button class="aip-favorite-button" data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button data-photo-action="reject" aria-label="${rejectLabel}" title="${rejectLabel}" aria-pressed="${p.decision==='reject'}">×</button></span>
-              <span class="aip-stars-edit" aria-label="Star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="${n} stars${p.rating===n?', selected':''}" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span>
-            </div>
+            ${badge}<button class="aip-selection-mark" data-photo-select aria-label="${state.selected.has(p.id)?'Unselect':'Select'} ${p.name}" aria-pressed="${state.selected.has(p.id)}">✓</button>
+            <div class="aip-hover-tools"><span class="aip-review-actions"><button class="aip-reject-button" data-photo-action="reject" aria-label="${rejectLabel}" title="${rejectLabel}" aria-pressed="${p.decision==='reject'}">${rejectIcon}</button><span class="aip-stars-edit" aria-label="Star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="${n} stars${p.rating===n?', selected':''}" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span><button class="aip-favorite-button" data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button></span></div>
           </div>
-          <div class="aip-photo-info"><span class="aip-photo-name"><span class="aip-photo-filename">${p.name}</span><span class="aip-list-actions" aria-label="Review actions"><button data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button data-photo-action="reject" aria-label="${rejectLabel}" title="${rejectLabel}" aria-pressed="${p.decision==='reject'}">×</button></span></span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span class="aip-grid-camera-tag" title="${p.camera}"><span class="aip-camera-swatch"></span>${p.cameraTag}</span><span>${p.event}</span>${burstReview}</span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating"><span class="aip-list-stars-edit" aria-label="Edit star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="Set ${n} stars" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span></span><span class="aip-list-cell"><span class="aip-camera-tag" style="${cameraStyle}" title="${p.camera}"><span class="aip-camera-swatch"></span>${p.cameraTag}</span></span><span class="aip-list-cell">${p.event}</span></div>
+          <div class="aip-photo-info"><span class="aip-photo-name"><span class="aip-photo-filename">${p.name}</span><span class="aip-list-actions" aria-label="Review actions"><button data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button class="aip-reject-button" data-photo-action="reject" aria-label="${rejectLabel}" title="${rejectLabel}" aria-pressed="${p.decision==='reject'}">${rejectIcon}</button></span></span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span class="aip-grid-camera-tag" title="${p.camera}"><span class="aip-camera-swatch"></span>${p.cameraTag}</span><span>${p.event}</span>${burstReview}</span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating"><span class="aip-list-stars-edit" aria-label="Edit star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="Set ${n} stars" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span></span><span class="aip-list-cell"><span class="aip-camera-tag" style="${cameraStyle}" title="${p.camera}"><span class="aip-camera-swatch"></span>${p.cameraTag}</span></span><span class="aip-list-cell">${p.event}</span></div>
         </article>`;
       }
 
@@ -843,21 +845,21 @@
         root.querySelector('#aip-preview-time').textContent = p.time; root.querySelector('#aip-preview-camera').textContent = `${p.cameraTag} · ${p.camera}`;
         root.querySelector('#aip-property-name').textContent = p.name; root.querySelector('#aip-property-date').textContent = `${p.date} · ${p.time}`;
       }
-      function setSelection(id, event) {
+      function toggleSelection(id, event) {
         const visible = filtered().map(p=>p.id);
         if (event.shiftKey && state.anchor) {
           const a=visible.indexOf(state.anchor), b=visible.indexOf(id); if(a>=0&&b>=0){ state.selected=new Set(visible.slice(Math.min(a,b),Math.max(a,b)+1)); }
-        } else if (event.ctrlKey || event.metaKey) {
-          state.selected.has(id)?state.selected.delete(id):state.selected.add(id); state.anchor=id;
-        } else { state.selected = new Set([id]); state.anchor=id; }
+        } else { state.selected.has(id)?state.selected.delete(id):state.selected.add(id); state.anchor=id; }
         state.focused=id; render({focusCard:true});
       }
+      function focusPhoto(id) { state.focused=id;render({focusCard:true}); }
       function targetIds() { return state.selected.size ? [...state.selected] : [state.focused]; }
       function targetPhotos() { return targetIds().map(id=>state.photos.find(p=>p.id===id)).filter(Boolean); }
-      function mutateSelected(mutator) { remember(); targetIds().forEach(id=>mutator(state.photos.find(p=>p.id===id))); render({focusCard:true}); }
-      function toggleReject() { const clear=targetPhotos().every(p=>p.decision==='reject');mutateSelected(p=>p.decision=clear?'':'reject'); }
-      function setFavorite() { const clear=targetPhotos().every(p=>p.favorite);mutateSelected(p=>p.favorite=!clear); }
-      function setRating(rating) { const clear=targetPhotos().every(p=>p.rating===rating);mutateSelected(p=>p.rating=clear?0:rating); }
+      function photosFor(ids) { return ids.map(id=>state.photos.find(p=>p.id===id)).filter(Boolean); }
+      function mutatePhotos(ids, mutator) { remember();ids.forEach(id=>mutator(state.photos.find(p=>p.id===id)));render({focusCard:true}); }
+      function toggleReject(ids=targetIds()) { const photos=photosFor(ids), clear=photos.every(p=>p.decision==='reject');mutatePhotos(ids,p=>p.decision=clear?'':'reject'); }
+      function setFavorite(ids=targetIds()) { const photos=photosFor(ids), clear=photos.every(p=>p.favorite);mutatePhotos(ids,p=>p.favorite=!clear); }
+      function setRating(rating,ids=targetIds()) { const photos=photosFor(ids), clear=photos.every(p=>p.rating===rating);mutatePhotos(ids,p=>p.rating=clear?0:rating); }
       function togglePreviewFavorite() { remember();const p=currentPhoto();p.favorite=!p.favorite;updateLightbox();updateInspector();updateHistory(); }
       function setPreviewRating(rating) { remember();const p=currentPhoto();p.rating=p.rating===rating?0:rating;updateLightbox();updateInspector();updateHistory(); }
       function chooseBurstPhoto(id) { const photos=burstPhotos(), target=photos.find(p=>p.id===id);if(!target)return;if(target.burstSelected&&burstSelections().length===1){showToast('Keep at least one photo from the burst.');return;}remember();target.burstSelected=!target.burstSelected;photos.forEach(p=>{p.burstReviewed=true;p.decision=p.burstSelected?'':'reject';p.burstAutoRejected=!p.burstSelected;});state.focused=id;state.selected=new Set(burstSelections().map(p=>p.id));render();renderBurstDialog();showToast(`${burstSelections().length} selected · ${photos.length-burstSelections().length} moved to Rejected.`); }
@@ -872,8 +874,7 @@
         const next = Math.max(0,Math.min(visible.length-1,index+delta(columns)));
         const id=visible[next].id;
         if(extend){ const a=visible.findIndex(p=>p.id===state.anchor), b=next; state.selected=new Set(visible.slice(Math.min(a,b),Math.max(a,b)+1).map(p=>p.id)); }
-        else if(additive){ state.selected.add(id); state.anchor=id; }
-        else { state.selected=new Set([id]); state.anchor=id; }
+        else if(additive){ state.selected.has(id)?state.selected.delete(id):state.selected.add(id); state.anchor=id; }
         state.focused=id; render({focusCard:true});
         requestAnimationFrame(()=>root.querySelector(`[data-photo-id="${id}"]`)?.scrollIntoView({block:'nearest',inline:'nearest'}));
       }
@@ -906,6 +907,7 @@
 
       root.addEventListener('click', event => {
         const card=event.target.closest('[data-photo-id]');
+        const select=event.target.closest('[data-photo-select]');
         const previewNav=event.target.closest('[data-preview-nav]'); if(previewNav){navigatePreview(+previewNav.dataset.previewNav);return;}
         const previewRating=event.target.closest('[data-preview-rating]'); if(previewRating){setPreviewRating(+previewRating.dataset.previewRating);return;}
         const previewFavorite=event.target.closest('[data-preview-favorite]'); if(previewFavorite){togglePreviewFavorite();return;}
@@ -916,9 +918,10 @@
         const burstClose=event.target.closest('[data-close-burst]'); if(burstClose){closeBurstReview();return;}
         const burstOpen=event.target.closest('[data-open-burst]');
         const action=event.target.closest('[data-photo-action]'); const favorite=event.target.closest('[data-photo-favorite]'); const rating=event.target.closest('[data-photo-rating]');
-        if(card && (action||favorite||rating||burstOpen)) { const id=+card.dataset.photoId;if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;} if(action)toggleReject(); if(favorite)setFavorite(); if(rating)setRating(+rating.dataset.photoRating); if(burstOpen)openBurstReview(burstOpen.dataset.openBurst); return; }
+        if(card && select){toggleSelection(+card.dataset.photoId,event);return;}
+        if(card && (action||favorite||rating||burstOpen)) { const id=+card.dataset.photoId, ids=state.selected.has(id)?targetIds():[id];state.focused=id;if(action)toggleReject(ids);if(favorite)setFavorite(ids);if(rating)setRating(+rating.dataset.photoRating,ids);if(burstOpen)openBurstReview(burstOpen.dataset.openBurst);return; }
         if(burstOpen){openBurstReview(burstOpen.dataset.openBurst);return;}
-        if(card){setSelection(+card.dataset.photoId,event);return;}
+        if(card){focusPhoto(+card.dataset.photoId);return;}
         const facet=event.target.closest('[data-facet]');
         if(facet){ const key=facet.dataset.facet,value=facet.dataset.value,set=state.facets[key]; if(value==='__all'){set.clear();} else if(event.ctrlKey||event.metaKey){set.has(value)?set.delete(value):set.add(value);} else if(set.size===1&&set.has(value)){set.clear();} else {set.clear();set.add(value);} render(); return; }
         const collapse=event.target.closest('[data-collapse]'); if(collapse){const key=collapse.dataset.collapse;state.collapsed.has(key)?state.collapsed.delete(key):state.collapsed.add(key);render();root.querySelector(`[data-collapse="${key}"]`)?.focus();return;}
@@ -951,7 +954,7 @@
       root.querySelector('#aip-filter-toggle').addEventListener('click',event=>{const sidebar=root.querySelector('.aip-sidebar');const open=sidebar.classList.toggle('is-open');event.currentTarget.setAttribute('aria-expanded',open);event.currentTarget.lastChild.textContent=open?' Hide':' Show';});
 
       function clearDropTargets(){root.querySelectorAll('.is-drop-target').forEach(el=>el.classList.remove('is-drop-target'));}
-      root.addEventListener('dragstart',e=>{const card=e.target.closest('[data-photo-id]');if(!card)return;const id=+card.dataset.photoId;if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;}e.dataTransfer.setData('text/plain',JSON.stringify([...state.selected]));e.dataTransfer.effectAllowed='move';});
+      root.addEventListener('dragstart',e=>{const card=e.target.closest('[data-photo-id]');if(!card)return;const id=+card.dataset.photoId,ids=state.selected.has(id)?[...state.selected]:[id];state.focused=id;e.dataTransfer.setData('text/plain',JSON.stringify(ids));e.dataTransfer.effectAllowed='move';});
       root.addEventListener('dragover',e=>{const target=e.target.closest('[data-facet="event"]');if(target&&target.dataset.value!=='__all'){e.preventDefault();e.dataTransfer.dropEffect='move';clearDropTargets();target.classList.add('is-drop-target');}});
       root.addEventListener('dragleave',e=>{if(!root.contains(e.relatedTarget))clearDropTargets();});
       root.addEventListener('dragend',clearDropTargets);

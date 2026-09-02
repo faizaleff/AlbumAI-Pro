@@ -63,12 +63,14 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Needs review and Reviewed counts operate across all four groups within Photo type
    - Keyboard V opens Burst Review
 7. Selection and navigation
-   - Click selects one photo
-   - Ctrl/Cmd-click toggles photos
-   - Shift-click selects a range
+   - The persistent top-right checkbox is the only pointer control that selects or unselects a photo
+   - Clicking a thumbnail changes only the active Preview / Inspector photo and never changes the selected set
+   - Checkbox clicks accumulate a persistent multi-selection; clicking a checked box unselects that photo
+   - The bottom hover review bar places circle-slash Reject left of the stars and Favorite on the right; it never obscures the top-right checkbox
+   - Actions on an unselected photo affect only that photo without silently selecting it; actions on a selected photo apply to the selected set
    - Ctrl/Cmd+A selects all currently visible photos
-   - Arrow keys navigate and keep the active photo visible
-   - Shift+Arrow extends the selected range
+   - Arrow keys move active focus without clearing checkbox selections and keep the active photo visible
+   - Shift+Arrow extends the selected range; Ctrl/Cmd+Arrow toggles the focused photo in the selection
 8. Quick preview
    - Space toggles a bounded Bridge-style preview inside the plugin surface; Escape also closes it
    - After Ctrl/Cmd+A, the preview queue contains all selected visible photos
