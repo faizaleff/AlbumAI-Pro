@@ -239,9 +239,6 @@
     #albumai-library-prototype .aip-photo[data-label="red"] { --aip-label-color: var(--aip-red); }
     #albumai-library-prototype .aip-photo[data-label="yellow"] { --aip-label-color: var(--aip-yellow); }
     #albumai-library-prototype .aip-photo[data-label="green"] { --aip-label-color: var(--aip-green); }
-    #albumai-library-prototype .aip-photo[data-label]:not([data-label=""])::after {
-      content: ""; position: absolute; inset: 3px; border: 2px solid var(--aip-label-color); border-radius: 5px; pointer-events: none;
-    }
     #albumai-library-prototype .aip-photo-media { position: relative; aspect-ratio: 4 / 3; background: #0b0d11; overflow: hidden; }
     #albumai-library-prototype .aip-photo-art { width: 100%; height: 100%; background-repeat: no-repeat; display: block; }
     #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-art { opacity: .52; }
@@ -275,11 +272,19 @@
     #albumai-library-prototype .aip-hover-tools button[aria-pressed="true"] { background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,.42); }
     #albumai-library-prototype .aip-favorite-button { color: #ff769a; font-size: 17px; }
     #albumai-library-prototype .aip-color-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
-    #albumai-library-prototype .aip-photo-info { min-height: 52px; padding: 8px 9px; display: grid; gap: 4px; }
+    #albumai-library-prototype .aip-photo-info { min-height: 52px; padding: 8px 9px 0; display: grid; gap: 4px; }
     #albumai-library-prototype .aip-photo-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #albumai-library-prototype .aip-persistent-meta { min-height: 16px; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--aip-muted); }
     #albumai-library-prototype .aip-persistent-stars { color: var(--aip-yellow); letter-spacing: -1px; }
     #albumai-library-prototype .aip-persistent-favorite { color: #ff769a; font-size: 13px; }
+    #albumai-library-prototype .aip-label-bar { grid-column: 1 / -1; min-height: 18px; margin: 3px -9px 0; padding: 2px 9px; display: flex; align-items: center; justify-content: space-between; gap: 6px; background: var(--aip-label-color); color: #101318; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    #albumai-library-prototype .aip-burst-review { margin-left: auto; min-height: 20px; padding: 0 6px; border: 1px solid var(--aip-line); border-radius: 5px; background: var(--aip-panel-3); color: var(--aip-muted); font-size: 10px; cursor: pointer; }
+    #albumai-library-prototype .aip-burst-review[aria-pressed="true"] { border-color: var(--aip-green); color: var(--aip-green); background: rgba(83,201,139,.1); }
+    #albumai-library-prototype .aip-burst-filter { margin: 2px 8px 8px; padding: 8px; border: 1px solid var(--aip-line-soft); border-radius: 7px; background: var(--aip-panel); }
+    #albumai-library-prototype .aip-burst-filter strong { display: block; margin-bottom: 6px; font-size: 11px; }
+    #albumai-library-prototype .aip-burst-filter div { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    #albumai-library-prototype .aip-burst-filter button { min-height: 28px; border: 1px solid var(--aip-line); border-radius: 5px; background: var(--aip-panel-3); color: var(--aip-muted); cursor: pointer; font-size: 10px; }
+    #albumai-library-prototype .aip-burst-filter button[aria-pressed="true"] { border-color: var(--aip-blue); background: var(--aip-blue-soft); color: var(--aip-text); }
     #albumai-library-prototype .aip-list-cell { display: none; }
     #albumai-library-prototype .aip-grid.is-list { min-width: 760px; }
     #albumai-library-prototype .aip-grid.is-list .aip-photo { display: grid; grid-template-columns: 44px minmax(150px,1.4fr) 100px 82px 96px 90px 64px 120px; gap: 10px; align-items: center; min-height: 48px; padding: 3px 10px; border-width: 1px; border-radius: 3px; }
@@ -287,6 +292,8 @@
     #albumai-library-prototype .aip-grid.is-list .aip-photo-info { display: contents; }
     #albumai-library-prototype .aip-grid.is-list .aip-photo-name { grid-column: 2; }
     #albumai-library-prototype .aip-grid.is-list .aip-persistent-meta { display: none; }
+    #albumai-library-prototype .aip-grid.is-list .aip-label-bar,
+    #albumai-library-prototype .aip-grid.is-list .aip-burst-review { display: none; }
     #albumai-library-prototype .aip-grid.is-list .aip-list-cell { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--aip-muted); font-size: 11px; }
     #albumai-library-prototype .aip-grid.is-list .aip-list-rating { color: var(--aip-yellow); letter-spacing: -1px; }
     #albumai-library-prototype .aip-grid.is-list .aip-hover-tools { display: none; }
@@ -496,7 +503,7 @@
           <button class="aip-properties-heading" id="aip-properties-toggle" aria-expanded="true"><span aria-hidden="true">⌄</span> File Properties</button>
           <div class="aip-properties-body"><span>Filename</span><strong id="aip-property-name"></strong><span>Document type</span><strong>JPEG image</strong><span>Date created</span><strong id="aip-property-date"></strong><span>File size</span><strong>24.8 MB</strong><span>Dimensions</span><strong>7008 × 4672</strong><span>Resolution</span><strong>300 ppi</strong><span>Bit depth</span><strong>8</strong><span>Color mode</span><strong>RGB</strong></div>
         </section>
-        <div class="aip-shortcuts"><strong>Fast review</strong><br><kbd>← ↑ ↓ →</kbd> navigate · <kbd>Space</kbd> preview<br><kbd>F</kbd> favorite · <kbd>K</kbd> keep · <kbd>R</kbd> reject<br><kbd>0–5</kbd> stars · <kbd>6–8</kbd> labels · <kbd>9</kbd> clear label</div>
+        <div class="aip-shortcuts"><strong>Fast review</strong><br><kbd>← ↑ ↓ →</kbd> navigate · <kbd>Space</kbd> preview<br><kbd>F</kbd> favorite · <kbd>K</kbd> keep · <kbd>R</kbd> reject<br><kbd>0–5</kbd> stars · <kbd>6–8</kbd> labels · <kbd>9</kbd> clear label<br><kbd>V</kbd> verify selected Burst photos</div>
       </aside>
     </main>
 
@@ -523,14 +530,14 @@
         ['ZSA00236.jpg','Reception','Camera A','Burst photo',3,'yellow','keep','06:51 PM'],
         ['ZSA00237.jpg','Reception','Camera D','Burst photo',2,'red','reject','06:52 PM'],
         ['ZSA00282.jpg','Reception','Camera B','Single photo',4,'green','keep','07:18 PM']
-      ].map((p, index) => ({ id: index + 1, name:p[0], frame:index, event:p[1], camera:p[2], type:p[3], rating:p[4], label:p[5], decision:p[6], time:p[7], order:index, favorite:[1,2,5,8].includes(index + 1), date:'Sep 02, 2026', size:18.6 + index * .7, pixels:32.7 + index * .4 }));
+      ].map((p, index) => ({ id: index + 1, name:p[0], frame:index, event:p[1], camera:p[2], type:p[3], rating:p[4], label:p[5], decision:p[6], time:p[7], order:index, favorite:[1,2,5,8].includes(index + 1), burstVerified:[3,10].includes(index + 1), date:'Sep 02, 2026', size:18.6 + index * .7, pixels:32.7 + index * .4 }));
 
       const state = {
         photos,
         selected: new Set([1]), anchor: 1, focused: 1,
         view: 'grid', search: '', sort: 'manual', decision: 'all', favoriteOnly: false,
         facets: { event:new Set(), camera:new Set(), type:new Set() },
-        ratingMode: '=', rating: null, label: null,
+        ratingMode: '=', rating: null, label: null, burstReview: 'all',
         collapsed: new Set(),
         history: [], future: []
       };
@@ -542,7 +549,7 @@
       let spaceDown = false;
 
       function cloneSnapshot() {
-        return state.photos.map(p => ({id:p.id,rating:p.rating,label:p.label,decision:p.decision,event:p.event,camera:p.camera,favorite:p.favorite}));
+        return state.photos.map(p => ({id:p.id,rating:p.rating,label:p.label,decision:p.decision,event:p.event,camera:p.camera,favorite:p.favorite,burstVerified:p.burstVerified}));
       }
       function remember() { state.history.push(cloneSnapshot()); if (state.history.length > 50) state.history.shift(); state.future = []; updateHistory(); }
       function restore(snapshot) { snapshot.forEach(s => Object.assign(state.photos.find(p=>p.id===s.id), s)); render(); }
@@ -568,6 +575,7 @@
           <div class="aip-facet-list">
             <button class="aip-facet-option" data-facet="${key}" data-value="__all" aria-pressed="${!selected.size}"><span>${allLabel}</span><span class="aip-facet-count">${state.photos.length}</span></button>
             ${values.map(value=>`<button class="aip-facet-option" data-facet="${key}" data-value="${value}" aria-pressed="${selected.has(value)}"><span>${value}</span><span class="aip-facet-count">${count(key,value)}</span></button>`).join('')}
+            ${key==='type' ? `<div class="aip-burst-filter"><strong>Burst manual verification</strong><div><button data-burst-filter="pending" aria-pressed="${state.burstReview==='pending'}">Pending · ${state.photos.filter(p=>p.type==='Burst photo'&&!p.burstVerified).length}</button><button data-burst-filter="verified" aria-pressed="${state.burstReview==='verified'}">Verified · ${state.photos.filter(p=>p.type==='Burst photo'&&p.burstVerified).length}</button></div></div>` : ''}
             ${action ? `<button class="aip-facet-option aip-facet-action" data-action="${action}"><span>+ ${action==='new-event'?'New event':'Add / align camera'}</span></button>` : ''}
           </div></section>`;
       }
@@ -609,7 +617,8 @@
           let ratingPass = true;
           if (state.rating !== null) ratingPass = state.ratingMode==='=' ? p.rating===state.rating : state.ratingMode==='≥' ? p.rating>=state.rating : p.rating<=state.rating;
           const labelPass = state.label===null || (state.label==='none' ? !p.label : p.label===state.label);
-          return facetPass && searchPass && decisionPass && favoritePass && ratingPass && labelPass;
+          const burstPass = state.burstReview==='all' || (p.type==='Burst photo' && (state.burstReview==='verified' ? p.burstVerified : !p.burstVerified));
+          return facetPass && searchPass && decisionPass && favoritePass && ratingPass && labelPass && burstPass;
         });
         const sorters = {
           'name-asc':(a,b)=>a.name.localeCompare(b.name),'name-desc':(a,b)=>b.name.localeCompare(a.name),
@@ -636,6 +645,9 @@
         const stars = p.rating ? '★'.repeat(p.rating) : '';
         const favorite = p.favorite ? '<span class="aip-persistent-favorite" aria-label="Favorite">♥</span>' : '';
         const badge = p.decision==='keep'?'✓ KEEP':p.decision==='reject'?'× REJECT':'REVIEW';
+        const labelNames = {red:'Select',yellow:'Review',green:'Approved'};
+        const labelBar = p.label ? `<span class="aip-label-bar"><span>${labelNames[p.label]}</span><span>${p.label}</span></span>` : '';
+        const burstReview = p.type==='Burst photo' ? `<button class="aip-burst-review" data-burst-verify aria-pressed="${p.burstVerified}" aria-label="${p.burstVerified?'Mark burst as pending verification':'Manually verify burst photo'}">${p.burstVerified?'✓ Verified':'Verify burst'}</button>` : '';
         return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''} ${state.focused===p.id?'is-focused':''}" role="listitem" data-photo-id="${p.id}" data-label="${p.label}" data-decision="${p.decision}" draggable="true" tabindex="${state.focused===p.id?'0':'-1'}" aria-label="${p.name}, ${state.selected.has(p.id)?'selected, ':''}${p.favorite?'favorite, ':''}${p.rating} stars, ${p.label?p.label+' label, ':''}${p.decision||'review'}">
           <div class="aip-photo-media"><div class="aip-photo-art" role="img" aria-label="${p.name}" style="${frameStyle(p)}"></div>
             <span class="aip-photo-badge">${badge}</span><span class="aip-selection-mark">✓</span>
@@ -645,7 +657,7 @@
               <span class="aip-colors-edit" aria-label="Color label"><button data-photo-label="red" aria-label="Red label" aria-pressed="${p.label==='red'}"><span class="aip-color-dot" style="background:var(--aip-red)"></span></button><button data-photo-label="yellow" aria-label="Yellow label" aria-pressed="${p.label==='yellow'}"><span class="aip-color-dot" style="background:var(--aip-yellow)"></span></button><button data-photo-label="green" aria-label="Green label" aria-pressed="${p.label==='green'}"><span class="aip-color-dot" style="background:var(--aip-green)"></span></button></span>
             </div>
           </div>
-          <div class="aip-photo-info"><span class="aip-photo-name">${p.name}</span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span>${p.event}</span></span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating">${p.rating?'★'.repeat(p.rating):'Unrated'}</span><span class="aip-list-cell">${p.label?`<span class="aip-label-swatch" style="width:11px;height:11px;background:var(--aip-${p.label})"></span>`:'—'}</span><span class="aip-list-cell">${p.event}</span></div>
+          <div class="aip-photo-info"><span class="aip-photo-name">${p.name}</span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span>${p.event}</span>${burstReview}</span>${labelBar}<span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating">${p.rating?'★'.repeat(p.rating):'Unrated'}</span><span class="aip-list-cell">${p.label?labelNames[p.label]:'—'}</span><span class="aip-list-cell">${p.event}</span></div>
         </article>`;
       }
 
@@ -657,7 +669,7 @@
         const element=document.activeElement;
         if(!element||!root.contains(element))return null;
         if(element.id)return {id:element.id};
-        const attributes=['data-facet','data-rating-mode','data-rating-filter','data-label-filter','data-decision-filter','data-collapse'];
+        const attributes=['data-facet','data-rating-mode','data-rating-filter','data-label-filter','data-burst-filter','data-decision-filter','data-collapse'];
         const name=attributes.find(attribute=>element.hasAttribute?.(attribute));
         return name?{name,value:element.getAttribute(name),detail:element.getAttribute('data-value')}:null;
       }
@@ -719,6 +731,7 @@
       function setFavorite() { const clear=targetPhotos().every(p=>p.favorite);mutateSelected(p=>p.favorite=!clear); }
       function setRating(rating) { const clear=targetPhotos().every(p=>p.rating===rating);mutateSelected(p=>p.rating=clear?0:rating); }
       function setLabel(label) { const clear=targetPhotos().every(p=>p.label===label);mutateSelected(p=>p.label=clear?'':label); }
+      function setBurstVerified() { const bursts=targetPhotos().filter(p=>p.type==='Burst photo'); if(!bursts.length){showToast('Manual verification is available for Burst photos.');return;} const verified=bursts.every(p=>p.burstVerified); remember();bursts.forEach(p=>p.burstVerified=!verified);render({focusCard:true}); }
 
       function moveFocus(delta, extend=false, additive=false) {
         const visible = filtered(); if (!visible.length) return;
@@ -745,8 +758,8 @@
 
       root.addEventListener('click', event => {
         const card=event.target.closest('[data-photo-id]');
-        const action=event.target.closest('[data-photo-action]'); const favorite=event.target.closest('[data-photo-favorite]'); const rating=event.target.closest('[data-photo-rating]'); const label=event.target.closest('[data-photo-label]');
-        if(card && (action||favorite||rating||label)) { const id=+card.dataset.photoId;if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;} if(action)setDecision(action.dataset.photoAction); if(favorite)setFavorite(); if(rating)setRating(+rating.dataset.photoRating); if(label)setLabel(label.dataset.photoLabel); return; }
+        const action=event.target.closest('[data-photo-action]'); const favorite=event.target.closest('[data-photo-favorite]'); const rating=event.target.closest('[data-photo-rating]'); const label=event.target.closest('[data-photo-label]'); const burstVerify=event.target.closest('[data-burst-verify]');
+        if(card && (action||favorite||rating||label||burstVerify)) { const id=+card.dataset.photoId;if(!state.selected.has(id)){state.selected=new Set([id]);state.focused=id;state.anchor=id;} if(action)setDecision(action.dataset.photoAction); if(favorite)setFavorite(); if(rating)setRating(+rating.dataset.photoRating); if(label)setLabel(label.dataset.photoLabel); if(burstVerify)setBurstVerified(); return; }
         if(card){setSelection(+card.dataset.photoId,event);return;}
         const facet=event.target.closest('[data-facet]');
         if(facet){ const key=facet.dataset.facet,value=facet.dataset.value,set=state.facets[key]; if(value==='__all'){set.clear();} else if(event.ctrlKey||event.metaKey){set.has(value)?set.delete(value):set.add(value);} else if(set.size===1&&set.has(value)){set.clear();} else {set.clear();set.add(value);} render(); return; }
@@ -754,6 +767,7 @@
         const mode=event.target.closest('[data-rating-mode]'); if(mode){state.ratingMode=state.ratingMode===mode.dataset.ratingMode?'=':mode.dataset.ratingMode;render();return;}
         const rf=event.target.closest('[data-rating-filter]'); if(rf){const n=+rf.dataset.ratingFilter;state.rating=state.rating===n?null:n;render();return;}
         const lf=event.target.closest('[data-label-filter]'); if(lf){state.label=state.label===lf.dataset.labelFilter?null:lf.dataset.labelFilter;render();return;}
+        const bf=event.target.closest('[data-burst-filter]'); if(bf){state.burstReview=state.burstReview===bf.dataset.burstFilter?'all':bf.dataset.burstFilter;render();return;}
         const clearReview=event.target.closest('[data-clear-review]'); if(clearReview){state.rating=null;state.label=null;state.ratingMode='=';render();return;}
         const df=event.target.closest('[data-decision-filter]'); if(df){state.decision=df.dataset.decisionFilter;render();return;}
         const future=event.target.closest('[data-future]'); if(future){showToast(`${future.dataset.future} is reserved for the next prototype stage.`);return;}
@@ -769,7 +783,7 @@
       root.querySelector('#aip-thumb-size').addEventListener('input',e=>{root.style.setProperty('--aip-thumb-size',`${e.target.value}px`);if(state.view==='list')state.view='grid';else state.view=+e.target.value<=140?'compact':'grid';render();});
       root.querySelector('#aip-properties-toggle').addEventListener('click',e=>{const section=root.querySelector('#aip-properties');const collapsed=section.classList.toggle('is-collapsed');e.currentTarget.setAttribute('aria-expanded',!collapsed);});
       root.querySelector('#aip-favorite-filter').addEventListener('click',()=>{state.favoriteOnly=!state.favoriteOnly;render();});
-      root.querySelector('#aip-clear-filters').addEventListener('click',()=>{state.search='';root.querySelector('#aip-search').value='';state.decision='all';state.favoriteOnly=false;state.rating=null;state.label=null;Object.values(state.facets).forEach(s=>s.clear());render();});
+      root.querySelector('#aip-clear-filters').addEventListener('click',()=>{state.search='';root.querySelector('#aip-search').value='';state.decision='all';state.favoriteOnly=false;state.rating=null;state.label=null;state.burstReview='all';Object.values(state.facets).forEach(s=>s.clear());render();});
       root.querySelector('#aip-undo').addEventListener('click',undo); root.querySelector('#aip-redo').addEventListener('click',redo);
       root.querySelector('#aip-save').addEventListener('click',()=>showToast('Prototype state saved for this session.'));
       root.querySelector('#aip-add-folder').addEventListener('click',()=>showToast('Add Folder includes optional subfolders.'));
@@ -794,7 +808,7 @@
         if((e.ctrlKey||e.metaKey)&&key==='a'){e.preventDefault();state.selected=new Set(filtered().map(p=>p.id));render();return;}
         if((e.ctrlKey||e.metaKey)&&key==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
         const nav={arrowleft:c=>-1,arrowright:c=>1,arrowup:c=>-c,arrowdown:c=>c}; if(nav[key]){e.preventDefault();moveFocus(nav[key],e.shiftKey,e.ctrlKey||e.metaKey);return;}
-        if(key==='f'){e.preventDefault();setFavorite();return;} if(key==='k'){e.preventDefault();setDecision('keep');return;} if(key==='r'){e.preventDefault();setDecision('reject');return;}
+        if(key==='f'){e.preventDefault();setFavorite();return;} if(key==='k'){e.preventDefault();setDecision('keep');return;} if(key==='r'){e.preventDefault();setDecision('reject');return;} if(key==='v'){e.preventDefault();setBurstVerified();return;}
         if(/^[0-5]$/.test(key)){e.preventDefault();setRating(+key);return;} if(/^[6-8]$/.test(key)){e.preventDefault();setLabel({6:'red',7:'yellow',8:'green'}[key]);return;} if(key==='9'){e.preventDefault();mutateSelected(p=>p.label='');return;}
         if(e.code==='Space'&&active?.tagName==='BUTTON')return;
         if(e.code==='Space'&&!spaceDown){e.preventDefault();spaceDown=true;openPreview();return;}
