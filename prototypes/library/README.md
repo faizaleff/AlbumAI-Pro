@@ -72,6 +72,8 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - List headers sort by Name, Date Created, Size, Type, Rating, Label and Keywords; repeat click reverses direction
    - List labels use subtle red, yellow and green pills while retaining Select, Review and Approved text
    - List rows are editable for Favorite, Keep/Reject, 0–5 stars and color labels, including multi-selection and Undo/Redo
+   - List column headers remain frozen while rows scroll
+   - Internal scrollbars stay hidden until hover, then appear as slim neutral-grey controls
 10. Persistent information
    - Bridge-inspired Preview panel, metadata summary and collapsible File Properties
    - Results, Selected, View and Sort status remains visible
