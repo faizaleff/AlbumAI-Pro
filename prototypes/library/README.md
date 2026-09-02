@@ -28,6 +28,9 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Ctrl/Cmd-click combines several facet values
    - Event targets accept dragged photos
 3. Photo decisions
+   - Favorite is an independent heart state, separate from Keep/Reject
+   - Hover control and keyboard F toggle Favorite
+   - Favorites-only filter is available in the review toolbar
    - Hover controls: Keep and Reject
    - Keyboard: K and R
    - Repeat the same decision to clear it
@@ -54,10 +57,11 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Filename, event, camera and rating appear with the preview
 8. Views and search
    - Grid and List views
+   - Bridge-inspired compact grid, detailed list columns and bottom thumbnail-size control
    - Filename search
-   - Manual, filename, capture-time and rating sort options
+   - Manual, filename, capture-time, rating, color-label, type, size and dimensions sort options
 9. Persistent information
-   - Inspector preview and metadata
+   - Bridge-inspired Preview panel, metadata summary and collapsible File Properties
    - Results, Selected, View and Sort status remains visible
    - Rating and color state remains visible without hover
 10. Safety and history
@@ -66,7 +70,7 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
 
 ## Approval checklist
 
-Cloud QA completed 2026-09-02. All gates are implemented and ready for owner approval; checkboxes remain open until approved by the owner.
+Cloud QA completed 2026-09-02. All gates are implemented and ready for owner approval; checkboxes remain open until approved by the owner. Favorite, star-rating and color-label polish plus the Adobe Bridge reference pass are implemented after owner feedback.
 
 - [ ] Visual hierarchy and spacing — QA pass
 - [ ] Smooth hover without flicker — QA pass
