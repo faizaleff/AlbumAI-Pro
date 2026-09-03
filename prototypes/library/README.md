@@ -30,12 +30,15 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Ctrl/Cmd-click combines several facet values
    - Event targets accept dragged photos
 3. Photo decisions
+   - Left panel groups Library Source actions by importance: Add Folder primary, then Change Folder and Refresh
+   - Favorites lives in a separate left-panel Quick Filter group
+   - The main Library toolbar is reserved for filename search, sorting and All / Included / Rejected
    - Every imported photo is Included by default; only rejected photos carry an explicit decision
    - Reject toggles to Unreject and restores the photo to Included
    - Review toolbar filters: All, Included and Rejected
    - Favorite is an independent heart state, separate from rejection
    - Hover control and keyboard F toggle Favorite
-   - Favorites-only filter is available in the review toolbar
+   - Favorites-only filter is available in the left panel
    - Hover and List controls expose Reject / Unreject only
    - Keyboard R toggles Reject / Unreject
 4. Star ratings

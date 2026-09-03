@@ -164,6 +164,14 @@
       display: none; min-height: 32px; border: 1px solid var(--aip-line); border-radius: 7px;
       background: var(--aip-panel-2); padding: 0 10px; cursor: pointer;
     }
+    #albumai-library-prototype .aip-sidebar-actions { padding: 10px 8px; display: grid; gap: 10px; border-bottom: 1px solid var(--aip-line-soft); }
+    #albumai-library-prototype .aip-sidebar-action-group { display: grid; gap: 6px; }
+    #albumai-library-prototype .aip-sidebar-action-label { padding: 0 2px; color: var(--aip-muted); font-size: 9px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; }
+    #albumai-library-prototype .aip-sidebar-source-primary { width: 100%; min-height: 36px; justify-content: flex-start; border-color: rgba(49,130,246,.62); background: var(--aip-blue-soft); }
+    #albumai-library-prototype .aip-sidebar-source-secondary { display: grid; grid-template-columns: minmax(0,1fr) 36px; gap: 5px; }
+    #albumai-library-prototype .aip-sidebar-source-secondary .aip-toolbar-button { min-width: 0; min-height: 34px; justify-content: flex-start; padding: 0 9px; }
+    #albumai-library-prototype .aip-sidebar-source-secondary .aip-icon-button { width: 36px; min-height: 34px; }
+    #albumai-library-prototype .aip-sidebar-actions .aip-favorite-filter { width: 100%; min-height: 34px; justify-content: flex-start; border: 1px solid var(--aip-line); background: var(--aip-panel-2); }
 
     #albumai-library-prototype .aip-facet { border-bottom: 1px solid var(--aip-line-soft); }
     #albumai-library-prototype .aip-facet-heading {
@@ -219,6 +227,7 @@
       display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px;
     }
     #albumai-library-prototype .aip-tools-secondary { border-top: 1px solid var(--aip-line-soft); }
+    #albumai-library-prototype .aip-library-controls .aip-search { margin-left: 0; flex: 1 1 220px; }
     #albumai-library-prototype .aip-view-toggle { display: inline-flex; gap: 4px; }
     #albumai-library-prototype .aip-search {
       margin-left: auto; width: min(260px, 100%); height: 36px; border: 1px solid var(--aip-line);
@@ -568,7 +577,18 @@
 
     <main class="aip-stage">
       <aside class="aip-sidebar" aria-label="Library filters">
-        <div class="aip-sidebar-title"><span>Library filters</span><button id="aip-filter-toggle" class="aip-filter-toggle" aria-expanded="false"><i data-lucide="sliders-horizontal" aria-hidden="true"></i> Show</button></div>
+        <div class="aip-sidebar-title"><span>Library</span><button id="aip-filter-toggle" class="aip-filter-toggle" aria-expanded="false"><i data-lucide="sliders-horizontal" aria-hidden="true"></i> Show</button></div>
+        <div class="aip-sidebar-actions" aria-label="Library actions">
+          <section class="aip-sidebar-action-group" aria-label="Library source">
+            <span class="aip-sidebar-action-label">Library Source</span>
+            <button id="aip-add-folder" class="aip-toolbar-button aip-sidebar-source-primary"><i data-lucide="folder-plus" aria-hidden="true"></i> Add Folder</button>
+            <div class="aip-sidebar-source-secondary"><button id="aip-change-folder" class="aip-toolbar-button"><i data-lucide="folder-open" aria-hidden="true"></i> Change Folder</button><button id="aip-refresh" class="aip-icon-button" aria-label="Refresh folder" data-tooltip="Refresh folder"><i data-lucide="refresh-cw" aria-hidden="true"></i></button></div>
+          </section>
+          <section class="aip-sidebar-action-group" aria-label="Quick filters">
+            <span class="aip-sidebar-action-label">Quick Filter</span>
+            <button id="aip-favorite-filter" class="aip-favorite-filter" aria-pressed="false" aria-label="Show favorites only">♥ Favorites</button>
+          </section>
+        </div>
         <div id="aip-facets" class="aip-facets"></div>
       </aside>
 
@@ -580,13 +600,8 @@
         </div>
 
         <div class="aip-tools">
-          <div class="aip-tools-primary">
-            <button id="aip-add-folder" class="aip-toolbar-button"><i data-lucide="folder-plus" aria-hidden="true"></i> Add Folder</button>
-            <button id="aip-change-folder" class="aip-toolbar-button"><i data-lucide="folder-open" aria-hidden="true"></i> Change</button>
-            <button id="aip-refresh" class="aip-icon-button" aria-label="Refresh folder" data-tooltip="Refresh folder"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
+          <div class="aip-tools-primary aip-library-controls">
             <input id="aip-search" class="aip-search" type="search" aria-label="Search filename" placeholder="Search filename…">
-          </div>
-          <div class="aip-tools-secondary">
             <select id="aip-sort" class="aip-select" aria-label="Sort photos">
               <option value="manual">Manual order</option>
               <option value="name-asc">Filename · A–Z</option>
@@ -612,8 +627,6 @@
               <button data-decision-filter="included" aria-pressed="false">Included</button>
               <button data-decision-filter="reject" aria-pressed="false">Rejected</button>
             </div>
-            <button id="aip-favorite-filter" class="aip-favorite-filter" aria-pressed="false" aria-label="Show favorites only">♥ Favorites</button>
-            <button id="aip-clear-filters" class="aip-text-button">Clear filters</button>
           </div>
         </div>
 
@@ -1019,7 +1032,6 @@
       root.querySelector('#aip-properties-toggle').addEventListener('click',e=>{const section=root.querySelector('#aip-properties');const collapsed=section.classList.toggle('is-collapsed');e.currentTarget.setAttribute('aria-expanded',!collapsed);});
       root.querySelector('#aip-favorite-filter').addEventListener('click',()=>{state.favoriteOnly=!state.favoriteOnly;render();});
       function resetAllFilters(){state.search='';root.querySelector('#aip-search').value='';state.decision='all';state.favoriteOnly=false;state.rating=null;state.ratingMode='=';state.burstReview='all';Object.values(state.facets).forEach(s=>s.clear());render();showToast('All filters reset.');}
-      root.querySelector('#aip-clear-filters').addEventListener('click',resetAllFilters);
       root.querySelector('#aip-undo').addEventListener('click',undo); root.querySelector('#aip-redo').addEventListener('click',redo);
       root.querySelector('#aip-save').addEventListener('click',()=>showToast('Prototype state saved for this session.'));
       root.querySelector('#aip-add-folder').addEventListener('click',()=>showToast('Add Folder includes optional subfolders.'));
