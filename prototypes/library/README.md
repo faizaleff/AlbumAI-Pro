@@ -39,9 +39,10 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Hover and List controls expose Reject / Unreject only
    - Keyboard R toggles Reject / Unreject
 4. Star ratings
-   - Review Filters presents Exact, At least and At most as named controls
-   - Rating choices show live photo counts before filtering
-   - The active filter summary and one-click Reset prevent hidden filter states
+   - Review Filters uses one compact Exact / At least / At most selector beside a single five-star on/off pattern
+   - Unrated remains a separate simple option; its match is always exact regardless of the selected comparison mode
+   - Clicking the active star again clears the rating filter
+   - The active filter summary, rating Reset and left-panel Reset All Filters prevent hidden filter states
    - Keyboard 1–5 assigns that rating
    - Keyboard 0 clears the rating
    - Repeating the current rating clears it
@@ -57,7 +58,8 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Each demo group contains six consecutive frames; the production rule supports groups of five to eight frames from one camera
    - AlbumAI automatically includes one strongest AI frame per group and classifies every unselected frame as a Burst Duplicate in Rejected
    - Manual Review provides a large preview for every frame and allows one or more photos to remain selected
-   - Selecting an additional frame immediately includes it; deselecting it returns it to Rejected
+   - Left / Right navigates frames and Enter toggles the current frame's draft selection
+   - Draft selection changes update Included / Rejected only when Apply Review is clicked; closing discards unapplied changes
    - At least one photo must remain selected in every burst group
    - Reset to AI Pick restores the original recommendation and automatic duplicate rejections for that group
    - Needs review and Reviewed counts operate across all four groups within Photo type
