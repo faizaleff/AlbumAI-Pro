@@ -417,16 +417,24 @@
     #albumai-library-prototype .aip-preview-close { min-height: 30px; border: 1px solid var(--aip-line); border-radius: 6px; background: var(--aip-panel-3); cursor: pointer; }
     #albumai-library-prototype .aip-burst-dialog { position: absolute; inset: 0; z-index: 35; display: none; align-items: center; justify-content: center; padding: 4%; background: rgba(4,6,9,.78); backdrop-filter: blur(5px); }
     #albumai-library-prototype .aip-burst-dialog.is-visible { display: flex; animation: aip-pop 120ms ease-out; }
-    #albumai-library-prototype .aip-burst-dialog-inner { width: min(1120px, 97%); max-height: calc(100% - 24px); overflow: auto; border: 1px solid var(--aip-line); border-radius: 13px; background: #151a22; box-shadow: 0 24px 70px rgba(0,0,0,.48); }
+    #albumai-library-prototype .aip-burst-dialog-inner { width: min(1120px, 97%); height: min(760px, calc(100% - 24px)); min-height: 0; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--aip-line); border-radius: 13px; background: #151a22; box-shadow: 0 24px 70px rgba(0,0,0,.48); }
     #albumai-library-prototype .aip-burst-dialog-head { min-height: 58px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--aip-line); }
     #albumai-library-prototype .aip-burst-dialog-head div { display: grid; gap: 3px; }
     #albumai-library-prototype .aip-burst-dialog-head span { color: var(--aip-muted); font-size: 11px; }
     #albumai-library-prototype .aip-burst-dialog-head button { margin-left: auto; width: 30px; height: 30px; border: 1px solid var(--aip-line); border-radius: 6px; background: var(--aip-panel-3); cursor: pointer; }
     #albumai-library-prototype .aip-burst-summary { margin: 12px 14px 0; padding: 10px 12px; display: flex; align-items: center; gap: 9px; border: 1px solid rgba(67,185,232,.28); border-radius: 8px; color: var(--aip-muted); background: rgba(67,185,232,.08); font-size: 12px; }
     #albumai-library-prototype .aip-burst-summary strong { color: var(--aip-text); }
-    #albumai-library-prototype .aip-burst-preview { margin: 12px 14px 0; min-height: 330px; display: grid; grid-template-columns: minmax(360px,1.7fr) minmax(250px,.8fr); overflow: hidden; border: 1px solid var(--aip-line); border-radius: 10px; background: #090c11; box-shadow: inset 0 0 0 1px rgba(255,255,255,.02); }
-    #albumai-library-prototype .aip-burst-preview-stage { min-width: 0; display: grid; place-items: center; padding: 10px; background: radial-gradient(circle at 50% 40%,#171e28 0,#090c11 70%); }
-    #albumai-library-prototype .aip-burst-preview-art { width: min(100%,560px); aspect-ratio: 1 / 1; min-height: 0; background-repeat: no-repeat; box-shadow: 0 12px 35px rgba(0,0,0,.36); }
+    #albumai-library-prototype .aip-burst-preview { margin: 12px 14px 0; min-height: 250px; flex: 1 1 auto; display: grid; grid-template-columns: minmax(360px,1.7fr) minmax(250px,.8fr); overflow: hidden; border: 1px solid var(--aip-line); border-radius: 10px; background: #090c11; box-shadow: inset 0 0 0 1px rgba(255,255,255,.02); }
+    #albumai-library-prototype .aip-burst-preview-stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; container-type: size; display: grid; place-items: center; padding: 12px 54px; background: radial-gradient(circle at 50% 40%,#171e28 0,#090c11 70%); }
+    #albumai-library-prototype .aip-burst-preview-art { width: min(100%,560px); width: min(100%,560px,100cqh); aspect-ratio: 1 / 1; min-height: 0; background-repeat: no-repeat; transform: scale(var(--aip-burst-zoom,1)); transform-origin: center; transition: transform 140ms ease; box-shadow: 0 12px 35px rgba(0,0,0,.36); }
+    #albumai-library-prototype .aip-burst-nav { position: absolute; z-index: 2; top: 50%; width: 34px; height: 52px; transform: translateY(-50%); border: 1px solid rgba(255,255,255,.2); border-radius: 7px; color: #fff; background: rgba(5,8,12,.72); cursor: pointer; font-size: 24px; }
+    #albumai-library-prototype .aip-burst-nav:hover { border-color: rgba(255,255,255,.4); background: rgba(31,43,58,.94); }
+    #albumai-library-prototype .aip-burst-nav-prev { left: 11px; }
+    #albumai-library-prototype .aip-burst-nav-next { right: 11px; }
+    #albumai-library-prototype .aip-burst-zoom { position: absolute; z-index: 3; right: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(5,8,12,.78); box-shadow: 0 5px 18px rgba(0,0,0,.28); }
+    #albumai-library-prototype .aip-burst-zoom button { min-width: 28px; height: 26px; padding: 0 7px; border: 0; border-radius: 4px; color: var(--aip-muted); background: transparent; cursor: pointer; }
+    #albumai-library-prototype .aip-burst-zoom button:hover { color: #fff; background: rgba(255,255,255,.1); }
+    #albumai-library-prototype .aip-burst-zoom output { min-width: 38px; color: var(--aip-muted); font-size: 9px; text-align: center; }
     #albumai-library-prototype .aip-burst-preview-copy { padding: 16px; display: grid; align-content: start; gap: 11px; border-left: 1px solid var(--aip-line); background: var(--aip-panel); }
     #albumai-library-prototype .aip-burst-preview-copy > span { color: var(--aip-muted); font-size: 11px; }
     #albumai-library-prototype .aip-burst-frame-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -437,6 +445,9 @@
     #albumai-library-prototype .aip-burst-meta div { min-width: 0; padding: 8px; display: grid; gap: 3px; border-radius: 6px; background: #191f29; }
     #albumai-library-prototype .aip-burst-meta span { color: var(--aip-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
     #albumai-library-prototype .aip-burst-meta strong { overflow: hidden; text-overflow: ellipsis; color: var(--aip-text); font-size: 11px; white-space: nowrap; }
+    #albumai-library-prototype .aip-burst-camera-tag { display: inline-flex; align-items: center; gap: 5px; }
+    #albumai-library-prototype .aip-burst-camera-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--aip-camera-color); box-shadow: 0 0 0 2px color-mix(in srgb,var(--aip-camera-color) 18%,transparent); }
+    #albumai-library-prototype .aip-burst-rating-stars { color: var(--aip-yellow); letter-spacing: 1px; }
     #albumai-library-prototype .aip-burst-strip-head { padding: 11px 14px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     #albumai-library-prototype .aip-burst-strip-head span { color: var(--aip-muted); font-size: 10px; }
     #albumai-library-prototype .aip-burst-options { margin: 0 14px; padding: 10px 0 8px; display: flex; gap: 9px; overflow-x: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: transparent transparent; }
@@ -454,7 +465,7 @@
     #albumai-library-prototype .aip-burst-option-copy { padding: 8px; display: grid; gap: 4px; }
     #albumai-library-prototype .aip-burst-option-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
     #albumai-library-prototype .aip-burst-option-copy span { color: var(--aip-muted); font-size: 10px; }
-    #albumai-library-prototype .aip-burst-option-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    #albumai-library-prototype .aip-burst-option-actions { display: grid; grid-template-columns: 1fr; gap: 4px; }
     #albumai-library-prototype .aip-burst-option-actions button { min-height: 27px; border: 1px solid var(--aip-line); border-radius: 5px; background: var(--aip-panel-3); color: var(--aip-muted); cursor: pointer; font-size: 10px; }
     #albumai-library-prototype .aip-burst-option-actions button[aria-pressed="true"] { border-color: var(--aip-blue); background: var(--aip-blue-soft); color: var(--aip-text); }
     #albumai-library-prototype .aip-burst-dialog-foot { padding: 10px 14px 14px; display: flex; justify-content: flex-end; gap: 7px; }
@@ -504,9 +515,10 @@
       #albumai-library-prototype .aip-preview-close { display: none; }
       #albumai-library-prototype .aip-lightbox-image { max-height: 55dvh; }
       #albumai-library-prototype .aip-burst-dialog { padding: 8px; }
-      #albumai-library-prototype .aip-burst-dialog-inner { width: 100%; max-height: calc(100dvh - 16px); }
+      #albumai-library-prototype .aip-burst-dialog-inner { width: 100%; height: calc(100dvh - 16px); }
       #albumai-library-prototype .aip-burst-preview { grid-template-columns: 1fr; }
-      #albumai-library-prototype .aip-burst-preview-copy { border-left: 0; border-top: 1px solid var(--aip-line); }
+      #albumai-library-prototype .aip-burst-preview-copy { max-height: 148px; overflow: hidden; padding: 10px; border-left: 0; border-top: 1px solid var(--aip-line); }
+      #albumai-library-prototype .aip-burst-preview-stage { padding: 9px 44px; }
       #albumai-library-prototype .aip-burst-option { min-width: 150px; }
       #albumai-library-prototype .aip-library-viewport { min-height: 58dvh; }
       #albumai-library-prototype .aip-view-controls { width: 100%; margin-left: 0; justify-content: flex-end; }
@@ -650,8 +662,8 @@
       <div class="aip-burst-dialog-inner">
         <div class="aip-burst-dialog-head"><div><strong id="aip-burst-title">Burst Review</strong><span id="aip-burst-subtitle">Preview every frame, then keep one or more.</span></div><button data-close-burst aria-label="Close Burst Review">×</button></div>
         <div id="aip-burst-summary" class="aip-burst-summary"></div>
-        <div class="aip-burst-preview"><div class="aip-burst-preview-stage"><div id="aip-burst-preview-art" class="aip-burst-preview-art" role="img"></div></div><aside class="aip-burst-preview-copy" aria-label="Frame details"><div class="aip-burst-frame-head"><strong id="aip-burst-preview-name"></strong><span id="aip-burst-frame-status" class="aip-burst-frame-status"></span></div><span id="aip-burst-preview-score"></span><div class="aip-burst-meta"><div><span>Capture</span><strong id="aip-burst-meta-capture"></strong></div><div><span>Camera</span><strong id="aip-burst-meta-camera"></strong></div><div><span>Frame</span><strong id="aip-burst-meta-frame"></strong></div><div><span>Event</span><strong id="aip-burst-meta-event"></strong></div><div><span>Dimensions</span><strong>7008 × 4672</strong></div><div><span>File size</span><strong id="aip-burst-meta-size"></strong></div><div><span>Rating</span><strong id="aip-burst-meta-rating"></strong></div><div><span>Decision</span><strong id="aip-burst-meta-decision"></strong></div></div></aside></div>
-        <div class="aip-burst-strip-head"><strong>Burst frames</strong><span>Preview each frame · select one or more</span></div>
+        <div class="aip-burst-preview"><div class="aip-burst-preview-stage"><button class="aip-burst-nav aip-burst-nav-prev" data-burst-nav="-1" aria-label="Previous burst frame">‹</button><div id="aip-burst-preview-art" class="aip-burst-preview-art" role="img"></div><button class="aip-burst-nav aip-burst-nav-next" data-burst-nav="1" aria-label="Next burst frame">›</button><div class="aip-burst-zoom" aria-label="Preview zoom"><button data-burst-zoom="out" aria-label="Zoom out">−</button><button data-burst-zoom="fit">Fit</button><output id="aip-burst-zoom-value">100%</output><button data-burst-zoom="in" aria-label="Zoom in">+</button></div></div><aside class="aip-burst-preview-copy" aria-label="Frame details"><div class="aip-burst-frame-head"><strong id="aip-burst-preview-name"></strong><span id="aip-burst-frame-status" class="aip-burst-frame-status"></span></div><span id="aip-burst-preview-score"></span><div class="aip-burst-meta"><div><span>Capture</span><strong id="aip-burst-meta-capture"></strong></div><div><span>Camera</span><strong id="aip-burst-meta-camera" class="aip-burst-camera-tag"></strong></div><div><span>Frame</span><strong id="aip-burst-meta-frame"></strong></div><div><span>Event</span><strong id="aip-burst-meta-event"></strong></div><div><span>Dimensions</span><strong>7008 × 4672</strong></div><div><span>File size</span><strong id="aip-burst-meta-size"></strong></div><div><span>Rating</span><strong id="aip-burst-meta-rating" class="aip-burst-rating-stars"></strong></div><div><span>Decision</span><strong id="aip-burst-meta-decision"></strong></div></div></aside></div>
+        <div class="aip-burst-strip-head"><strong>Burst frames</strong><span>Click a thumbnail · ← → navigate · select one or more</span></div>
         <div id="aip-burst-options" class="aip-burst-options"></div>
         <div class="aip-burst-dialog-foot"><button data-reset-burst>Reset to AI Pick</button><button class="aip-burst-done" data-complete-burst>Apply Review</button></div>
       </div>
@@ -707,6 +719,7 @@
       let previewIds = [];
       let activeBurstGroup = 'B1';
       let activeBurstPreviewId = photos.find(p=>p.burstGroup==='B1'&&p.burstSelected).id;
+      let burstZoom = 1;
 
       function cloneSnapshot() {
         return state.photos.map(p => ({id:p.id,rating:p.rating,decision:p.decision,event:p.event,camera:p.camera,favorite:p.favorite,burstSelected:p.burstSelected,burstReviewed:p.burstReviewed,burstAutoRejected:p.burstAutoRejected}));
@@ -892,6 +905,8 @@
       function chooseBurstPhoto(id) { const photos=burstPhotos(), target=photos.find(p=>p.id===id);if(!target)return;if(target.burstSelected&&burstSelections().length===1){showToast('Keep at least one photo from the burst.');return;}remember();target.burstSelected=!target.burstSelected;photos.forEach(p=>{p.decision=p.burstSelected?'':'reject';p.burstAutoRejected=!p.burstSelected;});state.focused=id;state.selected=new Set(burstSelections().map(p=>p.id));render();renderBurstDialog();showToast(`${burstSelections().length} selected · ${photos.length-burstSelections().length} in Rejected.`); }
       function completeBurstReview() { const photos=burstPhotos(), alreadyReviewed=burstReviewed();if(!alreadyReviewed)remember();photos.forEach(p=>{p.burstReviewed=true;p.decision=p.burstSelected?'':'reject';p.burstAutoRejected=!p.burstSelected;});render();closeBurstReview();showToast(`${burstSelections().length} selected · ${photos.length-burstSelections().length} rejected · Review complete.`); }
       function resetBurstSelection() { const auto=burstAutoPick();remember();burstPhotos().forEach(p=>{p.burstSelected=p.id===auto.id;p.burstReviewed=false;p.decision=p.id===auto.id?'':'reject';p.burstAutoRejected=p.id!==auto.id;});state.focused=auto.id;state.selected=new Set([auto.id]);activeBurstPreviewId=auto.id;render();renderBurstDialog();showToast('AI burst selection restored.'); }
+      function navigateBurstPreview(step) { const photos=burstPhotos();if(photos.length<2)return;let index=photos.findIndex(p=>p.id===activeBurstPreviewId);index=(Math.max(0,index)+step+photos.length)%photos.length;activeBurstPreviewId=photos[index].id;renderBurstDialog();requestAnimationFrame(()=>root.querySelector(`[data-burst-preview="${activeBurstPreviewId}"]`)?.closest('.aip-burst-option')?.scrollIntoView({block:'nearest',inline:'nearest'})); }
+      function setBurstZoom(action) { burstZoom=action==='fit'?1:Math.max(1,Math.min(2,burstZoom+(action==='in'?0.25:-0.25)));renderBurstDialog(); }
 
       function moveFocus(delta, extend=false, additive=false) {
         const visible = filtered(); if (!visible.length) return;
@@ -926,13 +941,13 @@
         root.querySelector('#aip-burst-title').textContent=`${group.id} · ${group.label}`;
         root.querySelector('#aip-burst-subtitle').textContent=`${group.camera} · ${photos.length} consecutive frames · preview and select one or more`;
         root.querySelector('#aip-burst-summary').innerHTML = `<span>✦</span><span><strong>${reviewed?`Reviewed · ${selected.length} selected · ${photos.length-selected.length} rejected`:`Needs review · AI selected ${selected[0].name}`}</strong><br>${reviewed?'Every unselected frame is in the Rejected list. You can revise and apply again.':'Preview the full sequence, adjust the selection, then apply the review.'}</span>`;
-        applyFrame(root.querySelector('#aip-burst-preview-art'),preview);root.querySelector('#aip-burst-preview-name').textContent=preview.name;root.querySelector('#aip-burst-preview-score').textContent=`AI score ${preview.burstScore}% · ${preview.burstReason}`;
+        const previewArt=root.querySelector('#aip-burst-preview-art');applyFrame(previewArt,preview);previewArt.style.setProperty('--aip-burst-zoom',burstZoom);root.querySelector('#aip-burst-zoom-value').textContent=`${Math.round(burstZoom*100)}%`;root.querySelector('#aip-burst-preview-name').textContent=preview.name;root.querySelector('#aip-burst-preview-score').textContent=`AI score ${preview.burstScore}% · ${preview.burstReason}`;
         const frameStatus=root.querySelector('#aip-burst-frame-status');frameStatus.dataset.state=preview.burstSelected?'selected':'rejected';frameStatus.textContent=preview.burstSelected?(preview.burstAutoPick?'AI Pick · Selected':'Selected'):'Rejected';
-        root.querySelector('#aip-burst-meta-capture').textContent=preview.time;root.querySelector('#aip-burst-meta-camera').textContent=`${preview.cameraTag} · ${preview.camera}`;root.querySelector('#aip-burst-meta-frame').textContent=`${preview.frame+1} of ${photos.length}`;root.querySelector('#aip-burst-meta-event').textContent=preview.event;root.querySelector('#aip-burst-meta-size').textContent=`${preview.size.toFixed(1)} MB`;root.querySelector('#aip-burst-meta-rating').textContent=preview.rating?`${preview.rating} stars`:'Unrated';root.querySelector('#aip-burst-meta-decision').textContent=preview.burstSelected?'Included':'Rejected';
-        root.querySelector('#aip-burst-options').innerHTML = photos.map(p=>{const badge=p.burstSelected?(p.burstAutoPick?'AI Pick':'Selected'):'Rejected';return `<article class="aip-burst-option" data-selected="${p.burstSelected}" data-preview-active="${p.id===preview.id}" aria-label="${p.name}, ${badge}"><button class="aip-burst-option-art" data-burst-preview="${p.id}" style="${frameStyle(p)}" aria-label="Preview ${p.name}"><span class="aip-burst-option-badge">${badge}</span></button><span class="aip-burst-option-copy"><strong>${p.name}</strong><span>${p.burstScore}% · ${p.burstReason}</span><span class="aip-burst-option-actions"><button data-burst-preview="${p.id}">Preview</button><button data-burst-choice="${p.id}" aria-pressed="${p.burstSelected}">${p.burstSelected?'✓ Selected':'Select'}</button></span></span></article>`;}).join('');
+        root.querySelector('#aip-burst-meta-capture').textContent=preview.time;root.querySelector('#aip-burst-meta-camera').innerHTML=`<span class="aip-burst-camera-dot" style="--aip-camera-color:${preview.cameraColor}"></span>${preview.cameraTag} · ${preview.camera}`;root.querySelector('#aip-burst-meta-frame').textContent=`${preview.frame+1} of ${photos.length}`;root.querySelector('#aip-burst-meta-event').textContent=preview.event;root.querySelector('#aip-burst-meta-size').textContent=`${preview.size.toFixed(1)} MB`;root.querySelector('#aip-burst-meta-rating').innerHTML=`<span aria-label="${preview.rating?preview.rating+' of 5 stars':'Unrated'}">${'★'.repeat(preview.rating)}${'☆'.repeat(5-preview.rating)}</span>`;root.querySelector('#aip-burst-meta-decision').textContent=preview.burstSelected?'Included':'Rejected';
+        root.querySelector('#aip-burst-options').innerHTML = photos.map(p=>{const badge=p.burstSelected?(p.burstAutoPick?'AI Pick':'Selected'):'Rejected';return `<article class="aip-burst-option" data-selected="${p.burstSelected}" data-preview-active="${p.id===preview.id}" aria-label="${p.name}, ${badge}"><button class="aip-burst-option-art" data-burst-preview="${p.id}" style="${frameStyle(p)}" aria-label="Show ${p.name} in the large preview"><span class="aip-burst-option-badge">${badge}</span></button><span class="aip-burst-option-copy"><strong>${p.name}</strong><span>${p.burstScore}% · ${p.burstReason}</span><span class="aip-burst-option-actions"><button data-burst-choice="${p.id}" aria-pressed="${p.burstSelected}">${p.burstSelected?'✓ Selected':'Select'}</button></span></span></article>`;}).join('');
         root.querySelector('[data-reset-burst]').disabled=!(reviewed||selected.length!==1||!selected[0].burstAutoPick);
       }
-      function openBurstReview(groupId='B1') { activeBurstGroup=groupId;activeBurstPreviewId=(burstSelections(groupId)[0]||burstPhotos(groupId)[0]).id;renderBurstDialog();const box=root.querySelector('#aip-burst-dialog');box.classList.add('is-visible');box.setAttribute('aria-hidden','false');requestAnimationFrame(()=>box.querySelector('[data-close-burst]')?.focus()); }
+      function openBurstReview(groupId='B1') { activeBurstGroup=groupId;activeBurstPreviewId=(burstSelections(groupId)[0]||burstPhotos(groupId)[0]).id;burstZoom=1;renderBurstDialog();const box=root.querySelector('#aip-burst-dialog');box.classList.add('is-visible');box.setAttribute('aria-hidden','false');requestAnimationFrame(()=>box.querySelector('[data-close-burst]')?.focus()); }
       function closeBurstReview() { const box=root.querySelector('#aip-burst-dialog');box.classList.remove('is-visible');box.setAttribute('aria-hidden','true');focusActiveCard(); }
 
       root.addEventListener('click', event => {
@@ -942,6 +957,8 @@
         const previewRating=event.target.closest('[data-preview-rating]'); if(previewRating){setPreviewRating(+previewRating.dataset.previewRating);return;}
         const previewFavorite=event.target.closest('[data-preview-favorite]'); if(previewFavorite){togglePreviewFavorite();return;}
         const previewClose=event.target.closest('[data-close-preview]'); if(previewClose){closePreview();return;}
+        const burstNav=event.target.closest('[data-burst-nav]'); if(burstNav){navigateBurstPreview(+burstNav.dataset.burstNav);return;}
+        const burstZoomButton=event.target.closest('[data-burst-zoom]'); if(burstZoomButton){setBurstZoom(burstZoomButton.dataset.burstZoom);return;}
         const burstPreview=event.target.closest('[data-burst-preview]'); if(burstPreview){activeBurstPreviewId=+burstPreview.dataset.burstPreview;renderBurstDialog();return;}
         const burstChoice=event.target.closest('[data-burst-choice]'); if(burstChoice){chooseBurstPhoto(+burstChoice.dataset.burstChoice);return;}
         const burstReset=event.target.closest('[data-reset-burst]'); if(burstReset){resetBurstSelection();return;}
@@ -995,7 +1012,12 @@
         const active=document.activeElement;
         if(!root.isConnected||['INPUT','SELECT','TEXTAREA'].includes(active?.tagName))return;
         const key=e.key.toLowerCase();
-        if(key==='escape'&&root.querySelector('#aip-burst-dialog').classList.contains('is-visible')){e.preventDefault();closeBurstReview();return;}
+        if(root.querySelector('#aip-burst-dialog').classList.contains('is-visible')){
+          if(key==='arrowleft'){e.preventDefault();navigateBurstPreview(-1);return;}
+          if(key==='arrowright'){e.preventDefault();navigateBurstPreview(1);return;}
+          if(key==='escape'){e.preventDefault();closeBurstReview();return;}
+          return;
+        }
         if(root.querySelector('#aip-lightbox').classList.contains('is-visible')){
           if(e.code==='Space'&&active?.tagName==='BUTTON')return;
           if(['arrowleft','arrowup'].includes(key)){e.preventDefault();navigatePreview(-1);return;}

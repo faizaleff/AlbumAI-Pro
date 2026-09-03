@@ -63,6 +63,11 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Needs review and Reviewed counts operate across all four groups within Photo type
    - Needs Review groups use amber status styling; completed groups change to green Reviewed only after Apply Review
    - The polished review workspace pairs a large active-frame preview with right-side EXIF-style details
+   - The active frame stays contained in a fixed, scrollbar-free preview stage across portrait and landscape screen proportions
+   - Fit, zoom out and zoom in controls enlarge the preview without changing the modal layout
+   - Clicking a burst thumbnail updates the large preview; the redundant per-thumbnail Preview button is removed
+   - Left / Right keys and visible side controls navigate the burst frames and keep the active thumbnail visible
+   - EXIF details show the camera's C-tag color and the current rating as filled and empty stars
    - Burst frames use a dedicated horizontal thumbnail strip with a sleek hover-only grey scrollbar
    - Keyboard V opens Burst Review
 7. Selection and navigation
