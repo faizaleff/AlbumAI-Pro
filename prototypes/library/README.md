@@ -79,19 +79,22 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Burst frames use a dedicated horizontal thumbnail strip with a sleek hover-only grey scrollbar
    - Keyboard V opens Burst Review
 7. Selection and navigation
-   - A plain thumbnail click changes only the active Preview / Inspector photo and never changes the locked selection set
-   - The persistent top-right tick locks or unlocks one or many photos for batch actions; locked ticks survive normal thumbnail clicks, filters and Refresh
-   - Ctrl/Cmd+click toggles a thumbnail in the locked set; Shift+click locks the visible range from the anchor; Ctrl/Cmd+Shift+click adds that range
+   - Temporary blue selection and persistent top-right ticks are independent states
+   - A plain thumbnail click replaces the temporary selection with that one photo and never adds a tick
+   - Ctrl/Cmd+click toggles individual photos in the temporary selection; Shift+click selects the visible anchor-to-click range; Ctrl/Cmd+Shift+click adds a range
+   - Clicking the tick on any selected thumbnail ticks or unticks the complete temporary selection according to that clicked tick's current state
+   - Ticks survive ordinary clicks, filters and Refresh until explicitly unticked
    - Thumbnail hover uses a subtle lift/scale response and dragging adds a restrained professional drag state
    - The clean circle-slash Reject action appears at the thumbnail top-left; the bottom hover bar keeps stars centered and Favorite on the right
-   - Actions on an unlocked photo affect only that photo without silently locking it; actions on a locked photo apply to the locked set
-   - Ctrl/Cmd+A locks all currently visible photos
-   - Arrow keys move active focus without clearing locked selections and keep the active photo visible
-   - Shift+Arrow extends the locked range; Ctrl/Cmd+Arrow toggles the focused photo in the locked set
+   - Actions on a selected photo apply to the temporary selection; actions on an unselected photo affect only that photo
+   - Ctrl/Cmd+A selects all visible photos; Ctrl/Cmd+D clears the temporary selection without removing ticks
+   - Arrow keys move and replace temporary selection; Shift+Arrow extends its range; Ctrl/Cmd+Arrow toggles the focused photo
+   - Right-click Move to Event appears only on ticked photos and moves the complete ticked set
+   - Event moves participate in the visible Undo / Redo history controls and keyboard shortcuts
 8. Quick preview
    - Space toggles a bounded Bridge-style preview inside the plugin surface; Escape also closes it
-   - With no checked photos, Space previews the current filtered Library from the active thumbnail
-   - With one or more checked photos, Space previews only that checked queue without selection overlays
+   - With no temporary selection, Space previews the current filtered Library from the active thumbnail
+   - With one or more selected photos, Space previews only that temporary selection without selection overlays
    - After Ctrl/Cmd+A, the preview queue contains all selected visible photos
    - Arrow keys and visible Previous / Next controls navigate the queue
    - Keyboard 1–5 rates the current preview photo; 0 clears its rating
