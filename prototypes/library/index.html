@@ -261,17 +261,19 @@
       position: relative; min-width: 0; display: flex; flex-direction: column; background: var(--aip-panel); border: 2px solid transparent;
       border-radius: 8px; overflow: hidden; cursor: default; user-select: none;
       --aip-camera-color: var(--aip-cyan); --aip-camera-tint: rgba(67,185,232,.12);
-      transition: border-color 100ms ease, box-shadow 100ms ease, background-color 100ms ease;
+      transition: transform 140ms ease, border-color 100ms ease, box-shadow 140ms ease, background-color 100ms ease;
     }
-    #albumai-library-prototype .aip-photo:hover { background: #202733; box-shadow: 0 8px 22px rgba(0,0,0,.24); }
+    #albumai-library-prototype .aip-photo:hover { z-index: 2; transform: translateY(-2px); background: #202733; box-shadow: 0 10px 24px rgba(0,0,0,.3); }
+    #albumai-library-prototype .aip-photo.is-dragging { transform: scale(.985); opacity: .72; box-shadow: 0 14px 30px rgba(0,0,0,.4); }
     #albumai-library-prototype .aip-photo.is-selected { border-color: var(--aip-blue); box-shadow: 0 0 0 1px var(--aip-blue); }
     #albumai-library-prototype .aip-photo.is-focused:not(.is-selected) { border-color: #778394; box-shadow: 0 0 0 1px rgba(171,183,199,.34); }
     #albumai-library-prototype .aip-photo.is-focused.is-selected { box-shadow: 0 0 0 1px var(--aip-blue), 0 0 0 3px rgba(67,185,232,.46); }
     #albumai-library-prototype .aip-photo-media { position: relative; aspect-ratio: 1 / 1; background: #0b0d11; overflow: hidden; }
-    #albumai-library-prototype .aip-photo-art { width: 100%; height: 100%; background-repeat: no-repeat; display: block; }
+    #albumai-library-prototype .aip-photo-art { width: 100%; height: 100%; background-repeat: no-repeat; display: block; transform: scale(1); transition: transform 180ms ease,filter 150ms ease; }
+    #albumai-library-prototype .aip-photo:hover .aip-photo-art { transform: scale(1.018); }
     #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-art { opacity: .52; }
     #albumai-library-prototype .aip-photo-badge {
-      position: absolute; top: 7px; left: 7px; min-height: 22px; padding: 0 7px; border-radius: 5px;
+      position: absolute; top: 7px; left: 36px; min-height: 22px; padding: 0 7px; border-radius: 5px;
       display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; background: rgba(8,11,15,.78);
     }
     #albumai-library-prototype .aip-photo[data-decision="reject"] .aip-photo-badge { background: #b6373d; }
@@ -279,9 +281,11 @@
       position: absolute; top: 7px; right: 7px; width: 23px; height: 23px; border-radius: 50%;
       z-index: 4; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.62);
       color: transparent; background: rgba(7,10,14,.58); cursor: pointer; font-size: 13px; font-weight: 700;
+      opacity: .7; transition: opacity 100ms ease, transform 120ms ease, background-color 100ms ease;
     }
-    #albumai-library-prototype .aip-selection-mark:hover { border-color: #fff; background: rgba(25,34,46,.9); }
-    #albumai-library-prototype .aip-selection-mark[aria-pressed="true"] { color: #fff; border-color: var(--aip-blue); background: var(--aip-blue); }
+    #albumai-library-prototype .aip-photo:hover .aip-selection-mark,
+    #albumai-library-prototype .aip-selection-mark:hover { opacity: 1; border-color: #fff; background: rgba(25,34,46,.9); }
+    #albumai-library-prototype .aip-selection-mark[aria-pressed="true"] { opacity: 1; color: #fff; border-color: var(--aip-blue); background: var(--aip-blue); animation: aip-check-pop 150ms ease-out; }
     #albumai-library-prototype .aip-hover-tools {
       position: absolute; inset: 7px; display: grid; grid-template-columns: 1fr auto;
       grid-template-rows: auto 1fr auto auto; align-items: start; gap: 4px; opacity: 0; pointer-events: none;
@@ -289,7 +293,7 @@
     }
     #albumai-library-prototype .aip-photo:hover .aip-hover-tools,
     #albumai-library-prototype .aip-photo:focus-within .aip-hover-tools { opacity: 1; pointer-events: auto; }
-    #albumai-library-prototype .aip-review-actions { grid-column: 1 / -1; grid-row: 3; justify-self: stretch; display: grid; grid-template-columns: 20px minmax(0,1fr) 20px; align-items: center; gap: 2px; padding: 3px; border-radius: 6px; background: rgba(7,10,14,.82); }
+    #albumai-library-prototype .aip-review-actions { grid-column: 1 / -1; grid-row: 3; justify-self: stretch; display: grid; grid-template-columns: minmax(0,1fr) 20px; align-items: center; gap: 2px; padding: 3px; border-radius: 6px; background: rgba(7,10,14,.82); }
     #albumai-library-prototype .aip-stars-edit { min-width: 0; display: flex; justify-content: center; gap: 1px; }
     #albumai-library-prototype .aip-hover-tools button { width: 22px; height: 22px; border: 0; background: transparent; padding: 0; cursor: pointer; border-radius: 4px; }
     #albumai-library-prototype .aip-hover-tools button:hover { background: rgba(255,255,255,.14); }
@@ -297,10 +301,15 @@
     #albumai-library-prototype .aip-review-actions .aip-stars-edit button { width: clamp(14px, calc(var(--aip-thumb-size) / 10), 20px); height: 22px; }
     #albumai-library-prototype .aip-hover-tools button[aria-pressed="true"] { background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,.42); }
     #albumai-library-prototype .aip-favorite-button { color: #ff769a; font-size: 17px; }
-    #albumai-library-prototype .aip-reject-button { color: #ff646d !important; }
+    #albumai-library-prototype .aip-reject-button { border: 0 !important; color: #ff646d !important; background: transparent !important; box-shadow: none !important; }
     #albumai-library-prototype .aip-reject-button:hover,
-    #albumai-library-prototype .aip-reject-button[aria-pressed="true"] { background: rgba(255,91,101,.2) !important; box-shadow: inset 0 0 0 1px rgba(255,100,109,.55) !important; }
+    #albumai-library-prototype .aip-reject-button[aria-pressed="true"] { background: rgba(255,91,101,.2) !important; box-shadow: none !important; }
     #albumai-library-prototype .aip-reject-button svg { width: 17px; height: 17px; display: block; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; }
+    #albumai-library-prototype .aip-reject-overlay { position: absolute; z-index: 5; top: 7px; left: 7px; width: 23px; height: 23px; padding: 3px; border-radius: 5px; opacity: 0; cursor: pointer; transition: opacity 100ms ease,transform 120ms ease,background-color 100ms ease; }
+    #albumai-library-prototype .aip-photo:hover .aip-reject-overlay,
+    #albumai-library-prototype .aip-photo:focus-within .aip-reject-overlay,
+    #albumai-library-prototype .aip-reject-overlay[aria-pressed="true"] { opacity: 1; }
+    #albumai-library-prototype .aip-reject-overlay:hover { transform: scale(1.08); }
     #albumai-library-prototype .aip-photo-info { min-height: 52px; padding: 8px 9px; display: grid; align-content: start; flex: 1; gap: 4px; transition: background-color 100ms ease; }
     #albumai-library-prototype .aip-photo-info { background: var(--aip-camera-tint); box-shadow: inset 0 -3px 0 var(--aip-camera-color); }
     #albumai-library-prototype .aip-photo-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -334,7 +343,9 @@
     #albumai-library-prototype .aip-list-cell { display: none; }
     #albumai-library-prototype .aip-grid.is-list { min-width: 760px; }
     #albumai-library-prototype .aip-grid.is-list .aip-photo { display: grid; grid-template-columns: 44px minmax(150px,1.4fr) 100px 82px 96px 90px 64px 120px; gap: 10px; align-items: center; min-height: 48px; padding: 3px 10px; border-width: 1px; border-radius: 3px; }
+    #albumai-library-prototype .aip-grid.is-list .aip-photo:hover { transform: none; }
     #albumai-library-prototype .aip-grid.is-list .aip-photo-media { width: 38px; aspect-ratio: 1 / 1; grid-column: 1; }
+    #albumai-library-prototype .aip-grid.is-list .aip-reject-overlay { display: none; }
     #albumai-library-prototype .aip-grid.is-list .aip-photo-info { display: contents; }
     #albumai-library-prototype .aip-grid.is-list .aip-photo-name { grid-column: 2; }
     #albumai-library-prototype .aip-grid.is-list .aip-photo-name { display: flex; align-items: center; gap: 7px; overflow: visible; }
@@ -485,6 +496,13 @@
     #albumai-library-prototype .aip-burst-dialog-foot button:disabled { opacity: .45; cursor: default; }
     #albumai-library-prototype .aip-burst-dialog-foot .aip-burst-done { border-color: var(--aip-blue); background: var(--aip-blue-soft); color: var(--aip-text); }
     @keyframes aip-pop { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: scale(1); } }
+    @keyframes aip-check-pop { 0% { transform: scale(.72); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
+    @media (prefers-reduced-motion: reduce) {
+      #albumai-library-prototype .aip-photo,
+      #albumai-library-prototype .aip-photo-art,
+      #albumai-library-prototype .aip-selection-mark,
+      #albumai-library-prototype .aip-reject-overlay { transition: none; animation: none; }
+    }
 
     #albumai-library-prototype .aip-toast {
       position: absolute; left: 50%; bottom: 54px; z-index: 40; transform: translateX(-50%) translateY(8px);
@@ -595,7 +613,7 @@
       <section class="aip-center" aria-label="Photo browser">
         <div class="aip-heading-row">
           <h2>Review the Library</h2>
-          <p id="aip-heading-count">12 photos · 1 selected</p>
+          <p id="aip-heading-count">12 photos · 1 locked</p>
           <button id="aip-continue" class="aip-toolbar-button aip-locked" aria-disabled="true">Sequence locked <i data-lucide="lock" aria-hidden="true"></i></button>
         </div>
 
@@ -638,7 +656,7 @@
 
         <footer class="aip-status" aria-live="polite">
           <span><strong>Results</strong> <span id="aip-results">12 / 12</span></span><span class="aip-status-sep"></span>
-          <span><strong>Selected</strong> <span id="aip-selected-count">1</span></span><span class="aip-status-sep"></span>
+          <span><strong>Locked</strong> <span id="aip-selected-count">1</span></span><span class="aip-status-sep"></span>
           <span><strong>View</strong> <span id="aip-view-status">Grid</span></span><span class="aip-status-sep"></span>
           <span><strong>Sort</strong> <span id="aip-sort-status">Manual order</span></span>
           <div class="aip-view-controls" aria-label="Thumbnail size and view">
@@ -843,10 +861,10 @@
         const burstReview = p.burstGroup ? `<button class="aip-burst-review" data-open-burst="${p.burstGroup}" data-pick="${burstPick}" aria-label="Open ${p.burstGroup} Burst Review">${p.burstSelected?(p.burstReviewed?(p.burstAutoPick?'✓ AI Pick':'✓ Selected'):'AI Best'):'Rejected · Review'}</button>` : '';
         const rejectLabel = p.decision==='reject'?'Unreject':'Reject';
         const cameraStyle = `--aip-camera-color:${p.cameraColor};--aip-camera-tint:${p.cameraTint}`;
-        return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''} ${state.focused===p.id?'is-focused':''}" role="listitem" data-photo-id="${p.id}" data-camera-tag="${p.cameraTag}" data-decision="${p.decision}" style="${cameraStyle}" draggable="true" tabindex="${state.focused===p.id?'0':'-1'}" aria-label="${p.name}, ${state.selected.has(p.id)?'selected, ':''}${p.favorite?'favorite, ':''}${p.rating} stars, ${p.cameraTag}, ${p.camera}, ${p.decision==='reject'?'rejected':'included'}">
+        return `<article class="aip-photo ${state.selected.has(p.id)?'is-selected':''} ${state.focused===p.id?'is-focused':''}" role="listitem" data-photo-id="${p.id}" data-camera-tag="${p.cameraTag}" data-decision="${p.decision}" style="${cameraStyle}" draggable="true" tabindex="${state.focused===p.id?'0':'-1'}" aria-label="${p.name}, ${state.selected.has(p.id)?'locked selection, ':''}${p.favorite?'favorite, ':''}${p.rating} stars, ${p.cameraTag}, ${p.camera}, ${p.decision==='reject'?'rejected':'included'}">
           <div class="aip-photo-media"><div class="aip-photo-art" role="img" aria-label="${p.name}" style="${frameStyle(p)}"></div>
-            ${badge}<button class="aip-selection-mark" data-photo-select aria-label="${state.selected.has(p.id)?'Unselect':'Select'} ${p.name}" aria-pressed="${state.selected.has(p.id)}">✓</button>
-            <div class="aip-hover-tools"><span class="aip-review-actions"><button class="aip-reject-button" data-photo-action="reject" aria-label="${rejectLabel}" title="${rejectLabel}" aria-pressed="${p.decision==='reject'}">${rejectIcon}</button><span class="aip-stars-edit" aria-label="Star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="${n} stars${p.rating===n?', selected':''}" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span><button class="aip-favorite-button" data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button></span></div>
+            <button class="aip-reject-button aip-reject-overlay" data-photo-action="reject" aria-label="${rejectLabel}" title="${rejectLabel}" aria-pressed="${p.decision==='reject'}">${rejectIcon}</button>${badge}<button class="aip-selection-mark" data-photo-select aria-label="${state.selected.has(p.id)?'Unlock selection for':'Lock selection for'} ${p.name}" title="${state.selected.has(p.id)?'Unlock selection':'Lock selection'}" aria-pressed="${state.selected.has(p.id)}">✓</button>
+            <div class="aip-hover-tools"><span class="aip-review-actions"><span class="aip-stars-edit" aria-label="Star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="${n} stars${p.rating===n?', selected':''}" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span><button class="aip-favorite-button" data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button></span></div>
           </div>
           <div class="aip-photo-info"><span class="aip-photo-name"><span class="aip-photo-filename">${p.name}</span><span class="aip-list-actions" aria-label="Review actions"><button data-photo-favorite aria-label="${p.favorite?'Remove from favorites':'Add to favorites'}" aria-pressed="${p.favorite}">${p.favorite?'♥':'♡'}</button><button class="aip-reject-button" data-photo-action="reject" aria-label="${rejectLabel}" title="${rejectLabel}" aria-pressed="${p.decision==='reject'}">${rejectIcon}</button></span></span><span class="aip-persistent-meta">${favorite}<span class="aip-persistent-stars">${stars}</span><span class="aip-grid-camera-tag" title="${p.camera}"><span class="aip-camera-swatch"></span>${p.cameraTag}</span><span>${p.event}</span>${burstReview}</span><span class="aip-list-cell">${p.date}</span><span class="aip-list-cell">${p.size.toFixed(1)} MB</span><span class="aip-list-cell">JPEG</span><span class="aip-list-cell aip-list-rating"><span class="aip-list-stars-edit" aria-label="Edit star rating">${[1,2,3,4,5].map(n=>`<button data-photo-rating="${n}" aria-label="Set ${n} stars" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('')}</span></span><span class="aip-list-cell"><span class="aip-camera-tag" style="${cameraStyle}" title="${p.camera}"><span class="aip-camera-swatch"></span>${p.cameraTag}</span></span><span class="aip-list-cell">${p.event}</span></div>
         </article>`;
@@ -884,7 +902,7 @@
         root.querySelector('#aip-empty').classList.toggle('is-visible', !list.length);
         root.querySelector('#aip-results').textContent = `${list.length} / ${state.photos.length}`;
         root.querySelector('#aip-selected-count').textContent = state.selected.size;
-        root.querySelector('#aip-heading-count').textContent = `${list.length} photos · ${state.selected.size} selected`;
+        root.querySelector('#aip-heading-count').textContent = `${list.length} photos · ${state.selected.size} locked`;
         root.querySelector('#aip-view-status').textContent = state.view==='grid'?'Grid':state.view==='compact'?'Compact':'List';
         root.querySelector('#aip-sort-status').textContent = root.querySelector('#aip-sort').selectedOptions[0].textContent;
         root.querySelectorAll('[data-list-sort]').forEach(button=>{ const active=state.sort.startsWith(`${button.dataset.listSort}-`); const names={date:'Date created',camera:'Camera tag'}; button.setAttribute('aria-sort',active?(state.sort.endsWith('-asc')?'ascending':'descending'):'none'); button.textContent=`${names[button.dataset.listSort]||button.dataset.listSort[0].toUpperCase()+button.dataset.listSort.slice(1)}${active?(state.sort.endsWith('-asc')?' ↑':' ↓'):''}`; });
@@ -910,7 +928,12 @@
       function toggleSelection(id, event) {
         const visible = filtered().map(p=>p.id);
         if (event.shiftKey && state.anchor) {
-          const a=visible.indexOf(state.anchor), b=visible.indexOf(id); if(a>=0&&b>=0){ state.selected=new Set(visible.slice(Math.min(a,b),Math.max(a,b)+1)); }
+          const a=visible.indexOf(state.anchor), b=visible.indexOf(id);
+          if(a>=0&&b>=0){
+            const range=visible.slice(Math.min(a,b),Math.max(a,b)+1);
+            if(event.ctrlKey||event.metaKey)range.forEach(photoId=>state.selected.add(photoId));
+            else state.selected=new Set(range);
+          }
         } else { state.selected.has(id)?state.selected.delete(id):state.selected.add(id); state.anchor=id; }
         state.focused=id; render({focusCard:true});
       }
@@ -954,7 +977,7 @@
         applyFrame(root.querySelector('#aip-lightbox-image'), p); root.querySelector('#aip-lightbox-name').textContent=p.name;
         root.querySelector('#aip-lightbox-event').textContent=`Event · ${p.event}`; root.querySelector('#aip-lightbox-camera').textContent=`Camera · ${p.cameraTag} · ${p.camera}`;
         root.querySelector('#aip-lightbox-rating').textContent=`Rating · ${p.rating?p.rating+' stars':'Unrated'}`;
-        root.querySelector('#aip-preview-counter').textContent=`${index+1} / ${queue.length} ${state.selected.size?'checked':'visible'}`;
+        root.querySelector('#aip-preview-counter').textContent=`${index+1} / ${queue.length} ${state.selected.size?'locked':'visible'}`;
         const favorite=root.querySelector('#aip-preview-favorite');favorite.setAttribute('aria-pressed',p.favorite);favorite.textContent=`${p.favorite?'♥':'♡'} ${p.favorite?'Favorite':'Add Favorite'}`;
         root.querySelector('#aip-preview-stars').innerHTML=[1,2,3,4,5].map(n=>`<button data-preview-rating="${n}" aria-label="Set ${n} stars" aria-pressed="${p.rating===n}">${n<=p.rating?'★':'☆'}</button>`).join('');
         root.querySelectorAll('[data-preview-nav]').forEach(button=>button.disabled=queue.length<2);
@@ -995,7 +1018,7 @@
         if(card && select){toggleSelection(+card.dataset.photoId,event);return;}
         if(card && (action||favorite||rating||burstOpen)) { const id=+card.dataset.photoId, ids=state.selected.has(id)?targetIds():[id];state.focused=id;if(action)toggleReject(ids);if(favorite)setFavorite(ids);if(rating)setRating(+rating.dataset.photoRating,ids);if(burstOpen)openBurstReview(burstOpen.dataset.openBurst);return; }
         if(burstOpen){openBurstReview(burstOpen.dataset.openBurst);return;}
-        if(card){focusPhoto(+card.dataset.photoId);return;}
+        if(card){const id=+card.dataset.photoId;if(event.shiftKey||event.ctrlKey||event.metaKey){toggleSelection(id,event);return;}focusPhoto(id);return;}
         const facet=event.target.closest('[data-facet]');
         if(facet){ const key=facet.dataset.facet,value=facet.dataset.value,set=state.facets[key]; if(value==='__all'){set.clear();} else if(event.ctrlKey||event.metaKey){set.has(value)?set.delete(value):set.add(value);} else if(set.size===1&&set.has(value)){set.clear();} else {set.clear();set.add(value);} render(); return; }
         const collapse=event.target.closest('[data-collapse]'); if(collapse){const key=collapse.dataset.collapse;state.collapsed.has(key)?state.collapsed.delete(key):state.collapsed.add(key);render();root.querySelector(`[data-collapse="${key}"]`)?.focus();return;}
@@ -1041,10 +1064,10 @@
       root.querySelector('#aip-filter-toggle').addEventListener('click',event=>{const sidebar=root.querySelector('.aip-sidebar');const open=sidebar.classList.toggle('is-open');event.currentTarget.setAttribute('aria-expanded',open);event.currentTarget.lastChild.textContent=open?' Hide':' Show';});
 
       function clearDropTargets(){root.querySelectorAll('.is-drop-target').forEach(el=>el.classList.remove('is-drop-target'));}
-      root.addEventListener('dragstart',e=>{const card=e.target.closest('[data-photo-id]');if(!card)return;const id=+card.dataset.photoId,ids=state.selected.has(id)?[...state.selected]:[id];state.focused=id;e.dataTransfer.setData('text/plain',JSON.stringify(ids));e.dataTransfer.effectAllowed='move';});
+      root.addEventListener('dragstart',e=>{const card=e.target.closest('[data-photo-id]');if(!card)return;const id=+card.dataset.photoId,ids=state.selected.has(id)?[...state.selected]:[id];state.focused=id;card.classList.add('is-dragging');e.dataTransfer.setData('text/plain',JSON.stringify(ids));e.dataTransfer.effectAllowed='move';});
       root.addEventListener('dragover',e=>{const target=e.target.closest('[data-facet="event"]');if(target&&target.dataset.value!=='__all'){e.preventDefault();e.dataTransfer.dropEffect='move';clearDropTargets();target.classList.add('is-drop-target');}});
       root.addEventListener('dragleave',e=>{if(!root.contains(e.relatedTarget))clearDropTargets();});
-      root.addEventListener('dragend',clearDropTargets);
+      root.addEventListener('dragend',e=>{e.target.closest('[data-photo-id]')?.classList.remove('is-dragging');clearDropTargets();});
       root.addEventListener('drop',e=>{const target=e.target.closest('[data-facet="event"]');clearDropTargets();if(!target||target.dataset.value==='__all')return;e.preventDefault();let ids=[];try{ids=JSON.parse(e.dataTransfer.getData('text/plain'));}catch{ids=[];}if(!ids.length)return;remember();ids.forEach(id=>{const photo=state.photos.find(p=>p.id===+id);if(photo)photo.event=target.dataset.value;});render();showToast(`${ids.length} photo${ids.length===1?'':'s'} moved to ${target.dataset.value}`);});
 
       document.addEventListener('keydown',e=>{
