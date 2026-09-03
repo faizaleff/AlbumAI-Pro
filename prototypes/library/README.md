@@ -65,6 +65,9 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - The polished review workspace pairs a large active-frame preview with right-side EXIF-style details
    - The active frame stays contained in a fixed, scrollbar-free preview stage across portrait and landscape screen proportions
    - Fit, zoom out and zoom in controls enlarge the preview without changing the modal layout
+   - Mouse wheel and trackpad zoom toward the pointer position from 100–400%; double-click toggles 200% / Fit
+   - At magnified sizes, mouse drag pans the frame; zoom and pan remain aligned while comparing adjacent frames
+   - Fit resets both magnification and pan without affecting selection or rejection decisions
    - Clicking a burst thumbnail updates the large preview; the redundant per-thumbnail Preview button is removed
    - Left / Right keys and visible side controls navigate the burst frames and keep the active thumbnail visible
    - EXIF details show the camera's C-tag color and the current rating as filled and empty stars
