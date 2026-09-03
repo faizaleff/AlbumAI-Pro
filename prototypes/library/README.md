@@ -79,17 +79,16 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Burst frames use a dedicated horizontal thumbnail strip with a sleek hover-only grey scrollbar
    - Keyboard V opens Burst Review
 7. Selection and navigation
-   - Temporary blue selection and persistent top-right ticks are independent states
-   - A plain thumbnail click replaces the temporary selection with that one photo and never adds a tick
-   - Ctrl/Cmd+click toggles individual photos in the temporary selection; Shift+click selects the visible anchor-to-click range; Ctrl/Cmd+Shift+click adds a range
-   - Clicking the tick on any selected thumbnail ticks or unticks the complete temporary selection according to that clicked tick's current state
-   - Ticks survive ordinary clicks, filters and Refresh until explicitly unticked
+   - Blue selection is the single selection state; the separate persistent thumbnail marker system is removed
+   - A plain thumbnail click replaces the selection with that one photo
+   - Ctrl/Cmd+click toggles individual photos; Shift+click selects the visible anchor-to-click range; Ctrl/Cmd+Shift+click adds a range
    - Thumbnail hover uses a subtle lift/scale response and dragging adds a restrained professional drag state
    - The clean circle-slash Reject action appears at the thumbnail top-left; the bottom hover bar keeps stars centered and Favorite on the right
-   - Actions on a selected photo apply to the temporary selection; actions on an unselected photo affect only that photo
-   - Ctrl/Cmd+A selects all visible photos; Ctrl/Cmd+D clears the temporary selection without removing ticks
-   - Arrow keys move and replace temporary selection; Shift+Arrow extends its range; Ctrl/Cmd+Arrow toggles the focused photo
-   - Right-click Move to Event appears only on ticked photos and moves the complete ticked set
+   - Reject, star rating and Favorite on a selected photo apply to the complete selection; actions on an unselected photo affect only that photo
+   - Ctrl/Cmd+A selects all visible photos; Ctrl/Cmd+D clears selection
+   - Arrow keys move and replace selection; Shift+Arrow extends its range; Ctrl/Cmd+Arrow toggles the focused photo
+   - Right-click any selected photo opens Move to Event for the complete selection; right-clicking an unselected photo first selects that photo for a single-item move
+   - Space previews the selected set, so one selection model drives Preview, Move, Reject, Rating and Favorite
    - Event moves participate in the visible Undo / Redo history controls and keyboard shortcuts
 8. Quick preview
    - Space toggles a bounded Bridge-style preview inside the plugin surface; Escape also closes it
@@ -105,8 +104,11 @@ The tracked demo imagery is an AI-generated contact sheet of fictional adults cr
    - Grid and List views
    - Bridge-inspired compact grid, detailed list columns and bottom thumbnail-size control
    - Filename search
-   - Manual, filename, capture-time, rating, camera-tag, type, size and dimensions sort options
-   - List headers sort by Name, Date Created, Size, Type, Rating, Camera Tag and Keywords; repeat click reverses direction
+   - One Windows Explorer-style Sort & Group menu contains separate Sort by and Group by sections
+   - Sort by Name, Date Created, Capture Time, Rating, Camera, Event or Photo Type, with a separate Ascending / Descending control
+   - Group by None, Events, Cameras, Ratings, Favorites, Included / Rejected or Photo Type
+   - Manual order and file-size smallest/largest choices are removed
+   - List headers sort by Name, Date Created, Type, Rating, Camera Tag and Keywords/Event; repeat click reverses direction
    - List rows are editable for Favorite, Reject/Unreject and 0–5 stars, including multi-selection and Undo/Redo
    - List column headers remain frozen while rows scroll
    - Internal scrollbars stay hidden until hover, then appear as slim neutral-grey controls
