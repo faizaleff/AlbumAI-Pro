@@ -1,5 +1,7 @@
 export const PHOTO_BROWSER_PREFERENCES_SCHEMA = 1;
 export const PHOTO_DECISIONS_SCHEMA = 1;
+export const PHOTO_STORY_ORDER_SCHEMA = 1;
+export const PHOTO_EVENT_CHAPTERS_SCHEMA = 1;
 
 const SORT_FIELDS = new Set([
     "name",
@@ -7,6 +9,9 @@ const SORT_FIELDS = new Set([
     "taken",
     "created",
     "rating",
+    "camera",
+    "event",
+    "type",
     "size",
     "quality"
 ]);
@@ -28,8 +33,20 @@ const DATE_FIELDS = new Set([
     "taken",
     "created"
 ]);
+const RATING_FILTER_MODES = new Set([
+    "any",
+    "unrated",
+    "exact",
+    "atLeast",
+    "atMost"
+]);
 const MAX_SEARCH_LENGTH = 160;
 const MAX_PHOTO_DECISIONS = 20000;
+const MAX_EVENT_CHAPTERS = 200;
+const MAX_EVENT_CHAPTER_NAME_LENGTH = 80;
+const MIN_THUMBNAIL_SIZE = 84;
+const MAX_THUMBNAIL_SIZE = 144;
+const DEFAULT_THUMBNAIL_SIZE = 104;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function boundedString(value, maximum = MAX_SEARCH_LENGTH) {
@@ -59,6 +76,289 @@ function fnv1a(value, seed) {
         hash = Math.imul(hash, 0x01000193);
     }
     return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+export function normalizePhotoStoryOrder(value = {}, photos = null) {
+    const source = value && typeof value === "object" && !Array.isArray(value)
+        ? value
+        : {};
+    const items = [];
+    const seen = new Set();
+
+    for (const key of Array.isArray(source.items)
+        ? source.items.slice(0, MAX_PHOTO_DECISIONS)
+        : []) {
+        if (!/^p1-[0-9a-f]{16}$/.test(key || "") || seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        items.push(key);
+    }
+
+    if (Array.isArray(photos)) {
+        const available = new Set(
+            photos.map(photoDecisionKey).filter(Boolean)
+        );
+        const reconciled = items.filter(key => available.has(key));
+        const reconciledSet = new Set(reconciled);
+        for (const photo of photos) {
+            const key = photoDecisionKey(photo);
+            if (!key || reconciledSet.has(key)) continue;
+            reconciledSet.add(key);
+            reconciled.push(key);
+        }
+        return Object.freeze({
+            schemaVersion: PHOTO_STORY_ORDER_SCHEMA,
+            items: Object.freeze(reconciled)
+        });
+    }
+
+    return Object.freeze({
+        schemaVersion: PHOTO_STORY_ORDER_SCHEMA,
+        items: Object.freeze(items)
+    });
+}
+
+export function reconcilePhotoStoryOrder(value = {}, photos = []) {
+    return normalizePhotoStoryOrder(value, photos);
+}
+
+export function applyPhotoStoryOrder(photos = [], value = {}) {
+    const source = Array.isArray(photos) ? photos : [];
+    const order = normalizePhotoStoryOrder(value, source);
+    const rank = new Map(order.items.map((key, index) => [key, index]));
+    return Object.freeze(source.slice().sort((left, right) =>
+        rank.get(photoDecisionKey(left)) - rank.get(photoDecisionKey(right))
+    ));
+}
+
+export function movePhotosInStoryOrder(
+    value,
+    photos = [],
+    sourcePhoto,
+    targetPhoto,
+    selectedPhotos = []
+) {
+    const ordered = applyPhotoStoryOrder(photos, value);
+    const sourceKey = photoDecisionKey(sourcePhoto);
+    const targetKey = photoDecisionKey(targetPhoto);
+    const keys = ordered.map(photoDecisionKey).filter(Boolean);
+    if (!sourceKey || !targetKey || sourceKey === targetKey) {
+        return normalizePhotoStoryOrder({ items: keys }, ordered);
+    }
+    if (!keys.includes(sourceKey) || !keys.includes(targetKey)) {
+        return normalizePhotoStoryOrder({ items: keys }, ordered);
+    }
+
+    const selectedKeys = new Set(selectedPhotos
+        .map(photoDecisionKey)
+        .filter(key => keys.includes(key))
+    );
+    const moving = selectedKeys.has(sourceKey)
+        ? keys.filter(key => selectedKeys.has(key))
+        : [sourceKey];
+
+    if (moving.includes(targetKey)) {
+        return normalizePhotoStoryOrder({ items: keys }, ordered);
+    }
+
+    const movingSet = new Set(moving);
+    const remaining = keys.filter(key => !movingSet.has(key));
+    const targetIndex = remaining.indexOf(targetKey);
+    remaining.splice(targetIndex, 0, ...moving);
+    return normalizePhotoStoryOrder({ items: remaining }, ordered);
+}
+
+function normalizedEventChapterName(value, fallback) {
+    const name = boundedString(value, MAX_EVENT_CHAPTER_NAME_LENGTH);
+    return name || fallback;
+}
+
+export function normalizePhotoEventChapters(value = {}, photos = null) {
+    const source = value && typeof value === "object" && !Array.isArray(value)
+        ? value
+        : {};
+    const available = Array.isArray(photos)
+        ? new Set(photos.map(photoDecisionKey).filter(Boolean))
+        : null;
+
+    const claimedPhotoKeys = new Set();
+    const seenChapterIds = new Set();
+    const items = [];
+
+    for (const candidate of Array.isArray(source.items)
+        ? source.items.slice(0, MAX_EVENT_CHAPTERS)
+        : []) {
+        const chapterId = typeof candidate?.chapterId === "string"
+            ? candidate.chapterId.trim()
+            : "";
+        if (!/^chapter-[1-9][0-9]{0,5}$/.test(chapterId) ||
+            seenChapterIds.has(chapterId)) {
+            continue;
+        }
+        seenChapterIds.add(chapterId);
+
+        const photoKeys = [];
+        for (const photoKey of Array.isArray(candidate.photoKeys)
+            ? candidate.photoKeys.slice(0, MAX_PHOTO_DECISIONS)
+            : []) {
+            if (
+                !/^p1-[0-9a-f]{16}$/.test(photoKey || "") ||
+                claimedPhotoKeys.has(photoKey) ||
+                (available && !available.has(photoKey))
+            ) {
+                continue;
+            }
+            claimedPhotoKeys.add(photoKey);
+            photoKeys.push(photoKey);
+        }
+
+        items.push(Object.freeze({
+            chapterId,
+            name: normalizedEventChapterName(
+                candidate.name,
+                `Event ${items.length + 1}`
+            ),
+            photoKeys: Object.freeze(photoKeys)
+        }));
+    }
+
+    return Object.freeze({
+        schemaVersion: PHOTO_EVENT_CHAPTERS_SCHEMA,
+        items: Object.freeze(items)
+    });
+}
+
+export function reconcilePhotoEventChapters(value = {}, photos = []) {
+    return normalizePhotoEventChapters(value, photos);
+}
+
+export function createPhotoEventChapter(value, selectedPhotos = [], photos = null) {
+    const current = normalizePhotoEventChapters(value, photos);
+    const nextNumber = current.items.reduce((maximum, item) => {
+        const number = Number(item.chapterId.slice("chapter-".length));
+        return Math.max(maximum, Number.isFinite(number) ? number : 0);
+    }, 0) + 1;
+    const chapterId = `chapter-${nextNumber}`;
+    const selectedKeys = new Set(selectedPhotos
+        .map(photoDecisionKey)
+        .filter(Boolean));
+    const items = current.items.map(item => ({
+        ...item,
+        photoKeys: item.photoKeys.filter(key => !selectedKeys.has(key))
+    }));
+    items.push({
+        chapterId,
+        name: `Event ${items.length + 1}`,
+        photoKeys: [...selectedKeys]
+    });
+    return normalizePhotoEventChapters({ items }, photos);
+}
+
+export function renamePhotoEventChapter(value, chapterId, name, photos = null) {
+    const current = normalizePhotoEventChapters(value, photos);
+    return normalizePhotoEventChapters({
+        items: current.items.map((item, index) => item.chapterId === chapterId
+            ? {
+                ...item,
+                name: normalizedEventChapterName(name, `Event ${index + 1}`)
+            }
+            : item)
+    }, photos);
+}
+
+export function movePhotoEventChapter(value, chapterId, direction, photos = null) {
+    const current = normalizePhotoEventChapters(value, photos);
+    const items = current.items.map(item => ({
+        ...item,
+        photoKeys: [...item.photoKeys]
+    }));
+    const sourceIndex = items.findIndex(item => item.chapterId === chapterId);
+    const delta = direction === "up" || Number(direction) < 0 ? -1 : 1;
+    const targetIndex = sourceIndex + delta;
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= items.length) {
+        return current;
+    }
+    const [moved] = items.splice(sourceIndex, 1);
+    items.splice(targetIndex, 0, moved);
+    return normalizePhotoEventChapters({ items }, photos);
+}
+
+export function deleteEmptyPhotoEventChapter(value, chapterId, photos = null) {
+    const current = normalizePhotoEventChapters(value, photos);
+    const chapter = current.items.find(item => item.chapterId === chapterId);
+    if (!chapter || chapter.photoKeys.length) return current;
+    return normalizePhotoEventChapters({
+        items: current.items.filter(item => item.chapterId !== chapterId)
+    }, photos);
+}
+
+export function assignPhotosToEventChapter(
+    value,
+    chapterId,
+    selectedPhotos = [],
+    photos = null
+) {
+    const current = normalizePhotoEventChapters(value, photos);
+    if (!current.items.some(item => item.chapterId === chapterId)) {
+        return current;
+    }
+    const selectedKeys = new Set(selectedPhotos
+        .map(photoDecisionKey)
+        .filter(Boolean));
+    return normalizePhotoEventChapters({
+        items: current.items.map(item => ({
+            ...item,
+            photoKeys: [
+                ...item.photoKeys.filter(key => !selectedKeys.has(key)),
+                ...(item.chapterId === chapterId ? selectedKeys : [])
+            ]
+        }))
+    }, photos);
+}
+
+export function removePhotosFromEventChapters(
+    value,
+    selectedPhotos = [],
+    photos = null
+) {
+    const current = normalizePhotoEventChapters(value, photos);
+    const selectedKeys = new Set(selectedPhotos
+        .map(photoDecisionKey)
+        .filter(Boolean));
+    if (!selectedKeys.size) return current;
+    return normalizePhotoEventChapters({
+        items: current.items.map(item => ({
+            ...item,
+            photoKeys: item.photoKeys.filter(key => !selectedKeys.has(key))
+        }))
+    }, photos);
+}
+
+export function findUnassignedPhotoEventChapterPhotos(value, photos = []) {
+    const availablePhotos = Array.isArray(photos) ? photos : [];
+    const current = normalizePhotoEventChapters(value, availablePhotos);
+    const assignedKeys = new Set(current.items.flatMap(item => item.photoKeys));
+    return Object.freeze(availablePhotos.filter(
+        photo => !assignedKeys.has(photoDecisionKey(photo))
+    ));
+}
+
+export function summarizePhotoEventChapterReview(value, photos = []) {
+    const availablePhotos = Array.isArray(photos) ? photos : [];
+    const current = normalizePhotoEventChapters(value, availablePhotos);
+    const unassignedCount = findUnassignedPhotoEventChapterPhotos(
+        current,
+        availablePhotos
+    ).length;
+    const manual = current.items.length > 0;
+    return Object.freeze({
+        ready: availablePhotos.length > 0 && (!manual || unassignedCount === 0),
+        manual,
+        chapterCount: current.items.length,
+        assignedCount: availablePhotos.length - unassignedCount,
+        unassignedCount
+    });
 }
 
 export function photoDecisionKey(photo) {
@@ -194,6 +494,25 @@ export function normalizePhotoBrowserPreferences(value = {}) {
         ? source.sort
         : source;
 
+    const legacyMinimumRating = normalizedRating(source.minimumRating);
+    const ratingFilterSource = source.ratingFilter &&
+        typeof source.ratingFilter === "object"
+        ? source.ratingFilter
+        : null;
+    const ratingMode = RATING_FILTER_MODES.has(ratingFilterSource?.mode)
+        ? ratingFilterSource.mode
+        : legacyMinimumRating ? "atLeast" : "any";
+    const ratingValue = normalizedRating(
+        ratingFilterSource?.value ?? legacyMinimumRating
+    );
+    const requestedThumbnailSize = Number(source.thumbnailSize);
+    const thumbnailSize = Number.isFinite(requestedThumbnailSize)
+        ? Math.max(
+            MIN_THUMBNAIL_SIZE,
+            Math.min(MAX_THUMBNAIL_SIZE, Math.round(requestedThumbnailSize))
+        )
+        : DEFAULT_THUMBNAIL_SIZE;
+
     return Object.freeze({
         schemaVersion: PHOTO_BROWSER_PREFERENCES_SCHEMA,
         search: boundedString(source.search),
@@ -202,9 +521,18 @@ export function normalizePhotoBrowserPreferences(value = {}) {
             source.orientations,
             ORIENTATIONS
         )),
-        minimumRating: normalizedRating(source.minimumRating),
+        // Retain the legacy field so older project readers keep their previous
+        // minimum-rating behavior. New Library code uses ratingFilter.
+        minimumRating: ratingMode === "atLeast" ? ratingValue : 0,
+        ratingFilter: Object.freeze({
+            mode: ratingMode,
+            value: ratingMode === "any" || ratingMode === "unrated"
+                ? 0
+                : Math.max(1, ratingValue)
+        }),
         favoritesOnly: source.favoritesOnly === true,
         duplicatesOnly: source.duplicatesOnly === true,
+        thumbnailSize,
         datePreset: DATE_PRESETS.has(source.datePreset)
             ? source.datePreset
             : "any",
@@ -304,6 +632,19 @@ function sortValue(photo, field, decisionsByKey) {
         const size = Number(photo?.fileSize || photo?.file?.size);
         return Number.isFinite(size) && size >= 0 ? size : null;
     }
+    if (field === "camera") {
+        return boundedString(
+            photo?.metadata?.cameraModel || photo?.cameraModel || photo?.camera?.model,
+            120
+        ).toLocaleLowerCase() || null;
+    }
+    if (field === "event") {
+        return boundedString(
+            photo?.eventLabel || photo?.event || photo?.metadata?.event,
+            120
+        ).toLocaleLowerCase() || null;
+    }
+    if (field === "type") return photoExtension(photo) || null;
     if (field === "modified" || field === "taken" || field === "created") {
         return dateValue(photo, field);
     }
@@ -372,7 +713,12 @@ function matchesPhoto(
         !preferences.orientations.includes(photoOrientation(photo))
     ) return false;
     const decision = effectivePhotoDecision(photo, decisionsByKey);
-    if (decision.rating < preferences.minimumRating) return false;
+    const rating = decision.rating || 0;
+    const ratingFilter = preferences.ratingFilter;
+    if (ratingFilter.mode === "unrated" && rating !== 0) return false;
+    if (ratingFilter.mode === "exact" && rating !== ratingFilter.value) return false;
+    if (ratingFilter.mode === "atLeast" && rating < ratingFilter.value) return false;
+    if (ratingFilter.mode === "atMost" && rating > ratingFilter.value) return false;
     if (preferences.favoritesOnly && !decision.favorite) return false;
     if (
         preferences.duplicatesOnly &&
@@ -441,7 +787,7 @@ export function hasActivePhotoBrowserFilters(value = {}) {
         preferences.search ||
         preferences.types.length ||
         preferences.orientations.length ||
-        preferences.minimumRating ||
+        preferences.ratingFilter.mode !== "any" ||
         preferences.favoritesOnly ||
         preferences.duplicatesOnly ||
         preferences.datePreset !== "any"

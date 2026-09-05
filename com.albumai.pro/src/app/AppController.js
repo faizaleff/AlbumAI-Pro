@@ -1922,9 +1922,84 @@ export class AppController {
 
     }
 
+    getPhotoStoryOrder() {
+
+        return this.photoWorkspace.getPhotoStoryOrder();
+
+    }
+
+    movePhotoInStoryOrder(sourcePhoto, targetPhoto, selectedPhotos = []) {
+
+        return this.photoWorkspace.updatePhotoStoryOrder(
+            sourcePhoto,
+            targetPhoto,
+            selectedPhotos
+        );
+
+    }
+
+    getPhotoEventChapters() {
+
+        return this.photoWorkspace.getPhotoEventChapters();
+
+    }
+
+    createPhotoEventChapter(selectedPhotos = []) {
+
+        return this.photoWorkspace.createPhotoEventChapter(selectedPhotos);
+
+    }
+
+    renamePhotoEventChapter(chapterId, name) {
+
+        return this.photoWorkspace.renamePhotoEventChapter(chapterId, name);
+
+    }
+
+    movePhotoEventChapter(chapterId, direction) {
+
+        return this.photoWorkspace.movePhotoEventChapter(chapterId, direction);
+
+    }
+
+    deleteEmptyPhotoEventChapter(chapterId) {
+
+        return this.photoWorkspace.deleteEmptyPhotoEventChapter(chapterId);
+
+    }
+
+    assignPhotosToEventChapter(chapterId, selectedPhotos = []) {
+
+        return this.photoWorkspace.assignPhotosToEventChapter(
+            chapterId,
+            selectedPhotos
+        );
+
+    }
+
+    removePhotosFromEventChapters(selectedPhotos = []) {
+
+        return this.photoWorkspace.removePhotosFromEventChapters(
+            selectedPhotos
+        );
+
+    }
+
+    savePhotoEventChapters(value, reason) {
+
+        return this.photoWorkspace.savePhotoEventChapters(value, reason);
+
+    }
+
     updatePhotoDecision(photo, values) {
 
         return this.photoWorkspace.updatePhotoDecision(photo, values);
+
+    }
+
+    savePhotoDecisions(value, reason) {
+
+        return this.photoWorkspace.savePhotoDecisions(value, reason);
 
     }
 
@@ -1973,6 +2048,22 @@ export class AppController {
     autoPickBurstBest(burstThresholdMs) {
 
         return this.photoWorkspace.autoPickBurstBest(burstThresholdMs);
+
+    }
+
+    getPhotoBurstReviews(burstThresholdMs) {
+
+        return this.photoWorkspace.getPhotoBurstReviews(burstThresholdMs);
+
+    }
+
+    applyPhotoBurstReview(groupId, selectedPhotos, burstThresholdMs) {
+
+        return this.photoWorkspace.applyPhotoBurstReview(
+            groupId,
+            selectedPhotos,
+            burstThresholdMs
+        );
 
     }
 

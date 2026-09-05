@@ -13,6 +13,7 @@ function ThumbnailCard({
     viewMode = "icons",
     visible = false,
     decision = { rating: 0, favorite: false, culling: "unrated" },
+    cameraIdentity = null,
     onDecisionChange
 }) {
     PhotoBrowserPerformance.recordRender("ThumbnailCard");
@@ -22,6 +23,7 @@ function ThumbnailCard({
     const rating = decision?.rating || 0;
     const isFavorite = Boolean(decision?.favorite);
     const culling = decision?.culling?.toLowerCase();
+    const rejected = culling === "reject";
 
     const handleClick = useCallback(event => {
         onClick(photo, event);
@@ -123,51 +125,22 @@ function ThumbnailCard({
                     }}
                 />
 
-                {/* Selection Badge */}
-                {selected && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            top: 4,
-                            right: 4,
-                            width: 18,
-                            height: 18,
-                            borderRadius: "50%",
-                            background: "#00d2ff",
-                            color: "#0b0e14",
-                            fontWeight: 800,
-                            fontSize: 11,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxShadow: "0 2px 6px rgba(0, 210, 255, 0.6)",
-                            zIndex: 4
-                        }}
-                    >
-                        ✓
-                    </div>
-                )}
+                <button
+                    type="button"
+                    className={`photo-thumbnail-reject${rejected ? " is-rejected" : ""}`}
+                    onClick={event => {
+                        event.stopPropagation();
+                        event.preventDefault();
+                        onDecisionChange?.(photo, {
+                            culling: rejected ? "UNRATED" : "REJECT"
+                        });
+                    }}
+                    aria-label={rejected ? `Unreject ${photo.name}` : `Reject ${photo.name}`}
+                    title={rejected ? "Unreject (R)" : "Reject (R)"}
+                >
+                    {rejected ? "↶" : "⊘"}
+                </button>
 
-                {/* Culling Badge (Keep / Reject) */}
-                {culling && culling !== "unrated" && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            top: 4,
-                            left: 4,
-                            padding: "1px 5px",
-                            borderRadius: 3,
-                            fontSize: 9,
-                            fontWeight: 700,
-                            color: "#ffffff",
-                            background: culling === "keep" ? "#238636" : "#da3633",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.6)",
-                            zIndex: 4
-                        }}
-                    >
-                        {culling === "keep" ? "✓ KEEP" : "✕ REJECT"}
-                    </div>
-                )}
             </div>
 
             {/* Card Footer: Row 1 = Filename, Row 2 = 5 Stars + Heart */}
@@ -177,7 +150,12 @@ function ThumbnailCard({
                     display: "flex",
                     flexDirection: "column",
                     gap: 1,
-                    background: selected ? "#162338" : "#151b23",
+                    background: cameraIdentity?.color
+                        ? `linear-gradient(90deg, ${cameraIdentity.color}22, #151b23 58%)`
+                        : selected ? "#162338" : "#151b23",
+                    borderBottom: cameraIdentity?.color
+                        ? `3px solid ${cameraIdentity.color}`
+                        : "3px solid transparent",
                     minWidth: 0,
                     boxSizing: "border-box"
                 }}
@@ -197,6 +175,11 @@ function ThumbnailCard({
                 >
                     {photo.name}
                 </div>
+                {cameraIdentity && (
+                    <span className="photo-camera-tag photo-camera-tag-card" style={{ color: cameraIdentity.color }}>
+                        {cameraIdentity.tag}
+                    </span>
+                )}
 
                 {/* 5 Stars Rating + Favorite Heart (Explicit zero-min-width styling for UXP) */}
                 <div
@@ -286,5 +269,7 @@ export default React.memo(
         previous.decision?.rating === next.decision?.rating &&
         previous.decision?.favorite === next.decision?.favorite &&
         previous.decision?.culling === next.decision?.culling &&
+        previous.cameraIdentity?.tag === next.cameraIdentity?.tag &&
+        previous.cameraIdentity?.color === next.cameraIdentity?.color &&
         previous.onDecisionChange === next.onDecisionChange
 );

@@ -12,7 +12,19 @@ import ImageSourceCapabilityService from "./ImageSourceCapabilityService";
 import SoftwareJpegRenderer from "./SoftwareJpegRenderer";
 import { logPhotoRuntimeSchemaOnce } from "./PhotoFileEntry";
 import {
+    createPhotoDecisionLookup,
     normalizePhotoDecisions,
+    normalizePhotoEventChapters,
+    normalizePhotoStoryOrder,
+    movePhotosInStoryOrder,
+    createPhotoEventChapter,
+    deleteEmptyPhotoEventChapter,
+    assignPhotosToEventChapter,
+    movePhotoEventChapter,
+    reconcilePhotoEventChapters,
+    renamePhotoEventChapter,
+    removePhotosFromEventChapters,
+    reconcilePhotoStoryOrder,
     reconcilePhotoDecisions,
     updatePhotoDecision
 } from "./PhotoBrowserModel";
@@ -37,7 +49,9 @@ import {
     derivePhotoQualityAnalysis
 } from "./PhotoQualitySignalEngine";
 import {
+    applyBurstReview,
     autoPickBurstBest as autoPickBurstBestFn,
+    normalizePhotoBurstReviews,
     summarizeCulling
 } from "./PhotoCullingService";
 
@@ -138,6 +152,12 @@ export default class PhotoWorkspaceService {
         this.photoDecisionProjectId = null;
         this.photoDecisions = normalizePhotoDecisions();
         this.photoDecisionsPersisted = this.photoDecisions;
+        this.photoStoryOrderProjectId = null;
+        this.photoStoryOrder = normalizePhotoStoryOrder();
+        this.photoStoryOrderPersisted = this.photoStoryOrder;
+        this.photoEventChaptersProjectId = null;
+        this.photoEventChapters = normalizePhotoEventChapters();
+        this.photoEventChaptersPersisted = this.photoEventChapters;
         this.duplicateProjectId = null;
         this.duplicateEvidence = normalizePhotoDuplicateEvidence();
         this.duplicateAnalysis = null;
@@ -314,6 +334,8 @@ export default class PhotoWorkspaceService {
         }
         this.reconcilePhotoDecisionCache(images);
         this.reconcilePhotoDuplicateEvidenceCache(images);
+        this.reconcilePhotoStoryOrderCache(images);
+        this.reconcilePhotoEventChaptersCache(images);
         this.sourceFolder = result.folder;
         if (!sameFolder) this.selection.clear();
         // Placeholder mode is the normal browser fallback. Cache hydration is
@@ -572,6 +594,19 @@ export default class PhotoWorkspaceService {
         const nextValues = {
             ...projectValues,
             photoCount: prepared.images.length,
+            photoStoryOrder: reconcilePhotoStoryOrder(
+                this.getPhotoStoryOrder(),
+                prepared.images
+            ),
+            photoEventChapters: reconcilePhotoEventChapters(
+                this.getPhotoEventChapters(),
+                prepared.images
+            ),
+            photoBurstReviews: normalizePhotoBurstReviews(
+                previousMetadata.photoBurstReviews,
+                prepared.images,
+                groupPhotosByBurst(prepared.images)
+            ),
             photoDecisions: reconcilePhotoDecisions(
                 this.getPhotoDecisions(),
                 prepared.images
@@ -594,6 +629,10 @@ export default class PhotoWorkspaceService {
             this.photoDecisions = nextValues.photoDecisions;
             this.photoDecisionsPersisted = nextValues.photoDecisions;
             this.duplicateEvidence = nextValues.photoDuplicateEvidence;
+            this.photoStoryOrder = nextValues.photoStoryOrder;
+            this.photoStoryOrderPersisted = nextValues.photoStoryOrder;
+            this.photoEventChapters = nextValues.photoEventChapters;
+            this.photoEventChaptersPersisted = nextValues.photoEventChapters;
         } catch (error) {
             this.projectEngine.updateMetadata(previousMetadata);
             return this.folderChangeFailure(
@@ -759,10 +798,17 @@ export default class PhotoWorkspaceService {
         this.sourceFolder = null;
         this.photoDecisions = normalizePhotoDecisions();
         this.duplicateEvidence = normalizePhotoDuplicateEvidence();
+        this.photoStoryOrder = normalizePhotoStoryOrder();
+        this.photoStoryOrderPersisted = this.photoStoryOrder;
+        this.photoEventChapters = normalizePhotoEventChapters();
+        this.photoEventChaptersPersisted = this.photoEventChapters;
 
         await this.projectService.saveProject({
             photoCount: 0,
             photoSource: null,
+            photoStoryOrder: this.photoStoryOrder,
+            photoEventChapters: this.photoEventChapters,
+            photoBurstReviews: normalizePhotoBurstReviews(),
             photoDecisions: this.photoDecisions,
             photoDuplicateEvidence: this.duplicateEvidence
         }, { reason: "PHOTO_FOLDER_REMOVE" });
@@ -797,6 +843,508 @@ export default class PhotoWorkspaceService {
             this.photoDecisionsPersisted = this.photoDecisions;
         }
         return this.photoDecisions;
+
+    }
+
+    getPhotoStoryOrder() {
+
+        const project = this.projectEngine.getProject();
+        const projectId = project?.metadata?.id || null;
+        if (projectId !== this.photoStoryOrderProjectId) {
+            this.photoStoryOrderProjectId = projectId;
+            this.photoStoryOrder = normalizePhotoStoryOrder(
+                project?.metadata?.photoStoryOrder
+            );
+            this.photoStoryOrderPersisted = this.photoStoryOrder;
+        }
+        return this.photoStoryOrder;
+
+    }
+
+    reconcilePhotoStoryOrderCache(photos) {
+
+        const previous = this.getPhotoStoryOrder();
+        const next = reconcilePhotoStoryOrder(previous, photos);
+        this.photoStoryOrder = next;
+        return JSON.stringify(previous) !== JSON.stringify(next);
+
+    }
+
+    updatePhotoStoryOrder(sourcePhoto, targetPhoto, selectedPhotos = []) {
+
+        this.requireProject();
+        const projectId =
+            this.projectEngine.getProject()?.metadata?.id || null;
+        const previous = this.getPhotoStoryOrder();
+        const next = reconcilePhotoStoryOrder(
+            movePhotosInStoryOrder(
+                previous,
+                this.library.getPhotos(),
+                sourcePhoto,
+                targetPhoto,
+                selectedPhotos
+            ),
+            this.library.getPhotos()
+        );
+        if (JSON.stringify(previous) === JSON.stringify(next)) {
+            return Promise.resolve(next);
+        }
+        this.photoStoryOrder = next;
+        const operation = this.persistencePromise
+            .catch(() => {})
+            .then(async () => {
+                const activeProjectId =
+                    this.projectEngine.getProject()?.metadata?.id || null;
+                if (activeProjectId !== projectId) {
+                    const error = new Error(
+                        "Photo story-order project changed before persistence."
+                    );
+                    error.code = "PHOTO_STORY_ORDER_PROJECT_CHANGED";
+                    throw error;
+                }
+                await this.projectService.saveProject(
+                    { photoStoryOrder: next },
+                    { reason: "PHOTO_STORY_ORDER_UPDATE" }
+                );
+                if (this.photoStoryOrderProjectId === projectId) {
+                    this.photoStoryOrderPersisted = next;
+                }
+                return next;
+            })
+            .catch(error => {
+                if (
+                    this.photoStoryOrderProjectId === projectId &&
+                    this.projectEngine.getProject()?.metadata?.id === projectId &&
+                    this.photoStoryOrder === next
+                ) {
+                    this.photoStoryOrder = this.photoStoryOrderPersisted;
+                    const metadata =
+                        this.projectEngine.getProject()?.metadata;
+                    if (metadata) {
+                        this.projectEngine.updateMetadata({
+                            ...metadata,
+                            photoStoryOrder: this.photoStoryOrderPersisted
+                        });
+                    }
+                }
+                throw error;
+            });
+        this.persistencePromise = operation.catch(() => {});
+        return operation;
+
+    }
+
+    getPhotoEventChapters() {
+
+        const project = this.projectEngine.getProject();
+        const projectId = project?.metadata?.id || null;
+        if (projectId !== this.photoEventChaptersProjectId) {
+            this.photoEventChaptersProjectId = projectId;
+            this.photoEventChapters = normalizePhotoEventChapters(
+                project?.metadata?.photoEventChapters
+            );
+            this.photoEventChaptersPersisted = this.photoEventChapters;
+        }
+        return this.photoEventChapters;
+
+    }
+
+    reconcilePhotoEventChaptersCache(photos) {
+
+        const previous = this.getPhotoEventChapters();
+        const next = reconcilePhotoEventChapters(previous, photos);
+        this.photoEventChapters = next;
+        return JSON.stringify(previous) !== JSON.stringify(next);
+
+    }
+
+    createPhotoEventChapter(selectedPhotos = []) {
+
+        this.requireProject();
+        const projectId =
+            this.projectEngine.getProject()?.metadata?.id || null;
+        const previous = this.getPhotoEventChapters();
+        const next = createPhotoEventChapter(
+            previous,
+            selectedPhotos,
+            this.library.getPhotos()
+        );
+        if (JSON.stringify(previous) === JSON.stringify(next)) {
+            return Promise.resolve(next);
+        }
+        this.photoEventChapters = next;
+        const operation = this.persistencePromise
+            .catch(() => {})
+            .then(async () => {
+                const activeProjectId =
+                    this.projectEngine.getProject()?.metadata?.id || null;
+                if (activeProjectId !== projectId) {
+                    const error = new Error(
+                        "Photo event chapters project changed before persistence."
+                    );
+                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
+                    throw error;
+                }
+                await this.projectService.saveProject(
+                    { photoEventChapters: next },
+                    { reason: "PHOTO_EVENT_CHAPTER_CREATE" }
+                );
+                if (this.photoEventChaptersProjectId === projectId) {
+                    this.photoEventChaptersPersisted = next;
+                }
+                return next;
+            })
+            .catch(error => {
+                if (
+                    this.photoEventChaptersProjectId === projectId &&
+                    this.projectEngine.getProject()?.metadata?.id === projectId &&
+                    this.photoEventChapters === next
+                ) {
+                    this.photoEventChapters = this.photoEventChaptersPersisted;
+                    const metadata =
+                        this.projectEngine.getProject()?.metadata;
+                    if (metadata) {
+                        this.projectEngine.updateMetadata({
+                            ...metadata,
+                            photoEventChapters: this.photoEventChaptersPersisted
+                        });
+                    }
+                }
+                throw error;
+            });
+        this.persistencePromise = operation.catch(() => {});
+        return operation;
+
+    }
+
+    renamePhotoEventChapter(chapterId, name) {
+
+        this.requireProject();
+        const projectId =
+            this.projectEngine.getProject()?.metadata?.id || null;
+        const previous = this.getPhotoEventChapters();
+        const next = renamePhotoEventChapter(
+            previous,
+            chapterId,
+            name,
+            this.library.getPhotos()
+        );
+        if (JSON.stringify(previous) === JSON.stringify(next)) {
+            return Promise.resolve(next);
+        }
+        this.photoEventChapters = next;
+        const operation = this.persistencePromise
+            .catch(() => {})
+            .then(async () => {
+                const activeProjectId =
+                    this.projectEngine.getProject()?.metadata?.id || null;
+                if (activeProjectId !== projectId) {
+                    const error = new Error(
+                        "Photo event chapters project changed before persistence."
+                    );
+                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
+                    throw error;
+                }
+                await this.projectService.saveProject(
+                    { photoEventChapters: next },
+                    { reason: "PHOTO_EVENT_CHAPTER_RENAME" }
+                );
+                if (this.photoEventChaptersProjectId === projectId) {
+                    this.photoEventChaptersPersisted = next;
+                }
+                return next;
+            })
+            .catch(error => {
+                if (
+                    this.photoEventChaptersProjectId === projectId &&
+                    this.projectEngine.getProject()?.metadata?.id === projectId &&
+                    this.photoEventChapters === next
+                ) {
+                    this.photoEventChapters = this.photoEventChaptersPersisted;
+                    const metadata =
+                        this.projectEngine.getProject()?.metadata;
+                    if (metadata) {
+                        this.projectEngine.updateMetadata({
+                            ...metadata,
+                            photoEventChapters: this.photoEventChaptersPersisted
+                        });
+                    }
+                }
+                throw error;
+            });
+        this.persistencePromise = operation.catch(() => {});
+        return operation;
+
+    }
+
+    movePhotoEventChapter(chapterId, direction) {
+
+        this.requireProject();
+        const projectId =
+            this.projectEngine.getProject()?.metadata?.id || null;
+        const previous = this.getPhotoEventChapters();
+        const next = movePhotoEventChapter(
+            previous,
+            chapterId,
+            direction,
+            this.library.getPhotos()
+        );
+        if (JSON.stringify(previous) === JSON.stringify(next)) {
+            return Promise.resolve(next);
+        }
+        this.photoEventChapters = next;
+        const operation = this.persistencePromise
+            .catch(() => {})
+            .then(async () => {
+                const activeProjectId =
+                    this.projectEngine.getProject()?.metadata?.id || null;
+                if (activeProjectId !== projectId) {
+                    const error = new Error(
+                        "Photo event chapters project changed before persistence."
+                    );
+                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
+                    throw error;
+                }
+                await this.projectService.saveProject(
+                    { photoEventChapters: next },
+                    { reason: "PHOTO_EVENT_CHAPTER_MOVE" }
+                );
+                if (this.photoEventChaptersProjectId === projectId) {
+                    this.photoEventChaptersPersisted = next;
+                }
+                return next;
+            })
+            .catch(error => {
+                if (
+                    this.photoEventChaptersProjectId === projectId &&
+                    this.projectEngine.getProject()?.metadata?.id === projectId &&
+                    this.photoEventChapters === next
+                ) {
+                    this.photoEventChapters = this.photoEventChaptersPersisted;
+                    const metadata =
+                        this.projectEngine.getProject()?.metadata;
+                    if (metadata) {
+                        this.projectEngine.updateMetadata({
+                            ...metadata,
+                            photoEventChapters: this.photoEventChaptersPersisted
+                        });
+                    }
+                }
+                throw error;
+            });
+        this.persistencePromise = operation.catch(() => {});
+        return operation;
+
+    }
+
+    deleteEmptyPhotoEventChapter(chapterId) {
+
+        this.requireProject();
+        const projectId =
+            this.projectEngine.getProject()?.metadata?.id || null;
+        const previous = this.getPhotoEventChapters();
+        const next = deleteEmptyPhotoEventChapter(
+            previous,
+            chapterId,
+            this.library.getPhotos()
+        );
+        if (JSON.stringify(previous) === JSON.stringify(next)) {
+            return Promise.resolve(next);
+        }
+        this.photoEventChapters = next;
+        const operation = this.persistencePromise
+            .catch(() => {})
+            .then(async () => {
+                const activeProjectId =
+                    this.projectEngine.getProject()?.metadata?.id || null;
+                if (activeProjectId !== projectId) {
+                    const error = new Error(
+                        "Photo event chapters project changed before persistence."
+                    );
+                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
+                    throw error;
+                }
+                await this.projectService.saveProject(
+                    { photoEventChapters: next },
+                    { reason: "PHOTO_EVENT_CHAPTER_DELETE" }
+                );
+                if (this.photoEventChaptersProjectId === projectId) {
+                    this.photoEventChaptersPersisted = next;
+                }
+                return next;
+            })
+            .catch(error => {
+                if (
+                    this.photoEventChaptersProjectId === projectId &&
+                    this.projectEngine.getProject()?.metadata?.id === projectId &&
+                    this.photoEventChapters === next
+                ) {
+                    this.photoEventChapters = this.photoEventChaptersPersisted;
+                    const metadata =
+                        this.projectEngine.getProject()?.metadata;
+                    if (metadata) {
+                        this.projectEngine.updateMetadata({
+                            ...metadata,
+                            photoEventChapters: this.photoEventChaptersPersisted
+                        });
+                    }
+                }
+                throw error;
+            });
+        this.persistencePromise = operation.catch(() => {});
+        return operation;
+
+    }
+
+    assignPhotosToEventChapter(chapterId, selectedPhotos = []) {
+
+        this.requireProject();
+        const projectId =
+            this.projectEngine.getProject()?.metadata?.id || null;
+        const previous = this.getPhotoEventChapters();
+        const next = assignPhotosToEventChapter(
+            previous,
+            chapterId,
+            selectedPhotos,
+            this.library.getPhotos()
+        );
+        if (JSON.stringify(previous) === JSON.stringify(next)) {
+            return Promise.resolve(next);
+        }
+        this.photoEventChapters = next;
+        const operation = this.persistencePromise
+            .catch(() => {})
+            .then(async () => {
+                const activeProjectId =
+                    this.projectEngine.getProject()?.metadata?.id || null;
+                if (activeProjectId !== projectId) {
+                    const error = new Error(
+                        "Photo event chapters project changed before persistence."
+                    );
+                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
+                    throw error;
+                }
+                await this.projectService.saveProject(
+                    { photoEventChapters: next },
+                    { reason: "PHOTO_EVENT_CHAPTER_ASSIGN" }
+                );
+                if (this.photoEventChaptersProjectId === projectId) {
+                    this.photoEventChaptersPersisted = next;
+                }
+                return next;
+            })
+            .catch(error => {
+                if (
+                    this.photoEventChaptersProjectId === projectId &&
+                    this.projectEngine.getProject()?.metadata?.id === projectId &&
+                    this.photoEventChapters === next
+                ) {
+                    this.photoEventChapters = this.photoEventChaptersPersisted;
+                    const metadata =
+                        this.projectEngine.getProject()?.metadata;
+                    if (metadata) {
+                        this.projectEngine.updateMetadata({
+                            ...metadata,
+                            photoEventChapters: this.photoEventChaptersPersisted
+                        });
+                    }
+                }
+                throw error;
+            });
+        this.persistencePromise = operation.catch(() => {});
+        return operation;
+
+    }
+
+    removePhotosFromEventChapters(selectedPhotos = []) {
+
+        this.requireProject();
+        const projectId =
+            this.projectEngine.getProject()?.metadata?.id || null;
+        const previous = this.getPhotoEventChapters();
+        const next = removePhotosFromEventChapters(
+            previous,
+            selectedPhotos,
+            this.library.getPhotos()
+        );
+        if (JSON.stringify(previous) === JSON.stringify(next)) {
+            return Promise.resolve(next);
+        }
+        this.photoEventChapters = next;
+        const operation = this.persistencePromise
+            .catch(() => {})
+            .then(async () => {
+                const activeProjectId =
+                    this.projectEngine.getProject()?.metadata?.id || null;
+                if (activeProjectId !== projectId) {
+                    const error = new Error(
+                        "Photo event chapters project changed before persistence."
+                    );
+                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
+                    throw error;
+                }
+                await this.projectService.saveProject(
+                    { photoEventChapters: next },
+                    { reason: "PHOTO_EVENT_CHAPTER_REMOVE" }
+                );
+                if (this.photoEventChaptersProjectId === projectId) {
+                    this.photoEventChaptersPersisted = next;
+                }
+                return next;
+            })
+            .catch(error => {
+                if (
+                    this.photoEventChaptersProjectId === projectId &&
+                    this.projectEngine.getProject()?.metadata?.id === projectId &&
+                    this.photoEventChapters === next
+                ) {
+                    this.photoEventChapters = this.photoEventChaptersPersisted;
+                    const metadata =
+                        this.projectEngine.getProject()?.metadata;
+                    if (metadata) {
+                        this.projectEngine.updateMetadata({
+                            ...metadata,
+                            photoEventChapters: this.photoEventChaptersPersisted
+                        });
+                    }
+                }
+                throw error;
+            });
+        this.persistencePromise = operation.catch(() => {});
+        return operation;
+
+    }
+
+    savePhotoEventChapters(value, reason = "PHOTO_EVENT_CHAPTERS_RESTORE") {
+
+        this.requireProject();
+        const projectId = this.projectEngine.getProject()?.metadata?.id || null;
+        const previous = this.getPhotoEventChapters();
+        const next = reconcilePhotoEventChapters(value, this.library.getPhotos());
+        this.photoEventChapters = next;
+        const operation = this.persistencePromise.catch(() => {}).then(async () => {
+            if ((this.projectEngine.getProject()?.metadata?.id || null) !== projectId) {
+                throw new Error("Photo event chapter project changed before persistence.");
+            }
+            await this.projectService.saveProject(
+                { photoEventChapters: next },
+                { reason }
+            );
+            this.photoEventChaptersPersisted = next;
+            return next;
+        }).catch(error => {
+            if ((this.projectEngine.getProject()?.metadata?.id || null) === projectId &&
+                this.photoEventChapters === next) {
+                this.photoEventChapters = previous;
+                this.projectEngine.updateMetadata({
+                    ...this.projectEngine.getProject()?.metadata,
+                    photoEventChapters: previous
+                });
+            }
+            throw error;
+        });
+        this.persistencePromise = operation.catch(() => {});
+        return operation;
 
     }
 
@@ -853,6 +1401,38 @@ export default class PhotoWorkspaceService {
                 }
                 throw error;
             });
+        this.persistencePromise = operation.catch(() => {});
+        return operation;
+
+    }
+
+    savePhotoDecisions(value, reason = "PHOTO_DECISIONS_RESTORE") {
+
+        this.requireProject();
+        const projectId = this.projectEngine.getProject()?.metadata?.id || null;
+        const previous = this.getPhotoDecisions();
+        const next = reconcilePhotoDecisions(value, this.library.getPhotos());
+        this.photoDecisions = next;
+        const operation = this.persistencePromise.catch(() => {}).then(async () => {
+            if ((this.projectEngine.getProject()?.metadata?.id || null) !== projectId) {
+                throw new Error("Photo decision project changed before persistence.");
+            }
+            await this.projectService.saveProject(
+                { photoDecisions: next },
+                { reason }
+            );
+            this.photoDecisionsPersisted = next;
+            return next;
+        }).catch(error => {
+            if ((this.projectEngine.getProject()?.metadata?.id || null) === projectId && this.photoDecisions === next) {
+                this.photoDecisions = previous;
+                this.projectEngine.updateMetadata({
+                    ...this.projectEngine.getProject()?.metadata,
+                    photoDecisions: previous
+                });
+            }
+            throw error;
+        });
         this.persistencePromise = operation.catch(() => {});
         return operation;
 
@@ -950,6 +1530,57 @@ export default class PhotoWorkspaceService {
             updatePhotoDecision
         );
         return this.savePhotoDecisions(next);
+
+    }
+
+    getPhotoBurstReviews(burstThresholdMs = 3000) {
+
+        const photos = this.library.getPhotos();
+        return normalizePhotoBurstReviews(
+            this.projectEngine.getProject()?.metadata?.photoBurstReviews,
+            photos,
+            this.getPhotoBursts(burstThresholdMs)
+        );
+
+    }
+
+    async applyPhotoBurstReview(
+        groupId,
+        selectedPhotos = [],
+        burstThresholdMs = 3000
+    ) {
+
+        this.requireProject();
+        const photos = this.library.getPhotos();
+        const bursts = this.getPhotoBursts(burstThresholdMs);
+        const previousMetadata = {
+            ...this.projectEngine.getProject()?.metadata
+        };
+        const result = applyBurstReview({
+            value: this.getPhotoBurstReviews(burstThresholdMs),
+            photos,
+            bursts,
+            groupId,
+            selectedPhotos,
+            decisions: this.getPhotoDecisions(),
+            updateDecisionFn: updatePhotoDecision
+        });
+        try {
+            await this.projectService.saveProject({
+                photoBurstReviews: result.reviews,
+                photoDecisions: result.decisions
+            }, { reason: "PHOTO_BURST_REVIEW_APPLY" });
+            this.photoDecisions = result.decisions;
+            this.photoDecisionsPersisted = result.decisions;
+            return result;
+        } catch (error) {
+            this.projectEngine.updateMetadata(previousMetadata);
+            this.photoDecisions = normalizePhotoDecisions(
+                previousMetadata.photoDecisions
+            );
+            this.photoDecisionsPersisted = this.photoDecisions;
+            throw error;
+        }
 
     }
 
@@ -1243,6 +1874,12 @@ export default class PhotoWorkspaceService {
         this.photoDecisionProjectId = null;
         this.photoDecisions = normalizePhotoDecisions();
         this.photoDecisionsPersisted = this.photoDecisions;
+        this.photoStoryOrderProjectId = null;
+        this.photoStoryOrder = normalizePhotoStoryOrder();
+        this.photoStoryOrderPersisted = this.photoStoryOrder;
+        this.photoEventChaptersProjectId = null;
+        this.photoEventChapters = normalizePhotoEventChapters();
+        this.photoEventChaptersPersisted = this.photoEventChapters;
         this.duplicateProjectId = null;
         this.duplicateEvidence = normalizePhotoDuplicateEvidence();
         this.duplicateAnalysis = null;
@@ -1291,9 +1928,14 @@ export default class PhotoWorkspaceService {
             photoCount: this.library.getPhotos().length,
             photoDecisions: this.getPhotoDecisions(),
             photoDuplicateEvidence: this.getPhotoDuplicateEvidence(),
+            photoStoryOrder: this.getPhotoStoryOrder(),
+            photoEventChapters: this.getPhotoEventChapters(),
+            photoBurstReviews: this.getPhotoBurstReviews(),
             photoSource
         }, { reason: persistenceReason });
         this.photoDecisionsPersisted = this.photoDecisions;
+        this.photoStoryOrderPersisted = this.photoStoryOrder;
+        this.photoEventChaptersPersisted = this.photoEventChapters;
 
         return { persistentTokenMs };
 
@@ -1436,6 +2078,14 @@ export default class PhotoWorkspaceService {
                 previousMetadata?.photoDecisions
             );
             this.photoDecisionsPersisted = this.photoDecisions;
+            this.photoStoryOrder = normalizePhotoStoryOrder(
+                previousMetadata?.photoStoryOrder
+            );
+            this.photoStoryOrderPersisted = this.photoStoryOrder;
+            this.photoEventChapters = normalizePhotoEventChapters(
+                previousMetadata?.photoEventChapters
+            );
+            this.photoEventChaptersPersisted = this.photoEventChapters;
             this.duplicateEvidence = normalizePhotoDuplicateEvidence(
                 previousMetadata?.photoDuplicateEvidence
             );

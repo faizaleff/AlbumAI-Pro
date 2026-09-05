@@ -504,7 +504,6 @@ export default function OpenFolder() {
     const onPhotoClick = useCallback((photo, event) => {
 
         setFocusedPhotoId(photo?.id || null);
-        App.selection.handleClick(photo, event);
         App.prioritizePhotoThumbnail(photo);
 
     }, []);

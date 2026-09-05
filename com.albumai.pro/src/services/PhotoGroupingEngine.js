@@ -91,6 +91,25 @@ function getPhotoQualityScore(photo) {
     return photo.aiAnalysis?.aggregate?.rankScore || photo.rating || 0;
 }
 
+export function createPhotoGroupingRevision(photos = []) {
+    const source = Array.isArray(photos) ? photos : [];
+    let hash = 2166136261;
+    for (let index = 0; index < source.length; index++) {
+        const photo = source[index];
+        const token = [
+            photo?.id || photo?.name || index,
+            getPhotoTimestamp(photo),
+            getCameraKey(photo),
+            getPhotoQualityScore(photo)
+        ].join("\u001f");
+        for (let offset = 0; offset < token.length; offset++) {
+            hash ^= token.charCodeAt(offset);
+            hash = Math.imul(hash, 16777619);
+        }
+    }
+    return `${source.length}:${hash >>> 0}`;
+}
+
 /* ═══════════════════════════════════════════════════════
    1. BURST & EVENT CLUSTERING
 ═══════════════════════════════════════════════════════ */
@@ -253,11 +272,35 @@ export function buildPhotoGroupIndex(photos = [], {
 
 const PHONE_KEYWORDS = ["iphone", "samsung", "pixel", "oneplus", "xiaomi", "oppo", "vivo", "huawei", "realme"];
 
-function getCameraKey(photo) {
+export function getCameraKey(photo) {
     const make = (photo.metadata?.cameraMake || photo.cameraMake || "").toLowerCase().trim();
     const model = (photo.metadata?.cameraModel || photo.cameraModel || "").toLowerCase().trim();
     if (!make && !model) return "unknown";
     return `${make}|${model}`;
+}
+
+export const CAMERA_IDENTITY_COLORS = Object.freeze([
+    "#58a6ff", "#d2a8ff", "#3fb950", "#f0883e",
+    "#f778ba", "#a5d6ff", "#e3b341", "#7ee787"
+]);
+
+export function createCameraIdentityLookup(photos = []) {
+    const source = Array.isArray(photos) ? photos : [];
+    const keys = [...new Set(source.map(getCameraKey))].sort((left, right) =>
+        left.localeCompare(right, undefined, {
+            numeric: true,
+            sensitivity: "base"
+        })
+    );
+    const identityByKey = new Map(keys.map((cameraKey, index) => [
+        cameraKey,
+        Object.freeze({
+            cameraKey,
+            tag: `C${index + 1}`,
+            color: CAMERA_IDENTITY_COLORS[index % CAMERA_IDENTITY_COLORS.length]
+        })
+    ]));
+    return photo => identityByKey.get(getCameraKey(photo)) || null;
 }
 
 function getCameraLabel(photo) {

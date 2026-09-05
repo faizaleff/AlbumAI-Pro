@@ -644,6 +644,9 @@ export default class ProjectService {
             "batchRecovery",
             "photoSource",
             "photoDecisions",
+            "photoStoryOrder",
+            "photoEventChapters",
+            "photoBurstReviews",
             "photoBrowserPreferences",
             "photoDuplicateEvidence"
         ]) {

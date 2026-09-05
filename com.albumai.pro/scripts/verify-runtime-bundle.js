@@ -5,6 +5,7 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { minifyCss } = require("./minify-css-loader");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const PLUGIN_ROOT = path.join(PROJECT_ROOT, "plugin");
@@ -17,7 +18,6 @@ const STATIC_FILES = Object.freeze([
     "icons/icon_D@2x.png",
     "icons/icon_N.png",
     "icons/icon_N@2x.png",
-    "index.html",
     "manifest.json"
 ]);
 
@@ -63,6 +63,24 @@ try {
             `Static asset differs after production build: ${relativePath}`
         );
     }
+
+    const sourceHtml = fs.readFileSync(
+        path.join(PLUGIN_ROOT, "index.html"),
+        "utf8"
+    );
+    const stylesheet = minifyCss(fs.readFileSync(
+        path.join(PROJECT_ROOT, "src", "styles.css"),
+        "utf8"
+    ));
+    const expectedHtml = sourceHtml.replace("/* ALBUMAI_STYLES */", stylesheet);
+    const builtHtml = fs.readFileSync(
+        path.join(DIST_ROOT, "index.html"),
+        "utf8"
+    );
+    assert(
+        sourceHtml.includes("/* ALBUMAI_STYLES */") && builtHtml === expectedHtml,
+        "Built index.html does not contain the canonical minified stylesheet"
+    );
 
     console.info(
         `PASS ALB-131 bundle: ${EXPECTED_BUILD_ID} ${EXPECTED_RUNTIME_REVISION_ID} ` +

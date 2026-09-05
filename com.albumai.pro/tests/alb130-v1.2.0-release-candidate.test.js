@@ -36,6 +36,8 @@ try {
     const webpack = read("webpack.config.js");
     const css = read("src/styles.css");
     const minifiedCss = minifyCss(css);
+    const sourceHtml = read("plugin/index.html");
+    const builtHtml = read("dist/index.html");
     const bundle = fs.readFileSync(path.join(PROJECT_ROOT, "dist/index.js"));
     const historicalQualification = fs.readFileSync(
         path.join(REPOSITORY_ROOT, "ALB-108_V1.1.2_PATCH_RELEASE_QUALIFICATION.md"),
@@ -58,7 +60,11 @@ try {
     check(packageLock.packages?.[""]?.version === VERSION, "lockfile root version differs");
     check(sourceManifest.version === VERSION, "source manifest version differs");
     check(builtManifest.version === VERSION, "built manifest version differs");
-    check(webpack.includes('path.resolve(__dirname, "scripts/minify-css-loader.js")'), "production CSS minifier is not wired");
+    check(webpack.includes('require("./scripts/minify-css-loader")') &&
+        webpack.includes("minifyCss(fs.readFileSync"), "production CSS minifier is not wired");
+    check(sourceHtml.includes("/* ALBUMAI_STYLES */"), "source HTML is missing the stylesheet insertion point");
+    check(!builtHtml.includes("/* ALBUMAI_STYLES */") && builtHtml.includes(minifiedCss),
+        "built HTML does not contain the minified production stylesheet");
     check(minifyCss('a::before { content: "a /* keep */ b"; }') === 'a::before{content:"a /* keep */ b"}', "CSS minifier changes quoted content");
     check(minifyCss("/* drop */ .a { color: red; }") === ".a{color:red}", "CSS minifier does not collapse comments and syntax");
     check(minifiedCss.length < css.length - 10000, "CSS minifier does not provide meaningful headroom");
