@@ -8,7 +8,6 @@ const path = require("path");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const MAX_BUNDLE_BYTES = 740 * 1024;
-const MIN_BUNDLE_BYTES = 700 * 1024;
 const SMART_TYPOGRAPHY_TICKETS = Object.freeze(
     Array.from({ length: 11 }, (_, index) => 118 + index)
 );
@@ -104,8 +103,10 @@ function evaluateSmartTypographyReadiness(input) {
         add("RELEASE_GATE_SCRIPT_MISMATCH");
     }
 
-    if (!Buffer.isBuffer(input.bundle) || input.bundle.length < MIN_BUNDLE_BYTES ||
-        input.bundle.length > MAX_BUNDLE_BYTES) {
+    // Styles are now embedded in dist/index.html instead of being injected by the
+    // JavaScript bundle. A lower byte bound would reject that valid optimization;
+    // the release gate still enforces the strict upper ceiling and provenance.
+    if (!Buffer.isBuffer(input.bundle) || input.bundle.length > MAX_BUNDLE_BYTES) {
         add("BUNDLE_SIZE_OUT_OF_BOUNDS");
     }
     if (!buildId || !runtimeRevision || !input.bundle?.includes(Buffer.from(buildId)) ||

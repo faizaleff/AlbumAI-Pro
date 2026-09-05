@@ -41,7 +41,11 @@ try {
     const releaseNotes = readRepositoryFile("RELEASE_NOTES_1.2.0.md");
     const packageJson = JSON.parse(readProjectFile("package.json"));
     const identity = readProjectFile("src/config/buildIdentity.js");
-    const bundle = fs.readFileSync(path.join(PROJECT_ROOT, "dist/index.js"));
+    const releasedBundle = childProcess.execFileSync(
+        "git",
+        ["show", "v1.2.0:com.albumai.pro/dist/index.js"],
+        { cwd: PROJECT_ROOT, encoding: null }
+    );
     const tagTarget = childProcess.execFileSync("git", ["rev-list", "-n", "1", "v1.2.0"], {
         cwd: PROJECT_ROOT,
         encoding: "utf8"
@@ -74,7 +78,8 @@ try {
     check(!releaseNotes.includes("not yet published"), "release notes retain stale publication status");
     check(packageJson.scripts.test.includes("npm run test:alb132"), "ALB-132 is absent from npm test");
     check(identity.includes(BUILD_ID) && identity.includes(RUNTIME_REVISION_ID), "runtime identity changed after release");
-    check(crypto.createHash("sha256").update(bundle).digest("hex") === BUNDLE_SHA256, "committed bundle checksum differs");
+    check(crypto.createHash("sha256").update(releasedBundle).digest("hex") === BUNDLE_SHA256,
+        "published v1.2.0 bundle checksum differs");
 
     console.info(`PASS ALB-132: ${assertions} v1.2.0 release closeout assertions`);
 } catch (error) {

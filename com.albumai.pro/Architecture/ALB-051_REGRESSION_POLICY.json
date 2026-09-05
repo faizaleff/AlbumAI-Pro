@@ -5,10 +5,10 @@
   "sourcePolicy": "Architecture/ALB-050_ARCHITECTURE_POLICY.json",
   "regressionEntry": "tests/alb051-regression-baseline.test.js",
   "baseline": {
-    "activeFiles": 122,
-    "legacyTestReachableFiles": 110,
+    "activeFiles": 123,
+    "legacyTestReachableFiles": 111,
     "legacyTestGapFiles": 12,
-    "postAlb051ReachableFiles": 122
+    "postAlb051ReachableFiles": 123
   },
   "requiredUiModules": [
     "src/components/AutoFlowModal.jsx",

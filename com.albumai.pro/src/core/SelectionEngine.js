@@ -63,7 +63,7 @@ export default class SelectionEngine {
 
     }
 
-    range(photo) {
+    range(photo, { additive = false } = {}) {
 
         const orderedIds = this.order();
         const currentIndex = orderedIds.indexOf(photo?.id);
@@ -78,21 +78,25 @@ export default class SelectionEngine {
 
         const start = Math.min(anchorIndex, currentIndex);
         const end = Math.max(anchorIndex, currentIndex);
-        const next = new Set();
+        const next = additive ? new Set(this.ids) : new Set();
 
         for (let index = start; index <= end; index++) {
             const id = orderedIds[index];
             if (id != null) next.add(id);
         }
 
-        this.apply(next, photo.id, "range");
+        this.apply(next, this.anchorId || photo.id, additive
+            ? "add-range"
+            : "range");
 
     }
 
     handleClick(photo, event = {}) {
 
         if (event.shiftKey) {
-            this.range(photo);
+            this.range(photo, {
+                additive: Boolean(event.ctrlKey || event.metaKey)
+            });
         } else if (event.ctrlKey || event.metaKey) {
             this.toggle(photo);
         } else {
@@ -112,6 +116,18 @@ export default class SelectionEngine {
     clear() {
 
         this.apply(new Set(), null, "clear");
+
+    }
+
+    replace(ids = [], anchorId = null) {
+
+        const available = new Set(this.order());
+        const next = new Set((Array.isArray(ids) ? ids : [...ids])
+            .filter(id => available.has(id)));
+        const resolvedAnchor = available.has(anchorId)
+            ? anchorId
+            : next.values().next().value || null;
+        this.apply(next, resolvedAnchor, "replace");
 
     }
 

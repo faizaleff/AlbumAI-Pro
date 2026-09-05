@@ -1,6 +1,8 @@
 const path = require("path");
+const fs = require("fs");
 const webpack = require("webpack");
 const CopyPlugin = require("copy-webpack-plugin");
+const { minifyCss } = require("./scripts/minify-css-loader");
 
 module.exports = (_env, argv = {}) => {
     const isProduction = argv.mode === "production";
@@ -45,11 +47,8 @@ module.exports = (_env, argv = {}) => {
             },
             {
                 test: /\.css$/,
-                use: [
-                    "style-loader",
-                    "css-loader",
-                    path.resolve(__dirname, "scripts/minify-css-loader.js")
-                ]
+                type: "asset/source",
+                sideEffects: false
             }
         ]
     },
@@ -64,8 +63,22 @@ module.exports = (_env, argv = {}) => {
                 globOptions: {
                     ignore: [
                         "**/.DS_Store",
-                        "**/index.js"
+                        "**/index.js",
+                        "**/index.html"
                     ]
+                }
+            }, {
+                from: "plugin/index.html",
+                to: "index.html",
+                transform(content) {
+                    const css = minifyCss(fs.readFileSync(
+                        path.resolve(__dirname, "src/styles.css"),
+                        "utf8"
+                    ));
+                    return content.toString().replace(
+                        "/* ALBUMAI_STYLES */",
+                        css
+                    );
                 }
             }]
         })
