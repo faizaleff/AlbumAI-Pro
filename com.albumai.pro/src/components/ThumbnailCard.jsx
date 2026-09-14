@@ -2,6 +2,28 @@ import React, { useCallback, useState } from "react";
 import PhotoImage from "./PhotoImage";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 
+export function StarRatingIcon({ filled = false, className = "" }) {
+    return (
+        <span
+            className={`photo-rating-icon${filled ? " is-filled" : ""}${className ? ` ${className}` : ""}`}
+            aria-hidden="true"
+        >
+            {filled ? "★" : "☆"}
+        </span>
+    );
+}
+
+export function RejectDecisionIcon() {
+    return (
+        <span className="photo-reject-icon" aria-hidden="true">⊘</span>
+    );
+}
+
+export function activateDecisionControl(event, callback) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    callback(event);
+}
+
 function ThumbnailCard({
     photo,
     onClick,
@@ -14,13 +36,15 @@ function ThumbnailCard({
     visible = false,
     decision = { rating: 0, favorite: false, culling: "unrated" },
     cameraIdentity = null,
+    eventLabel = "",
     onDecisionChange
 }) {
     PhotoBrowserPerformance.recordRender("ThumbnailCard");
-    const [hoverStar, setHoverStar] = useState(0);
+    const [hoverRating, setHoverRating] = useState(0);
 
     const imageHeight = compact ? 74 : 100;
     const rating = decision?.rating || 0;
+    const displayedRating = hoverRating || rating;
     const isFavorite = Boolean(decision?.favorite);
     const culling = decision?.culling?.toLowerCase();
     const rejected = culling === "reject";
@@ -43,7 +67,7 @@ function ThumbnailCard({
             photoName: photo.name
         }));
         event.dataTransfer.setData("text/plain", String(photo.id));
-        event.dataTransfer.effectAllowed = "copy";
+        event.dataTransfer.effectAllowed = "copyMove";
     }, [photo]);
 
     const handleStarClick = (event, starValue) => {
@@ -59,16 +83,13 @@ function ThumbnailCard({
         onDecisionChange?.(photo, { favorite: !isFavorite });
     };
 
-    const displayStars = hoverStar > 0 ? hoverStar : rating;
-
     return (
         <div
             onClick={handleClick}
             onContextMenu={handleContextMenu}
-            className={`modern-studio-card${selected ? " is-selected" : ""}`}
+            className={`modern-studio-card${selected ? " is-selected" : ""}${rejected ? " is-rejected" : ""}`}
             role="option"
             aria-selected={selected}
-            title={photo.name}
             style={{
                 width: "100%",
                 height: "100%",
@@ -86,12 +107,14 @@ function ThumbnailCard({
         >
             {/* Image Thumbnail Box */}
             <div
-                draggable={true}
+                className="photo-thumbnail-media"
+                draggable={false}
                 onDragStart={handleDragStart}
                 style={{
                     position: "relative",
                     width: "100%",
-                    height: imageHeight,
+                    minHeight: imageHeight,
+                    flex: "1 1 auto",
                     background: "#0d1117",
                     display: "flex",
                     alignItems: "center",
@@ -121,12 +144,18 @@ function ThumbnailCard({
                         height: "100%",
                         objectFit: "cover",
                         pointerEvents: "none",
-                        display: "block"
+                        display: "block",
+                        transition: "opacity 90ms ease"
                     }}
                 />
 
-                <button
-                    type="button"
+                {rejected && (
+                    <span className="photo-thumbnail-rejected-dim" aria-hidden="true" />
+                )}
+
+                <span
+                    role="button"
+                    tabIndex={-1}
                     className={`photo-thumbnail-reject${rejected ? " is-rejected" : ""}`}
                     onClick={event => {
                         event.stopPropagation();
@@ -135,15 +164,31 @@ function ThumbnailCard({
                             culling: rejected ? "UNRATED" : "REJECT"
                         });
                     }}
+                    onKeyDown={event => activateDecisionControl(event, keyEvent => {
+                        keyEvent.stopPropagation();
+                        keyEvent.preventDefault();
+                        onDecisionChange?.(photo, {
+                            culling: rejected ? "UNRATED" : "REJECT"
+                        });
+                    })}
                     aria-label={rejected ? `Unreject ${photo.name}` : `Reject ${photo.name}`}
-                    title={rejected ? "Unreject (R)" : "Reject (R)"}
                 >
-                    {rejected ? "↶" : "⊘"}
-                </button>
+                    <RejectDecisionIcon />
+                </span>
+
+                {cameraIdentity && (
+                    <span
+                        className="photo-camera-tag photo-camera-tag-card photo-thumbnail-camera-overlay"
+                        style={{ color: cameraIdentity.color, borderColor: cameraIdentity.color }}
+                        aria-label={`Camera ${cameraIdentity.tag}`}
+                    >
+                        {cameraIdentity.tag}
+                    </span>
+                )}
 
             </div>
 
-            {/* Card Footer: Row 1 = Filename, Row 2 = 5 Stars + Heart */}
+            {/* Persistent footer: filename plus the decisions already applied. */}
             <div
                 style={{
                     padding: "3px 6px",
@@ -156,14 +201,13 @@ function ThumbnailCard({
                     borderBottom: cameraIdentity?.color
                         ? `3px solid ${cameraIdentity.color}`
                         : "3px solid transparent",
+                    flex: "0 0 auto",
                     minWidth: 0,
                     boxSizing: "border-box"
                 }}
             >
                 {/* Filename */}
-                <div
-                    title={photo.name}
-                    style={{
+                <div style={{
                         fontSize: 10,
                         color: selected ? "#ffffff" : "#c9d1d9",
                         fontWeight: selected ? 600 : 400,
@@ -175,14 +219,9 @@ function ThumbnailCard({
                 >
                     {photo.name}
                 </div>
-                {cameraIdentity && (
-                    <span className="photo-camera-tag photo-camera-tag-card" style={{ color: cameraIdentity.color }}>
-                        {cameraIdentity.tag}
-                    </span>
-                )}
-
-                {/* 5 Stars Rating + Favorite Heart (Explicit zero-min-width styling for UXP) */}
+                {/* Rating and favourite controls stay in one stable footer row. */}
                 <div
+                    className="photo-thumbnail-footer-actions"
                     style={{
                         display: "flex",
                         alignItems: "center",
@@ -191,44 +230,43 @@ function ThumbnailCard({
                         width: "100%",
                         boxSizing: "border-box"
                     }}
-                    onMouseLeave={() => setHoverStar(0)}
                 >
-                    {/* 5-Star Row (All 5 Stars Tightly Spaced) */}
-                    <div style={{ display: "flex", gap: 1, alignItems: "center" }}>
-                        {[1, 2, 3, 4, 5].map(starNum => {
-                            const isFilled = starNum <= displayStars;
-                            return (
-                                <span
-                                    key={starNum}
-                                    role="button"
-                                    onClick={(e) => handleStarClick(e, starNum)}
-                                    onMouseEnter={() => setHoverStar(starNum)}
-                                    style={{
-                                        cursor: "pointer",
-                                        fontSize: 12,
-                                        lineHeight: 1,
-                                        width: 12,
-                                        height: 14,
-                                        minWidth: 0,
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        color: isFilled ? "#ffd700" : "#484f58",
-                                        transition: "color 0.1s ease, transform 0.1s ease",
-                                        userSelect: "none"
-                                    }}
-                                    title={`Rate ${starNum} star${starNum > 1 ? "s" : ""} (${starNum})`}
-                                >
-                                    ★
-                                </span>
-                            );
-                        })}
-                    </div>
+                    <span
+                        className="photo-thumbnail-footer-stars"
+                        role="group"
+                        aria-label={`Rate ${photo.name}`}
+                        onMouseLeave={() => setHoverRating(0)}
+                    >
+                        {[1, 2, 3, 4, 5].map(starNum => (
+                            <span
+                                key={starNum}
+                                role="button"
+                                tabIndex={-1}
+                                onClick={event => handleStarClick(event, starNum)}
+                                onMouseEnter={() => setHoverRating(starNum)}
+                                onKeyDown={event => activateDecisionControl(
+                                    event,
+                                    keyEvent => handleStarClick(keyEvent, starNum)
+                                )}
+                                className={starNum <= displayedRating ? "is-filled" : ""}
+                                aria-pressed={starNum === rating}
+                                aria-label={`Rate ${starNum} star${starNum > 1 ? "s" : ""}`}
+                            >
+                                <StarRatingIcon filled={starNum <= displayedRating} />
+                            </span>
+                        ))}
+                    </span>
 
-                    {/* Heart Button */}
+                    {eventLabel && (
+                        <span className="photo-thumbnail-event">{eventLabel}</span>
+                    )}
+
                     <span
                         role="button"
+                        tabIndex={-1}
+                        className={`photo-thumbnail-footer-favorite${isFavorite ? " is-active" : ""}`}
                         onClick={handleFavoriteClick}
+                        onKeyDown={event => activateDecisionControl(event, handleFavoriteClick)}
                         style={{
                             cursor: "pointer",
                             fontSize: 13,
@@ -242,7 +280,7 @@ function ThumbnailCard({
                             transition: "color 0.1s ease, transform 0.1s ease",
                             userSelect: "none"
                         }}
-                        title={isFavorite ? "Remove from favourites (F)" : "Add to favourites (F)"}
+                        aria-label={isFavorite ? "Remove from favourites" : "Add to favourites"}
                     >
                         {isFavorite ? "♥" : "♡"}
                     </span>
@@ -271,5 +309,6 @@ export default React.memo(
         previous.decision?.culling === next.decision?.culling &&
         previous.cameraIdentity?.tag === next.cameraIdentity?.tag &&
         previous.cameraIdentity?.color === next.cameraIdentity?.color &&
+        previous.eventLabel === next.eventLabel &&
         previous.onDecisionChange === next.onDecisionChange
 );

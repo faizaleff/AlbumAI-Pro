@@ -88,7 +88,8 @@ function getPhotoTimestamp(photo) {
 
 function getPhotoQualityScore(photo) {
     if (!photo) return 0;
-    return photo.aiAnalysis?.aggregate?.rankScore || photo.rating || 0;
+    const score = photo.aiAnalysis?.aggregate?.rankScore;
+    return Number.isFinite(score) ? score : null;
 }
 
 export function createPhotoGroupingRevision(photos = []) {
@@ -168,6 +169,7 @@ function finalizeBurstGroup(index, cluster) {
         groupId: `burst-group-${index}`,
         photoIds: Object.freeze(photoIds),
         bestPhotoId: best.id,
+        hasQualityEvidence: cluster.every(item => item.qualityScore !== null) && best.qualityScore > 0 && cluster.filter(item => item.qualityScore === best.qualityScore).length === 1,
         count: photoIds.length,
         startTime: cluster[0].timestamp,
         endTime: cluster[cluster.length - 1].timestamp
@@ -272,11 +274,16 @@ export function buildPhotoGroupIndex(photos = [], {
 
 const PHONE_KEYWORDS = ["iphone", "samsung", "pixel", "oneplus", "xiaomi", "oppo", "vivo", "huawei", "realme"];
 
+function cameraParts(photo) {
+    return ["cameraMake", "cameraModel", "cameraSerial"].map(key =>
+        String(photo[key] || photo.metadata?.[key] || "").trim());
+}
+
 export function getCameraKey(photo) {
-    const make = (photo.metadata?.cameraMake || photo.cameraMake || "").toLowerCase().trim();
-    const model = (photo.metadata?.cameraModel || photo.cameraModel || "").toLowerCase().trim();
-    if (!make && !model) return "unknown";
-    return `${make}|${model}`;
+    const parts = cameraParts(photo);
+    if (!parts.some(Boolean)) return "unknown";
+    if (!parts[2]) parts.pop();
+    return parts.join("|").toLowerCase();
 }
 
 export const CAMERA_IDENTITY_COLORS = Object.freeze([
@@ -304,10 +311,7 @@ export function createCameraIdentityLookup(photos = []) {
 }
 
 function getCameraLabel(photo) {
-    const make = (photo.metadata?.cameraMake || photo.cameraMake || "").trim();
-    const model = (photo.metadata?.cameraModel || photo.cameraModel || "").trim();
-    if (make && model) return `${make} ${model}`;
-    return make || model || "Primary Camera";
+    return cameraParts(photo).filter(Boolean).join(" ") || "Unknown camera";
 }
 
 export function detectCameras(photos = []) {

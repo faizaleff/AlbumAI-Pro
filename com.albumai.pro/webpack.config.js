@@ -35,6 +35,7 @@ module.exports = (_env, argv = {}) => {
                 loader: "babel-loader",
                 options: {
                     plugins: [
+                        path.resolve(__dirname, "scripts/share-object-spread-helper.js"),
                         "@babel/transform-react-jsx",
                         "@babel/plugin-transform-object-rest-spread",
                     ]
@@ -53,6 +54,10 @@ module.exports = (_env, argv = {}) => {
         ]
     },
     plugins: [
+        new webpack.BannerPlugin({
+            banner: fs.readFileSync(require.resolve("@babel/helpers/LICENSE"), "utf8"),
+            entryOnly: true
+        }),
         new webpack.ProvidePlugin({
             Buffer: ["buffer", "Buffer"]
         }),
@@ -94,10 +99,11 @@ module.exports = (_env, argv = {}) => {
         // placement; ALB-124 adds independent template-local font and style
         // presets; ALB-125 adds offline suggestions and ALB-126 adds the
         // project-local custom preset catalog and management UI. Keep a tight
-        // 740 KiB ceiling rather than silently accepting
+        // 762 KiB ceiling (includes review UI and multi-cue event context) includes event-occurrence grouping and the optional online
+        // provider/consent UI; retain an explicit bound rather than silently accepting
         // unbounded runtime growth.
-        maxAssetSize: 740 * 1024,
-        maxEntrypointSize: 740 * 1024
+        maxAssetSize: 762 * 1024,
+        maxEntrypointSize: 762 * 1024
     }
     };
 };

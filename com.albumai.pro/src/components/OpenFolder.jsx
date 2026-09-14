@@ -6,6 +6,10 @@ import React, {
 } from "react";
 
 import PhotoBrowserSection from "./PhotoBrowserSection";
+import LibraryLoadGate from "./LibraryLoadGate";
+// These legacy panels remain bundle-reachable for backward-compatible
+// diagnostics and coverage, but the production Library no longer renders
+// them as a second workspace shell.
 import PreviewPanel from "./PreviewPanel";
 import TemplateDocumentPanel from "./TemplateDocumentPanel";
 import SelectionCount from "./SelectionCount";
@@ -33,6 +37,7 @@ import {
     upgradePhotoFolderChangeForRecovery
 } from "./photoFolderChangeMessages";
 import {
+    // Retained for legacy workflow compatibility outside the new Library UI.
     WIZARD_STEPS,
     computeCompletedSteps,
     canNavigateToStep,
@@ -41,7 +46,16 @@ import {
 } from "../services/PhotoGroupingEngine";
 import { ALBUMAI_VERSION } from "../config/buildIdentity";
 
+const PRODUCT_WORKFLOW_STEPS = Object.freeze([
+    Object.freeze({ key: "PHOTOS", number: 1, label: "Photos" }),
+    Object.freeze({ key: "ENHANCE", number: 2, label: "Enhance", future: true }),
+    Object.freeze({ key: "DESIGNER", number: 3, label: "Design" }),
+    Object.freeze({ key: "EXPORT", number: 4, label: "Export" })
+]);
+
 export default function OpenFolder() {
+
+    const workspaceRoot = useRef(null);
 
     const [folderName, setFolderName] = useState("");
     const [projectName, setProjectName] = useState("");
@@ -68,6 +82,7 @@ export default function OpenFolder() {
     const [albumSheetRenderBusy, setAlbumSheetRenderBusy] = useState(false);
     const [isAutoFlowModalOpen, setIsAutoFlowModalOpen] = useState(false);
     const [isPrintProofModalOpen, setIsPrintProofModalOpen] = useState(false);
+    const [libraryHistoryControls, setLibraryHistoryControls] = useState(null);
     const unavailableDiagnosticRef = useRef(null);
     const mountedRef = useRef(true);
     const photoFolderChangeAttemptRef = useRef(0);
@@ -1070,6 +1085,7 @@ export default function OpenFolder() {
 
     return (
         <div
+            ref={workspaceRoot}
             className="albumai-workspace-layout"
             style={{
                 display: "flex",
@@ -1083,25 +1099,56 @@ export default function OpenFolder() {
                 background: "#121418"
             }}
         >
+            <LibraryLoadGate rootRef={workspaceRoot}
+                opening={isImportingPhotos || projectAction === "OPENING"}
+                status={App.photoWorkspace.metadataStatus}
+                onRetry={() => App.photoWorkspace.startMetadataExtraction(App.getPhotos(), App.photoWorkspace.lifecycleGeneration)} />
             {/* Top Workspace Navigation Bar */}
-            <header className="workspace-top-bar" style={{ minHeight: 42 }}>
+            <header
+                className={`workspace-top-bar${hasProject && activeWorkspaceMode === "LIBRARY"
+                    ? " workspace-top-bar--library"
+                    : ""}`}
+                style={{ minHeight: 42 }}
+            >
                 <div className="workspace-brand-group">
-                    <span className="workspace-brand-title">
-                        <span>✨ AlbumAI Pro</span>
-                    </span>
-                    <span className={`workspace-project-badge ${hasProject ? "active" : ""}`}>
-                        {hasProject ? `📁 ${project.metadata.name}` : `v${ALBUMAI_VERSION}`}
-                    </span>
+                    {hasProject && activeWorkspaceMode === "LIBRARY" ? (
+                        <>
+                            <span className="workspace-brand-mark" aria-hidden="true">✦</span>
+                            <span className="workspace-brand-copy">
+                                <strong>AlbumAI Pro</strong>
+                                <small>{project.metadata.name}</small>
+                            </span>
+                        </>
+                    ) : (
+                        <>
+                            <span className="workspace-brand-title">
+                                <span>✨ AlbumAI Pro</span>
+                            </span>
+                            <span className={`workspace-project-badge ${hasProject ? "active" : ""}`}>
+                                {hasProject ? `📁 ${project.metadata.name}` : `v${ALBUMAI_VERSION}`}
+                            </span>
+                        </>
+                    )}
                 </div>
 
                 {hasProject && (
                     <>
-                        <nav className="wizard-step-bar" role="navigation" aria-label="Workflow Steps">
-                            {WIZARD_STEPS.map((step, idx) => {
-                                const isActive = step.id === wizardStep;
-                                const isCompleted = wizardCompletedSteps?.has(step.id);
-                                const isClickable = canNavigateToStep(wizardStep, step.id, wizardCompletedSteps);
-                                const isLocked = !isClickable && !isActive && !isCompleted;
+                        <nav className="wizard-step-bar product-workflow-bar" role="navigation" aria-label="Product workflow">
+                            {PRODUCT_WORKFLOW_STEPS.map((step, idx) => {
+                                const isActive = activeWorkspaceMode === step.key ||
+                                    (step.key === "PHOTOS" && activeWorkspaceMode === "LIBRARY");
+                                const canOpenDesigner = hasProject && workspacePhotos.length > 0;
+                                const canOpenExport = wizardCompletedSteps?.has(4);
+                                const isLocked = step.future ||
+                                    (step.key === "DESIGNER" && !canOpenDesigner) ||
+                                    (step.key === "EXPORT" && !canOpenExport);
+                                const isCompleted = step.key === "PHOTOS"
+                                    ? workspacePhotos.length > 0
+                                    : step.key === "DESIGNER"
+                                        ? Boolean(wizardCompletedSteps?.has(4))
+                                        : step.key === "EXPORT"
+                                            ? Boolean(wizardCompletedSteps?.has(5))
+                                            : false;
 
                                 let cls = "wizard-step";
                                 if (isActive) cls += " wizard-step--active";
@@ -1109,25 +1156,35 @@ export default function OpenFolder() {
                                 if (isLocked) cls += " wizard-step--locked";
 
                                 return (
-                                    <React.Fragment key={step.id}>
+                                    <React.Fragment key={step.key}>
                                         {idx > 0 && (
                                             <div
-                                                className={`wizard-step-connector${isCompleted || wizardCompletedSteps?.has(step.id - 1) ? " filled" : ""}`}
+                                                className={`wizard-step-connector${isActive ? " filled" : ""}`}
                                                 aria-hidden="true"
                                             />
                                         )}
                                         <button
                                             type="button"
                                             className={cls}
-                                            onClick={() => handleWizardStepClick(step.id)}
+                                            onClick={() => {
+                                                if (step.key === "PHOTOS") setWizardStep(1);
+                                                if (step.key === "DESIGNER") {
+                                                    handleWizardStepClick(4, { directDesignerEntry: true });
+                                                }
+                                                if (step.key === "EXPORT") handleWizardStepClick(5);
+                                            }}
                                             disabled={isLocked}
-                                            title={isLocked ? `Complete Step ${step.id - 1} first` : `${step.id}. ${step.label} (${step.description})`}
+                                            title={step.future
+                                                ? `${step.label} is provisioned for a future release`
+                                                : isLocked
+                                                    ? `${step.label} is not ready yet`
+                                                    : `${step.number}. ${step.label}`}
                                             aria-current={isActive ? "step" : undefined}
                                         >
                                             <span className="wizard-step-icon">
-                                                {isCompleted ? "✓" : step.icon}
+                                                {isLocked ? "⌾" : ""}
                                             </span>
-                                            <span className="wizard-step-label">{step.id}. {step.label}</span>
+                                            <span className="wizard-step-label">{step.number} · {step.label}</span>
                                         </button>
                                     </React.Fragment>
                                 );
@@ -1135,6 +1192,28 @@ export default function OpenFolder() {
                         </nav>
 
                         <div className="workspace-quick-actions">
+                            {activeWorkspaceMode === "LIBRARY" && (
+                                <div className="workspace-library-history" role="group" aria-label="Library history">
+                                    <button
+                                        type="button"
+                                        className="workspace-quick-btn"
+                                        onClick={libraryHistoryControls?.undo}
+                                        disabled={!libraryHistoryControls?.canUndo}
+                                        title="Undo Library change"
+                                    >
+                                        ↶ Undo
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="workspace-quick-btn"
+                                        onClick={libraryHistoryControls?.redo}
+                                        disabled={!libraryHistoryControls?.canRedo}
+                                        title="Redo Library change"
+                                    >
+                                        ↷ Redo
+                                    </button>
+                                </div>
+                            )}
                             <button
                                 type="button"
                                 className="workspace-quick-btn"
@@ -1144,23 +1223,37 @@ export default function OpenFolder() {
                             >
                                 {projectAction === "SAVING" ? "Saving…" : "💾 Save"}
                             </button>
+                            {activeWorkspaceMode !== "LIBRARY" && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="workspace-quick-btn"
+                                        onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
+                                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
+                                        title="Undo Sheet Change"
+                                    >
+                                        ⟲ Undo
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="workspace-quick-btn"
+                                        onClick={() => restoreAlbumHistory(redoAlbumSheetHistory)}
+                                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
+                                        title="Redo Sheet Change"
+                                    >
+                                        ⟳ Redo
+                                    </button>
+                                </>
+                            )}
                             <button
                                 type="button"
-                                className="workspace-quick-btn"
-                                onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
-                                disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
-                                title="Undo Sheet Change"
+                                className="workspace-quick-btn workspace-close-project-btn"
+                                onClick={closeProject}
+                                disabled={!hasProject || Boolean(projectAction)}
+                                title="Close project"
+                                aria-label="Close project"
                             >
-                                ⟲ Undo
-                            </button>
-                            <button
-                                type="button"
-                                className="workspace-quick-btn"
-                                onClick={() => restoreAlbumHistory(redoAlbumSheetHistory)}
-                                disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
-                                title="Redo Sheet Change"
-                            >
-                                ⟳ Redo
+                                ×
                             </button>
                         </div>
                     </>
@@ -1287,103 +1380,29 @@ export default function OpenFolder() {
                         </div>
                     </div>
                 ) : activeWorkspaceMode === "LIBRARY" && (
-                    <div className="library-workspace-container">
-                        <div className="left-pane album-workspace-scroll-pane">
-                            <section
-                                className="album-workspace-section album-workspace-project-section"
-                                style={{
-                                    marginBottom: 12,
-                                    padding: 12,
-                                    background: "#1c1f26",
-                                    borderRadius: 6,
-                                    border: "1px solid #2d333f"
-                                }}
-                            >
-                                <div className="album-workspace-summary" style={{ fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center", color: "#8b949e", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
-                                    <div className="album-workspace-meta-stats" style={{ display: "flex", gap: "6px 12px", flexWrap: "wrap", minWidth: 0 }}>
-                                        <span>Project: <strong style={{ color: "#f0f3f6" }}>{project.metadata.name}</strong></span>
-                                        <span>Photos: <strong style={{ color: "#f0f3f6" }}>{App.getPhotos().length}</strong></span>
-                                        <span>Selected: <SelectionCount selection={App.selection} /></span>
-                                    </div>
-                                    <div className="album-workspace-action-group album-workspace-action-group--primary" style={{ display: "flex", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
-                                        <button onClick={closeProject} disabled={!hasProject || Boolean(projectAction)} style={{ fontSize: 11, padding: "3px 8px" }}>
-                                            {projectAction === "CLOSING" ? "Closing…" : "Close Project"}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleWizardStepClick(4, { directDesignerEntry: true })}
-                                            style={{ background: "#1f6feb", borderColor: "#388bfd", color: "#fff", fontWeight: 600, fontSize: 11, padding: "3px 10px" }}
-                                        >
-                                            🎨 Go to Designer →
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {projectError && (
-                                    <div style={{ marginTop: 8, fontSize: 12, color: "#ff9999" }}>
-                                        Project: {projectError}
-                                    </div>
-                                )}
-                            </section>
-
-                            <PhotoBrowserSection
-                                photos={App.getPhotos()}
-                                onPhotoClick={onPhotoClick}
-                                focusedPhotoId={focusedPhotoId}
-                                onFocusPhoto={setFocusedPhotoId}
-                                projectId={project?.metadata?.id || null}
-                                folderLoaded={photoFolderAvailable}
-                                folderMessage={photoFolderMessage}
-                                onOpenFolder={openFolder}
-                                onRefresh={refreshFolder}
-                                onChangePhotoFolder={changePhotoFolder}
-                                isLoading={isImportingPhotos}
-                                loadingPhotoCount={importedPhotoCount}
-                                photoFolderChange={{
-                                    ...photoFolderChange,
-                                    onCancel: cancelPhotoFolderChange,
-                                    onConfirm: confirmPhotoFolderChange,
-                                    onRecoveryAcceptance: accepted => setPhotoFolderChange(
-                                        previous => ({ ...previous, clearRecovery: accepted })
-                                    )
-                                }}
-                            />
-                        </div>
-
-                        <PreviewPanel
+                    <div className="library-workspace-container library-workspace-container--production">
+                        <PhotoBrowserSection
                             photos={App.getPhotos()}
-                            selection={App.selection}
+                            onPhotoClick={onPhotoClick}
                             focusedPhotoId={focusedPhotoId}
-                            diagnostics={{
-                                hasProject,
-                                projectId: project?.metadata?.id || null,
-                                projectName: project?.metadata?.name || "",
-                                healthPhotos: getPhotos(),
-                                healthTemplate: getCurrentTemplate(),
-                                placementPlan: getCurrentPlacementPlan(),
-                                placementError: null,
-                                executionPlan: getCurrentPlacementExecutionPlan(),
-                                replacementRequest: getCurrentReplacementRequest(),
-                                document: null,
-                                autoSaveEnabled: getAutoSaveEnabled(),
-                                autoSaveMode: getAutoSaveMode(),
-                                autoSaveResult: getCurrentAutoSaveResult(),
-                                exportEnabled: getExportEnabled(),
-                                exportFormat: getExportFormat(),
-                                exportResult: getCurrentExportResult(),
-                                replacementResult: null,
-                                executionSummary: getCurrentExecutionSummary(),
-                                batchProgress: getCurrentBatchProgress(),
-                                executionLifecycle: getCurrentExecutionLifecycle(),
-                                projectExecutionSummary: getCurrentProjectExecutionSummary(),
-                                registeredTemplates: getRegisteredProjectTemplates(),
-                                registryError: null,
-                                recoveryState: getBatchRecoveryState(),
-                                recoveryBusy: Boolean(projectAction),
-                                onResumeBatch: resumeProjectBatch,
-                                onRetryFailed: retryFailedTemplates,
-                                onClearRecovery: clearRecoveryState
+                            onFocusPhoto={setFocusedPhotoId}
+                            projectId={project?.metadata?.id || null}
+                            folderLoaded={photoFolderAvailable}
+                            folderMessage={photoFolderMessage}
+                            onOpenFolder={openFolder}
+                            onRefresh={refreshFolder}
+                            onChangePhotoFolder={changePhotoFolder}
+                            isLoading={isImportingPhotos}
+                            loadingPhotoCount={importedPhotoCount}
+                            photoFolderChange={{
+                                ...photoFolderChange,
+                                onCancel: cancelPhotoFolderChange,
+                                onConfirm: confirmPhotoFolderChange,
+                                onRecoveryAcceptance: accepted => setPhotoFolderChange(
+                                    previous => ({ ...previous, clearRecovery: accepted })
+                                )
                             }}
+                            onHistoryControlsChange={setLibraryHistoryControls}
                         />
                     </div>
                 )}

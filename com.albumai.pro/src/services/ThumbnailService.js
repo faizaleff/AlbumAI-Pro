@@ -6,17 +6,21 @@ import { getCanonicalPhotoEntry } from "./PhotoFileEntry";
 
 const MAX_DIAGNOSTIC_SAMPLES = 10;
 const PROFILE_CONFIGURATION = Object.freeze({
+    draft: {
+        suffix: "thumb-draft-v1", maxEdge: 160, embeddedOnly: true, priority: 1,
+        successEvent: "THUMBNAIL_DRAFT_SUCCESS", failureEvent: "THUMBNAIL_DRAFT_UNAVAILABLE"
+    },
     thumbnail: {
-        suffix: "thumb-200-v5",
-        maxEdge: 200,
+        suffix: "thumb-512-v6",
+        maxEdge: 512,
         quality: 0.75,
         priority: 1,
         successEvent: "THUMBNAIL_GENERATION_SUCCESS",
         failureEvent: "THUMBNAIL_GENERATION_FAILURE"
     },
     preview: {
-        suffix: "preview-1000-v5",
-        maxEdge: 1000,
+        suffix: "screen-1536-v3",
+        maxEdge: 1536,
         quality: 0.85,
         priority: 0,
         successEvent: "PREVIEW_GENERATION_SUCCESS",
@@ -55,6 +59,12 @@ function fileIdentity(photo) {
 
 function profileConfiguration(profile) {
 
+    const reviewEdge = /^review-(\d+)$/.exec(profile || "");
+    if (reviewEdge) {
+        const maxEdge = Math.max(1, Math.min(65535, Number(reviewEdge[1])));
+        return { ...PROFILE_CONFIGURATION.preview,
+            suffix: `screen-${maxEdge}-v3`, maxEdge, quality: maxEdge <= 1920 ? 0.82 : 0.9 };
+    }
     return PROFILE_CONFIGURATION[profile] ||
         PROFILE_CONFIGURATION.thumbnail;
 
@@ -123,12 +133,14 @@ export class ThumbnailService {
         this.acceptingRequests = false;
         this.inFlight = new Map();
         this.requestContexts = new Map();
+        this.requestUsers = new Map();
         this.cacheAliases = new Map();
         this.cacheAliasCounts = new Map();
         this.failures = new Set();
         this.reportedFailures = new Set();
         this.loadStates = new Map();
         this.diagnosticCounts = new Map();
+        this.reviewCacheSizes = new Map();
         // This is a deliberately path-free, read-only runtime diagnostic used
         // by the Photoshop/UXP release checklist. Keep it available in the
         // production bundle that is actually being qualified.
@@ -204,6 +216,11 @@ export class ThumbnailService {
             : priority;
         if (this.failures.has(sourceKey)) return Promise.resolve(null);
         if (this.inFlight.has(sourceKey)) {
+            if (this.requestContexts.get(sourceKey)?.isCancelled()) {
+                return this.inFlight.get(sourceKey).then(() => new Promise(resolve => {
+                    setTimeout(() => resolve(this.getSource(photo, { profile, priority, workspaceGeneration })), 0);
+                }));
+            }
             BrowserDecodeScheduler.reprioritize(
                 sourceKey,
                 requestPriority
@@ -234,6 +251,7 @@ export class ThumbnailService {
                         photo,
                         {
                             maxEdge: configuration.maxEdge,
+                            embeddedOnly: configuration.embeddedOnly,
                             quality: configuration.quality,
                             lifecycle,
                             resolveCachedSource: contentIdentity => {
@@ -280,8 +298,13 @@ export class ThumbnailService {
                                 profile
                             ) ||
                             key;
-                        ThumbnailCache.set(cacheKey, result.source);
+                        ThumbnailCache.set(cacheKey, result.source, (result.width || configuration.maxEdge) *
+                            (result.height || configuration.maxEdge) * 4);
                         this.setCacheAlias(key, cacheKey);
+                        if (profile === "preview" || profile.startsWith("review-")) {
+                            this.limitReviewCache(cacheKey, (result.width || configuration.maxEdge) *
+                                (result.height || configuration.maxEdge) * 4);
+                        }
                         this.loadStates.set(key, "ready");
                         PhotoBrowserPerformance.recordGenerationOutcome({
                             profile,
@@ -312,6 +335,8 @@ export class ThumbnailService {
                                     workspaceGeneration
                                 }
                             );
+                        } else if (profile === "draft" && error?.name === "EmbeddedJpegUnavailableError") {
+                            this.failures.add(sourceKey);
                         } else if (!lifecycle.isCancelled()) {
                             this.recordFailure(
                                 photo,
@@ -396,6 +421,54 @@ export class ThumbnailService {
             profile: "thumbnail"
         });
 
+    }
+
+    holdBackgroundRefinements() { return BrowserDecodeScheduler.holdRefinements(); }
+
+    // Only Space preview uses review-* profiles. Cancel departed-photo jobs
+    // without disturbing the Library's shared thumbnail queue.
+    cancelReviewRequests(exceptPhoto = null) {
+        const identity = exceptPhoto ? fileIdentity(exceptPhoto) : null;
+        for (const [key, context] of this.requestContexts) {
+            if (!context.profile?.startsWith("review-")) continue;
+            if (identity && key.startsWith(`${identity}|`)) continue;
+            BrowserDecodeScheduler.cancel(key);
+        }
+    }
+
+    retainRequest(photo, profile) {
+        const key = getThumbnailCacheKey(photo, profile);
+        this.requestUsers.set(key, (this.requestUsers.get(key) || 0) + 1);
+        return () => {
+            const remaining = (this.requestUsers.get(key) || 1) - 1;
+            if (remaining) this.requestUsers.set(key, remaining);
+            else { this.requestUsers.delete(key); BrowserDecodeScheduler.cancel(key); }
+        };
+    }
+
+    limitReviewCache(key, bytes) {
+        this.reviewCacheSizes.delete(key);
+        this.reviewCacheSizes.set(key, bytes);
+        let total = [...this.reviewCacheSizes.values()].reduce((sum, size) => sum + size, 0);
+        // A small recent-photo cache, ~32 MiB decoded estimate. The current
+        // original at 100% may exceed this budget; older levels are evicted.
+        for (const [oldest, size] of this.reviewCacheSizes) {
+            if (oldest === key || (this.reviewCacheSizes.size <= 8 && total <= 32 * 1024 * 1024)) break;
+            ThumbnailCache.remove(oldest);
+            this.deleteAliasesForTarget(oldest);
+            this.reviewCacheSizes.delete(oldest);
+            total -= size;
+        }
+    }
+
+    clearReviewPreviews({ keepSmall = false } = {}) {
+        this.cancelReviewRequests();
+        for (const [key, size] of this.reviewCacheSizes) {
+            if (keepSmall && size <= 16 * 1024 * 1024) continue;
+            ThumbnailCache.remove(key);
+            this.deleteAliasesForTarget(key);
+            this.reviewCacheSizes.delete(key);
+        }
     }
 
     getPreview(photo, options = {}) {
@@ -498,8 +571,13 @@ export class ThumbnailService {
 
     invalidatePhoto(photo) {
 
-        for (const profile of ["thumbnail", "preview"]) {
-            const key = getThumbnailCacheKey(photo, profile);
+        const identity = fileIdentity(photo);
+        const keys = new Set([getThumbnailCacheKey(photo, "draft"), getThumbnailCacheKey(photo, "thumbnail"),
+            getThumbnailCacheKey(photo, "preview")]);
+        for (const key of [...this.cacheAliases.keys(), ...this.loadStates.keys(), ...this.failures]) {
+            if (identity && key.startsWith(`${identity}|screen-`)) keys.add(key);
+        }
+        for (const key of keys) {
             if (!key) continue;
             const hadAlias = this.cacheAliases.has(key);
             this.deleteCacheAlias(key);
@@ -559,6 +637,7 @@ export class ThumbnailService {
             workspaceGeneration
         );
         this.acceptingRequests = false;
+        ImageSourceCapabilityService.clear();
         const pendingRequests = [...this.inFlight.values()];
         for (const lifecycle of this.requestContexts.values()) {
             lifecycle.cancelled = true;
@@ -572,6 +651,7 @@ export class ThumbnailService {
         this.loadStates.clear();
         this.diagnosticCounts.clear();
         if (!preserveCache) {
+            this.reviewCacheSizes.clear();
             this.cacheAliases.clear();
             this.cacheAliasCounts.clear();
             ThumbnailCache.clear(reason);

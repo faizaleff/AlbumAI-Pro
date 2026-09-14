@@ -44,9 +44,9 @@ const MAX_SEARCH_LENGTH = 160;
 const MAX_PHOTO_DECISIONS = 20000;
 const MAX_EVENT_CHAPTERS = 200;
 const MAX_EVENT_CHAPTER_NAME_LENGTH = 80;
-const MIN_THUMBNAIL_SIZE = 84;
-const MAX_THUMBNAIL_SIZE = 144;
-const DEFAULT_THUMBNAIL_SIZE = 104;
+const MIN_THUMBNAIL_SIZE = 124;
+const MAX_THUMBNAIL_SIZE = 172;
+const DEFAULT_THUMBNAIL_SIZE = 144;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function boundedString(value, maximum = MAX_SEARCH_LENGTH) {
@@ -215,10 +215,14 @@ export function normalizePhotoEventChapters(value = {}, photos = null) {
 
         items.push(Object.freeze({
             chapterId,
+            ...(Array.isArray(candidate.originKeys) ? { originKeys: Object.freeze(
+                [...new Set(candidate.originKeys)].filter(key => /^p1-[0-9a-f]{16}$/.test(key) && (!available || available.has(key)))
+            ) } : {}),
             name: normalizedEventChapterName(
                 candidate.name,
                 `Event ${items.length + 1}`
             ),
+            ...(typeof candidate.description === "string" && candidate.description.trim() ? {description:candidate.description.replace(/\s+/g," ").trim().slice(0,720)} : {}),
             photoKeys: Object.freeze(photoKeys)
         }));
     }
@@ -546,6 +550,20 @@ export function normalizePhotoBrowserPreferences(value = {}) {
             direction: sortSource.direction === "desc" ? "desc" : "asc"
         })
     });
+}
+
+// Reset the query without resetting the user's chosen presentation.
+export function clearPhotoBrowserFilters(value) {
+    return normalizePhotoBrowserPreferences({
+        ...value, search: "", types: [], orientations: [], minimumRating: 0,
+        ratingFilter: {mode: "any", value: 0}, favoritesOnly: false,
+        duplicatesOnly: false, datePreset: "any"
+    });
+}
+
+export function visibleLibraryFocus(photos, focusedId, selectedIds) {
+    if (photos.some(photo => photo.id === focusedId)) return focusedId;
+    return photos.find(photo => selectedIds.has(photo.id))?.id || null;
 }
 
 export function photoOrientation(photo) {

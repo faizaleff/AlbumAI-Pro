@@ -56,6 +56,7 @@ import {
 } from "./PhotoCullingService";
 
 const METADATA_FILE = "photos.json";
+const METADATA_FIELDS = ["width", "height", "orientation", "dateTaken", "cameraMake", "cameraModel", "cameraSerial", "lensModel", "exposureTime", "fNumber", "iso", "focalLength"];
 const INITIAL_VISIBLE_PHOTOS = 30;
 const INITIAL_OVERSCAN_PHOTOS = 30;
 
@@ -143,6 +144,8 @@ export default class PhotoWorkspaceService {
         this.metadataInspector = metadataInspector;
         this.duplicateSource = duplicateSource;
         this.metadataPromise = Promise.resolve();
+        this.metadataCacheRead = Promise.resolve();
+        this.metadataStatus = { phase: "idle", total: 0, completed: 0, failed: 0 };
         this.sourceFolder = null;
         this.persistencePromise = Promise.resolve();
         this.lifecycleGeneration = 0;
@@ -242,6 +245,7 @@ export default class PhotoWorkspaceService {
                             persistenceReason
                         ));
                 }
+                await this.metadataCacheRead;
                 await this.writeMetadataCache();
                 const persistenceCompleted =
                     this.performance.timestamp();
@@ -959,393 +963,74 @@ export default class PhotoWorkspaceService {
     }
 
     createPhotoEventChapter(selectedPhotos = []) {
-
         this.requireProject();
-        const projectId =
-            this.projectEngine.getProject()?.metadata?.id || null;
-        const previous = this.getPhotoEventChapters();
-        const next = createPhotoEventChapter(
-            previous,
-            selectedPhotos,
-            this.library.getPhotos()
-        );
-        if (JSON.stringify(previous) === JSON.stringify(next)) {
-            return Promise.resolve(next);
-        }
-        this.photoEventChapters = next;
-        const operation = this.persistencePromise
-            .catch(() => {})
-            .then(async () => {
-                const activeProjectId =
-                    this.projectEngine.getProject()?.metadata?.id || null;
-                if (activeProjectId !== projectId) {
-                    const error = new Error(
-                        "Photo event chapters project changed before persistence."
-                    );
-                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
-                    throw error;
-                }
-                await this.projectService.saveProject(
-                    { photoEventChapters: next },
-                    { reason: "PHOTO_EVENT_CHAPTER_CREATE" }
-                );
-                if (this.photoEventChaptersProjectId === projectId) {
-                    this.photoEventChaptersPersisted = next;
-                }
-                return next;
-            })
-            .catch(error => {
-                if (
-                    this.photoEventChaptersProjectId === projectId &&
-                    this.projectEngine.getProject()?.metadata?.id === projectId &&
-                    this.photoEventChapters === next
-                ) {
-                    this.photoEventChapters = this.photoEventChaptersPersisted;
-                    const metadata =
-                        this.projectEngine.getProject()?.metadata;
-                    if (metadata) {
-                        this.projectEngine.updateMetadata({
-                            ...metadata,
-                            photoEventChapters: this.photoEventChaptersPersisted
-                        });
-                    }
-                }
-                throw error;
-            });
-        this.persistencePromise = operation.catch(() => {});
-        return operation;
-
+        return this.savePhotoEventChapters(createPhotoEventChapter(
+            this.getPhotoEventChapters(), selectedPhotos, this.library.getPhotos()
+        ), "PHOTO_EVENT_CHAPTER_CREATE");
     }
 
     renamePhotoEventChapter(chapterId, name) {
-
         this.requireProject();
-        const projectId =
-            this.projectEngine.getProject()?.metadata?.id || null;
-        const previous = this.getPhotoEventChapters();
-        const next = renamePhotoEventChapter(
-            previous,
-            chapterId,
-            name,
-            this.library.getPhotos()
-        );
-        if (JSON.stringify(previous) === JSON.stringify(next)) {
-            return Promise.resolve(next);
-        }
-        this.photoEventChapters = next;
-        const operation = this.persistencePromise
-            .catch(() => {})
-            .then(async () => {
-                const activeProjectId =
-                    this.projectEngine.getProject()?.metadata?.id || null;
-                if (activeProjectId !== projectId) {
-                    const error = new Error(
-                        "Photo event chapters project changed before persistence."
-                    );
-                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
-                    throw error;
-                }
-                await this.projectService.saveProject(
-                    { photoEventChapters: next },
-                    { reason: "PHOTO_EVENT_CHAPTER_RENAME" }
-                );
-                if (this.photoEventChaptersProjectId === projectId) {
-                    this.photoEventChaptersPersisted = next;
-                }
-                return next;
-            })
-            .catch(error => {
-                if (
-                    this.photoEventChaptersProjectId === projectId &&
-                    this.projectEngine.getProject()?.metadata?.id === projectId &&
-                    this.photoEventChapters === next
-                ) {
-                    this.photoEventChapters = this.photoEventChaptersPersisted;
-                    const metadata =
-                        this.projectEngine.getProject()?.metadata;
-                    if (metadata) {
-                        this.projectEngine.updateMetadata({
-                            ...metadata,
-                            photoEventChapters: this.photoEventChaptersPersisted
-                        });
-                    }
-                }
-                throw error;
-            });
-        this.persistencePromise = operation.catch(() => {});
-        return operation;
-
+        return this.savePhotoEventChapters(renamePhotoEventChapter(
+            this.getPhotoEventChapters(), chapterId, name, this.library.getPhotos()
+        ), "PHOTO_EVENT_CHAPTER_RENAME");
     }
 
     movePhotoEventChapter(chapterId, direction) {
-
         this.requireProject();
-        const projectId =
-            this.projectEngine.getProject()?.metadata?.id || null;
-        const previous = this.getPhotoEventChapters();
-        const next = movePhotoEventChapter(
-            previous,
-            chapterId,
-            direction,
-            this.library.getPhotos()
-        );
-        if (JSON.stringify(previous) === JSON.stringify(next)) {
-            return Promise.resolve(next);
-        }
-        this.photoEventChapters = next;
-        const operation = this.persistencePromise
-            .catch(() => {})
-            .then(async () => {
-                const activeProjectId =
-                    this.projectEngine.getProject()?.metadata?.id || null;
-                if (activeProjectId !== projectId) {
-                    const error = new Error(
-                        "Photo event chapters project changed before persistence."
-                    );
-                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
-                    throw error;
-                }
-                await this.projectService.saveProject(
-                    { photoEventChapters: next },
-                    { reason: "PHOTO_EVENT_CHAPTER_MOVE" }
-                );
-                if (this.photoEventChaptersProjectId === projectId) {
-                    this.photoEventChaptersPersisted = next;
-                }
-                return next;
-            })
-            .catch(error => {
-                if (
-                    this.photoEventChaptersProjectId === projectId &&
-                    this.projectEngine.getProject()?.metadata?.id === projectId &&
-                    this.photoEventChapters === next
-                ) {
-                    this.photoEventChapters = this.photoEventChaptersPersisted;
-                    const metadata =
-                        this.projectEngine.getProject()?.metadata;
-                    if (metadata) {
-                        this.projectEngine.updateMetadata({
-                            ...metadata,
-                            photoEventChapters: this.photoEventChaptersPersisted
-                        });
-                    }
-                }
-                throw error;
-            });
-        this.persistencePromise = operation.catch(() => {});
-        return operation;
-
+        return this.savePhotoEventChapters(movePhotoEventChapter(
+            this.getPhotoEventChapters(), chapterId, direction, this.library.getPhotos()
+        ), "PHOTO_EVENT_CHAPTER_MOVE");
     }
 
     deleteEmptyPhotoEventChapter(chapterId) {
-
         this.requireProject();
-        const projectId =
-            this.projectEngine.getProject()?.metadata?.id || null;
-        const previous = this.getPhotoEventChapters();
-        const next = deleteEmptyPhotoEventChapter(
-            previous,
-            chapterId,
-            this.library.getPhotos()
-        );
-        if (JSON.stringify(previous) === JSON.stringify(next)) {
-            return Promise.resolve(next);
-        }
-        this.photoEventChapters = next;
-        const operation = this.persistencePromise
-            .catch(() => {})
-            .then(async () => {
-                const activeProjectId =
-                    this.projectEngine.getProject()?.metadata?.id || null;
-                if (activeProjectId !== projectId) {
-                    const error = new Error(
-                        "Photo event chapters project changed before persistence."
-                    );
-                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
-                    throw error;
-                }
-                await this.projectService.saveProject(
-                    { photoEventChapters: next },
-                    { reason: "PHOTO_EVENT_CHAPTER_DELETE" }
-                );
-                if (this.photoEventChaptersProjectId === projectId) {
-                    this.photoEventChaptersPersisted = next;
-                }
-                return next;
-            })
-            .catch(error => {
-                if (
-                    this.photoEventChaptersProjectId === projectId &&
-                    this.projectEngine.getProject()?.metadata?.id === projectId &&
-                    this.photoEventChapters === next
-                ) {
-                    this.photoEventChapters = this.photoEventChaptersPersisted;
-                    const metadata =
-                        this.projectEngine.getProject()?.metadata;
-                    if (metadata) {
-                        this.projectEngine.updateMetadata({
-                            ...metadata,
-                            photoEventChapters: this.photoEventChaptersPersisted
-                        });
-                    }
-                }
-                throw error;
-            });
-        this.persistencePromise = operation.catch(() => {});
-        return operation;
-
+        return this.savePhotoEventChapters(deleteEmptyPhotoEventChapter(
+            this.getPhotoEventChapters(), chapterId, this.library.getPhotos()
+        ), "PHOTO_EVENT_CHAPTER_DELETE");
     }
 
     assignPhotosToEventChapter(chapterId, selectedPhotos = []) {
-
         this.requireProject();
-        const projectId =
-            this.projectEngine.getProject()?.metadata?.id || null;
-        const previous = this.getPhotoEventChapters();
-        const next = assignPhotosToEventChapter(
-            previous,
-            chapterId,
-            selectedPhotos,
-            this.library.getPhotos()
-        );
-        if (JSON.stringify(previous) === JSON.stringify(next)) {
-            return Promise.resolve(next);
-        }
-        this.photoEventChapters = next;
-        const operation = this.persistencePromise
-            .catch(() => {})
-            .then(async () => {
-                const activeProjectId =
-                    this.projectEngine.getProject()?.metadata?.id || null;
-                if (activeProjectId !== projectId) {
-                    const error = new Error(
-                        "Photo event chapters project changed before persistence."
-                    );
-                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
-                    throw error;
-                }
-                await this.projectService.saveProject(
-                    { photoEventChapters: next },
-                    { reason: "PHOTO_EVENT_CHAPTER_ASSIGN" }
-                );
-                if (this.photoEventChaptersProjectId === projectId) {
-                    this.photoEventChaptersPersisted = next;
-                }
-                return next;
-            })
-            .catch(error => {
-                if (
-                    this.photoEventChaptersProjectId === projectId &&
-                    this.projectEngine.getProject()?.metadata?.id === projectId &&
-                    this.photoEventChapters === next
-                ) {
-                    this.photoEventChapters = this.photoEventChaptersPersisted;
-                    const metadata =
-                        this.projectEngine.getProject()?.metadata;
-                    if (metadata) {
-                        this.projectEngine.updateMetadata({
-                            ...metadata,
-                            photoEventChapters: this.photoEventChaptersPersisted
-                        });
-                    }
-                }
-                throw error;
-            });
-        this.persistencePromise = operation.catch(() => {});
-        return operation;
-
+        return this.savePhotoEventChapters(assignPhotosToEventChapter(
+            this.getPhotoEventChapters(), chapterId, selectedPhotos, this.library.getPhotos()
+        ), "PHOTO_EVENT_CHAPTER_ASSIGN");
     }
 
     removePhotosFromEventChapters(selectedPhotos = []) {
-
         this.requireProject();
-        const projectId =
-            this.projectEngine.getProject()?.metadata?.id || null;
-        const previous = this.getPhotoEventChapters();
-        const next = removePhotosFromEventChapters(
-            previous,
-            selectedPhotos,
-            this.library.getPhotos()
-        );
-        if (JSON.stringify(previous) === JSON.stringify(next)) {
-            return Promise.resolve(next);
-        }
-        this.photoEventChapters = next;
-        const operation = this.persistencePromise
-            .catch(() => {})
-            .then(async () => {
-                const activeProjectId =
-                    this.projectEngine.getProject()?.metadata?.id || null;
-                if (activeProjectId !== projectId) {
-                    const error = new Error(
-                        "Photo event chapters project changed before persistence."
-                    );
-                    error.code = "PHOTO_EVENT_CHAPTERS_PROJECT_CHANGED";
-                    throw error;
-                }
-                await this.projectService.saveProject(
-                    { photoEventChapters: next },
-                    { reason: "PHOTO_EVENT_CHAPTER_REMOVE" }
-                );
-                if (this.photoEventChaptersProjectId === projectId) {
-                    this.photoEventChaptersPersisted = next;
-                }
-                return next;
-            })
-            .catch(error => {
-                if (
-                    this.photoEventChaptersProjectId === projectId &&
-                    this.projectEngine.getProject()?.metadata?.id === projectId &&
-                    this.photoEventChapters === next
-                ) {
-                    this.photoEventChapters = this.photoEventChaptersPersisted;
-                    const metadata =
-                        this.projectEngine.getProject()?.metadata;
-                    if (metadata) {
-                        this.projectEngine.updateMetadata({
-                            ...metadata,
-                            photoEventChapters: this.photoEventChaptersPersisted
-                        });
-                    }
-                }
-                throw error;
-            });
-        this.persistencePromise = operation.catch(() => {});
-        return operation;
-
+        return this.savePhotoEventChapters(removePhotosFromEventChapters(
+            this.getPhotoEventChapters(), selectedPhotos, this.library.getPhotos()
+        ), "PHOTO_EVENT_CHAPTER_REMOVE");
     }
 
     savePhotoEventChapters(value, reason = "PHOTO_EVENT_CHAPTERS_RESTORE") {
+        this.getPhotoEventChapters();
+        return this.saveLibraryState("photoEventChapters",
+            reconcilePhotoEventChapters(value, this.library.getPhotos()), reason);
+    }
 
+    saveLibraryState(field, next, reason) {
         this.requireProject();
         const projectId = this.projectEngine.getProject()?.metadata?.id || null;
-        const previous = this.getPhotoEventChapters();
-        const next = reconcilePhotoEventChapters(value, this.library.getPhotos());
-        this.photoEventChapters = next;
+        if (JSON.stringify(this[field]) === JSON.stringify(next)) return Promise.resolve(next);
+        this[field] = next;
+        const persisted = field + "Persisted";
         const operation = this.persistencePromise.catch(() => {}).then(async () => {
-            if ((this.projectEngine.getProject()?.metadata?.id || null) !== projectId) {
-                throw new Error("Photo event chapter project changed before persistence.");
-            }
-            await this.projectService.saveProject(
-                { photoEventChapters: next },
-                { reason }
-            );
-            this.photoEventChaptersPersisted = next;
+            if ((this.projectEngine.getProject()?.metadata?.id || null) !== projectId)
+                throw new Error("Project changed before persistence.");
+            await this.projectService.saveProject({[field]: next}, {reason});
+            if ((this.projectEngine.getProject()?.metadata?.id || null) === projectId) this[persisted] = next;
             return next;
         }).catch(error => {
-            if ((this.projectEngine.getProject()?.metadata?.id || null) === projectId &&
-                this.photoEventChapters === next) {
-                this.photoEventChapters = previous;
-                this.projectEngine.updateMetadata({
-                    ...this.projectEngine.getProject()?.metadata,
-                    photoEventChapters: previous
-                });
+            if ((this.projectEngine.getProject()?.metadata?.id || null) === projectId && this[field] === next) {
+                this[field] = this[persisted];
+                this.projectEngine.updateMetadata({...this.projectEngine.getProject()?.metadata, [field]: this[persisted]});
             }
             throw error;
         });
         this.persistencePromise = operation.catch(() => {});
         return operation;
-
     }
 
     updatePhotoDecision(photo, values = {}) {
@@ -1407,35 +1092,9 @@ export default class PhotoWorkspaceService {
     }
 
     savePhotoDecisions(value, reason = "PHOTO_DECISIONS_RESTORE") {
-
-        this.requireProject();
-        const projectId = this.projectEngine.getProject()?.metadata?.id || null;
-        const previous = this.getPhotoDecisions();
-        const next = reconcilePhotoDecisions(value, this.library.getPhotos());
-        this.photoDecisions = next;
-        const operation = this.persistencePromise.catch(() => {}).then(async () => {
-            if ((this.projectEngine.getProject()?.metadata?.id || null) !== projectId) {
-                throw new Error("Photo decision project changed before persistence.");
-            }
-            await this.projectService.saveProject(
-                { photoDecisions: next },
-                { reason }
-            );
-            this.photoDecisionsPersisted = next;
-            return next;
-        }).catch(error => {
-            if ((this.projectEngine.getProject()?.metadata?.id || null) === projectId && this.photoDecisions === next) {
-                this.photoDecisions = previous;
-                this.projectEngine.updateMetadata({
-                    ...this.projectEngine.getProject()?.metadata,
-                    photoDecisions: previous
-                });
-            }
-            throw error;
-        });
-        this.persistencePromise = operation.catch(() => {});
-        return operation;
-
+        this.getPhotoDecisions();
+        return this.saveLibraryState("photoDecisions",
+            reconcilePhotoDecisions(value, this.library.getPhotos()), reason);
     }
 
     reconcilePhotoDecisionCache(photos) {
@@ -1735,6 +1394,10 @@ export default class PhotoWorkspaceService {
         const source = Array.isArray(photos) ? photos : [];
         this.metadataPromise = this.extractMetadata(source, generation)
             .catch(error => {
+                if (generation === this.lifecycleGeneration) {
+                    this.metadataStatus = { ...this.metadataStatus, phase: "error" };
+                    this.refreshService.refresh();
+                }
                 this.performance.trace?.("PHOTO_METADATA_BATCH_FAILURE", {
                     generation,
                     errorName: error?.name || "Error"
@@ -1744,52 +1407,73 @@ export default class PhotoWorkspaceService {
 
     }
 
-    async extractMetadata(photos, generation) {
-
-        let updated = 0;
-        for (let index = 0; index < photos.length; index++) {
-            if (generation !== this.lifecycleGeneration) break;
-            const photo = photos[index];
-            if (!this.metadataInspector.supports(photo)) continue;
-            if (photo.metadataLoaded === true) continue;
-            const facts = await this.readMetadata(photo, generation, index);
-            if (generation !== this.lifecycleGeneration) break;
-            if (!facts || !(facts.width > 0) || !(facts.height > 0)) {
-                continue;
+    async hydrateMetadataCache(photos, generation) {
+        try {
+            const folder = this.projectEngine.getProject()?.workspace?.cache?.metadata;
+            if (!folder?.getEntry) return;
+            const file = await folder.getEntry(METADATA_FILE);
+            const cache = JSON.parse(await file.read());
+            if (generation !== this.lifecycleGeneration || cache.schemaVersion !== 2) return;
+            const byId = new Map((cache.photos || []).map(photo => [photo.id, photo]));
+            for (const photo of photos) {
+                const saved = byId.get(photo.id);
+                // Unknown revisions and incomplete records must be inspected again.
+                if (!saved?.metadataLoaded || !saved.cameraMetadataLoaded ||
+                    !(saved.width > 0 && saved.height > 0) ||
+                    !(Number(photo.fileSize) > 0) || !revisionValue(photo.modified) ||
+                    !sameSourceRevision(saved, photo)) continue;
+                for (const key of METADATA_FIELDS) photo[key] = saved[key];
+                photo.metadataLoaded = photo.cameraMetadataLoaded = true;
             }
-            photo.width = facts.width;
-            photo.height = facts.height;
-            photo.orientation = facts.orientation;
-            photo.dateTaken = facts.dateTaken;
-            photo.metadataLoaded = true;
-            updated++;
-            if (updated % 25 === 0) this.refreshService.refresh();
-        }
+        } catch (_) { /* Missing/old/corrupt cache falls back to source metadata. */ }
+    }
+
+    async extractMetadata(photos, generation) {
         if (generation !== this.lifecycleGeneration) return;
-        if (updated) {
+        const status = { phase: "reading", generation, total: photos.length, completed: 0, failed: 0 };
+        this.metadataStatus = status;
+        this.refreshService.refresh();
+        const resume = this.metadataScheduler.holdRefinements?.();
+        let updated = 0, lastRefresh = Date.now();
+        try {
+            this.metadataCacheRead = this.hydrateMetadataCache(photos, generation);
+            await this.metadataCacheRead;
+            for (let index = 0; index < photos.length; index++) {
+                if (generation !== this.lifecycleGeneration) return;
+                const photo = photos[index];
+                if (this.metadataInspector.supports(photo) && !(photo.metadataLoaded && photo.cameraMetadataLoaded)) {
+                    const facts = await this.readMetadata(photo, generation, index);
+                    if (generation !== this.lifecycleGeneration) return;
+                    if (facts?.width > 0 && facts?.height > 0) {
+                        Object.assign(photo, facts, { metadataLoaded: true, cameraMetadataLoaded: true, metadataReadFailed: false });
+                        updated++;
+                    } else {
+                        photo.metadataReadFailed = true;
+                        status.failed++;
+                    }
+                }
+                status.completed++;
+                if (Date.now() - lastRefresh >= 50) {
+                    lastRefresh = Date.now(); this.refreshService.refresh();
+                }
+            }
+            if (generation !== this.lifecycleGeneration) return;
+            // Publish final facts so camera/event/burst groups render before the gate opens.
+            status.phase = "grouping";
             this.refreshService.refresh();
             try {
-                const cacheWrite = this.persistencePromise
-                    .catch(() => {})
-                    .then(() => generation === this.lifecycleGeneration
-                        ? this.writeMetadataCache(photos)
-                        : null
-                    );
+                const cacheWrite = this.persistencePromise.catch(() => {}).then(() =>
+                    generation === this.lifecycleGeneration ? this.writeMetadataCache(photos) : null);
                 this.persistencePromise = cacheWrite.catch(() => {});
                 await cacheWrite;
             } catch (error) {
-                this.performance.trace?.("PHOTO_METADATA_CACHE_FAILURE", {
-                    generation,
-                    errorName: error?.name || "Error"
-                });
+                this.performance.trace?.("PHOTO_METADATA_CACHE_FAILURE", { generation, errorName: error?.name || "Error" });
             }
-        }
-        this.performance.trace?.("PHOTO_METADATA_BATCH_COMPLETE", {
-            generation,
-            inspected: photos.length,
-            updated
-        });
-
+            if (generation !== this.lifecycleGeneration) return;
+            status.phase = "ready";
+            this.refreshService.refresh();
+            this.performance.trace?.("PHOTO_METADATA_BATCH_COMPLETE", { generation, inspected: photos.length, updated, failed: status.failed });
+        } finally { resume?.(); }
     }
 
     readMetadata(photo, generation, index) {
@@ -1837,7 +1521,7 @@ export default class PhotoWorkspaceService {
                         .finally(release);
                 },
                 {
-                    priority: 3,
+                    priority: 1,
                     timeoutMs: 30000,
                     generation,
                     onTimeout: () => finish(null),
@@ -1854,6 +1538,7 @@ export default class PhotoWorkspaceService {
         this.folderChangeTransactionId++;
         this.importRequestId++;
         this.lifecycleGeneration++;
+        this.metadataStatus = { phase: "idle", total: 0, completed: 0, failed: 0 };
         this.performance.trace(
             "PHOTO_WORKSPACE_RELEASE",
             {
@@ -2142,18 +1827,24 @@ export default class PhotoWorkspaceService {
         const photos = sourcePhotos.map(photo => ({
             id: photo.id,
             name: photo.name,
+            metadataLoaded: photo.metadataLoaded === true,
+            cameraMetadataLoaded: photo.cameraMetadataLoaded === true,
+            ...Object.fromEntries(METADATA_FIELDS.map(key => [key, photo[key]])),
             extension: photo.extension,
             width: photo.width,
             height: photo.height,
             orientation: photo.orientation,
             dateTaken: photo.dateTaken,
+            cameraMake: photo.cameraMake,
+            cameraModel: photo.cameraModel,
+            cameraSerial: photo.cameraSerial,
             fileSize: photo.fileSize,
             created: photo.created,
             modified: photo.modified
         }));
 
         const serialized = JSON.stringify(
-            { photos },
+            { schemaVersion: 2, photos },
             null,
             2
         );

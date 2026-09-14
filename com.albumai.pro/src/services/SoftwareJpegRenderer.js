@@ -1,5 +1,6 @@
 import { Buffer as JpegBuffer } from "../utils/JpegBuffer";
-import jpeg from "jpeg-js";
+import { previewPixelBlob } from "../utils/PreviewPixels";
+import decodeCooperativeJpeg from "../utils/CooperativeJpegDecoder";
 import PhotoBrowserPerformance from "./PhotoBrowserPerformance";
 
 const EMBEDDED_DECODE_RESOLUTION_MP = 4;
@@ -155,13 +156,42 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
             : null
     ) || scanDate(ifd0Offset, [0x0132]);
 
+    const photoMetadata = {};
+    const tags = { 0x010f: "cameraMake", 0x0110: "cameraModel", 0xa431: "cameraSerial", 0xa434: "lensModel",
+        0x829a: "exposureTime", 0x829d: "fNumber", 0x8827: "iso", 0x920a: "focalLength" };
+    const scanFields = offset => {
+        if (offset < tiffOffset || offset + 2 > segmentEnd) return;
+        const count = read16(offset);
+        if (count > 256 || offset + 2 + count * 12 > segmentEnd) return;
+        for (let index = 0; index < count; index++) {
+            const entry = offset + 2 + index * 12;
+            const name = tags[read16(entry)];
+            if (!name) continue;
+            const type = read16(entry + 2);
+            const length = read32(entry + 4);
+            let value = null;
+            if (type === 2) value = readAscii(entry);
+            else if (length === 1 && type === 3) value = read16(entry + 8);
+            else if (length === 1 && type === 4) value = read32(entry + 8);
+            else if (length === 1 && type === 5) {
+                const data = tiffOffset + read32(entry + 8);
+                if (data >= tiffOffset && data + 8 <= segmentEnd && read32(data + 4)) {
+                    value = read32(data) / read32(data + 4);
+                }
+            }
+            if (value != null && value !== "") photoMetadata[name] = value;
+        }
+    };
+    scanFields(ifd0Offset);
+    if (exifIfdRelative) scanFields(exifIfdOffset);
+
     const ifd1Relative = read32(nextIfdPointer);
     if (!ifd1Relative) {
-        return { binary: null, orientation, dateTaken };
+        return { binary: null, orientation, dateTaken, photoMetadata };
     }
     const ifd1Offset = tiffOffset + ifd1Relative;
     if (ifd1Offset + 2 > segmentEnd) {
-        return { binary: null, orientation, dateTaken };
+        return { binary: null, orientation, dateTaken, photoMetadata };
     }
 
     const ifd1Entries = read16(ifd1Offset);
@@ -170,7 +200,7 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
     for (let index = 0; index < ifd1Entries; index++) {
         const entryOffset = ifd1Offset + 2 + index * 12;
         if (entryOffset + 12 > segmentEnd) {
-            return { binary: null, orientation, dateTaken };
+            return { binary: null, orientation, dateTaken, photoMetadata };
         }
         const tag = read16(entryOffset);
         if (tag === 0x0201) {
@@ -190,12 +220,13 @@ function parseExifPreview(bytes, markerOffset, segmentEnd) {
         bytes[thumbnailOffset] !== 0xff ||
         bytes[thumbnailOffset + 1] !== 0xd8
     ) {
-        return { binary: null, orientation, dateTaken };
+        return { binary: null, orientation, dateTaken, photoMetadata };
     }
     return {
         binary: bytes.slice(thumbnailOffset, thumbnailEnd),
         orientation,
-        dateTaken
+        dateTaken,
+        photoMetadata
     };
 
 }
@@ -218,6 +249,7 @@ export function inspectJpegMetadata(binary) {
     let best = null;
     let orientation = 1;
     let dateTaken = null;
+    let photoMetadata = {};
     let width = 0;
     let height = 0;
     let markerOffset = 2;
@@ -251,6 +283,7 @@ export function inspectJpegMetadata(binary) {
             if (candidate) {
                 orientation = candidate.orientation;
                 dateTaken = candidate.dateTaken || dateTaken;
+                photoMetadata = { ...photoMetadata, ...candidate.photoMetadata };
                 if (
                     candidate.binary &&
                     (
@@ -279,18 +312,22 @@ export function inspectJpegMetadata(binary) {
         width: swapsAxes ? height : width,
         height: swapsAxes ? width : height,
         orientation: best?.orientation || orientation,
-        dateTaken
+        dateTaken,
+        photoMetadata
     });
 
 }
 
-function decodeJpeg(binary, embedded) {
+function decodeJpeg(binary, embedded, maxEdge, lifecycle, cacheKey) {
 
     if (!JPEG_BUFFER_READY) {
         throw new Error("JPEG byte buffer support is unavailable.");
     }
 
-    return jpeg.decode(binaryView(binary), {
+    return decodeCooperativeJpeg(binaryView(binary), {
+        maxEdge,
+        cacheKey,
+        checkCancelled: () => lifecycle?.throwIfCancelled?.("during-jpeg-decode"),
         useTArray: true,
         formatAsRGBA: false,
         tolerantDecoding: true,
@@ -415,13 +452,14 @@ function sourceCoordinates(
 
 }
 
-function resizeOrientedRgb(
+async function resizeOrientedRgb(
     source,
     sourceWidth,
     sourceHeight,
     width,
     height,
-    orientation
+    orientation,
+    lifecycle
 ) {
 
     const output = new Uint8Array(width * height * 4);
@@ -447,6 +485,20 @@ function resizeOrientedRgb(
     // while sampling so a second full-resolution oriented buffer is never
     // allocated.
     for (let outputY = 0; outputY < height; outputY++) {
+        if ((outputY & 31) === 0) {
+            lifecycle?.throwIfCancelled?.("during-preview-resize");
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        if (orientation === 1 && sourceWidth === width && sourceHeight === height) {
+            for (let x = 0; x < width; x++) {
+                const pixel = outputY * width + x;
+                output[pixel * 4] = source[pixel * 3];
+                output[pixel * 4 + 1] = source[pixel * 3 + 1];
+                output[pixel * 4 + 2] = source[pixel * 3 + 2];
+                output[pixel * 4 + 3] = 255;
+            }
+            continue;
+        }
         const orientedY = Math.max(
             0,
             Math.min(
@@ -494,6 +546,13 @@ function resizeOrientedRgb(
 }
 
 class SoftwareJpegRenderer {
+    constructor() {
+        this.metrics = [];
+        // Read-only, bounded, path-free host profiling hook.
+        globalThis.__ALBUMAI_IMAGE_METRICS__ = () => ({ renders: this.metrics.slice(), planes: decodeCooperativeJpeg.snapshot() });
+    }
+    clear() { decodeCooperativeJpeg.clear(); }
+    retainPreviewDecoded() { return decodeCooperativeJpeg.retain(); }
 
     inspectMetadata(binary) {
 
@@ -502,7 +561,8 @@ class SoftwareJpegRenderer {
             width: metadata.width,
             height: metadata.height,
             orientation: metadata.orientation,
-            dateTaken: metadata.dateTaken
+            dateTaken: metadata.dateTaken,
+            ...metadata.photoMetadata
         });
 
     }
@@ -522,9 +582,11 @@ class SoftwareJpegRenderer {
 
     }
 
-    render(binary, {
+    async render(binary, {
         maxEdge,
-        quality,
+        embeddedOnly = false,
+        pixelsOnly = false,
+        cacheKey = null,
         lifecycle = null
     }) {
 
@@ -538,36 +600,46 @@ class SoftwareJpegRenderer {
         try {
             const inspected = inspectJpegMetadata(binary);
             let decoded = null;
+            // Oversample small outputs before bilinear reduction to avoid the
+            // old point-sampled 200px thumbnail's jagged fine detail.
+            const decodeEdge = maxEdge <= 512 ? maxEdge * 2 : maxEdge;
             let input = "embedded-exif";
-            // For high-resolution preview rendering (maxEdge > 300) or when embedded EXIF thumbnail
-            // is smaller than requested target, decode directly from full JPEG binary for Adobe Bridge clarity.
-            const preferFullDecode = maxEdge > 300;
-            if (inspected.embedded && !preferFullDecode) {
+            // Use the embedded preview when it meets the requested resolution.
+            // Entropy decoding is cooperative; RGB output is target-sized.
+            if (inspected.embedded) {
                 try {
-                    decoded = decodeJpeg(
+                    decoded = await decodeJpeg(
                         inspected.embedded,
-                        true
+                        true, decodeEdge, lifecycle
                     );
-                    if (decoded && Math.max(decoded.width, decoded.height) < maxEdge * 0.75) {
+                    if (!embeddedOnly && decoded && Math.max(decoded.width, decoded.height) < maxEdge) {
                         decoded = null;
                         input = "full-jpeg";
                     }
-                } catch (_) {
+                } catch (error) {
+                    if (error?.name === "StaleImageRequestError") throw error;
                     input = "full-jpeg";
                 }
             } else {
                 input = "full-jpeg";
             }
             if (!decoded) {
+                // The first-pass thumbnail must never start a full source decode.
+                if (embeddedOnly) {
+                    const error = new Error("No usable embedded preview");
+                    error.name = "EmbeddedJpegUnavailableError";
+                    throw error;
+                }
                 lifecycle?.throwIfCancelled?.(
                     "before-full-jpeg-decode"
                 );
                 try {
-                    decoded = decodeJpeg(binary, false);
+                    decoded = await decodeJpeg(binary, false, decodeEdge, lifecycle, cacheKey);
                 } catch (decodeErr) {
+                    if (decodeErr?.name === "StaleImageRequestError") throw decodeErr;
                     if (inspected.embedded) {
                         try {
-                            decoded = decodeJpeg(inspected.embedded, true);
+                            decoded = await decodeJpeg(inspected.embedded, true, maxEdge, lifecycle);
                             input = "embedded-exif";
                         } catch (_) {
                             throw decodeErr;
@@ -580,6 +652,8 @@ class SoftwareJpegRenderer {
                     "after-full-jpeg-decode"
                 );
             }
+            const decodeMs = Date.now() - startedAt;
+            const reused = !!decoded.reused;
             const oriented = orientedDimensions(
                 decoded.width,
                 decoded.height,
@@ -590,32 +664,30 @@ class SoftwareJpegRenderer {
                 oriented.height,
                 maxEdge
             );
-            const resized = resizeOrientedRgb(
+            const resized = await resizeOrientedRgb(
                 decoded.data,
                 decoded.width,
                 decoded.height,
                 dimensions.width,
                 dimensions.height,
-                inspected.orientation
+                inspected.orientation,
+                lifecycle
             );
             // Free the large raw decoded pixel buffer immediately to minimize Photoshop RAM usage
             decoded.data = null;
             decoded = null;
 
-            lifecycle?.throwIfCancelled?.("before-jpeg-encoding");
-            const encoded = jpeg.encode(
-                {
-                    data: resized,
-                    width: dimensions.width,
-                    height: dimensions.height
-                },
-                Math.round(quality * 100)
-            );
+            if (pixelsOnly) return {data:resized, width:dimensions.width, height:dimensions.height};
+            const blob = await previewPixelBlob(resized, dimensions.width, dimensions.height,
+                () => lifecycle?.throwIfCancelled?.("during-pixel-output"));
             lifecycle?.throwIfCancelled?.("before-object-url");
-            const source = URL.createObjectURL(
-                new Blob([encoded.data], { type: "image/jpeg" })
-            );
+            const source = URL.createObjectURL(blob);
             PhotoBrowserPerformance.trackObjectUrl(source);
+            const timing = { edge: maxEdge, decodeMs, totalMs: Date.now() - startedAt,
+                reused, format: blob.type, pixels: dimensions.width * dimensions.height };
+            this.metrics.push(timing);
+            if (this.metrics.length > 24) this.metrics.shift();
+            if (maxEdge > 512) console.info("[Preview pixels]", JSON.stringify(timing));
 
             PhotoBrowserPerformance.trace(
                 "SOFTWARE_JPEG_RENDER_SUCCESS",
@@ -631,7 +703,7 @@ class SoftwareJpegRenderer {
                 source,
                 width: dimensions.width,
                 height: dimensions.height,
-                format: "image/jpeg",
+                format: blob.type,
                 strategy: input === "embedded-exif"
                     ? "embedded-exif-jpeg"
                     : "full-jpeg-software",

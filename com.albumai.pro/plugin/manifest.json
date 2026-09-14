@@ -12,7 +12,8 @@
 
   "requiredPermissions": {
     "allowCodeGenerationFromStrings": true,
-    "clipboard": "readAndWrite"
+    "clipboard": "readAndWrite",
+    "network": {"domains": ["https://generativelanguage.googleapis.com"]}
   },
 
   "entrypoints": [

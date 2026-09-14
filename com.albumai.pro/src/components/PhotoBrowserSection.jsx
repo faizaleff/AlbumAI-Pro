@@ -1,15 +1,33 @@
 import React, {
     useCallback,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState
 } from "react";
+import { createPortal } from "react-dom";
 
 import ThumbnailGrid from "./ThumbnailGrid";
+import ThumbnailZoom from "./ThumbnailZoom";
+import {bindLibraryScrollbarVisibility} from "./LibraryScrollbars";
+import {focusWithoutMovingLibrary, suspendLibraryReviewScrollbars} from "./PopupScrollbars";
 import UxpDropdown from "./UxpDropdown";
+import LibraryToolbar, {ToolbarIcon} from "./LibraryToolbar";
+import SidebarButton from "./SidebarButton";
+import EventManager from "./EventManager";
+import AutoEventsDialog from "./AutoEventsDialog";
+import {applyPhotoEventProposals} from "../services/PhotoAutoEvents";
+import PhotoContextMenu from "./PhotoContextMenu";
+import { bindLibraryDrag, libraryDragPhotos } from "./LibraryDrag";
+import ThumbnailService from "../services/ThumbnailService";
+import { eventWorkspace, editEvent } from "../services/EventWorkspace";
+import { blocksPhotoReviewKeys, photoReviewKey, bindPhotoReviewKeys, bindPhotoReviewPointerFocus } from "./PhotoReviewKeyboard";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import PhotoImage from "./PhotoImage";
+import PhotoReviewPreview from "./PhotoReviewPreview";
+import useReviewRendering from "./useReviewRendering";
+import { reviewPointer, zoomPreviewAt, reviewZoomStep, previewSessionPhotos, reviewPreviewGate, previewGeometry, previewImagePlacement, clampPreviewPan } from "./PhotoPreviewModel";
 import PhotoLibraryHistory, {
     PhotoLibraryHistoryKind
 } from "../services/PhotoLibraryHistory";
@@ -17,6 +35,8 @@ import PhotoLibraryHistory, {
 // production Library no longer renders this former KEEP-oriented modal.
 import PhotoComparisonModal from "./PhotoComparisonModal";
 import {
+    clearPhotoBrowserFilters,
+    visibleLibraryFocus,
     createPhotoDecisionLookup,
     hasActivePhotoBrowserFilters,
     normalizePhotoDecisions,
@@ -67,24 +87,32 @@ const PHOTO_RATING_COMPARISON_OPTIONS = Object.freeze([
 ]);
 
 const PHOTO_SORT_OPTIONS = Object.freeze([
-    Object.freeze({ value: "sort:name", label: "Sort · Name" }),
-    Object.freeze({ value: "sort:created", label: "Sort · Date Created" }),
-    Object.freeze({ value: "sort:taken", label: "Sort · Capture Time" }),
-    Object.freeze({ value: "sort:rating", label: "Sort · Rating" }),
-    Object.freeze({ value: "sort:camera", label: "Sort · Camera" }),
-    Object.freeze({ value: "sort:event", label: "Sort · Event" }),
-    Object.freeze({ value: "sort:type", label: "Sort · Photo Type" }),
-    Object.freeze({ value: "group:none", label: "Group · None" }),
-    Object.freeze({ value: "group:event", label: "Group · Events" }),
-    Object.freeze({ value: "group:camera", label: "Group · Cameras" }),
-    Object.freeze({ value: "group:rating", label: "Group · Ratings" }),
-    Object.freeze({ value: "group:favorite", label: "Group · Favorites" }),
-    Object.freeze({ value: "group:review", label: "Group · Included / Rejected" }),
-    Object.freeze({ value: "group:type", label: "Group · Photo Type" })
+    Object.freeze({ value: "name", label: "Name" }),
+    Object.freeze({ value: "created", label: "Date Created" }),
+    Object.freeze({ value: "taken", label: "Capture Time" }),
+    Object.freeze({ value: "rating", label: "Rating" }),
+    Object.freeze({ value: "camera", label: "Camera" }),
+    Object.freeze({ value: "event", label: "Event" }),
+    Object.freeze({ value: "type", label: "Photo Type" })
+]);
+
+const PHOTO_GROUP_OPTIONS = Object.freeze([
+    Object.freeze({ value: "none", label: "None" }),
+    Object.freeze({ value: "event", label: "Events" }),
+    Object.freeze({ value: "camera", label: "Cameras" }),
+    Object.freeze({ value: "rating", label: "Ratings" }),
+    Object.freeze({ value: "favorite", label: "Favorites" }),
+    Object.freeze({ value: "review", label: "Included / Rejected" }),
+    Object.freeze({ value: "type", label: "Photo Type" })
+]);
+
+const PHOTO_VIEW_OPTIONS = Object.freeze([
+    Object.freeze({ value: "icons", label: "Grid" }),
+    Object.freeze({ value: "list", label: "List" })
 ]);
 
 function formatPhotoBytes(photo) {
-    const bytes = Number(photo?.size || photo?.file?.size || 0);
+    const bytes = Number(photo?.fileSize || photo?.size || photo?.file?.size || photo?.metadata?.size || 0);
     if (!bytes) return "Unavailable";
     if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -107,6 +135,7 @@ function PhotoBrowserSection({
     onOpenFolder,
     onRefresh,
     onChangePhotoFolder,
+    onHistoryControlsChange,
     isLoading = false,
     loadingPhotoCount = 0,
     photoFolderChange = null
@@ -129,6 +158,7 @@ function PhotoBrowserSection({
     );
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewIndex, setPreviewIndex] = useState(0);
+    const [previewSession, setPreviewSession] = useState(null);
     const [previewScale, setPreviewScale] = useState(1);
     const [previewOffset, setPreviewOffset] = useState({ x: 0, y: 0 });
     const [burstReviewGroupId, setBurstReviewGroupId] = useState(null);
@@ -136,11 +166,14 @@ function PhotoBrowserSection({
     const [burstDraftIds, setBurstDraftIds] = useState(new Set());
     const [burstReviewBusy, setBurstReviewBusy] = useState(false);
     const [inspectorFileOpen, setInspectorFileOpen] = useState(true);
+    const [inspectorTab, setInspectorTab] = useState("preview");
+    const [inspectorInfoTab, setInspectorInfoTab] = useState("metadata");
+    const [collapsedLibrarySections, setCollapsedLibrarySections] = useState(new Set());
+    const [historyRevision, setHistoryRevision] = useState(0);
     const previewStageRef = useRef(null);
     const selectedPhotoIdsRef = useRef(selectedPhotoIds);
     const previewPhotoIndexRef = useRef(0);
     const libraryHistoryRef = useRef(new PhotoLibraryHistory());
-    const previewOpenOnSpaceRef = useRef(false);
     const previewPanRef = useRef(null);
 
     const selectedPhotoIdListFromState = useCallback(() => {
@@ -152,7 +185,7 @@ function PhotoBrowserSection({
 
     const pushUndoState = useCallback(() => {
         const state = selectedPhotoIdListFromState();
-        libraryHistoryRef.current.push(
+        const changed = libraryHistoryRef.current.push(
             PhotoLibraryHistoryKind.SELECTION,
             state,
             {
@@ -160,6 +193,7 @@ function PhotoBrowserSection({
                     left.every((id, index) => id === right[index])
             }
         );
+        if (changed) setHistoryRevision(revision => revision + 1);
     }, [selectedPhotoIdListFromState]);
 
     const applySelectedIds = useCallback(targetIds => {
@@ -187,9 +221,26 @@ function PhotoBrowserSection({
     const [decisions, setDecisions] = useState(
         () => normalizePhotoDecisions(App.getPhotoDecisions())
     );
-    const [eventChapters, setEventChapters] = useState(
+    const [savedEvents, setEventChapters] = useState(
         () => normalizePhotoEventChapters(App.getPhotoEventChapters(), photos)
     );
+    const [autoEventsOpen, setAutoEventsOpen] = useState(false);
+    useEffect(() => {setAutoEventsOpen(false);}, [projectId]);
+    const [manageEvents, setManageEvents] = useState(false);
+    const eventSaving = useRef(false);
+    const eventEditing = useRef(false);
+    const newEventPhotos = useRef([]);
+    const onEventEditingChange = useCallback(active => { eventEditing.current = active; }, []);
+    const [eventBusy, setEventBusy] = useState(false);
+    const libraryDragRoot = useRef(null);
+    const libraryDragOptions = useRef(null);
+    useLayoutEffect(() => bindLibraryScrollbarVisibility(libraryDragRoot.current), [projectId]);
+    const [eventNotice, setEventNotice] = useState("");
+    useEffect(() => {
+        if (!eventNotice) return;
+        const timer = setTimeout(() => setEventNotice(""), 5000);
+        return () => clearTimeout(timer);
+    }, [eventNotice]);
     const [decisionError, setDecisionError] = useState(null);
     const [duplicateEvidence, setDuplicateEvidence] = useState(
         () => normalizePhotoDuplicateEvidence(
@@ -203,29 +254,51 @@ function PhotoBrowserSection({
     const [selectedChapterIds, setSelectedChapterIds] = useState(new Set());
     const [selectedCameraKeys, setSelectedCameraKeys] = useState(new Set());
     const [selectedPhotoKindKeys, setSelectedPhotoKindKeys] = useState(new Set());
+    const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+    const [showShortcuts, setShowShortcuts] = useState(false);
     const [contextMenu, setContextMenu] = useState(null);
+    const contextMenuRef = useRef(null);
+    useLayoutEffect(() => {
+        if (!contextMenu) return;
+        focusWithoutMovingLibrary(contextMenuRef.current);
+        return () => focusWithoutMovingLibrary(libraryDragRoot.current?.querySelector(".photo-browser-viewport"));
+    }, [!!contextMenu]);
+    useLayoutEffect(() => setContextMenu(null), [projectId, photos]);
     const decisionRevision = useRef(0);
 
     const handleContextMenu = useCallback((event, photo) => {
-        if (!photo) return;
-        if (!App.selection.isSelected(photo)) {
+        if (eventEditing.current || eventSaving.current) return;
+        event.preventDefault(); event.stopPropagation();
+        if (photo && !App.selection.isSelected(photo)) {
             App.selection.select(photo);
-            onFocusPhoto?.(photo.id);
         }
+        if (photo) onFocusPhoto?.(photo.id);
+        const bounds = document.body.getBoundingClientRect();
+        const menuHeight = Math.min(300, Math.max(60, bounds.height - 20));
         setContextMenu({
-            x: event.clientX || 120,
-            y: event.clientY || 120,
-            photo
+            x: Math.max(bounds.left + 10, Math.min(event.clientX || 120, bounds.right - 246)),
+            y: Math.max(bounds.top + 10, Math.min(event.clientY || 120, bounds.bottom - menuHeight - 10)),
+            maxHeight: menuHeight,
+            photo,
+            kind: photo ? "photos" : "background",
+            photos: photo ? libraryDragPhotos(photos, App.selection.selectedIds(), photo.id) : []
         });
-    }, [onFocusPhoto]);
+    }, [onFocusPhoto, photos]);
 
     // Metadata is filled in-place after the first render. A stable array
     // reference alone therefore cannot invalidate temporal/camera grouping.
     const photoGroupingRevision = createPhotoGroupingRevision(photos);
-    const smartEvents = useMemo(() => {
+    const automaticEvents = useMemo(() => {
         if (!photos || photos.length === 0) return [];
         return groupPhotosByEvent(photos);
     }, [photoGroupingRevision, photos]);
+    const eventChapters = useMemo(() => eventWorkspace(savedEvents, photos, automaticEvents), [savedEvents, photos, automaticEvents]);
+    const smartEvents = useMemo(() => eventChapters.items.filter(item => item.photoKeys.length).map(item => ({
+        eventId: item.chapterId, label: item.name, count: item.photoKeys.length,
+        photoIds: photos.filter(photo => item.photoKeys.includes(photoDecisionKey(photo))).map(photo => photo.id)
+    })), [eventChapters, photos]);
+    const eventsReady = photos.every(photo => !/^(jpg|jpeg)$/i.test(photo.extension) ||
+        (photo.metadataLoaded && photo.cameraMetadataLoaded) || photo.metadataReadFailed);
 
     const detectedCameras = useMemo(() => {
         if (!photos || photos.length === 0) return [];
@@ -378,6 +451,16 @@ function PhotoBrowserSection({
         selectedChapterIds.size > 0 ||
         selectedCameraKeys.size > 0 ||
         selectedPhotoKindKeys.size > 0;
+    const ratingFilterActive = preferences.ratingFilter.mode !== "any";
+    const ratingFilterSummary = preferences.ratingFilter.mode === "unrated"
+        ? "Unrated"
+        : ratingFilterActive
+            ? `${preferences.ratingFilter.mode === "atLeast"
+                ? "At least"
+                : preferences.ratingFilter.mode === "atMost"
+                    ? "At most"
+                    : "Exact"} ${preferences.ratingFilter.value || 1} star${preferences.ratingFilter.value === 1 ? "" : "s"}`
+            : "Any rating";
 
     const cullingSummary = useMemo(
         () => summarizeCulling(photos, decisionForPhoto, App.getPhotoBursts ? App.getPhotoBursts() : []),
@@ -386,50 +469,55 @@ function PhotoBrowserSection({
     const selectedPhotos = useMemo(() => photos.filter(photo => selectedPhotoIds.has(photo?.id)),
         [photos, selectedPhotoIds]
     );
-    const previewPhotos = useMemo(() => selectedPhotoIds.size
-        ? visiblePhotos.filter(photo => selectedPhotoIds.has(photo?.id))
-        : visiblePhotos,
-    [selectedPhotoIds, visiblePhotos]);
+    const selectedCommonRating = useMemo(() => {
+        if (!selectedPhotos.length) return 0;
+        const rating = decisionForPhoto(selectedPhotos[0]).rating || 0;
+        return selectedPhotos.every(photo =>
+            (decisionForPhoto(photo).rating || 0) === rating
+        ) ? rating : 0;
+    }, [decisionForPhoto, selectedPhotos]);
+    const selectedAllFavorite = selectedPhotos.length > 0 && selectedPhotos.every(
+        photo => decisionForPhoto(photo).favorite
+    );
+    const selectedAllRejected = selectedPhotos.length > 0 && selectedPhotos.every(
+        photo => decisionForPhoto(photo).culling === CullingStatus.REJECT
+    );
+    const previewCandidates = useMemo(() => previewSessionPhotos(visiblePhotos, selectedPhotoIds),
+        [selectedPhotoIds, visiblePhotos]);
+    const previewPhotos = previewSession?.photos || previewCandidates;
     const previewPhoto = previewPhotos[previewIndex] || null;
     const selectedPreviewPhoto = selectedPhotos[0] ||
         previewPhotos.find(photo => photo?.id === focusedPhotoId) ||
         previewPhotos[0] ||
         null;
-    const clampPreviewScale = useCallback(value => {
-        return Math.max(0.25, Math.min(4, value));
-    }, []);
 
     const closePreview = useCallback(() => {
         setIsPreviewOpen(false);
-        previewOpenOnSpaceRef.current = false;
+        setPreviewSession(null);
         previewPhotoIndexRef.current = 0;
         setPreviewScale(1);
         setPreviewOffset({ x: 0, y: 0 });
     }, []);
 
     const openSelectedPreview = useCallback(targetPhoto => {
-        if (!previewPhotos.length) return;
+        if (!previewCandidates.length || !reviewPreviewGate.acquire()) return;
+        setPreviewSession({ photos: previewCandidates, selectionOnly: selectedPhotoIds.size > 1 });
         const targetId = targetPhoto?.id;
         const index = targetId
-            ? previewPhotos.findIndex(photo => photo?.id === targetId)
+            ? previewCandidates.findIndex(photo => photo?.id === targetId)
             : 0;
         const normalized = index >= 0 ? index : 0;
         setPreviewIndex(normalized);
         previewPhotoIndexRef.current = normalized;
-        setPreviewScale(1);
-        setPreviewOffset({ x: 0, y: 0 });
         setIsPreviewOpen(true);
-    }, [previewPhotos]);
+    }, [previewCandidates, selectedPhotoIds]);
 
     const setPreviewPhoto = useCallback((nextIndex) => {
         if (!previewPhotos.length) {
             closePreview();
             return;
         }
-        const normalized = (nextIndex + previewPhotos.length) % previewPhotos.length;
-        const next = normalized < 0
-            ? previewPhotos.length - 1
-            : normalized;
+        const next = ((nextIndex % previewPhotos.length) + previewPhotos.length) % previewPhotos.length;
         setPreviewIndex(next);
         previewPhotoIndexRef.current = next;
         const photo = previewPhotos[next];
@@ -448,141 +536,70 @@ function PhotoBrowserSection({
         }
     }, [openSelectedPreview, selectedPreviewPhoto]);
 
+    const [burstStage, setBurstStage] = useState({ width: 1, height: 1 });
+    const burstGeometry = previewGeometry(activeBurstPhoto, burstStage.width, burstStage.height);
+    const burstProfile = useReviewRendering(activeBurstPhoto, burstGeometry, previewScale);
     const fitPreview = useCallback(() => {
         setPreviewScale(1);
         setPreviewOffset({ x: 0, y: 0 });
+        previewPanRef.current = null;
     }, []);
-
-    const changePreviewScale = useCallback(delta => {
-        setPreviewScale(previous => {
-            const next = clampPreviewScale(previous + delta);
-            if (next === 1) setPreviewOffset({ x: 0, y: 0 });
-            return next;
-        });
-    }, [clampPreviewScale]);
-
-    const togglePreviewScale = useCallback(() => {
-        setPreviewScale(previous => {
-            if (previous > 1) {
-                setPreviewOffset({ x: 0, y: 0 });
-                return 1;
-            }
-            return 2;
-        });
-    }, []);
-
-    const previewDetails = useMemo(() => {
-        if (!previewPhoto) return [];
-        const fileSize = Number(previewPhoto.size || previewPhoto.file?.size || 0);
-        const dimension = previewPhoto.width > 0 && previewPhoto.height > 0
-            ? `${previewPhoto.width} × ${previewPhoto.height}`
-            : null;
-        const shotDate = previewPhoto.modified || previewPhoto.created;
-        const camera = previewPhoto.camera?.model ||
-            previewPhoto.model ||
-            previewPhoto.cameraModel ||
-            previewPhoto.camera ||
-            null;
-        const cameraIdentity = cameraIdentityForPhoto(previewPhoto);
-        const rating = decisionForPhoto(previewPhoto).rating || 0;
-        return [
-            `File: ${previewPhoto.name || "Unknown"}`,
-            shotDate ? `Date: ${new Date(shotDate).toLocaleString()}` : null,
-            dimension ? `Dimensions: ${dimension}` : null,
-            fileSize > 0
-                ? `Size: ${Math.round(fileSize / 1024).toLocaleString()} KB`
-                : null,
-            `Event: ${eventLabelForPhoto(previewPhoto) || "Unassigned"}`,
-            `Camera: ${cameraIdentity?.tag || "—"}${camera ? ` · ${camera}` : ""}`,
-            `Rating: ${"★".repeat(rating)}${"☆".repeat(5 - rating)}`
-        ].filter(Boolean);
-    }, [cameraIdentityForPhoto, decisionForPhoto, eventLabelForPhoto, previewPhoto]);
-
-    const handlePreviewWheel = useCallback(event => {
-        if ((!isPreviewOpen || !previewPhoto) && !activeBurstPhoto) return;
-        event.preventDefault();
-        const delta = event.deltaY > 0 ? -0.12 : 0.12;
-        const bounds = previewStageRef.current?.getBoundingClientRect?.();
-        setPreviewScale(previous => {
-            const next = clampPreviewScale(previous + delta);
-            if (next === previous) return previous;
-            if (next === 1) {
-                setPreviewOffset({ x: 0, y: 0 });
-                return next;
-            }
-            if (bounds && previous > 0) {
-                const pointerX = event.clientX - bounds.left - bounds.width / 2;
-                const pointerY = event.clientY - bounds.top - bounds.height / 2;
-                const ratio = next / previous;
-                setPreviewOffset(current => ({
-                    x: pointerX - (pointerX - current.x) * ratio,
-                    y: pointerY - (pointerY - current.y) * ratio
-                }));
-            }
-            return next;
-        });
-    }, [activeBurstPhoto, clampPreviewScale, isPreviewOpen, previewPhoto]);
-
-    const handlePreviewMouseDown = useCallback(event => {
-        if (
-            event.button !== 0 ||
-            (!isPreviewOpen && !activeBurstGroup) ||
-            previewScale <= 1
-        ) return;
-        event.preventDefault();
-        previewPanRef.current = {
-            dragging: true,
-            startX: event.clientX,
-            startY: event.clientY,
-            originX: previewOffset.x,
-            originY: previewOffset.y
+    useLayoutEffect(() => {
+        if (!activeBurstPhoto) return;
+        fitPreview();
+        const measure = () => {
+            const rect = previewStageRef.current?.getBoundingClientRect();
+            if (rect) setBurstStage({ width: rect.width, height: rect.height });
         };
-    }, [activeBurstGroup, isPreviewOpen, previewOffset.x, previewOffset.y, previewScale]);
-
-    const handlePreviewMouseMove = useCallback(event => {
-        if (!previewPanRef.current?.dragging) return;
-        const drag = previewPanRef.current;
-        setPreviewOffset({
-            x: drag.originX + (event.clientX - drag.startX),
-            y: drag.originY + (event.clientY - drag.startY)
-        });
-    }, []);
-
-    const handlePreviewMouseUp = useCallback(() => {
-        if (previewPanRef.current?.dragging) {
-            previewPanRef.current.dragging = false;
-        }
-    }, []);
-
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, [activeBurstPhoto?.id, fitPreview]);
+    const changePreviewScale = (delta, anchor) => {
+        const next = zoomPreviewAt({ scale: previewScale, offset: previewOffset,
+            geometry: burstGeometry, stage: burstStage }, reviewZoomStep(previewScale, delta), anchor);
+        setPreviewScale(next.scale);
+        setPreviewOffset(next.offset);
+    };
+    const togglePreviewScale = fitPreview;
+    const handlePreviewWheel = event => {
+        event.preventDefault();
+        if (event.deltaY) changePreviewScale(event.deltaY > 0 ? -0.12 : 0.12,
+            reviewPointer(event, previewStageRef.current.getBoundingClientRect()));
+    };
+    const handlePreviewMouseDown = event => {
+        if (event.button !== 0 || previewScale <= 1) return;
+        event.preventDefault();
+        previewPanRef.current = { x: event.clientX, y: event.clientY, offset: previewOffset };
+    };
     useEffect(() => {
-        if (!isPreviewOpen && !activeBurstGroup) {
-            previewPanRef.current = null;
-            return undefined;
-        }
-        window.addEventListener("mousemove", handlePreviewMouseMove);
-        window.addEventListener("mouseup", handlePreviewMouseUp);
-        return () => {
-            window.removeEventListener("mousemove", handlePreviewMouseMove);
-            window.removeEventListener("mouseup", handlePreviewMouseUp);
-            if (previewPanRef.current) {
-                previewPanRef.current.dragging = false;
-            }
+        if (!activeBurstPhoto) return;
+        let frame;
+        const move = event => {
+            const drag = previewPanRef.current;
+            if (!drag) return;
+            const offset = clampPreviewPan({
+                x: drag.offset.x + event.clientX - drag.x,
+                y: drag.offset.y + event.clientY - drag.y
+            }, burstGeometry, previewScale, burstStage);
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => setPreviewOffset(offset));
         };
-    }, [activeBurstGroup, handlePreviewMouseMove, handlePreviewMouseUp, isPreviewOpen]);
+        const stop = () => { previewPanRef.current = null; };
+        window.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", stop);
+        return () => {
+            cancelAnimationFrame(frame);
+            window.removeEventListener("mousemove", move);
+            window.removeEventListener("mouseup", stop);
+        };
+    }, [activeBurstPhoto?.id, previewScale, burstStage]);
 
     useEffect(() => {
         if (isPreviewOpen && !previewPhoto) {
             closePreview();
         }
     }, [closePreview, isPreviewOpen, previewPhoto]);
-
-    useEffect(() => {
-        if (!isPreviewOpen) return;
-        if (!selectedPhotoIds.size) return;
-        if (!selectedPhotoIds.has(previewPhoto?.id)) {
-            openSelectedPreview(selectedPhotos[0] || previewPhoto);
-        }
-    }, [isPreviewOpen, openSelectedPreview, previewPhoto, selectedPhotos, selectedPhotoIds]);
 
     useEffect(() => {
         setPreferences(readSavedPreferences());
@@ -664,7 +681,7 @@ function PhotoBrowserSection({
         setSelectedCameraKeys(new Set());
         setSelectedPhotoKindKeys(new Set());
         setCullingFilter(CullingFilterMode.ALL);
-        updatePreferences(previous => ({ sort: previous.sort }));
+        updatePreferences(previous => clearPhotoBrowserFilters(previous));
     }, [updatePreferences]);
 
     const toggleFacet = useCallback((setter, value, event) => {
@@ -678,6 +695,15 @@ function PhotoBrowserSection({
             const next = new Set(previous);
             if (next.has(value)) next.delete(value);
             else next.add(value);
+            return next;
+        });
+    }, []);
+
+    const toggleLibrarySection = useCallback(section => {
+        setCollapsedLibrarySections(previous => {
+            const next = new Set(previous);
+            if (next.has(section)) next.delete(section);
+            else next.add(section);
             return next;
         });
     }, []);
@@ -710,10 +736,11 @@ function PhotoBrowserSection({
     }, []);
 
     const pushDecisionUndo = useCallback(() => {
-        libraryHistoryRef.current.push(
+        const changed = libraryHistoryRef.current.push(
             PhotoLibraryHistoryKind.DECISION,
             decisions
         );
+        if (changed) setHistoryRevision(revision => revision + 1);
     }, [decisions]);
 
     const openBurstReview = useCallback(group => {
@@ -729,12 +756,25 @@ function PhotoBrowserSection({
         );
         setBurstDraftIds(new Set(selectedIds.length
             ? selectedIds
-            : [targetGroup.bestPhotoId]));
+            : targetGroup.hasQualityEvidence ? [targetGroup.bestPhotoId] : []));
         setBurstReviewIndex(Math.max(0, targetGroup.photoIds.indexOf(targetGroup.bestPhotoId)));
         setPreviewScale(1);
         setPreviewOffset({ x: 0, y: 0 });
         setBurstReviewGroupId(targetGroup.groupId);
     }, [burstGroups, burstReviews, photos, reviewedBurstIds]);
+
+    useLayoutEffect(() => {
+        if (!burstReviewGroupId) return;
+        const restoreScrollbars = suspendLibraryReviewScrollbars();
+        document.body.classList.add("review-open");
+        const dialog = previewStageRef.current.closest('[role="dialog"]');
+        focusWithoutMovingLibrary(dialog);
+        const release = bindPhotoReviewPointerFocus(dialog);
+        return () => {
+            release(); restoreScrollbars(); document.body.classList.remove("review-open");
+            focusWithoutMovingLibrary(libraryDragRoot.current?.querySelector(".photo-browser-viewport"));
+        };
+    }, [burstReviewGroupId]);
 
     const closeBurstReview = useCallback(() => {
         setBurstReviewGroupId(null);
@@ -849,23 +889,37 @@ function PhotoBrowserSection({
     }, [changePhotoDecision, previewPhoto, pushDecisionUndo]);
 
     const pushEventUndo = useCallback(() => {
-        libraryHistoryRef.current.push(
+        const changed = libraryHistoryRef.current.push(
             PhotoLibraryHistoryKind.EVENT,
             eventChapters
         );
+        if (changed) setHistoryRevision(revision => revision + 1);
     }, [eventChapters]);
 
-    const moveSelectedToNewEvent = useCallback(() => {
-        if (!selectedPhotos.length) return;
-        pushEventUndo();
-        App.createPhotoEventChapter(selectedPhotos)
-            .then(setEventChapters)
-            .catch(error => console.warn(
-                "Move selected photos to event chapter:",
-                error
-            ));
-    }, [pushEventUndo, selectedPhotos]);
+    const saveEventEdit = async (action, id, name, targets = selectedPhotos) => {
+        if (!eventsReady || eventSaving.current) throw new Error("Events are still loading or saving.");
+        eventSaving.current = true;
+        setEventBusy(true);
+        try {
+            const next = editEvent(eventChapters, action, id, targets.map(photoDecisionKey), name || "New event");
+            const saved = await App.savePhotoEventChapters(next, "PHOTO_EVENT_EDIT");
+            pushEventUndo(); setEventChapters(saved);
+            if (action === "move" || action === "new") {
+                const destination = action === "new" ? name : saved.items.find(item => item.chapterId === id)?.name;
+                setEventNotice(`${targets.length} photo${targets.length === 1 ? "" : "s"} moved to ${destination || "event"}. Undo is available above.`);
+            }
+            setSelectedChapterIds(new Set()); setSelectedEventIds(new Set());
+        } finally { eventSaving.current = false; setEventBusy(false); }
+    };
 
+    const moveSelectedToNewEvent = useCallback((targets = selectedPhotos) => {
+        const captured = Array.isArray(targets) ? targets : selectedPhotos;
+        if (!captured.length) return;
+        newEventPhotos.current = [...captured];
+        setManageEvents(true);
+    }, [selectedPhotos]);
+
+    const eventFailed = () => setDecisionError("Event move failed. Please retry.");
     const moveSelectedToEvent = useCallback(chapterId => {
         if (!chapterId || !selectedPhotos.length) return;
         if (chapterId === "new") {
@@ -873,17 +927,13 @@ function PhotoBrowserSection({
             return;
         }
         if (chapterId === "unassigned") {
-            pushEventUndo();
-            App.removePhotosFromEventChapters(selectedPhotos)
-                .then(setEventChapters)
-                .catch(error => console.warn("Remove photos from event:", error));
+            saveEventEdit("restore")
+                .catch(eventFailed);
             return;
         }
-        pushEventUndo();
-        App.assignPhotosToEventChapter(chapterId, selectedPhotos)
-            .then(setEventChapters)
-            .catch(error => console.warn("Move photos to event:", error));
-    }, [moveSelectedToNewEvent, pushEventUndo, selectedPhotos]);
+        saveEventEdit("move", chapterId)
+            .catch(eventFailed);
+    }, [moveSelectedToNewEvent, eventChapters, eventsReady, selectedPhotos]);
 
     const handleEventDrop = useCallback((event, chapterId) => {
         event.preventDefault();
@@ -894,11 +944,39 @@ function PhotoBrowserSection({
             ? selectedPhotos
             : [draggedPhoto];
         if (!targets.length) return;
-        pushEventUndo();
-        App.assignPhotosToEventChapter(chapterId, targets)
-            .then(setEventChapters)
-            .catch(error => console.warn("Drop photos on event:", error));
-    }, [photos, pushEventUndo, selectedPhotos]);
+        saveEventEdit("move", chapterId, "", targets)
+            .catch(eventFailed);
+    }, [photos, eventChapters, eventsReady, selectedPhotos]);
+
+    libraryDragOptions.current = {
+        enabled: () => eventsReady && !eventSaving.current && !eventEditing.current && !manageEvents && !contextMenu && !isPreviewOpen && !activeBurstGroup,
+        photos: id => libraryDragPhotos(photos, App.selection.selectedIds(), id),
+        commit: (drag, target) => {
+            if (drag.kind === "photos" && target.id === "new-event") {
+                moveSelectedToNewEvent(drag.photos);
+                return false; // Naming is pending; do not show a successful move yet.
+            }
+            // Membership uses the selection captured at lift, even if focus changes.
+            if (!eventChapters.items.some(item => item.chapterId === target.id) ||
+                (drag.kind === "photos" && drag.photos.some(photo => !photos.includes(photo)))) {
+                throw new Error("The drag source is no longer in this Library.");
+            }
+            return drag.kind === "event"
+                ? saveEventEdit(target.mode, drag.id, target.id)
+                : saveEventEdit("move", target.id, "", drag.photos);
+        },
+        retainSource: source => ThumbnailService.retainSource(source),
+        releaseSource: source => ThumbnailService.releaseSource(source),
+        onError: eventFailed
+    };
+    useLayoutEffect(() => bindLibraryDrag(libraryDragRoot.current, {
+        enabled: () => libraryDragOptions.current.enabled(),
+        photos: id => libraryDragOptions.current.photos(id),
+        commit: (drag, target) => libraryDragOptions.current.commit(drag, target),
+        retainSource: source => libraryDragOptions.current.retainSource(source),
+        releaseSource: source => libraryDragOptions.current.releaseSource(source),
+        onError: error => libraryDragOptions.current.onError(error)
+    }), [projectId, photos]);
 
     const selectAllPhotos = useCallback(() => {
         pushUndoState();
@@ -923,26 +1001,6 @@ function PhotoBrowserSection({
     const duplicateReady =
         duplicateEvidence.status === PhotoDuplicateStatus.COMPLETE ||
         duplicateEvidence.status === PhotoDuplicateStatus.PARTIAL;
-    const duplicateNameByKey = new Map(photos.map(photo => [
-        photoDecisionKey(photo),
-        photo?.name
-    ]));
-    const duplicateGroupPreview = duplicateEvidence.groups
-        .slice(0, 3)
-        .map((group, index) => {
-            const names = group.members.slice(0, 2)
-                .map(member => duplicateNameByKey.get(member.photoKey))
-                .filter(Boolean);
-            const remaining = Math.max(0, group.members.length - names.length);
-            return `Group ${index + 1}: ${names.join(", ")}${remaining ? ` +${remaining}` : ""}`;
-        })
-        .filter(label => !label.endsWith(": "))
-        .join(" · ");
-    const duplicateSummary = duplicateReady
-        ? `${duplicateEvidence.groups.length} ${duplicateEvidence.groups.length === 1 ? "group" : "groups"} · ${duplicateEvidence.duplicatePhotos} duplicate ${duplicateEvidence.duplicatePhotos === 1 ? "photo" : "photos"} · ${duplicateEvidence.potentialSavingsBytes.toLocaleString()} bytes recoverable${duplicateEvidence.failures.length ? ` · ${duplicateEvidence.failures.length} unreadable or changed` : ""}${duplicateGroupPreview ? ` · ${duplicateGroupPreview}` : ""}`
-        : duplicateEvidence.status === PhotoDuplicateStatus.STALE
-            ? "Duplicate analysis is stale. Run it again."
-            : "Duplicate analysis has not been run.";
 
     useEffect(() => {
         if (duplicateReady || !preferences.duplicatesOnly) return;
@@ -965,6 +1023,12 @@ function PhotoBrowserSection({
         });
     }, []);
 
+    const libraryControls = [
+        { id: "photo-browser-view", label:"View", value:viewMode, options:PHOTO_VIEW_OPTIONS, onChange:switchView},
+        { id: "photo-browser-sort", label:"Sort", value:preferences.sort.field, options:PHOTO_SORT_OPTIONS, onChange:field => updateSort({field})},
+        { id: "photo-browser-group", label:"Group", value:groupMode, options:PHOTO_GROUP_OPTIONS, onChange:value => setGroupMode(value || "none")}
+    ];
+
     useEffect(() => {
         PhotoBrowserPerformance.completeViewSwitch(viewMode);
         PhotoBrowserPerformance.trace("BROWSER_VIEW_MODE", { viewMode });
@@ -976,17 +1040,15 @@ function PhotoBrowserSection({
     }, [visiblePhotos]);
 
     useEffect(() => {
-        if (focusedPhotoId && !visiblePhotos.some(
-            photo => photo?.id === focusedPhotoId
-        )) {
-            onFocusPhoto?.(null);
-        }
-    }, [focusedPhotoId, onFocusPhoto, visiblePhotos]);
+        const next = visibleLibraryFocus(visiblePhotos, focusedPhotoId, selectedPhotoIds);
+        if (next !== focusedPhotoId) onFocusPhoto?.(next);
+    }, [focusedPhotoId, onFocusPhoto, visiblePhotos, selectedPhotoIds]);
 
     const focusPhoto = useCallback(photo => {
         if (!photo?.id) return;
         onFocusPhoto?.(photo.id);
     }, [onFocusPhoto]);
+    const photoNavigationRef = useRef(null);
 
     useEffect(() => App.selection.subscribe(selectedIds => {
         const snapshot = new Set(selectedIds);
@@ -1038,6 +1100,7 @@ function PhotoBrowserSection({
             libraryHistoryRef.current.undo(currentHistorySnapshot),
             "undo"
         );
+        setHistoryRevision(revision => revision + 1);
     }, [applyHistoryEntry, currentHistorySnapshot]);
 
     const handleRedoSelection = useCallback(() => {
@@ -1045,7 +1108,19 @@ function PhotoBrowserSection({
             libraryHistoryRef.current.redo(currentHistorySnapshot),
             "redo"
         );
+        setHistoryRevision(revision => revision + 1);
     }, [applyHistoryEntry, currentHistorySnapshot]);
+
+    useEffect(() => {
+        if (typeof onHistoryControlsChange !== "function") return undefined;
+        onHistoryControlsChange({
+            undo: handleUndoSelection,
+            redo: handleRedoSelection,
+            canUndo: libraryHistoryRef.current.undoStack.length > 0,
+            canRedo: libraryHistoryRef.current.redoStack.length > 0
+        });
+        return () => onHistoryControlsChange(null);
+    }, [handleRedoSelection, handleUndoSelection, historyRevision, onHistoryControlsChange]);
 
     const resolveRatingShortcut = eventKey => {
         if (eventKey === "0") return 0;
@@ -1069,43 +1144,50 @@ function PhotoBrowserSection({
         }
     }, [pushUndoState]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const handleKeyDown = event => {
-            const target = event.target?.closest
-                ? event.target
-                : event.target?.parentElement;
-            const isEditable = !!target?.closest?.(
-                "input, textarea, select, [contenteditable]"
-            );
-            const key = event.key;
+            if (contextMenu) {
+                if (eventEditing.current) return;
+                if (photoReviewKey(event) === "Escape") {
+                    event.preventDefault(); event.stopPropagation(); setContextMenu(null);
+                }
+                return;
+            }
+            if (eventEditing.current || manageEvents || reviewPreviewGate.isActive() || (!activeBurstGroup && event.defaultPrevented) || event.isComposing) return;
+            const isEditable = blocksPhotoReviewKeys(event.target);
+            const key = photoReviewKey(event);
             const lowerKey = key?.toLowerCase();
             const command = event.ctrlKey || event.metaKey;
             const isSelectAll =
                 command && (lowerKey === "a" || event.code === "KeyA");
             const isUndo =
-                command && (lowerKey === "z" || event.code === "KeyZ");
+                command && !event.shiftKey && (lowerKey === "z" || event.code === "KeyZ");
             const isRedo =
                 command && (lowerKey === "y" ||
                     (event.shiftKey && (lowerKey === "z" || event.code === "KeyZ")));
             const isDeselectAll =
                 command && (lowerKey === "d" || event.code === "KeyD");
 
-            if (isEditable) return;
+            if (isEditable && !activeBurstGroup) return;
+            // Modified letters belong to the host (e.g. Cmd+R), not decisions.
+            if (event.altKey || (command && !isSelectAll && !isUndo && !isRedo && !isDeselectAll)) return;
+            if (event.repeat && (lowerKey === " " || lowerKey === "r" || lowerKey === "f" || /^[0-5]$/.test(lowerKey))) return;
 
             if (activeBurstGroup) {
-                if (lowerKey === "escape") {
+                event.stopPropagation();
+                if (lowerKey === "escape" || lowerKey === " ") {
                     event.preventDefault();
                     closeBurstReview();
-                } else if (event.key === "ArrowLeft") {
+                } else if (key === "ArrowLeft" || key === "ArrowUp") {
                     event.preventDefault();
                     setBurstReviewIndex(previous => Math.max(0, previous - 1));
-                } else if (event.key === "ArrowRight") {
+                } else if (key === "ArrowRight" || key === "ArrowDown") {
                     event.preventDefault();
                     setBurstReviewIndex(previous => Math.min(
                         activeBurstPhotos.length - 1,
                         previous + 1
                     ));
-                } else if (event.key === "Enter") {
+                } else if (key === "Enter") {
                     event.preventDefault();
                     toggleBurstDraft(activeBurstPhoto);
                 }
@@ -1114,68 +1196,8 @@ function PhotoBrowserSection({
 
             const hasPreview = isPreviewOpen && !!previewPhoto;
             if (hasPreview) {
-                if (lowerKey === "escape") {
-                    event.preventDefault();
-                    closePreview();
-                    return;
-                }
-                if (lowerKey === " " || lowerKey === "spacebar") {
-                    event.preventDefault();
-                    return;
-                }
-                if (lowerKey === "r") {
-                    event.preventDefault();
-                    changePreviewDecision({
-                        culling: decisionForPhoto(previewPhoto)?.culling === CullingStatus.REJECT
-                            ? CullingStatus.UNRATED
-                            : CullingStatus.REJECT
-                    });
-                    return;
-                }
-                if (lowerKey === "f") {
-                    event.preventDefault();
-                    changePreviewDecision({
-                        favorite: !decisionForPhoto(previewPhoto)?.favorite
-                    });
-                    return;
-                }
-
-                const shortcutRating = resolveRatingShortcut(lowerKey);
-                if (shortcutRating != null) {
-                    event.preventDefault();
-                    changePreviewDecision({
-                        rating: shortcutRating > 0 &&
-                            decisionForPhoto(previewPhoto)?.rating === shortcutRating
-                            ? 0
-                            : shortcutRating
-                    });
-                    return;
-                }
-
-                switch (event.key) {
-                    case "ArrowLeft":
-                    case "ArrowUp": {
-                        event.preventDefault();
-                        movePreviewBy(-1);
-                        return;
-                    }
-                    case "ArrowRight":
-                    case "ArrowDown": {
-                        event.preventDefault();
-                        movePreviewBy(1);
-                        return;
-                    }
-                    case "Home":
-                        event.preventDefault();
-                        setPreviewPhoto(0);
-                        return;
-                    case "End":
-                        event.preventDefault();
-                        setPreviewPhoto(previewPhotos.length - 1);
-                        return;
-                    default:
-                        return;
-                }
+                // The preview owns its shortcuts and button focus.
+                return;
             }
 
             if (isSelectAll && visiblePhotos.length) {
@@ -1211,7 +1233,7 @@ function PhotoBrowserSection({
             if (lowerKey === " " || lowerKey === "spacebar") {
                 if (!previewPhotos.length) return;
                 event.preventDefault();
-                previewOpenOnSpaceRef.current = true;
+                event.stopPropagation();
                 previewSelectedSet();
                 return;
             }
@@ -1246,22 +1268,13 @@ function PhotoBrowserSection({
             ));
             const pageSize = 10;
 
-            switch (event.key) {
+            switch (key) {
                 case "ArrowLeft":
-                case "ArrowUp": {
-                    event.preventDefault();
-                    const next = visiblePhotos[Math.max(0, index - 1)];
-                    if (next) performSelectionMove(next, event.shiftKey, command);
-                    focusPhoto(next);
-                    return;
-                }
+                case "ArrowUp":
                 case "ArrowRight":
                 case "ArrowDown": {
                     event.preventDefault();
-                    const next = visiblePhotos[Math.min(
-                        visiblePhotos.length - 1,
-                        index + 1
-                    )];
+                    const next = photoNavigationRef.current?.(focusedPhotoId, key);
                     if (next) performSelectionMove(next, event.shiftKey, command);
                     focusPhoto(next);
                     return;
@@ -1305,44 +1318,26 @@ function PhotoBrowserSection({
             }
         };
 
-        const handleKeyUp = event => {
-            const key = event.key?.toLowerCase();
-            if (key === " " || key === "spacebar") {
-                if (previewOpenOnSpaceRef.current) {
-                    event.preventDefault();
-                    closePreview();
-                }
-            }
-        };
-
         // UXP routes panel key events through the document focus path; window
         // listeners can miss Cmd/Ctrl+A before it bubbles. Capture preserves
         // the focused browser/control while intercepting the host shortcut.
-        document.addEventListener("keydown", handleKeyDown, true);
-        document.addEventListener("keyup", handleKeyUp, true);
-        return () => {
-            document.removeEventListener("keydown", handleKeyDown, true);
-            document.removeEventListener("keyup", handleKeyUp, true);
-        };
+        return bindPhotoReviewKeys(handleKeyDown);
     }, [
+        contextMenu,
+        manageEvents,
         clearSelected,
         activeBurstGroup,
         activeBurstPhoto,
         activeBurstPhotos.length,
         closeBurstReview,
-        changePreviewDecision,
-        closePreview,
         focusedPhotoId,
         focusPhoto,
         handleRedoSelection,
         handleUndoSelection,
-        movePreviewBy,
         performSelectionMove,
-        previewOpenOnSpaceRef,
         previewPhoto,
         decisionForPhoto,
         previewPhotos.length,
-        setPreviewPhoto,
         isPreviewOpen,
         openBurstReview,
         previewSelectedSet,
@@ -1356,260 +1351,127 @@ function PhotoBrowserSection({
     ]);
 
     return (
-        <section className="photo-browser-shell" aria-label="Photo browser">
-            {/* Primary Action Bar (Row 1) */}
-            <div className="photo-browser-toolbar" role="toolbar" aria-label="Primary photo controls">
-                {/* 1. View / Source Group */}
-                <div className="photo-browser-toolbar-group photo-browser-view-group" aria-label="View and source options">
-                    {[
-                        ["icons", "▦", "Icons"],
-                        ["list", "☷", "List"]
-                    ].map(([mode, icon, label]) => (
-                        <button
-                            key={mode}
-                            type="button"
-                            onClick={() => switchView(mode)}
-                            aria-pressed={viewMode === mode}
-                            aria-label={`Show photos in ${label.toLowerCase()} view`}
-                            title={`${label} view`}
-                            className={`photo-browser-control photo-browser-view-button${viewMode === mode ? " is-active" : ""}`}
-                        >
-                            <span className="photo-browser-control-icon" aria-hidden="true">{icon}</span>
-                            {label}
-                        </button>
-                    ))}
-                </div>
+        <section ref={libraryDragRoot} className="photo-browser-shell" aria-label="Photo browser">
+            <nav className="photo-workflow-tabs" aria-label="Photos workflow">
+                <button type="button" className="is-active" aria-current="page">Library</button>
+                <button type="button" disabled title="Complete Library review before sequencing">Sequence <span>⌾</span></button>
+                <button type="button" disabled title="Complete Sequence before album selection">Album Selects <span>⌾</span></button>
+            </nav>
 
-                {/* 2. Discovery Group */}
-                <div className="photo-browser-toolbar-group photo-browser-search-group" aria-label="Search">
-                    <input
-                        id="photo-browser-search"
-                        type="search"
-                        value={preferences.search}
-                        onChange={event => updatePreferences(
-                            { search: event.target.value },
-                            { persist: false }
-                        )}
-                        onBlur={() => persistPreferences(preferences)}
-                        onKeyDown={event => {
-                            if (event.key === "Enter") {
-                                persistPreferences(preferences);
-                                event.currentTarget.blur?.();
-                            }
-                        }}
-                        className="photo-browser-search-input photo-browser-control"
-                        placeholder="🔍 Search filename…"
-                        aria-label="Search photos by filename"
-                    />
-                </div>
-
-                {/* 3. Sort & Selection Group */}
-                <div className="photo-browser-toolbar-group photo-browser-sort-group" aria-label="Sort and selection">
-                    <UxpDropdown
-                        id="photo-browser-sort"
-                        value={groupMode === "none"
-                            ? `sort:${preferences.sort.field}`
-                            : `group:${groupMode}`}
-                        options={PHOTO_SORT_OPTIONS}
-                        onValueChange={value => {
-                            const [kind, field] = String(value).split(":");
-                            if (kind === "sort") {
-                                setGroupMode("none");
-                                updateSort({ field });
-                            } else {
-                                setGroupMode(field || "none");
-                            }
-                        }}
-                        className="photo-browser-sort-select photo-browser-control"
-                        ariaLabel="Sort and group photos"
-                        title="Sort and group photos"
-                    />
-                    <button
-                        type="button"
-                        onClick={() => updateSort({ direction: preferences.sort.direction === "asc" ? "desc" : "asc" })}
-                        title={`Sort ${preferences.sort.direction === "asc" ? "ascending" : "descending"}`}
-                        aria-label="Toggle sort direction"
-                        className="photo-browser-control photo-browser-direction-button"
-                    >
-                        {preferences.sort.direction === "asc" ? "↑" : "↓"}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={selectAllPhotos}
-                        disabled={!visiblePhotos.length}
-                        className="photo-browser-control"
-                        title="Select all photos"
-                        aria-label="Select all photos"
-                    >
-                        Select All
-                    </button>
-                    <button
-                        type="button"
-                        onClick={clearSelected}
-                        disabled={!selectedCount}
-                        className="photo-browser-control"
-                        title="Deselect all photos"
-                        aria-label="Deselect all photos"
-                    >
-                        Deselect
-                    </button>
-                </div>
-                <div className="photo-browser-toolbar-group photo-browser-selected-actions-group">
-                    <button
-                        type="button"
-                        onClick={previewSelectedSet}
-                        disabled={!previewPhotos.length}
-                        className="photo-browser-control"
-                        title={selectedPhotos.length ? "Preview selected photos" : "Preview visible photos"}
-                        aria-label={selectedPhotos.length ? "Preview selected photos" : "Preview visible photos"}
-                    >
-                        Preview
-                    </button>
-                    {[1, 2, 3, 4, 5].map(rating => (
-                        <button
-                            key={rating}
-                            type="button"
-                            onClick={() => setSelectedRating(rating)}
-                            disabled={!selectedPhotos.length}
-                            className="photo-browser-control photo-browser-rating-action"
-                            title={`Assign ${rating}-star rating`}
-                            aria-label={`Assign ${rating}-star rating`}
-                        >
-                            {rating}★
-                        </button>
-                    ))}
-                    <button
-                        type="button"
-                        onClick={() => setSelectedRating(0)}
-                        disabled={!selectedPhotos.length}
-                        className="photo-browser-control"
-                        title="Clear rating"
-                        aria-label="Clear rating"
-                    >
-                        Unrate
-                    </button>
-                    <button
-                        type="button"
-                        onClick={setSelectedFavorite}
-                        disabled={!selectedPhotos.length}
-                        className="photo-browser-control"
-                        title="Toggle favourite"
-                        aria-label="Toggle favourite"
-                    >
-                        ❤
-                    </button>
-                    <button
-                        type="button"
-                        onClick={rejectSelected}
-                        disabled={!selectedPhotos.length}
-                        className="photo-browser-control"
-                        title="Toggle rejected state for selected photos"
-                        aria-label="Reject or unreject selected photos"
-                    >
-                        Reject
-                    </button>
-                    <button
-                        type="button"
-                        onClick={moveSelectedToNewEvent}
-                        disabled={!selectedPhotos.length}
-                        className="photo-browser-control"
-                        title="Create a new event from selected photos"
-                        aria-label="Create new event from selected photos"
-                    >
-                        New Event
-                    </button>
-                    <UxpDropdown
-                        value=""
-                        options={[
-                            { value: "", label: "Move to Event…" },
-                            ...eventChapters.items.map(chapter => ({
-                                value: chapter.chapterId,
-                                label: `${chapter.name} (${chapter.photoKeys.length})`
-                            })),
-                            { value: "unassigned", label: "Remove from Event" }
-                        ]}
-                        onValueChange={moveSelectedToEvent}
-                        disabled={!selectedPhotos.length || !eventChapters.items.length}
-                        className="photo-browser-control"
-                        ariaLabel="Move selected photos to an existing event"
-                    />
-                </div>
-            </div>
-
-            {/* Workflow & Filter Toolbar (Row 2) */}
-            {photos.length > 0 && (
-                <div className="photo-culling-toolbar" role="toolbar" aria-label="Workflow and filter controls">
-                    {/* 1. Culling Workflow Group */}
-                    <div className="photo-culling-pills" aria-label="Culling workflow">
-                        <span className="culling-label">Review:</span>
-                        <button
-                            type="button"
-                            className={`culling-pill${cullingFilter === CullingFilterMode.ALL ? " active" : ""}`}
-                            onClick={() => setCullingFilter(CullingFilterMode.ALL)}
-                        >
-                            All ({cullingSummary.total})
-                        </button>
-                        <button
-                            type="button"
-                            className={`culling-pill included-pill${cullingFilter === CullingFilterMode.INCLUDED ? " active" : ""}`}
-                            onClick={() => setCullingFilter(CullingFilterMode.INCLUDED)}
-                        >
-                            Included ({cullingSummary.included})
-                        </button>
-                        <button
-                            type="button"
-                            className={`culling-pill reject-pill${cullingFilter === CullingFilterMode.REJECTED ? " active" : ""}`}
-                            onClick={() => setCullingFilter(CullingFilterMode.REJECTED)}
-                        >
-                            ✕ Rejected ({cullingSummary.rejected})
-                        </button>
-                        <button
-                            type="button"
-                            className="photo-browser-control culling-action-btn"
-                            onClick={() => openBurstReview()}
-                            disabled={!burstGroups.length}
-                            title="Review burst groups with AI best picks"
-                        >
-                            Burst Review ({burstsNeedingReview} remaining · {burstGroups.length} total)
-                        </button>
+            <div className={`photo-library-workspace${inspectorCollapsed ? " is-inspector-collapsed" : ""}`}>
+                <aside className="photo-library-sidebar" aria-label="Library filters">
+                    <div className="photo-library-sidebar-title">
+                        <strong>Library</strong>
+                        <span>{photos.length}</span>
                     </div>
-
-                    {/* 2. Metadata & Decision Filters Group */}
-                    <div className="photo-filter-inline-group" aria-label="Metadata and decision filters">
-                        <UxpDropdown
-                            id="photo-browser-type"
-                            value={preferences.types[0] || ""}
-                            options={[
-                                { value: "", label: "File: All" },
-                                ...queryResult.facets.types.map(type => ({
-                                    value: type,
-                                    label: `File: ${type.toUpperCase()}`
-                                }))
-                            ]}
-                            onValueChange={type => updatePreferences({
-                                types: type ? [type] : []
-                            })}
-                            className="photo-browser-filter-select photo-browser-control"
-                            ariaLabel="Filter photos by file format"
-                        />
-                        <div className="photo-rating-filter" role="group" aria-label="Rating filter">
-                            <UxpDropdown
-                                id="photo-browser-rating-comparison"
-                                value={PHOTO_RATING_COMPARISON_OPTIONS.some(option => option.value === preferences.ratingFilter.mode)
-                                    ? preferences.ratingFilter.mode
-                                    : "exact"}
-                                options={PHOTO_RATING_COMPARISON_OPTIONS}
-                                onValueChange={mode => updatePreferences({
-                                    ratingFilter: {
-                                        mode,
-                                        value: preferences.ratingFilter.value || 1
-                                    }
-                                })}
-                                className="photo-rating-comparison photo-browser-control"
-                                ariaLabel="Rating comparison"
-                            />
-                            <button
-                                type="button"
+                    <div className="photo-library-source-actions" role="toolbar" aria-label="Library source actions">
+                        <span className="photo-library-action-label">Library Source</span>
+                        <SidebarButton
+                            className="photo-browser-control photo-browser-primary-button"
+                            onClick={onOpenFolder}
+                            disabled={isLoading}
+                        >
+                            <span className="sidebar-folder-icon" aria-hidden="true">+</span><span>Add Folder</span>
+                        </SidebarButton>
+                        <div className="photo-library-source-secondary">
+                            <SidebarButton
+                                className="photo-browser-control"
+                                onClick={onChangePhotoFolder}
+                                disabled={!canChangePhotoFolder}
+                            >
+                                <span className="sidebar-folder-icon" /><span>Change Folder</span>
+                            </SidebarButton>
+                            <SidebarButton
+                                className="photo-browser-control photo-library-refresh-button"
+                                onClick={onRefresh}
+                                disabled={!folderLoaded || isLoading}
+                                title="Refresh photo folder"
+                                aria-label="Refresh photo folder"
+                            >
+                                ↻
+                            </SidebarButton>
+                        </div>
+                    </div>
+                    <section className="photo-library-sidebar-section photo-library-quick-filters">
+                        <h3>Quick Filter</h3>
+                        <SidebarButton
+                            className={`photo-facet-button${preferences.favoritesOnly ? " is-active" : ""}`}
+                            aria-pressed={preferences.favoritesOnly}
+                            onClick={() => updatePreferences({ favoritesOnly: !preferences.favoritesOnly })}
+                        >
+                            <span className="sidebar-heart" aria-hidden="true">♡</span><span>Favorites</span>
+                            <small>{photos.filter(photo => decisionForPhoto(photo).favorite).length}</small>
+                        </SidebarButton>
+                    </section>
+                    <section
+                        className={`photo-library-sidebar-section photo-library-review-filters${collapsedLibrarySections.has("review") ? " is-collapsed" : ""}`}
+                        aria-label="Metadata and decision filters"
+                    >
+                        <SidebarButton
+                            className="photo-library-facet-heading"
+                            onClick={() => toggleLibrarySection("review")}
+                            aria-expanded={!collapsedLibrarySections.has("review")}
+                        >
+                            <span>Review Filters</span>
+                            <span aria-hidden="true">{collapsedLibrarySections.has("review") ? "+" : "−"}</span>
+                        </SidebarButton>
+                        <div className="photo-library-facet-list">
+                            <div className="photo-review-filter-summary">
+                                <span><small>Showing</small><strong>{ratingFilterSummary}</strong></span>
+                                <SidebarButton
+                                    disabled={!ratingFilterActive}
+                                    onClick={() => updatePreferences({ ratingFilter: { mode: "any", value: 0 } })}
+                                >
+                                    Reset
+                                </SidebarButton>
+                            </div>
+                            <span className="photo-rating-caption">Rating</span>
+                            <div className="photo-rating-filter" role="group" aria-label="Rating filter">
+                                <UxpDropdown
+                                    id="photo-browser-rating-comparison"
+                                    value={PHOTO_RATING_COMPARISON_OPTIONS.some(option => option.value === preferences.ratingFilter.mode)
+                                        ? preferences.ratingFilter.mode
+                                        : "exact"}
+                                    options={PHOTO_RATING_COMPARISON_OPTIONS}
+                                    onValueChange={mode => updatePreferences({
+                                        ratingFilter: {
+                                            mode,
+                                            value: preferences.ratingFilter.value || 1
+                                        }
+                                    })}
+                                    className="photo-rating-comparison photo-browser-control"
+                                    ariaLabel="Rating comparison"
+                                />
+                                <div className="photo-rating-stars" aria-label="Choose rating value">
+                                    {[1, 2, 3, 4, 5].map(rating => {
+                                        const hasRatingFilter = ["exact", "atLeast", "atMost"].includes(preferences.ratingFilter.mode);
+                                        const isFilled = hasRatingFilter && rating <= preferences.ratingFilter.value;
+                                        const isCurrent = hasRatingFilter && rating === preferences.ratingFilter.value;
+                                        return (
+                                            <SidebarButton
+                                                key={rating}
+                                                className={isFilled ? "is-filled" : ""}
+                                                onClick={() => updatePreferences({
+                                                    ratingFilter: isCurrent
+                                                        ? { mode: "any", value: 0 }
+                                                        : {
+                                                            mode: hasRatingFilter
+                                                                ? preferences.ratingFilter.mode
+                                                                : "exact",
+                                                            value: rating
+                                                        }
+                                                })}
+                                                aria-pressed={isCurrent}
+                                                aria-label={`Filter by ${rating} star rating`}
+                                                title="Click the active star again to clear"
+                                            >
+                                                {isFilled ? "★" : "☆"}
+                                            </SidebarButton>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <SidebarButton
                                 className={`photo-rating-unrated${preferences.ratingFilter.mode === "unrated" ? " is-active" : ""}`}
                                 onClick={() => updatePreferences({
                                     ratingFilter: preferences.ratingFilter.mode === "unrated"
@@ -1619,214 +1481,181 @@ function PhotoBrowserSection({
                                 aria-pressed={preferences.ratingFilter.mode === "unrated"}
                                 title="Show unrated photos"
                             >
-                                Unrated
-                            </button>
-                            <div className="photo-rating-stars" aria-label="Choose rating value">
-                                {[1, 2, 3, 4, 5].map(rating => {
-                                    const hasRatingFilter = ["exact", "atLeast", "atMost"].includes(preferences.ratingFilter.mode);
-                                    const isFilled = hasRatingFilter && rating <= preferences.ratingFilter.value;
-                                    const isCurrent = hasRatingFilter && rating === preferences.ratingFilter.value;
-                                    return (
-                                        <button
-                                            key={rating}
-                                            type="button"
-                                            className={isFilled ? "is-filled" : ""}
-                                            onClick={() => updatePreferences({
-                                                ratingFilter: isCurrent
-                                                    ? { mode: "any", value: 0 }
-                                                    : {
-                                                        mode: hasRatingFilter
-                                                            ? preferences.ratingFilter.mode
-                                                            : "exact",
-                                                        value: rating
-                                                    }
-                                            })}
-                                            aria-pressed={isCurrent}
-                                            aria-label={`Filter by ${rating} star rating`}
-                                            title="Click the active star again to clear"
-                                        >
-                                            ★
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                                <span>Unrated</span>
+                                <small>{photos.filter(photo => (decisionForPhoto(photo).rating || 0) === 0).length}</small>
+                            </SidebarButton>
                         </div>
-                        <UxpDropdown
-                            id="photo-browser-orientation"
-                            value={preferences.orientations[0] || ""}
-                            options={[
-                                { value: "", label: "Orientation: All" },
-                                ...queryResult.facets.orientations.map(orientation => ({
-                                    value: orientation,
-                                    label: `Orientation: ${orientation.charAt(0).toUpperCase() + orientation.slice(1)}`
-                                }))
-                            ]}
-                            onValueChange={orientation => updatePreferences({
-                                orientations: orientation ? [orientation] : []
-                            })}
-                            className="photo-browser-filter-select photo-browser-control"
-                            ariaLabel="Filter photos by orientation"
-                        />
-                        {duplicateReady && (
-                            <label
-                                className="photo-browser-favorite-filter"
-                                style={{ marginLeft: 4 }}
-                                title="Show only duplicate photos"
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={preferences.duplicatesOnly}
-                                    onChange={event => updatePreferences({
-                                        duplicatesOnly: event.target.checked
-                                    })}
-                                />
-                                ⊕ Dups only
-                            </label>
-                        )}
-                        <button
-                            type="button"
-                            onClick={analyzeDuplicates}
-                            disabled={!folderLoaded || !photos.length || duplicateBusy}
-                            className="photo-browser-control"
-                            aria-label="Analyze exact duplicate photos"
-                            title="Compare same-size candidates using full-content SHA-256"
-                            style={{ fontSize: 10, padding: "3px 6px", minHeight: 24 }}
-                        >
-                            {duplicateBusy
-                                ? "Analyzing…"
-                                : duplicateReady
-                                    ? "Reanalyze Dups"
-                                    : "Find Dups"}
-                        </button>
-                        {filtersActive && (
-                            <button
-                                type="button"
-                                onClick={clearFilters}
-                                className="photo-browser-control photo-browser-clear-btn"
-                                aria-label="Reset photo filters"
-                                title="Reset active search and filters"
-                                style={{ background: "#4a2020", borderColor: "#7a3030", color: "#ffaaaa", fontSize: 10, padding: "3px 6px", minHeight: 24 }}
-                            >
-                                ✕ Reset Filters
-                            </button>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            <div className="photo-library-source-actions" role="toolbar" aria-label="Library source actions">
-                <button
-                    type="button"
-                    className="photo-browser-control photo-browser-primary-button"
-                    onClick={onOpenFolder}
-                    disabled={isLoading}
-                >
-                    Add Folder
-                </button>
-                <button
-                    type="button"
-                    className="photo-browser-control"
-                    onClick={onChangePhotoFolder}
-                    disabled={!canChangePhotoFolder}
-                >
-                    Change Folder
-                </button>
-                <button
-                    type="button"
-                    className="photo-browser-control"
-                    onClick={onRefresh}
-                    disabled={!folderLoaded || isLoading}
-                >
-                    Refresh
-                </button>
-            </div>
-
-            <div className="photo-library-workspace">
-                <aside className="photo-library-sidebar" aria-label="Library filters">
-                    <section>
-                        <h3>Quick Filters</h3>
-                        <button
-                            type="button"
-                            className={`photo-facet-button${preferences.favoritesOnly ? " is-active" : ""}`}
-                            onClick={() => updatePreferences({ favoritesOnly: !preferences.favoritesOnly })}
-                        >
-                            Favorites
-                        </button>
                     </section>
-                    <section>
-                        <h3>Photo Type</h3>
-                        <button
-                            type="button"
+                    <section className={`photo-library-sidebar-section photo-library-photo-types${collapsedLibrarySections.has("types") ? " is-collapsed" : ""}`}>
+                        <SidebarButton
+                            className="photo-library-facet-heading"
+                            onClick={() => toggleLibrarySection("types")}
+                            aria-expanded={!collapsedLibrarySections.has("types")}
+                        >
+                            <span>Photo Type</span>
+                            <span aria-hidden="true">{collapsedLibrarySections.has("types") ? "+" : "−"}</span>
+                        </SidebarButton>
+                        <div className="photo-library-facet-list">
+                        <SidebarButton
                             className={`photo-facet-button${!selectedPhotoKindKeys.size ? " is-active" : ""}`}
                             onClick={() => setSelectedPhotoKindKeys(new Set())}
                         >
                             <span>All Photo Types</span><small>{photos.length}</small>
-                        </button>
+                        </SidebarButton>
                         {photoKindFacets.map(kind => (
-                            <button
+                            <SidebarButton
                                 key={kind.key}
-                                type="button"
                                 className={`photo-facet-button${selectedPhotoKindKeys.has(kind.key) ? " is-active" : ""}`}
                                 onClick={event => toggleFacet(setSelectedPhotoKindKeys, kind.key, event)}
                             >
                                 <span>{kind.label}</span>
                                 <small>{kind.count}</small>
-                            </button>
+                            </SidebarButton>
                         ))}
+                        {burstGroups.length > 0 && (
+                            <div className="photo-library-burst-summary" aria-label="Burst Review groups">
+                                <div className="photo-library-burst-heading">
+                                    <strong>Burst Review</strong>
+                                    <small>{burstGroups.length} group{burstGroups.length === 1 ? "" : "s"} · {burstsNeedingReview} to review</small>
+                                </div>
+                                {burstGroups.map((group, index) => {
+                                    const review = burstReviews.items.find(item => item.groupId === group.groupId);
+                                    const reviewed = reviewedBurstIds.has(group.groupId);
+                                    const selectedPicks = review?.selectedPhotoKeys?.length || (group.hasQualityEvidence ? 1 : 0);
+                                    return (
+                                        <SidebarButton
+                                            key={group.groupId}
+                                            className={`photo-library-burst-row${reviewed ? " is-reviewed" : ""}`}
+                                            onClick={() => openBurstReview(group)}
+                                            title={`Open burst group ${index + 1}`}
+                                        >
+                                            <span>
+                                                <strong>B{index + 1} · Burst group</strong>
+                                                <small>{reviewed ? "● Reviewed" : "● Needs review"}</small>
+                                            </span>
+                                            <em>{selectedPicks} selected / {group.count}</em>
+                                        </SidebarButton>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        </div>
                     </section>
-                    <section>
-                        <h3>Events</h3>
-                        <button type="button" className={`photo-facet-button${!selectedEventIds.size ? " is-active" : ""}`} onClick={() => setSelectedEventIds(new Set())}>All Events</button>
-                        {smartEvents.map(event => (
-                            <button
-                                key={event.eventId}
-                                type="button"
-                                className={`photo-facet-button${selectedEventIds.has(event.eventId) ? " is-active" : ""}`}
-                                onClick={click => toggleFacet(setSelectedEventIds, event.eventId, click)}
+                    <section className={`photo-library-sidebar-section photo-library-events${collapsedLibrarySections.has("events") ? " is-collapsed" : ""}`}>
+                        <div className="photo-library-section-heading">
+                            <SidebarButton
+                                className="photo-library-facet-heading"
+                                onClick={() => toggleLibrarySection("events")}
+                                aria-expanded={!collapsedLibrarySections.has("events")}
                             >
-                                <span>{event.label}</span><small>{event.count}</small>
-                            </button>
-                        ))}
-                        {eventChapters.items.map(chapter => (
-                            <button
-                                type="button"
-                                className={`photo-event-chapter-row${selectedChapterIds.has(chapter.chapterId) ? " is-active" : ""}`}
-                                key={chapter.chapterId}
-                                onClick={event => toggleFacet(setSelectedChapterIds, chapter.chapterId, event)}
-                                onDragOver={event => {
-                                    event.preventDefault();
-                                    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-                                }}
-                                onDrop={event => handleEventDrop(event, chapter.chapterId)}
-                                title="Filter this event or drop selected photos here"
-                            >
-                                <span>{chapter.name}</span>
-                                <small>{chapter.photoKeys.length}</small>
-                            </button>
-                        ))}
+                                <span>Events</span>
+                                <span aria-hidden="true">{collapsedLibrarySections.has("events") ? "+" : "−"}</span>
+                            </SidebarButton>
+                        </div>
+                        <div className="photo-library-facet-list">
+                        <SidebarButton className={`photo-facet-button${!selectedEventIds.size && !selectedChapterIds.size ? " is-active" : ""}`} onClick={() => {setSelectedEventIds(new Set()); setSelectedChapterIds(new Set());}}>
+                            <span>All photos</span><small>{photos.length}</small>
+                        </SidebarButton>
+                        <SidebarButton className="photo-library-inline-action" disabled={!eventsReady || eventBusy || !photos.length} onClick={() => {eventEditing.current = true; setAutoEventsOpen(true);}}>✦ Auto Events</SidebarButton>
+                        {!eventsReady && <small>Reading event metadata…</small>}
+                        {eventsReady && photos.some(photo => photo.metadataReadFailed) && <small>Some photos have unavailable metadata; their groups may need review.</small>}
+                        <EventManager items={eventChapters.items.filter(item => item.photoKeys.length)}
+                            selected={selectedChapterIds} onSelect={(id, event) => toggleFacet(setSelectedChapterIds, id, event)}
+                            onDrop={handleEventDrop} ready={eventsReady && !eventBusy} creating={manageEvents}
+                            onEditingChange={onEventEditingChange}
+                            onEdit={(action, id, name) => saveEventEdit(action, id, name, action === "new" ? newEventPhotos.current : selectedPhotos)}
+                            onClose={() => { setManageEvents(false); newEventPhotos.current = []; }} />
+                        <SidebarButton
+                            className="photo-library-inline-action"
+                            data-library-event="new-event" data-event-name="New event"
+                            data-drop-ready={eventsReady && !eventBusy && !manageEvents ? "true" : "false"}
+                            onClick={moveSelectedToNewEvent}
+                            disabled={!selectedPhotos.length || !eventsReady || eventBusy}
+                            title="Create an event from the selected photos"
+                        >
+                            + New event
+                        </SidebarButton>
+                        </div>
                     </section>
-                    <section>
-                        <h3>Cameras</h3>
-                        <button type="button" className={`photo-facet-button${!selectedCameraKeys.size ? " is-active" : ""}`} onClick={() => setSelectedCameraKeys(new Set())}>All Cameras</button>
+                    <section className={`photo-library-sidebar-section photo-library-cameras${collapsedLibrarySections.has("cameras") ? " is-collapsed" : ""}`}>
+                        <SidebarButton
+                            className="photo-library-facet-heading"
+                            onClick={() => toggleLibrarySection("cameras")}
+                            aria-expanded={!collapsedLibrarySections.has("cameras")}
+                        >
+                            <span>Cameras</span>
+                            <span aria-hidden="true">{collapsedLibrarySections.has("cameras") ? "+" : "−"}</span>
+                        </SidebarButton>
+                        <div className="photo-library-facet-list">
+                        <SidebarButton className={`photo-facet-button${!selectedCameraKeys.size ? " is-active" : ""}`} onClick={() => setSelectedCameraKeys(new Set())}>
+                            <span>All Cameras</span><small>{photos.length}</small>
+                        </SidebarButton>
                         {detectedCameras.map(camera => {
                             const sample = photos.find(photo => getCameraKey(photo) === camera.cameraKey);
                             const identity = cameraIdentityForPhoto(sample);
                             return (
-                                <button
+                                <SidebarButton
                                     key={camera.cameraKey}
-                                    type="button"
                                     className={`photo-facet-button${selectedCameraKeys.has(camera.cameraKey) ? " is-active" : ""}`}
                                     onClick={click => toggleFacet(setSelectedCameraKeys, camera.cameraKey, click)}
                                 >
                                     <span style={{ color: identity?.color }}>{identity?.tag || "C"}</span>
                                     <span>{camera.label}</span><small>{camera.photoCount}</small>
-                                </button>
+                                </SidebarButton>
                             );
                         })}
+                        </div>
                     </section>
-                    {filtersActive && <button type="button" className="photo-browser-control" onClick={clearFilters}>Reset All Filters</button>}
+                    <SidebarButton
+                        className="photo-browser-control photo-library-reset-filters"
+                        onClick={clearFilters}
+                        disabled={!filtersActive}
+                    >
+                        Clear filters
+                    </SidebarButton>
                 </aside>
-                <div className="photo-browser-content">
+                <section className="photo-library-center" aria-label="Photo browser">
+                    <header className="photo-library-review-header">
+                        <h2>Photos</h2>
+                        <div className="library-header-actions">
+                            <SidebarButton aria-pressed={showShortcuts} onClick={() => setShowShortcuts(value => !value)} title="Keyboard shortcuts">? Shortcuts</SidebarButton>
+                            <SidebarButton aria-expanded={!inspectorCollapsed} onClick={() => setInspectorCollapsed(value => !value)}>{inspectorCollapsed ? "Show preview" : "Hide preview"}</SidebarButton>
+                        </div>
+                    </header>
+                    {showShortcuts && <div className="library-shortcut-help" role="note">Arrow keys: navigate · Space: preview · 0–5: rating · F: favorite · R: reject · Esc: close</div>}
+
+                    {eventNotice && <div className="library-shortcut-help" role="status">{eventNotice}</div>}
+                    {filtersActive && <div className="library-filter-chips" aria-label="Active filters">
+                        {preferences.search && <SidebarButton onClick={() => updatePreferences({search: ""})}>Search: {preferences.search} ×</SidebarButton>}
+                        {preferences.ratingFilter.mode !== "any" && <SidebarButton onClick={() => updatePreferences({minimumRating: 0, ratingFilter: {mode: "any", value: 0}})}>Rating ×</SidebarButton>}
+                        {preferences.types.length > 0 && <SidebarButton onClick={() => updatePreferences({types: []})}>File type ×</SidebarButton>}
+                        {preferences.orientations.length > 0 && <SidebarButton onClick={() => updatePreferences({orientations: []})}>Orientation ×</SidebarButton>}
+                        {preferences.datePreset !== "any" && <SidebarButton onClick={() => updatePreferences({datePreset: "any"})}>Date ×</SidebarButton>}
+                        {preferences.duplicatesOnly && <SidebarButton onClick={() => updatePreferences({duplicatesOnly: false})}>Duplicates ×</SidebarButton>}
+                        {preferences.favoritesOnly && <SidebarButton onClick={() => updatePreferences({favoritesOnly: false})}>Favorites ×</SidebarButton>}
+                        {selectedCameraKeys.size > 0 && <SidebarButton onClick={() => setSelectedCameraKeys(new Set())}>Cameras ({selectedCameraKeys.size}) ×</SidebarButton>}
+                        {(selectedEventIds.size > 0 || selectedChapterIds.size > 0) && <SidebarButton onClick={() => {setSelectedEventIds(new Set()); setSelectedChapterIds(new Set());}}>Events ×</SidebarButton>}
+                        {selectedPhotoKindKeys.size > 0 && <SidebarButton onClick={() => setSelectedPhotoKindKeys(new Set())}>Photo type ×</SidebarButton>}
+                        {cullingFilter !== CullingFilterMode.ALL && <SidebarButton onClick={() => setCullingFilter(CullingFilterMode.ALL)}>Review filter ×</SidebarButton>}
+                        <SidebarButton onClick={clearFilters}>Clear filters</SidebarButton>
+                    </div>}
+                    <LibraryToolbar
+                        search={preferences.search}
+                        onSearchChange={search => updatePreferences({ search }, { persist: false })}
+                        onSearchCommit={() => persistPreferences(preferences)}
+                        controls={libraryControls}
+                        direction={preferences.sort.direction}
+                        onToggleDirection={() => updateSort({ direction: preferences.sort.direction === "asc" ? "desc" : "asc" })}
+                        filter={cullingFilter}
+                        onFilterChange={setCullingFilter}
+                        filters={[
+                            { value: CullingFilterMode.ALL, label: "All", title: `${cullingSummary.total} photos` },
+                            { value: CullingFilterMode.INCLUDED, label: "Included", title: `${cullingSummary.included} included photos` },
+                            { value: CullingFilterMode.REJECTED, label: "Rejected", title: `${cullingSummary.rejected} rejected photos` }
+                        ]}
+                    />
+
+                    <div className={`photo-browser-content photo-browser-content--${viewMode}`}>
                 {photoFolderChange?.message && !isLoading && (
                     <div className="photo-folder-change-message" role="status" aria-live="polite">
                         {photoFolderChange.message}
@@ -1837,13 +1666,13 @@ function PhotoBrowserSection({
                         {decisionError}
                     </div>
                 )}
-                {(duplicateReady || duplicateError || duplicateEvidence.status === PhotoDuplicateStatus.STALE) && (
+                {(duplicateError || duplicateEvidence.status === PhotoDuplicateStatus.STALE) && (
                     <div
                         className={`photo-duplicate-summary${duplicateError ? " has-error" : ""}`}
                         role={duplicateError ? "alert" : "status"}
                         aria-live="polite"
                     >
-                        {duplicateError || duplicateSummary}
+                        {duplicateError || "Duplicate analysis is stale. Run it again."}
                     </div>
                 )}
                 {isLoading ? (
@@ -1888,15 +1717,18 @@ function PhotoBrowserSection({
                     </div>
                 ) : (
                     <ThumbnailGrid
+                        onPhotoPreview={openSelectedPreview}
                         photos={visiblePhotos}
                         onPhotoClick={onPhotoClick}
                         onContextMenu={handleContextMenu}
                         onPhotoInteraction={handlePhotoGridInteraction}
                         focusedPhotoId={focusedPhotoId}
                         onFocusPhoto={focusPhoto}
+                        navigationRef={photoNavigationRef}
                         viewMode={viewMode}
                         decisionForPhoto={decisionForPhoto}
                         cameraIdentityForPhoto={cameraIdentityForPhoto}
+                        groupMode={groupMode}
                         groupLabelForPhoto={groupLabelForPhoto}
                         eventLabelForPhoto={eventLabelForPhoto}
                         sort={preferences.sort}
@@ -1905,156 +1737,210 @@ function PhotoBrowserSection({
                         onPhotoDecisionChange={changeTargetDecision}
                     />
                 )}
-                </div>
+                    </div>
+                    <div className="photo-browser-statusbar" role="status" aria-label="Photo browser status">
+                        <span><strong>Results</strong> {visiblePhotos.length} / {photos.length}</span>
+                        <span><strong>Selected</strong> {selectedCount}</span>
+                        <span><strong>View</strong> {viewMode === "icons" ? "Grid" : "List"}</span>
+                        <span>
+                            <strong>Sort</strong>{" "}
+                            {preferences.sort.field === "name"
+                                ? "Name"
+                                : preferences.sort.field === "quality"
+                                    ? "Quality (AI)"
+                                    : preferences.sort.field === "modified"
+                                        ? "Date Modified"
+                                        : preferences.sort.field === "taken"
+                                            ? "Capture Time"
+                                            : preferences.sort.field === "created"
+                                                ? "Date Created"
+                                                : preferences.sort.field === "rating"
+                                                    ? "Rating"
+                                                    : preferences.sort.field === "size"
+                                                        ? "File Size"
+                                                        : preferences.sort.field}{" "}
+                            {preferences.sort.direction === "asc" ? "↑" : "↓"}
+                        </span>
+                        <span><strong>Group</strong> {groupMode === "none" ? "None" : groupMode}</span>
+                        <div className="photo-browser-status-actions photo-thumbnail-size-control" role="toolbar" aria-label="Thumbnail size and view">
+                            <ThumbnailZoom viewMode={viewMode} size={preferences.thumbnailSize}
+                                onChange={(next, persist) => {
+                                    switchView(next.viewMode);
+                                    if (next.viewMode === "icons") updatePreferences({thumbnailSize:next.thumbnailSize}, {persist});
+                                }} />
+                            <SidebarButton className={`photo-footer-view${viewMode === "icons" ? " is-active" : ""}`} title="Grid view" aria-label="Grid view" aria-pressed={viewMode === "icons"} onClick={() => switchView("icons")}><ToolbarIcon kind="Grid" /></SidebarButton>
+                            <SidebarButton className={`photo-footer-view${viewMode === "list" ? " is-active" : ""}`} title="List view" aria-label="List view" aria-pressed={viewMode === "list"} onClick={() => switchView("list")}><ToolbarIcon kind="List" /></SidebarButton>
+                        </div>
+                    </div>
+                </section>
                 <aside className="photo-library-inspector" aria-label="Photo inspector">
-                    <h3>Inspector</h3>
-                    {focusedPhoto ? (
-                        <>
-                            <div className="photo-inspector-preview"><PhotoImage photo={focusedPhoto} profile="thumbnail" priority={1} role="browser" alt={focusedPhoto.name} /></div>
-                            <div className="photo-inspector-summary">
-                                <strong>{focusedPhoto.name}</strong>
-                                <span>
-                                    <b style={{ color: cameraIdentityForPhoto(focusedPhoto)?.color }}>
-                                        {cameraIdentityForPhoto(focusedPhoto)?.tag || "—"}
-                                    </b>
-                                    {" · "}{eventLabelForPhoto(focusedPhoto) || "Unassigned event"}
-                                </span>
-                                <span>{"★".repeat(decisionForPhoto(focusedPhoto).rating || 0)}{"☆".repeat(5 - (decisionForPhoto(focusedPhoto).rating || 0))} · {decisionForPhoto(focusedPhoto).favorite ? "Favorite" : "Not favorite"}</span>
-                                <span>{decisionForPhoto(focusedPhoto).culling === CullingStatus.REJECT ? "Rejected" : "Included"}</span>
+                    <div className="photo-inspector-tabs" role="tablist" aria-label="Inspector sections">
+                        <button type="button" role="tab" aria-selected={inspectorTab === "preview"} onClick={() => setInspectorTab("preview")}>Preview</button>
+                        <button type="button" role="tab" aria-selected={inspectorTab === "actions"} onClick={() => setInspectorTab("actions")}>Quick Actions</button>
+                    </div>
+
+                    {inspectorTab === "preview" ? (
+                        focusedPhoto ? (
+                            <>
+                                <div className="photo-inspector-preview"><PhotoImage key={focusedPhoto.id} photo={focusedPhoto} profile="preview" initialProfile="thumbnail" requestDelay={180} priority={0} role="preview" alt={focusedPhoto.name} /></div>
+                                <div className="photo-inspector-summary">
+                                    <strong>{focusedPhoto.name}</strong>
+                                    <span>
+                                        {eventLabelForPhoto(focusedPhoto) || "Unassigned event"}{" · "}
+                                        <b style={{ color: cameraIdentityForPhoto(focusedPhoto)?.color }}>
+                                            {cameraIdentityForPhoto(focusedPhoto)?.tag || "—"}
+                                        </b>
+                                        {" · "}{decisionForPhoto(focusedPhoto).rating || 0}★
+                                    </span>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="photo-inspector-empty">
+                                <span aria-hidden="true">▧</span>
+                                <strong>Select a photo</strong>
+                                <small>Preview and metadata will appear here.</small>
                             </div>
+                        )
+                    ) : (
+                        <section className="photo-inspector-actions" aria-label="Selected photo actions">
+                            <h3>{selectedCount ? `${selectedCount} selected` : "Select photos to edit"}</h3>
+                            <button
+                                type="button"
+                                className="photo-browser-control photo-inspector-preview-button"
+                                onClick={previewSelectedSet}
+                                disabled={!previewPhotos.length}
+                                title="Preview selected photos (Space)"
+                            >
+                                Preview <span>Space</span>
+                            </button>
+                            <div className="photo-inspector-rating-actions" role="group" aria-label="Rate selected photos">
+                                {[1, 2, 3, 4, 5].map(rating => (
+                                    <button
+                                        key={rating}
+                                        type="button"
+                                        onClick={() => setSelectedRating(rating)}
+                                        disabled={!selectedPhotos.length}
+                                        className={selectedCommonRating === rating ? "is-active" : ""}
+                                        title={`${rating} star${rating === 1 ? "" : "s"}`}
+                                        aria-label={`Assign ${rating}-star rating`}
+                                        aria-pressed={selectedCommonRating === rating}
+                                    >★</button>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedRating(0)}
+                                    disabled={!selectedPhotos.length}
+                                    title="Clear rating"
+                                    aria-label="Clear rating"
+                                >×</button>
+                            </div>
+                            <div className="photo-inspector-decision-actions">
+                                <button type="button" className={selectedAllFavorite ? "is-active" : ""} onClick={setSelectedFavorite} disabled={!selectedPhotos.length}>{selectedAllFavorite ? "♥ Favorite" : "♡ Favorite"}</button>
+                                <button type="button" className={selectedAllRejected ? "is-rejected" : ""} onClick={rejectSelected} disabled={!selectedPhotos.length}>{selectedAllRejected ? "↶ Unreject" : "⊘ Reject"}</button>
+                            </div>
+                            <UxpDropdown
+                                value=""
+                                options={[
+                                    { value: "", label: "Move to Event…" },
+                                    { value: "new", label: "+ New Event" },
+                                    ...eventChapters.items.filter(chapter => chapter.photoKeys.length).map(chapter => ({
+                                        value: chapter.chapterId,
+                                        label: `${chapter.name} (${chapter.photoKeys.length})`
+                                    })),
+                                    { value: "unassigned", label: "Remove from Event" }
+                                ]}
+                                onValueChange={moveSelectedToEvent}
+                                disabled={!selectedPhotos.length}
+                                className="photo-browser-control photo-inspector-event-select"
+                                ariaLabel="Move selected photos to an event"
+                            />
+                        </section>
+                    )}
+
+                    {focusedPhoto && (
+                        <>
+                            <div className="photo-inspector-info-tabs" role="tablist" aria-label="Photo information">
+                                <button type="button" role="tab" aria-selected={inspectorInfoTab === "metadata"} onClick={() => setInspectorInfoTab("metadata")}>Metadata</button>
+                                <button type="button" role="tab" aria-selected={inspectorInfoTab === "keywords"} onClick={() => setInspectorInfoTab("keywords")}>Tags</button>
+                            </div>
+                            {inspectorInfoTab === "metadata" ? (
+                                <div className="photo-inspector-metadata-grid">
+                                    <span><small>Capture</small><strong>{formatPhotoDate(focusedPhoto.dateTaken || focusedPhoto.metadata?.dateTaken)}</strong></span>
+                                    <span><small>Camera</small><strong style={{ color: cameraIdentityForPhoto(focusedPhoto)?.color }}>{cameraIdentityForPhoto(focusedPhoto)?.tag || "—"} · {focusedPhoto.cameraModel || focusedPhoto.metadata?.cameraModel || "Unknown"}</strong></span>
+                                    <span><small>Dimensions</small><strong>{focusedPhoto.width && focusedPhoto.height ? `${focusedPhoto.width} × ${focusedPhoto.height}` : "Unavailable"}</strong></span>
+                                    <span><small>File</small><strong>{formatPhotoBytes(focusedPhoto)}</strong></span>
+                                </div>
+                            ) : (
+                                <div className="photo-inspector-keywords">
+                                    <span>{eventLabelForPhoto(focusedPhoto) || "Unassigned event"}</span>
+                                    <span>{decisionForPhoto(focusedPhoto).favorite ? "Favorite" : "No favorite tag"}</span>
+                                    <span>{decisionForPhoto(focusedPhoto).culling === CullingStatus.REJECT ? "Rejected" : "Included"}</span>
+                                </div>
+                            )}
                             <button
                                 type="button"
                                 className="photo-inspector-disclosure"
                                 onClick={() => setInspectorFileOpen(value => !value)}
                                 aria-expanded={inspectorFileOpen}
                             >
-                                <span>File Properties</span>
-                                <span>{inspectorFileOpen ? "−" : "+"}</span>
+                                <span>{inspectorFileOpen ? "⌄" : "›"} File Properties</span>
                             </button>
                             {inspectorFileOpen && (
                                 <div className="photo-inspector-properties">
-                                    <span><b>Type</b>{(focusedPhoto.extension || focusedPhoto.name?.split(".").pop() || "Unknown").toUpperCase()}</span>
-                                    <span><b>Dimensions</b>{focusedPhoto.width && focusedPhoto.height ? `${focusedPhoto.width} × ${focusedPhoto.height}` : "Unavailable"}</span>
+                                    <span><b>Filename</b>{focusedPhoto.name}</span>
+                                    <span><b>Document type</b>{(focusedPhoto.extension || focusedPhoto.name?.split(".").pop() || "Unknown").toUpperCase()} image</span>
+                                    <span><b>Date created</b>{formatPhotoDate(focusedPhoto.created)}</span>
                                     <span><b>File size</b>{formatPhotoBytes(focusedPhoto)}</span>
-                                    <span><b>Created</b>{formatPhotoDate(focusedPhoto.created)}</span>
-                                    <span><b>Capture time</b>{formatPhotoDate(focusedPhoto.dateTaken || focusedPhoto.metadata?.dateTaken)}</span>
-                                    <span><b>Camera</b>{focusedPhoto.cameraModel || focusedPhoto.metadata?.cameraModel || "Unknown"}</span>
+                                    <span><b>Dimensions</b>{focusedPhoto.width && focusedPhoto.height ? `${focusedPhoto.width} × ${focusedPhoto.height}` : "Unavailable"}</span>
                                 </div>
                             )}
+
                         </>
-                    ) : <span>Select a photo to inspect it.</span>}
+                    )}
                 </aside>
             </div>
 
+            {autoEventsOpen && <AutoEventsDialog photos={photos}
+                onClose={() => {eventEditing.current = false; setAutoEventsOpen(false);}}
+                onApply={async (proposal, approved) => {
+                    if (eventSaving.current || !eventsReady) throw new Error("Events are busy. Please retry.");
+                    const next = applyPhotoEventProposals(eventChapters, photos, proposal, approved);
+                    eventSaving.current = true; setEventBusy(true);
+                    try {
+                        const saved = await App.savePhotoEventChapters(next, "PHOTO_AUTO_EVENTS_APPLY");
+                        pushEventUndo(); setEventChapters(saved);
+                        setSelectedChapterIds(new Set()); setSelectedEventIds(new Set());
+                        setEventNotice(`${approved.length} suggested events applied. Undo is available above.`);
+                    } finally {eventSaving.current = false; setEventBusy(false);}
+                }} />}
+
             {isPreviewOpen && previewPhoto && (
-                <div
-                    className="photo-preview-backdrop"
-                    role="presentation"
-                    onMouseDown={event => {
-                        if (event.target === event.currentTarget) {
-                            closePreview();
-                        }
-                    }}
-                >
-                    <section
-                        className="photo-preview-dialog"
-                        role="dialog"
-                        aria-label="Photo preview"
-                        aria-modal="true"
-                        onMouseDown={event => event.stopPropagation()}
-                    >
-                        <div className="photo-preview-header">
-                            <strong>
-                                {previewIndex + 1} / {previewPhotos.length}
-                            </strong>
-                            <button
-                                type="button"
-                                className="photo-browser-control photo-browser-preview-close"
-                                onClick={closePreview}
-                                aria-label="Close preview"
-                                title="Close preview"
-                            >
-                                Close
-                            </button>
-                        </div>
-                        <div
-                            className="photo-preview-stage"
-                            ref={previewStageRef}
-                            onWheel={handlePreviewWheel}
-                            onMouseDown={handlePreviewMouseDown}
-                            onDoubleClick={togglePreviewScale}
-                        >
-                            <PhotoImage
-                                photo={previewPhoto}
-                                profile="preview"
-                                priority={1}
-                                role="browser"
-                                onImageLoad={() => {
-                                    PhotoBrowserPerformance.recordRender("PhotoPreview");
-                                }}
-                                alt={previewPhoto.name || "Photo preview"}
-                                style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "contain",
-                                    pointerEvents: "none",
-                                    transform: `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})`,
-                                    transformOrigin: "center center"
-                                }}
-                            />
-                        </div>
-                        <div className="photo-preview-details">
-                            <span>
-                                {previewDetails[0]}
-                            </span>
-                            {previewDetails.slice(1).map(detail => (
-                                <span key={detail}>{detail}</span>
-                            ))}
-                            <div className="photo-preview-actions">
-                                <button type="button" onClick={() => movePreviewBy(-1)}>Previous</button>
-                                {[1, 2, 3, 4, 5].map(rating => (
-                                    <button
-                                        key={rating}
-                                        type="button"
-                                        onClick={() => changePreviewDecision({
-                                            rating: decisionForPhoto(previewPhoto).rating === rating
-                                                ? 0
-                                                : rating
-                                        })}
-                                        aria-pressed={decisionForPhoto(previewPhoto).rating === rating}
-                                    >
-                                        {rating}★
-                                    </button>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={() => changePreviewDecision({
-                                        favorite: !decisionForPhoto(previewPhoto).favorite
-                                    })}
-                                >
-                                    {decisionForPhoto(previewPhoto).favorite ? "♥ Favorite" : "♡ Favorite"}
-                                </button>
-                                <button type="button" onClick={() => movePreviewBy(1)}>Next</button>
-                            </div>
-                        </div>
-                    </section>
-                </div>
+                <PhotoReviewPreview photo={previewPhoto} photos={previewPhotos} index={previewIndex}
+                    count={previewPhotos.length} selectionOnly={previewSession?.selectionOnly}
+                    selected={selectedPhotoIds.has(previewPhoto.id)}
+                    decision={decisionForPhoto(previewPhoto)}
+                    camera={cameraIdentityForPhoto(previewPhoto)}
+                    eventLabel={eventLabelForPhoto(previewPhoto)}
+                    onChangeDecision={changePreviewDecision} onClose={closePreview}
+                    onNavigate={step => step === "first" ? setPreviewPhoto(0)
+                        : step === "last" ? setPreviewPhoto(previewPhotos.length - 1)
+                            : movePreviewBy(step)} />
             )}
 
-            {activeBurstGroup && activeBurstPhoto && (
+            {activeBurstGroup && activeBurstPhoto && createPortal(
                 <div
-                    className="photo-preview-backdrop"
+                    className="review-overlay is-presented"
                     role="presentation"
                     onMouseDown={event => {
                         if (event.target === event.currentTarget) closeBurstReview();
                     }}
                 >
-                    <section className="photo-preview-dialog photo-burst-review" role="dialog" aria-modal="true" aria-label="Burst Review">
+                    <section className="photo-preview-dialog photo-burst-review" role="dialog" tabIndex={-1} aria-modal="true" aria-label="Burst Review">
                         <div className="photo-preview-header">
                             <strong>Burst Review · {burstReviewIndex + 1}/{activeBurstPhotos.length}</strong>
                             <span>{reviewedBurstIds.has(activeBurstGroup.groupId) ? "Reviewed" : "Needs review"}</span>
                             <span>{burstDraftIds.size} selected</span>
-                            <button type="button" onClick={closeBurstReview}>Close</button>
+                            <button onClick={closeBurstReview}>Close</button>
                         </div>
                         <div
                             className="photo-preview-stage"
@@ -2064,19 +1950,13 @@ function PhotoBrowserSection({
                             onDoubleClick={togglePreviewScale}
                         >
                             <PhotoImage
+                                key={activeBurstPhoto.id}
                                 photo={activeBurstPhoto}
-                                profile="preview"
-                                priority={1}
-                                role="browser"
+                                profile={burstProfile}
+                                initialProfile="preview" requestDelay={80}
+                                priority={0}
                                 alt={activeBurstPhoto.name || "Burst frame"}
-                                style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "contain",
-                                    pointerEvents: "none",
-                                    transform: `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})`,
-                                    transformOrigin: "center center"
-                                }}
+                                style={{ position: "absolute", ...previewImagePlacement(burstGeometry, previewScale, previewOffset, burstStage) }}
                             />
                         </div>
                         <div className="photo-preview-details photo-burst-details">
@@ -2093,11 +1973,11 @@ function PhotoBrowserSection({
                             </span>
                             <span>{previewScale.toFixed(2)}× · wheel to zoom · drag to pan</span>
                             <div className="photo-preview-zoom-controls" role="toolbar" aria-label="Burst preview navigation and zoom">
-                                <button type="button" onClick={() => setBurstReviewIndex(previous => Math.max(0, previous - 1))} disabled={burstReviewIndex === 0}>Previous</button>
-                                <button type="button" onClick={() => changePreviewScale(-0.25)} disabled={previewScale <= 0.25}>−</button>
-                                <button type="button" onClick={fitPreview}>Fit</button>
-                                <button type="button" onClick={() => changePreviewScale(0.25)} disabled={previewScale >= 4}>+</button>
-                                <button type="button" onClick={() => setBurstReviewIndex(previous => Math.min(activeBurstPhotos.length - 1, previous + 1))} disabled={burstReviewIndex >= activeBurstPhotos.length - 1}>Next</button>
+                                <button onClick={() => setBurstReviewIndex(previous => Math.max(0, previous - 1))} disabled={burstReviewIndex === 0}>Previous</button>
+                                <button onClick={() => changePreviewScale(-0.25)} disabled={previewScale <= 0.25}>−</button>
+                                <button onClick={fitPreview}>Fit</button>
+                                <button onClick={() => changePreviewScale(0.25)} disabled={previewScale >= 4}>+</button>
+                                <button onClick={() => setBurstReviewIndex(previous => Math.min(activeBurstPhotos.length - 1, previous + 1))} disabled={burstReviewIndex >= activeBurstPhotos.length - 1}>Next</button>
                             </div>
                         </div>
                         <div className="photo-burst-strip" role="listbox" aria-label="Burst frames">
@@ -2122,27 +2002,27 @@ function PhotoBrowserSection({
                                     tabIndex={0}
                                     aria-selected={burstDraftIds.has(photo.id)}
                                 >
-                                    <PhotoImage photo={photo} profile="thumbnail" priority={1} role="browser" alt={photo.name} />
-                                    <span>{burstDraftIds.has(photo.id) ? "Selected" : "Reject"}</span>
+                                    <PhotoImage photo={photo} priority={1} alt={photo.name} />
+                                    <span>{burstDraftIds.has(photo.id) ? "Pick" : "Not picked"}</span>
                                 </div>
                             ))}
                         </div>
                         <div className="photo-burst-actions">
                             <button
-                                type="button"
+                                disabled={!activeBurstGroup.hasQualityEvidence}
                                 onClick={() => setBurstDraftIds(new Set([activeBurstGroup.bestPhotoId]))}
                             >
-                                Reset to AI Pick
+                                {activeBurstGroup.hasQualityEvidence ? "Use top score" : "Choose your picks"}
                             </button>
-                            <button type="button" onClick={() => toggleBurstDraft(activeBurstPhoto)}>
+                            <button onClick={() => toggleBurstDraft(activeBurstPhoto)}>
                                 {burstDraftIds.has(activeBurstPhoto.id) ? "Remove Pick" : "Add Pick"}
                             </button>
-                            <button type="button" className="photo-browser-primary-button" onClick={applyActiveBurstReview} disabled={burstReviewBusy}>
-                                {burstReviewBusy ? "Applying…" : "Apply Review"}
+                            <button className="photo-browser-primary-button" onClick={applyActiveBurstReview} disabled={burstReviewBusy || !burstDraftIds.size}>
+                                {burstReviewBusy ? "Applying…" : "Keep picks · reject others"}
                             </button>
                         </div>
                     </section>
-                </div>
+                </div>, document.body
             )}
 
             {photoFolderChange?.prepared && (
@@ -2188,83 +2068,17 @@ function PhotoBrowserSection({
                 </div>
             )}
 
-            <div className="photo-browser-statusbar" role="status" aria-label="Photo browser status">
-                <span><strong>Results:</strong> {queryResult.counts.matched}/{queryResult.counts.total}</span>
-                <span><strong>Selected:</strong> {selectedCount}</span>
-                <span><strong>View:</strong> {viewMode === "icons" ? "Icons" : "List"}</span>
-                <span>
-                    <strong>Sort:</strong>{" "}
-                    {preferences.sort.field === "name"
-                        ? "Name"
-                        : preferences.sort.field === "quality"
-                            ? "Quality (AI)"
-                            : preferences.sort.field === "modified"
-                                ? "Date Modified"
-                                : preferences.sort.field === "taken"
-                                    ? "Date Taken"
-                                    : preferences.sort.field === "created"
-                                        ? "Date Created"
-                                        : preferences.sort.field === "rating"
-                                            ? "Rating"
-                                            : preferences.sort.field === "size"
-                                                ? "File Size"
-                                                : preferences.sort.field}{" "}
-                    {preferences.sort.direction === "asc" ? "↑" : "↓"}
-                </span>
-                {viewMode === "icons" && (
-                    <span className="photo-thumbnail-size-control" aria-label="Thumbnail size">
-                        <strong>Thumbnails:</strong>
-                        <button
-                            type="button"
-                            onClick={() => updatePreferences({
-                                thumbnailSize: Math.max(84, preferences.thumbnailSize - 20)
-                            })}
-                            disabled={preferences.thumbnailSize <= 84}
-                            aria-label="Smaller thumbnails"
-                            title="Smaller thumbnails"
-                        >−</button>
-                        <span>{preferences.thumbnailSize}px</span>
-                        <button
-                            type="button"
-                            onClick={() => updatePreferences({
-                                thumbnailSize: Math.min(144, preferences.thumbnailSize + 20)
-                            })}
-                            disabled={preferences.thumbnailSize >= 144}
-                            aria-label="Larger thumbnails"
-                            title="Larger thumbnails"
-                        >+</button>
-                    </span>
-                )}
-            </div>
+            {contextMenu && <PhotoContextMenu menu={contextMenu} menuRef={contextMenuRef} controls={libraryControls}
+                events={eventChapters.items.filter(item => item.photoKeys.length)} ready={eventsReady && !eventBusy}
+                decisionForPhoto={decisionForPhoto} onClose={() => setContextMenu(null)}
+                onMove={id => saveEventEdit("move", id, "", contextMenu.photos).catch(eventFailed)}
+                onEditingChange={onEventEditingChange}
+                onNew={name => saveEventEdit("new", "", name, contextMenu.photos)}
+                onDecision={changes => {
+                    pushDecisionUndo();
+                    contextMenu.photos.forEach(photo => changePhotoDecision(photo, changes));
+                }} />}
 
-            {contextMenu && (
-                <div
-                    className="photo-context-backdrop"
-                    onClick={() => setContextMenu(null)}
-                    onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
-                >
-                    <div
-                        className="photo-context-menu"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            position: "absolute",
-                            top: Math.max(10, Math.min(contextMenu.y, 400)),
-                            left: Math.max(10, Math.min(contextMenu.x, 350))
-                        }}
-                    >
-                        <strong>{selectedCount} selected</strong>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                moveSelectedToNewEvent();
-                                setContextMenu(null);
-                            }}
-                        >
-                            Move to New Event
-                        </button>
-                    </div>
-                </div>
-            )}
 
         </section>
     );

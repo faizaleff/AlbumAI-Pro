@@ -16,3 +16,7 @@ Desktop.ini
 # Locally generated release artifacts
 /com.albumai.pro.zip
 com.albumai.pro/release/
+
+# Local Auto Events runtime and model cache
+com.albumai.pro/local-ai/
+**/__pycache__/

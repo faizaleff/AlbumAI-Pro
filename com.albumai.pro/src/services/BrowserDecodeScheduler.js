@@ -15,6 +15,7 @@ class BrowserDecodeScheduler {
         this.jobs = new Map();
         this.consecutivePreviewJobs = 0;
         this.idleResolvers = new Set();
+        this.backgroundHolds = 0;
 
     }
 
@@ -22,6 +23,17 @@ class BrowserDecodeScheduler {
 
         return this.active;
 
+    }
+
+    holdRefinements() {
+        this.backgroundHolds++;
+        let held = true;
+        return () => {
+            if (!held) return;
+            held = false;
+            this.backgroundHolds--;
+            this.process();
+        };
     }
 
     snapshot() {
@@ -107,16 +119,19 @@ class BrowserDecodeScheduler {
     process() {
 
         while (this.active < MAX_CONCURRENT && this.pending.length) {
-            let nextIndex = 0;
+            const eligible = this.pending.filter(job => !this.backgroundHolds || job.priority < 2);
+            if (!eligible.length) break;
+            let nextJob = eligible[0];
             if (
                 this.consecutivePreviewJobs >=
                     MAX_CONSECUTIVE_PREVIEW_JOBS
             ) {
-                const browserIndex = this.pending.findIndex(
+                const browserJob = eligible.find(
                     pendingJob => pendingJob.priority > 0
                 );
-                if (browserIndex >= 0) nextIndex = browserIndex;
+                if (browserJob) nextJob = browserJob;
             }
+            const nextIndex = this.pending.indexOf(nextJob);
             const [job] = this.pending.splice(nextIndex, 1);
             if (!this.jobs.has(job.key)) continue;
 
