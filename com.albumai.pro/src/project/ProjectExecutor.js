@@ -1,3 +1,4 @@
+import { PsdPreviews } from "../services/TemplateDocumentReader";
 import ReplacementRequest from "../placement/ReplacementRequest";
 import ProjectExecutionSummary, {
     ProjectExecutionStatus
@@ -364,6 +365,13 @@ export default class ProjectExecutor {
             exportEnabled
         });
         const failed = !succeeded;
+        if (sheetContext?.previewKey && succeeded && !cancellationController?.isCancellationRequested()) {
+            const job = PsdPreviews.get(sheetContext.previewKey)?.job;
+            if (job) await PsdPreviews.capture(sheetContext.previewKey, context.documentId, job,
+                () => cancellationController?.isCancellationRequested() === true,
+                (template.smartObjects || []).map(slot => ({slotLayerId: slot.layerId, slotBounds: slot.bounds})).concat(
+                    executionPlan.steps.filter(step => !(template.smartObjects || []).some(slot => String(slot.layerId) === String(step.slotLayerId)))));
+        }
         Logger.info(`END TEMPLATE: ${context.documentName} — ${failed ? "FAILED" : "COMPLETED"}`);
 
         const result = {

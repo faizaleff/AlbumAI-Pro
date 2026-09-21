@@ -32,6 +32,10 @@ function visit(node, callback) {
 
 function imports(file) {
     if (file.endsWith(".css")) return [];
+    if (file.endsWith(".json")) {
+        JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
+        return [];
+    }
     const source = fs.readFileSync(path.join(root, file), "utf8");
     const ast = babel.parseSync(source, {
         filename: file,

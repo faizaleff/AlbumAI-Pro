@@ -68,21 +68,27 @@ export class PanelController {
     }
 
     show(rootNode)  {
-        if (!this[_root]) this.create(rootNode);
-
-        if (rootNode && typeof rootNode.appendChild === "function") {
-            this[_attachment] = rootNode;
-            if (this[_root].parentNode !== rootNode) {
-                rootNode.appendChild(this[_root]);
+        // UXP may pass the DOM root only to create(), then invoke show() with
+        // no argument (or a lifecycle event). Keep the latest valid host root
+        // across hide/show so reopening never leaves a detached React tree.
+        const attachment = rootNode && typeof rootNode.appendChild === "function"
+            ? rootNode : this[_attachment];
+        if (!this[_root]) this.create(attachment);
+        if (attachment) {
+            this[_attachment] = attachment;
+            if (this[_root].parentNode !== attachment) {
+                attachment.appendChild(this[_root]);
             }
         }
     }
 
     hide(rootNode) {
-        const attachment = rootNode || this[_attachment];
+        const attachment = rootNode && typeof rootNode.removeChild === "function"
+            ? rootNode : this[_attachment];
         if (attachment && this[_root] && this[_root].parentNode === attachment) {
             attachment.removeChild(this[_root]);
-            this[_attachment] = null;
+            // destroy() releases the host; hide() preserves it for show().
+            this[_attachment] = attachment;
         }
     }
 

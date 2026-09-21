@@ -46,7 +46,7 @@ try {
     check(readiness.pluginVersion === packageJson.version, "distribution version differs from package.json");
     check(readiness.hostApp === "PS", "CCX must target Photoshop only");
     check(readiness.manifestVersion === 5, "CCX must use manifest v5");
-    check(readiness.networkPermission === false, "direct package must remain network-free");
+    check(readiness.networkPermission === true, "optional Online Events permission must be reported accurately");
     check(readiness.distFileCount === 8, "qualified dist inventory differs");
     check(readiness.runtimeBuildId === EXPECTED_BUILD_ID, "runtime identity differs");
     check(readiness.runtimeBundleSize > 700000, "runtime bundle unexpectedly fell below the qualified budget floor");
@@ -65,6 +65,12 @@ try {
     assert.throws(() => validateDistributionInputs(networkInputs), /NETWORK_PERMISSION_NOT_ALLOWED/);
     assertions += 1;
 
+    for (const domains of [["all"], ["*"], ["http://generativelanguage.googleapis.com"], ["https://generativelanguage.googleapis.com", "https://example.com"]]) {
+        const inputs = currentInputs();
+        inputs.sourceManifest.requiredPermissions.network = {domains};
+        assert.throws(() => validateDistributionInputs(inputs), /NETWORK_PERMISSION_NOT_ALLOWED/);
+        assertions++;
+    }
     const extraFileInputs = currentInputs();
     extraFileInputs.distFiles.push("debug.log");
     assert.throws(() => validateDistributionInputs(extraFileInputs), /DIST_INVENTORY_MISMATCH/);

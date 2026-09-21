@@ -16,6 +16,8 @@ import ThumbnailService, {
 function PhotoImage({
     photo,
     profile = "thumbnail",
+    initialProfile = null,
+    requestDelay = 0,
     priority,
     role = "browser",
     alt = "",
@@ -27,7 +29,10 @@ function PhotoImage({
 
     const cacheKey = getThumbnailCacheKey(photo, profile);
     const [displayedSource, setDisplayedSource] = useState(
-        () => ThumbnailService.getCachedThumbnail(photo, { profile })
+        () => ThumbnailService.getCachedThumbnail(photo, { profile }) ||
+            (initialProfile ? ThumbnailService.getCachedThumbnail(photo, { profile: initialProfile }) ||
+                ThumbnailService.getCachedThumbnail(photo, { profile: "thumbnail" }) : null) ||
+            ThumbnailService.getCachedThumbnail(photo, { profile: "draft" })
     );
     const [pendingSource, setPendingSource] = useState(null);
     const [status, setStatus] = useState(
@@ -66,9 +71,12 @@ function PhotoImage({
 
     useEffect(() => {
         const requestId = ++requestRef.current;
+        const releaseRequest = ThumbnailService.retainRequest(photo, profile);
+        const releaseDraft = profile === "thumbnail" ? ThumbnailService.retainRequest(photo, "draft") : () => {};
         const workspaceGeneration =
             ThumbnailService.getWorkspaceGeneration();
         let active = true;
+        let requestTimer = null;
         setPendingSource(previous =>
             previous?.cacheKey === cacheKey ? previous : null
         );
@@ -87,10 +95,21 @@ function PhotoImage({
         });
         const request = cached
             ? Promise.resolve(cached)
-            : ThumbnailService.getSource(photo, {
-                profile,
-                priority,
-                workspaceGeneration
+            : new Promise(resolve => {
+                const requestSource = async () => {
+                    if (!active) return;
+                    if (profile === "thumbnail" && !displayedSource) {
+                        const source = await ThumbnailService.getSource(photo, { profile: "draft", priority: 1, workspaceGeneration });
+                        if (!active) return;
+                        if (source) setPendingSource({ source, cacheKey, draft: true });
+                    }
+                    // Let every visible embedded draft appear before expensive refinements.
+                    ThumbnailService.getSource(photo, { profile,
+                        priority: profile === "thumbnail" ? Math.max(2, priority || 2) : priority,
+                        workspaceGeneration }).then(resolve);
+                };
+                if (requestDelay) requestTimer = setTimeout(requestSource, requestDelay);
+                else requestSource();
             });
 
         if (!displayedSource) setStatus("loading");
@@ -125,8 +144,11 @@ function PhotoImage({
 
         return () => {
             active = false;
+            if (requestTimer != null) clearTimeout(requestTimer);
+            releaseRequest();
+            releaseDraft();
         };
-    }, [cacheKey, priority, profile, role]);
+    }, [cacheKey, priority, profile, role, requestDelay]);
 
     const completeInvariant = () => {
         PhotoBrowserPerformance.verifyBrowserDocumentInvariant(
@@ -143,7 +165,7 @@ function PhotoImage({
         setPendingSource(null);
         setStatus("loaded");
         completeInvariant();
-        ThumbnailService.markLoadState(photo, "loaded", profile);
+        ThumbnailService.markLoadState(photo, "loaded", pendingSource.draft ? "draft" : profile);
         onImageLoad?.(event);
     };
 
@@ -154,7 +176,7 @@ function PhotoImage({
         completeInvariant();
         ThumbnailService.rejectSource(
             photo,
-            profile,
+            pendingSource.draft ? "draft" : profile,
             pendingSource.source,
             event?.error?.name || event?.type || "ImageElementError"
         );
@@ -188,31 +210,22 @@ function PhotoImage({
                 overflow: "hidden"
             }}
         >
-            {displayedSource && (
+            {[...new Set([displayedSource, pendingSource?.cacheKey === cacheKey && pendingSource.source].filter(Boolean))].map(source => (
                 <img
-                    src={displayedSource}
-                    alt={alt}
+                    key={source}
+                    src={source}
+                    alt={source === displayedSource ? alt : ""}
                     draggable={false}
-                    style={style}
-                />
-            )}
-            {pendingSource?.cacheKey === cacheKey && (
-                <img
-                    key={`${cacheKey}:pending`}
-                    src={pendingSource.source}
-                    alt=""
-                    draggable={false}
-                    onLoad={handlePendingLoad}
-                    onError={handlePendingError}
-                    style={{
-                        ...style,
+                    onLoad={source === displayedSource ? undefined : handlePendingLoad}
+                    onError={source === displayedSource ? undefined : handlePendingError}
+                    style={source === displayedSource ? style : Object.assign({}, style, {
                         position: "absolute",
                         inset: 0,
                         opacity: 0,
                         pointerEvents: "none"
-                    }}
+                    })}
                 />
-            )}
+            ))}
             {!displayedSource && status !== "loaded" && (
                 <div
                     className="photo-image-placeholder-overlay"

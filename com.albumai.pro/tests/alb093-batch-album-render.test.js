@@ -1,3 +1,6 @@
+import { finalDesignPhotos, updatePhotoDecision } from "../src/services/PhotoBrowserModel";
+import { generateAutoFlowSpreads, AutoFlowStrategy } from "../src/services/PhotoAutoFlowEngine";
+import { preflightAlbumForPrint } from "../src/services/PrintExportPresetEngine";
 import assert from "assert";
 import fs from "fs";
 import path from "path";
@@ -386,6 +389,73 @@ export async function runAlb093Tests() {
         check(openFolderSource.includes("if (!summary?.success)"), "Print & Proof checks the full album batch result");
         check(openFolderSource.includes("ALBUM_BATCH_RENDER_FAILED"), "Print & Proof surfaces a stable failed-batch error code");
         check(openFolderSource.includes("error.summary = summary"), "Print & Proof preserves the failed batch summary for diagnostics");
+    }
+
+    // Design eligibility is independent of temporary browser highlights.
+    {
+        const photos = [{ id: "one", name: "one.jpg", selected: false }, { id: "two", name: "two.jpg", selected: true }];
+        const decisions = updatePhotoDecision({}, photos[1], { culling: "REJECT" });
+        check(finalDesignPhotos(photos, decisions).map(p => p.id).join() === "one", "Unhighlighted included photo is final; highlighted rejected photo is excluded");
+        check(finalDesignPhotos(photos, updatePhotoDecision(decisions, photos[1], { culling: "UNRATED" })).length === 2,
+            "Unreject restores Design eligibility");
+    }
+    // Variable template capacity cannot drop photos or reorder by rating/date.
+    {
+        const photos = Array.from({ length: 7 }, (_, index) => ({ id: `p${index}`, rating: index, dateTaken: 100 - index }));
+        const generated = generateAutoFlowSpreads({ photos, templates: [templateRegistry[0]],
+            options: { strategy: AutoFlowStrategy.LIBRARY_ORDER, maxPhotosPerSpread: 3 } });
+        check(generated.success && generated.summary.totalPhotosPlaced === 7, "Every final photo is placed when only two-slot templates exist");
+        check(generated.sheets.flatMap(sheet => sheet.slots.map(slot => slot.photoId)).join() === photos.map(p => p.id).join(),
+            "Current photo order is preserved without missing or duplicate assignments");
+        const blocked = preflightAlbumForPrint({ album: { sheets: generated.sheets }, photos, templates: [templateRegistry[0]] });
+        check(!blocked.isReadyForPrint && blocked.unfilledSlots === 1, "Last unfilled template slot blocks export");
+        const invalid = preflightAlbumForPrint({ album: { sheets: [{ id: "s", templateId: "template-01", slots: [
+            { slotId: 2, photoId: "missing" }, { slotId: 2, photoId: "p0" } ] }] }, photos, templates: templateRegistry });
+        check(!invalid.isReadyForPrint && invalid.blockingIssues.length === 2, "Missing photo and duplicate slot block export even when counts match");
+    }
+    // Rendering rechecks rejection and forces a copy even if legacy settings overwrite originals.
+    {
+        const controller = new AppController();
+        controller.project.getProject = () => ({ metadata: { id: "proj-render", album: fourSpreadAlbum } });
+        controller.projectTemplateRegistry.getAll = () => templateRegistry;
+        controller.revalidateProjectTemplates = async () => ({ persisted: true });
+        const photos = ["photo_01.jpg", "photo_02.jpg"].map(id => ({ id, name: id }));
+        controller.photoWorkspace.getPhotos = () => photos;
+        let decisions = {};
+        controller.photoWorkspace.getPhotoDecisions = () => decisions;
+        controller.autoSaveMode = "OVERWRITE_ORIGINAL";
+        let executionOptions;
+        controller.executeProject = async (_update, options) => { executionOptions = options; return { status: "COMPLETED" }; };
+        const request = controller.createAlbumSheetRenderRequest("Spread_01");
+        await controller.executeAlbumSheetRenderRequest(request.request, null, { autoSaveEnabled: true, exportEnabled: true });
+        check(executionOptions.autoSaveMode === "SAVE_COPY", "Album export cannot inherit overwrite-original setting");
+        decisions = updatePhotoDecision({}, photos[1], { culling: "REJECT" });
+        executionOptions = null;
+        await assert.rejects(controller.executeAlbumSheetRenderRequest(request.request), /rejected or missing/);
+        check(executionOptions === null, "Rejection after planning blocks execution before Photoshop opens a template");
+    }
+    // Album cancellation must stop the outer queue, not just one template.
+    {
+        const controller = new AppController();
+        controller.project.getProject = () => ({ metadata: { id: "proj-stop", album: fourSpreadAlbum } });
+        controller.projectTemplateRegistry.getAll = () => templateRegistry;
+        controller.revalidateProjectTemplates = async () => ({ persisted: true });
+        const executed = [];
+        controller.executeAlbumSheetRenderRequest = async (request, update, options) => {
+            check(controller.isAlbumSheetMutationLocked(), "Album edits stay locked across the whole export");
+            check(options.autoSaveEnabled && options.exportEnabled, "Album export requests both editable output and JPEG");
+            await assert.rejects(controller.closeProject(), /batch is running/);
+            await assert.rejects(controller.executeProject(), /album export is already running/);
+            executed.push(request.sheet.id);
+            controller.requestBatchCancellation();
+            return { status: "COMPLETED" };
+        };
+        const updates = [];
+        const result = await controller.executeAlbumBatchRender({ album: fourSpreadAlbum }, update => updates.push(update));
+        check(executed.length === 1 && result.cancelled && !result.success && result.pendingSheets === 3,
+            "Cancel retains completed sheet and leaves remaining three unstarted");
+        check(updates.at(-1).lifecycle === "CANCELLED" && updates.at(-1).percent === 25, "Cancellation never reports 100 percent complete");
+        check(!controller.isAlbumSheetMutationLocked(), "Album lock is released after cancellation");
     }
 
     console.info(`PASS ALB-093: All assertions passed (${assertions} assertions).`);

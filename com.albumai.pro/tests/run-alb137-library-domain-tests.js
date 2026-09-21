@@ -29,6 +29,7 @@ webpack({
             loader: "babel-loader",
             options: {
                 plugins: [
+                    path.join(__dirname, "../scripts/share-object-spread-helper.js"),
                     "@babel/plugin-transform-object-rest-spread",
                     "@babel/plugin-transform-react-jsx"
                 ]

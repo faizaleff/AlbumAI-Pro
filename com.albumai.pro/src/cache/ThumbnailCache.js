@@ -8,7 +8,7 @@ function isBlobUrl(value) {
 
 export class ThumbnailCache {
 
-    constructor(maxItems = 250) {
+    constructor(maxItems = 250, maxBytes = 96 * 1024 * 1024) {
 
         const normalizedLimit = Number(maxItems);
         this.maxItems =
@@ -17,6 +17,7 @@ export class ThumbnailCache {
                 : 250;
         this.cache = new Map();
         this.sourceOwners = new Map();
+        this.maxBytes = maxBytes;
 
     }
 
@@ -37,7 +38,7 @@ export class ThumbnailCache {
 
     }
 
-    set(key, value) {
+    set(key, value, bytes = 0) {
 
         if (!key || value == null) return;
 
@@ -56,6 +57,7 @@ export class ThumbnailCache {
 
         this.cache.set(key, {
             value,
+            bytes,
             lastAccess: Date.now()
         });
         this.retainCacheOwner(value);
@@ -66,9 +68,11 @@ export class ThumbnailCache {
 
     evict() {
 
-        while (this.cache.size > this.maxItems) {
+        let total = [...this.cache.values()].reduce((sum, entry) => sum + (entry.bytes || 0), 0);
+        while (this.cache.size > this.maxItems || (total > this.maxBytes && this.cache.size > 1)) {
             const oldestKey = this.cache.keys().next().value;
             const oldest = this.cache.get(oldestKey);
+            total -= oldest.bytes || 0;
             this.cache.delete(oldestKey);
             this.releaseCacheOwner(oldest?.value);
             PhotoBrowserPerformance.trace("THUMB_CACHE_EVICT", {

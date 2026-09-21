@@ -1,3 +1,5 @@
+import { createPortal } from "react-dom";
+import SidebarButton from "./SidebarButton";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import BatchProgressPanel from "./BatchProgressPanel";
@@ -39,6 +41,8 @@ const EXPORT_FORMAT_OPTIONS = Object.freeze([
 export { ExecutionDetails, summaryText, debugText } from "./ExecutionDetailsPanel";
 
 export default function TemplateDocumentPanel({
+    simpleDesign = false,
+    typographyPortalTarget = null,
     loadTemplates,
     getRegisteredProjectTemplates,
     revalidateProjectTemplates,
@@ -91,6 +95,8 @@ export default function TemplateDocumentPanel({
     hasProject = false
 }) {
 
+    const SetupButton = simpleDesign ? SidebarButton : "button";
+    const [advanced, setAdvanced] = useState(!simpleDesign);
     const [templates, setTemplates] = useState([]);
     const [selectedName, setSelectedName] = useState("");
     const [registeredTemplates, setRegisteredTemplates] = useState([]);
@@ -345,7 +351,9 @@ export default function TemplateDocumentPanel({
             refreshRegisteredTemplates();
             refreshRegistryPreflightState();
             if (result?.document) setDocument(result.document);
-            setRevalidationMessage(revalidationFeedback(result));
+            setRevalidationMessage(result?.discoveryErrors?.length
+                ? `Could not read: ${result.discoveryErrors.join(", ")}. Other templates were validated.`
+                : revalidationFeedback(result));
         } catch (_) {
             if (!isCurrentTemplateRegistryRequest({
                 mounted: mountedRef.current,
@@ -1001,6 +1009,23 @@ export default function TemplateDocumentPanel({
         }
     }
 
+    const typographyEditor = document ? (
+                        <ManualTypographyPanel
+                            key={albumSheetForRender?.id}
+                            document={document}
+                            applyTypography={applyManualTypography}
+                            initialAssignments={albumSheetForRender?.typographyAssignments || null}
+                            customTextPresets={customTextPresets}
+                            saveCustomTextPresets={saveCustomTextPresets}
+                            onApplied={(drafts, result) => setDocument(current =>
+                                applyTypographyResultToDocument(current, drafts, result)
+                            )}
+                            onAssignmentsApplied={(assignments, result) =>
+                                onTypographyAssignmentsApplied?.({ assignments, result, document })
+                            }
+                        />
+    ) : null;
+
     return (
 
         <section
@@ -1014,6 +1039,11 @@ export default function TemplateDocumentPanel({
         >
 
             <div className="template-workspace-content">
+                {simpleDesign && <div className="album-workspace-section-header">
+                    <strong>Templates & text</strong>
+                    <SidebarButton className="design-flow-action" aria-expanded={advanced}
+                        onClick={() => setAdvanced(value => !value)}>{advanced ? "Hide advanced tools" : "Advanced tools"}</SidebarButton>
+                </div>}
                 <div className="template-setup-row">
                     <div className="template-action-group">
 
@@ -1030,23 +1060,23 @@ export default function TemplateDocumentPanel({
                     disabled={!templates.length}
                 />
 
-                <button
+                <SetupButton className="template-setup-action"
                     onClick={open}
                     disabled={isExecuting || templateOpenBusy || !hasProject || !selectedName}
                 >
                     {templateOpenBusy ? "Opening…" : "Open PSD"}
-                </button>
+                </SetupButton>
                     </div>
                     <div className="template-action-group">
-                <button
+                {advanced && <button
                     onClick={planPlacement}
                     disabled={isExecuting || !hasProject || !document}
                 >
                     Plan Placement
-                </button>
+                </button>}
                     </div>
                     <div className="template-action-group">
-                <button
+                <SetupButton className="template-setup-action"
                     onClick={addCurrentPsd}
                     disabled={registryLocked || !hasProject || !activePsdTarget}
                     title={
@@ -1060,11 +1090,11 @@ export default function TemplateDocumentPanel({
                     }
                 >
                     Add Current PSD
-                </button>
+                </SetupButton>
                 <span style={{ fontSize: 12, color: "#b8b8b8" }}>
                     Registered: {registeredTemplates.length}
                 </span>
-                <button
+                <SetupButton className="template-setup-action"
                     onClick={revalidateTemplatesRequest}
                     disabled={!canRevalidateTemplates({
                         hasProject,
@@ -1075,7 +1105,7 @@ export default function TemplateDocumentPanel({
                     })}
                 >
                     {revalidateBusy ? "Revalidating…" : "Revalidate Templates"}
-                </button>
+                </SetupButton>
                     </div>
                 </div>
 
@@ -1090,20 +1120,7 @@ export default function TemplateDocumentPanel({
                         <div>Template Name: {document.name}</div>
                         <div>Width × Height: {document.document.width} × {document.document.height}</div>
                         <div>Text Layers: {document.statistics.totalTextLayers}</div>
-                        <ManualTypographyPanel
-                            key={albumSheetForRender?.id}
-                            document={document}
-                            applyTypography={applyManualTypography}
-                            initialAssignments={albumSheetForRender?.typographyAssignments || null}
-                            customTextPresets={customTextPresets}
-                            saveCustomTextPresets={saveCustomTextPresets}
-                            onApplied={(drafts, result) => setDocument(current =>
-                                applyTypographyResultToDocument(current, drafts, result)
-                            )}
-                            onAssignmentsApplied={(assignments, result) =>
-                                onTypographyAssignmentsApplied?.({ assignments, result, document })
-                            }
-                        />
+                        {typographyPortalTarget ? createPortal(typographyEditor, typographyPortalTarget) : typographyEditor}
                     </div>
                 )}
 
@@ -1191,11 +1208,13 @@ export default function TemplateDocumentPanel({
                                         style={{ cursor: registryLocked ? "not-allowed" : "grab", touchAction: "none", pointerEvents: "auto", userSelect: "none" }}
                                     >☰</div>
                                     <span aria-label={`Order ${index + 1}`}>{index + 1}</span>
-                                    <span style={{ flex: 1 }}>{entry.name}</span>
+                                    <span className="template-registry-name" style={{ flex: 1 }}>{entry.name}</span>
                                     <span title={`Validation status: ${status}`} aria-label={`Status ${status}`} style={{ fontSize: 11, color: statusBlocked ? "#ff9999" : "#9ee6a5" }}>{status}</span>
-                                    <button title={`Move ${entry.name} up`} aria-label={`Move ${entry.name} up`} disabled={registryLocked || index === 0} onClick={event => { event.stopPropagation(); moveRegisteredTemplate(entry.id, index - 1, "keyboard"); }}>↑</button>
-                                    <button title={`Move ${entry.name} down`} aria-label={`Move ${entry.name} down`} disabled={registryLocked || index === registeredTemplates.length - 1} onClick={event => { event.stopPropagation(); moveRegisteredTemplate(entry.id, index + 1, "keyboard"); }}>↓</button>
-                                    <button title={`Remove ${entry.name}`} aria-label={`Remove ${entry.name}`} disabled={registryLocked} onClick={event => { event.stopPropagation(); removeSelectedRegisteredTemplate(entry.id); }}>×</button>
+                                    <div className="template-registry-actions">
+                                    <SetupButton className="template-setup-action" title={`Move ${entry.name} up`} aria-label={`Move ${entry.name} up`} disabled={registryLocked || index === 0} onClick={event => { event.stopPropagation(); moveRegisteredTemplate(entry.id, index - 1, "keyboard"); }}>↑</SetupButton>
+                                    <SetupButton className="template-setup-action" title={`Move ${entry.name} down`} aria-label={`Move ${entry.name} down`} disabled={registryLocked || index === registeredTemplates.length - 1} onClick={event => { event.stopPropagation(); moveRegisteredTemplate(entry.id, index + 1, "keyboard"); }}>↓</SetupButton>
+                                    <SetupButton className="template-setup-action" title={`Remove ${entry.name}`} aria-label={`Remove ${entry.name}`} disabled={registryLocked} onClick={event => { event.stopPropagation(); removeSelectedRegisteredTemplate(entry.id); }}>×</SetupButton>
+                                    </div>
                                 </div>
                                 {isDropAfter && <div className="drop-after" style={{ height: 2, background: "#4da3ff", marginTop: 3 }} />}
                             </div>
@@ -1203,7 +1222,7 @@ export default function TemplateDocumentPanel({
                     })}
                 </div>
 
-                <div className="template-execution-row">
+                {advanced && <div className="template-execution-row">
                     <div className="template-action-group">
                 <button
                     onClick={buildExecutionPlan}
@@ -1258,13 +1277,14 @@ export default function TemplateDocumentPanel({
                     </div>
                 </div>
 
+                }
                 <BatchProgressPanel
                     summary={projectExecutionSummary}
                     onRequestCancel={requestBatchCancellation}
                     recoveryOutput={recoveryState?.outputRecovery || null}
                 />
 
-                <div className="template-output-row">
+                {advanced && <div className="template-output-row">
                     <div className="template-action-group">
                 <label style={{ fontSize: 12 }}>
                     <input
@@ -1325,6 +1345,7 @@ export default function TemplateDocumentPanel({
                 />
                     </div>
                 </div>
+                }
             </div>
 
         </section>

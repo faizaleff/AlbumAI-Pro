@@ -1,3 +1,6 @@
+import {transferSpreadPhoto, bindSpreadDrag} from "../src/components/spreadDrag";
+import { PsdPreviews } from "../src/services/TemplateDocumentReader";
+import TemplateDocumentPanel from "../src/components/TemplateDocumentPanel";
 import assert from "assert";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
@@ -14,7 +17,7 @@ import {
 import {
     createAlbumSheetRenderRequest
 } from "../src/project/AlbumSheetRenderBridge";
-import SpreadCanvas from "../src/components/SpreadCanvas";
+import SpreadCanvas, { draftPhotoFrame, zoomPhotoPosition, editPreviewSlots, bindAssetDrop, bindPreviewSwap, DesignWorkspace, designSlotOverview, filterDesignPhotos } from "../src/components/SpreadCanvas";
 import SheetStoryboardStrip from "../src/components/SheetStoryboardStrip";
 import {
     computeCompletedSteps,
@@ -45,6 +48,66 @@ export async function runAlb081Tests() {
         ]
     };
 
+    {
+        const slot = {cropFocus:"top", position:{zoom:1.5,x:0,y:0}};
+        const photo = {metadata:{width:600,height:900}};
+        const region = {width:.8,height:1};
+        const before = draftPhotoFrame(slot, photo, region, 1.5);
+        const position = zoomPhotoPosition(slot, photo, region, 1.5, .1);
+        const after = draftPhotoFrame({...slot,position}, photo, region, 1.5);
+        check(!!before, "Metadata dimensions support live brush-slot zoom");
+        check(Math.abs((.5-before.y)/before.height - (.5-after.y)/after.height) < 1e-9,
+            "Zoom preserves the visible centre of a top-anchored photo");
+    }
+    {
+        const a = [{slotId:1,photoId:"a",position:{zoom:1.2}}], b = [{slotId:9,photoId:"b"}];
+        const swapped = transferSpreadPhoto(a,b,1,9);
+        check(swapped.source[0].photoId === "b" && swapped.target[0].photoId === "a", "Cross-spread occupied slots swap both photos");
+        const moved = transferSpreadPhoto(a,b,1,10);
+        check(moved.source.length === 0 && moved.target.length === 2 && moved.target[1].position.zoom === 1.2, "Cross-spread empty-slot move preserves crop and vacates source");
+        check(a[0].photoId === "a" && b.length === 1 && transferSpreadPhoto(a,b,2,9) === null, "Cross-spread transfer is immutable and ignores absent source");
+        const surface = () => ({handlers:{}, addEventListener(t,f){this.handlers[t]=f;},removeEventListener(t){delete this.handlers[t];}});
+        const doc = surface(), host = {...surface(),requestAnimationFrame:()=>1,cancelAnimationFrame(){}};
+        const card = {getAttribute:()=>"b",getBoundingClientRect:()=>({left:100,right:200,top:0,bottom:80}),setAttribute(){},removeAttribute(){}};
+        const root = {...surface(),querySelectorAll:()=>[card],querySelector:()=>({contains:()=>true})};
+        let result, selected;
+        const state = {sheetId:"a",disabled:false,canTransfer:()=>true,select:id=>{selected=id;state.sheetId=id;},reorder:(...args)=>result=args,transfer:(...args)=>result=args};
+        const cleanup=bindSpreadDrag(root,()=>state,doc,host);
+        const start = {getAttribute:()=>"a"};
+        root.handlers.mousedown({button:0,clientX:10,clientY:20,target:{closest:q=>q==='[data-spread-card]'?start:null}});
+        doc.handlers.mousemove({clientX:130,clientY:20,buttons:1,preventDefault(){}});
+        doc.handlers.mouseup({clientX:130,clientY:20,button:0});
+        check(result?.join() === "a,b", "Thumbnail drag commits a reorder on drop");
+        result=null;
+        root.handlers.mousedown({button:0,clientX:10,clientY:20,target:{closest:q=>q.includes('data-drop-slot')?{getAttribute:()=>"1"}:null}});
+        doc.handlers.mousemove({clientX:130,clientY:20,buttons:1,preventDefault(){}});
+        await new Promise(resolve=>setTimeout(resolve,480));
+        check(selected === "b", "Hovering another thumbnail opens its spread during photo drag");
+        let preventedNative = false;
+        root.handlers.dragstart({preventDefault(){preventedNative=true;}});
+        check(preventedNative, "Native image dragging cannot steal the cross-spread gesture");
+        const destination = {getAttribute:()=>"9",getBoundingClientRect:()=>({left:100,right:200,top:0,bottom:80})};
+        root.querySelectorAll = selector => selector.includes('data-drop-slot') ? [destination] : [card];
+        doc.handlers.mousemove({clientX:130,clientY:20,buttons:0,preventDefault(){}});
+        doc.handlers.mouseup({clientX:130,clientY:20,button:0});
+        check(result?.join() === "a,1,b,9", "Cross-spread drop survives UXP mousemove buttons=0 and commits both slot IDs");
+        result = null;
+
+        doc.handlers.keydown({key:"Escape"});
+        doc.handlers.mouseup({clientX:130,clientY:20,button:0});
+        check(result === null, "Escape cancels cross-spread drag without moving photos");
+        state.pan=(...args)=>result=args;
+        state.swap=(...args)=>result=args;
+        root.handlers.mousedown({button:0,clientX:120,clientY:20,target:{closest:q=>q==='[data-drop-slot]'?destination:null}});
+        doc.handlers.mousemove({clientX:140,clientY:20,buttons:0,preventDefault(){}});
+        doc.handlers.mouseup({clientX:140,clientY:20,button:0});
+        check(result?.join() === '9,0.2,0', 'Workspace gesture commits same-slot pan without a second handler');
+        root.handlers.mousedown({button:0,clientX:120,clientY:20,target:{closest:q=>q==='[data-drop-slot]'?{getAttribute:()=>"1"}:null}});
+        doc.handlers.mousemove({clientX:140,clientY:20,buttons:0,preventDefault(){}});
+        doc.handlers.mouseup({clientX:140,clientY:20,button:0});
+        check(result?.join() === 'b,1,9', 'Workspace gesture commits same-spread slot swap');
+        cleanup();
+    }
     // Test 1: ASSIGN_SLOT mutation
     {
         const mutation = {
@@ -180,6 +243,20 @@ export async function runAlb081Tests() {
             cropFocus: "bottom"
         });
         check(noopCrop.changed === false, "Same crop focus is unchanged");
+        const positioned = applyAlbumSheetMutation(cropResult.album, {intent: AlbumSheetMutationIntent.SET_SLOT_CROP,
+            sheetId: "sheet-1", slotId: 101, cropFocus: "bottom", position: {x: .2, y: -.3, zoom: 1.4}});
+        const reopened = inspectAlbum(JSON.parse(JSON.stringify(positioned.album))).album;
+        assert.deepStrictEqual(reopened.sheets[0].slots[0].position, {x: .2, y: -.3, zoom: 1.4});
+        check(positioned.changed, "Changing only position persists a crop edit");
+        const history = createAlbumSheetHistory(cropResult.album);
+        const edit = applyAlbumSheetHistoryMutation(history, {intent: AlbumSheetMutationIntent.SET_SLOT_CROP,
+            sheetId: "sheet-1", slotId: 101, cropFocus: "bottom", position: {x: 0, y: .3, zoom: 2}});
+        const undo = undoAlbumSheetHistory(edit.history);
+        check(!undo.history.present.sheets[0].slots[0].position, "Undo restores the previous position and zoom");
+        const reset = applyAlbumSheetMutation(reopened, {intent: AlbumSheetMutationIntent.SET_SLOT_CROP,
+            sheetId: "sheet-1", slotId: 101, cropFocus: "center"});
+        check(!reset.album.sheets[0].slots[0].position, "Reset clears manual position and zoom");
+
     }
 
     // Test 5: Undo and Redo for slot mutations
@@ -819,6 +896,234 @@ export async function runAlb081Tests() {
             "manual slot cards avoid unsupported UXP drag-over bindings");
         check(!spreadCanvasSource.includes("onDrop={handleDrop}"),
             "manual slot cards avoid unsupported UXP drop bindings");
+    }
+
+    {
+        const html = ReactDOMServer.renderToStaticMarkup(<TemplateDocumentPanel simpleDesign={true} />);
+        check(html.includes("Templates &amp; text") && html.includes("Add Current PSD"), "Simple Design retains template setup");
+        check(html.includes("Advanced tools") && !html.includes("Build Execution Dry Run") && !html.includes("Overwrite Original"),
+            "Legacy execution and overwrite controls start collapsed in simple Design");
+    }
+
+    {
+        // Exercise the loaded PSD state; the empty-panel render cannot expose
+        // duplicate editors or accidental JSX text in document details.
+        const dispatcher = React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher;
+        const saved = dispatcher.current, slots = [], pending = [], cleanups = [];
+        let cursor = 0;
+        const hooks = {
+            useState(initial) {
+                const i = cursor++;
+                if (!(i in slots)) slots[i] = typeof initial === "function" ? initial() : initial;
+                return [slots[i], value => { slots[i] = typeof value === "function" ? value(slots[i]) : value; }];
+            },
+            useRef(initial) { const i = cursor++; return slots[i] || (slots[i] = {current: initial}); },
+            useMemo(fn) { cursor++; return fn(); },
+            useEffect(fn, deps) {
+                const i = cursor++, old = slots[i];
+                if (!old || deps.some((value, j) => value !== old[j])) { slots[i] = deps; pending.push(fn); }
+            }
+        };
+        const fixture = {name: "Test.psd", document: {width: 3600, height: 1200}, statistics: {totalTextLayers: 0}};
+        const props = {simpleDesign: true, hasProject: true, projectId: "qa",
+            loadTemplates: async () => [{name: "Test.psd"}], openTemplate: async () => fixture};
+        const render = extra => {
+            cursor = 0; dispatcher.current = hooks;
+            try { return TemplateDocumentPanel({...props, ...extra}); }
+            finally { dispatcher.current = saved; }
+        };
+        const nodes = value => Array.isArray(value) ? value.flatMap(nodes) :
+            value && typeof value === "object" ? [value, ...nodes(value.props?.children ?? value.children)] : [value];
+        try {
+            render(); pending.splice(0).forEach(fn => { const cleanup = fn(); if (typeof cleanup === "function") cleanups.push(cleanup); });
+            await Promise.resolve(); await Promise.resolve();
+            const openButton = nodes(render()).find(node => node?.props?.children === "Open PSD");
+            check(!openButton.props.disabled, "Loaded template enables Open PSD");
+            await openButton.props.onClick();
+            for (const target of [null, {nodeType: 1}]) {
+                const tree = nodes(render({typographyPortalTarget: target}));
+                const text = tree.filter(node => typeof node === "string").join(" ");
+                check(!/onAssignmentsApplied|typographyPortalTarget|\/>/.test(text), "Loaded PSD shows no implementation text");
+                check(tree.filter(node => node?.type?.name === "ManualTypographyPanel").length === 1,
+                    "Loaded PSD owns one typography editor with or without a portal");
+                check(tree.some(node => node?.containerInfo === target) === Boolean(target), "Text editor uses the requested portal only");
+            }
+        } finally { dispatcher.current = saved; cleanups.forEach(fn => fn()); }
+    }
+
+    {
+        const photos = [{id: "a", name: "Bride.jpg"}, {id: "b", name: "Couple.jpg"}, {id: "c", name: "Family.jpg"}];
+        const sheets = [{id: "one", templateId: "t", label: "Opening", slots: [{slotId: 24, photoId: "a"}]},
+            {id: "two", templateId: "t", slots: [{slotId: 24, photoId: "b"}]}];
+        const template = {id: "t", name: "Portrait.psd", smartObjects: [{layerId: 24}, {layerId: 81}]};
+        assert.deepStrictEqual(filterDesignPhotos(photos, sheets, "", true).map(photo => photo.id), ["c"]);
+        check(filterDesignPhotos(photos, sheets, " COUPLE ")[0].id === "b", "Photo search is case insensitive and trims whitespace");
+        check(designSlotOverview(sheets[0], template)[0].assignment.photoId === "a", "Overview binds the canonical slot assignment");
+        check(designSlotOverview(sheets[0], template)[1].assignment === undefined, "Unassigned slots remain empty");
+        assert.deepStrictEqual(designSlotOverview({slots: []}, {name: "01.psd", slotCount: 2}), []);
+        check(designSlotOverview(sheets[0], null)[0].layerId === 24, "Missing templates preserve known assignment IDs without inventing slots");
+        const html = ReactDOMServer.renderToStaticMarkup(<DesignWorkspace photos={photos} sheets={sheets}
+            sheet={sheets[0]} template={template} templates={[template]}
+            ImageComponent={({photo}) => <img alt={photo.name}/>} templateTools={<span>Template setup</span>}/>);
+        for (const label of ["Photos and templates", "Spread workspace", "Selected item settings", "Album spreads", "Open in Photoshop", "Template setup", "Spread name"]) {
+            check(html.includes(label), "Three-pane workspace retains " + label);
+        }
+        check(html.includes("Update preview to see the layout") && html.includes("Edit photos"), "Workspace separates exact preview from photo assignment editing");
+        const key = PsdPreviews.key("qa", sheets[0], template, photos);
+        PsdPreviews.set(key, {status: "ready", src: "data:image/jpeg;base64,EXACT"});
+        const ready = ReactDOMServer.renderToStaticMarkup(<DesignWorkspace projectId="qa" photos={photos} sheets={sheets}
+            sheet={sheets[0]} template={template} templates={[template]} ImageComponent={() => <span/>}/>);
+        check(ready.includes('alt="Rendered spread preview"') && ready.includes('alt="Rendered spread"'), "Center and storyboard both show the real rendered composite");
+        check(ready.includes("data:image/jpeg;base64,EXACT"), "Actual Photoshop pixels are used as the preview source");
+        const changed = ReactDOMServer.renderToStaticMarkup(<DesignWorkspace projectId="qa" photos={photos} sheets={sheets}
+            sheet={{...sheets[0], slots: []}} template={template} templates={[template]} ImageComponent={() => <span/>}/>);
+        check(changed.includes('alt="Rendered spread preview"'), "Changed spread retains the last rendered composite while it is dirty");
+        check(changed.includes('aria-label="Refresh preview"'), "Dirty spread exposes one compact preview refresh action");
+        const changedResolution = PsdPreviews.resolve("qa", {...sheets[0], slots: []}, template, photos);
+        check(changedResolution.image?.src === "data:image/jpeg;base64,EXACT" && changedResolution.dirty,
+            "Preview store resolves the latest rendered image without claiming it is current");
+        PsdPreviews.set(changedResolution.key, {status: "ready", src: "data:image/jpeg;base64,UPDATED"});
+        const updatedResolution = PsdPreviews.resolve("qa", {...sheets[0], slots: []}, template, photos);
+        check(updatedResolution.image?.src === "data:image/jpeg;base64,UPDATED" && !updatedResolution.dirty,
+            "A completed exact render clears the dirty preview state");
+        PsdPreviews.clear();
+        // Newly created sheets omit slots until the first assignment.
+        const emptySheet = {id: "empty", templateId: "t"};
+        const templateImage = {status: "ready", src: "data:image/jpeg;base64,TEMPLATE", aspect: 3,
+            regions: [{id: 24, x: 0, y: 0, width: .5, height: 1}, {id: 81, x: .5, y: 0, width: .5, height: 1}]};
+        PsdPreviews.set(PsdPreviews.key("qa", null, template), templateImage);
+        const emptyPreview = ReactDOMServer.renderToStaticMarkup(<DesignWorkspace projectId="qa" photos={photos}
+            sheets={[emptySheet]} sheet={emptySheet} template={template} templates={[template]} onDraftChange={() => {}}/>);
+        check(emptyPreview.includes('data-preview-slot="24"') && emptyPreview.includes('data-preview-slot="81"'),
+            "An entirely empty spread exposes every template preview slot for direct drop and selection");
+        const restoredTemplate = {...template, smartObjects: []};
+        const restoredEmpty = ReactDOMServer.renderToStaticMarkup(<DesignWorkspace projectId="qa" photos={photos}
+            sheets={[emptySheet]} sheet={emptySheet} template={restoredTemplate} templates={[restoredTemplate]}/>);
+        check(restoredEmpty.includes("0/2 photos"), "Restored empty spreads recover drop slot identities from captured PSD regions");
+        const firstPhoto = {...photos[0], width: 600, height: 900};
+        const firstDrop = ReactDOMServer.renderToStaticMarkup(<DesignWorkspace projectId="qa" photos={[firstPhoto]}
+            sheets={[emptySheet]} sheet={emptySheet} template={template} templates={[template]} onDraftChange={() => {}}
+            drafts={{empty: {base: emptySheet, preview: templateImage, slots: [{slotId: 81, photoId: "a"}]}}}/>);
+        check(firstDrop.includes('design-draft-photo') && firstDrop.includes('visibility:visible') && firstDrop.includes('data-preview-slot="24"'),
+            "First drop is visible as a draft over template pixels while other empty slots remain targets");
+        const multi = ReactDOMServer.renderToStaticMarkup(<DesignWorkspace projectId="qa" photos={photos}
+            sheets={[emptySheet, {...emptySheet, id: "second"}]} sheet={emptySheet} template={template} templates={[template]}
+            drafts={{empty: {base: emptySheet, slots: []}, second: {base: {...emptySheet, id: "second"}, slots: []}}}/>);
+        check(!multi.includes("design-thumb-move") && multi.includes("Remove spread 1"), "Compact thumbnails replace arrows with remove controls");
+        check(multi.includes("Apply all (2)"), "Multiple pending spreads expose one Apply all action");
+        check(!/disabled=""[^>]*aria-label="Select spread/.test(multi), "Drafts do not disable spread navigation");
+        check(!/design-spread-add[^>]*disabled/.test(multi), "Drafts do not disable adding the next spread");
+        check((multi.match(/aria-label="Refresh preview"/g) || []).length === 2, "All pending spread thumbnails expose their own refresh action");
+        PsdPreviews.clear();
+        check(!html.includes("Render Spread") && !html.includes("storyboard-card-actions"), "Workspace removes repeated per-card action rows");
+        const empty = ReactDOMServer.renderToStaticMarkup(<DesignWorkspace/>);
+        check(empty.includes("Choose templates") && empty.includes("Your album starts here"), "Empty workspace provides a template setup path");
+    }
+
+    {
+        const original = [{slotId: 1, photoId: "a", position: {zoom: 1.2}}, {slotId: 2, photoId: "b"}];
+        const moved = editPreviewSlots(original, 1, null, 3);
+        check(moved.length === 2 && !moved.some(slot => slot.slotId === 1) && moved.find(slot => slot.slotId === 3)?.photoId === "a", "Moving to an empty slot vacates the source without duplicating the photo");
+        check(original[0].slotId === 1 && moved[0].position.zoom === 1.2, "Empty-slot move preserves crop and leaves the original untouched");
+        const surface = () => {
+            const listeners = new Map();
+            return {addEventListener: (type, fn) => listeners.set(type, fn),
+                removeEventListener: type => listeners.delete(type), listeners,
+                fire(type, event = {}) { listeners.get(type)?.({button: 0, buttons: 1, preventDefault() {}, stopPropagation() {}, ...event}); }};
+        };
+        const root = surface(), doc = surface(), host = surface();
+        const slot = (id, left) => ({attrs: {"data-preview-slot": id},
+            getBoundingClientRect: () => ({left, right: left + 80, top: 20, bottom: 100, width: 80, height: 80}),
+            getAttribute(key) { return this.attrs[key]; }, setAttribute(key, value) { this.attrs[key] = value; },
+            removeAttribute(key) { delete this.attrs[key]; }});
+        const nodes = [slot("17", 100), slot("29", 200)];
+        root.querySelectorAll = () => nodes;
+        let valid = true, swaps = [], autoPans = [], live = [], zooms = [];
+        const cleanup = bindPreviewSwap(root, {valid: () => valid,
+            onSwap: (...args) => swaps.push(args), onPan: (...args) => autoPans.push(args),
+            onLive: value => live.push(value), onZoom: (...args) => zooms.push(args)}, doc, host);
+        let clickPrevented = 0;
+        root.fire("mousedown", {clientX: 120, clientY: 40, preventDefault: () => clickPrevented++});
+        doc.fire("mouseup", {clientX: 120, clientY: 40});
+        check(clickPrevented === 0, "An ordinary preview click remains available for slot selection");
+        const down = () => root.fire("mousedown", {clientX: 120, clientY: 40});
+        const move = x => doc.fire("mousemove", {clientX: x, clientY: 40});
+        const up = x => doc.fire("mouseup", {clientX: x, clientY: 40});
+        down(); move(220); up(220); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        assert.deepStrictEqual(swaps, [["17", "29"]]);
+        check(!nodes[0].attrs["data-swap-state"] && !nodes[1].attrs["data-swap-state"], "Completed drag clears feedback");
+        up(220); down(); move(140); up(140); down(); move(190); up(190);
+        down(); move(220); doc.fire("keydown", {key: "Escape"}); up(220);
+        down(); move(220); host.fire("blur"); up(220);
+        down(); move(220); doc.fire("scroll"); up(220);
+        down(); move(220); valid = false; up(220); valid = true;
+        down(); move(220); doc.fire("mousemove", {clientX: 220, clientY: 40, buttons: 0}); up(220);
+        down(); move(220); valid = false; up(220); await Promise.resolve();
+        check(swaps.length === 3 && autoPans.length === 1, "Unrelated scrolling and UXP buttons=0 preserve swaps; Escape, blur and invalid state cancel");
+        assert.deepStrictEqual(autoPans[0], ["17", .25, 0]);
+        check(live.some(value => value?.id === "17" && value.x === .25) && live.at(-1) === null,
+            "Pan movement is shown as temporary live state and cleared after commit");
+        valid = true;
+        down();
+        doc.fire("mousemove", {clientX:140,clientY:40,buttons:0});
+        up(140);
+        check(autoPans.length === 2, "UXP buttons=0 preserves position dragging too");
+        let prevented = 0;
+        root.fire("wheel", {clientX: 120, clientY: 40, deltaY: -1, preventDefault: () => prevented++, stopPropagation() {}});
+        root.fire("wheel", {clientX: 120, clientY: 40, deltaY: -1, preventDefault: () => prevented++, stopPropagation() {}});
+        root.fire("wheel", {clientX: 120, clientY: 40, deltaY: -1, preventDefault: () => prevented++, stopPropagation() {}});
+        await new Promise(resolve => setTimeout(resolve, 1));
+        assert.deepStrictEqual(zooms, [["17", .15]]);
+        check(prevented === 3, "Wheel zoom is scoped to the hovered photo slot and coalesced per frame");
+        root.fire("mousewheel", {clientX: 120, clientY: 40, wheelDelta: 120});
+        await new Promise(resolve => setTimeout(resolve, 1));
+        check(zooms.at(-1)?.[1] === .05, "Legacy UXP mousewheel events zoom the hovered slot");
+        zooms.pop();
+        nodes[0].attrs["data-pan-supported"] = "false";
+        down(); move(220); up(220);
+        root.fire("wheel", {clientX: 120, clientY: 40, deltaY: -1, preventDefault: () => prevented++, stopPropagation() {}});
+        await new Promise(resolve => setTimeout(resolve, 1));
+        check(prevented === 4, "Wheel over an unsupported slot cannot scroll the whole page");
+        check(swaps.length === 4 && zooms.length === 1,
+            "A slot without live crop geometry remains swappable while wheel zoom stays disabled");
+        nodes[0].attrs["data-pan-supported"] = "true";
+        const overlap = slot("41", 100);
+        overlap.closest = () => overlap;
+        nodes.push(overlap);
+        root.fire("mousedown", {clientX: 120, clientY: 40, target: overlap});
+        doc.fire("mousemove", {clientX: 220, clientY: 40});
+        doc.fire("mouseup", {clientX: 220, clientY: 40});
+        check(swaps.at(-1)?.[0] === "41" && swaps.at(-1)?.[1] === "29",
+            "Overlapping preview regions use the directly targeted slot instead of cancelling the swap");
+        nodes.pop();
+        valid = true; down(); move(220); cleanup(); up(220);
+        check(root.listeners.size + doc.listeners.size + host.listeners.size === 0, "Unmount cancels drag and releases every listener");
+        root.getBoundingClientRect = () => ({left: 100, top: 20, right: 280, bottom: 100});
+        const drops = [];
+        nodes.forEach(node => node.attrs["data-drop-slot"] = node.attrs["data-preview-slot"]);
+        root.querySelector = () => root;
+        const stopDrop = bindAssetDrop(root, {valid: () => valid, onDrop: (...args) => drops.push(args)}, doc);
+        const asset = {closest: () => ({getAttribute: () => "photo-new"})};
+        root.fire("mousedown", {target: asset, clientX: 10, clientY: 40});
+        doc.fire("mousemove", {clientX: 120, clientY: 40});
+        check(nodes[0].attrs["data-asset-target"] === "true", "Asset drag highlights the destination slot");
+        doc.fire("mouseup", {clientX: 120, clientY: 40});
+        assert.deepStrictEqual(drops, [["photo-new", "17"]]);
+        root.fire("mousedown", {target: asset, clientX: 10, clientY: 40});
+        doc.fire("mousemove", {clientX: 220, clientY: 40});
+        doc.fire("keydown", {key: "Escape"});
+        doc.fire("mouseup", {clientX: 220, clientY: 40});
+        check(drops.length === 1, "Escape cancels asset replacement without changing a slot");
+        stopDrop();
+        let pans = [];
+        const stopPan = bindPreviewSwap(root, {valid: () => valid, mode: "move", onSwap: () => {throw Error("Pan must not swap");},
+            onPan: (...args) => pans.push(args)}, doc, host);
+        down(); move(140); up(140); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        assert.deepStrictEqual(pans, [["17", .25, 0]]);
+        down(); move(320); up(320); await Promise.resolve();
+        check(pans.length === 1, "Pan uses slot-relative distance and cancels drops outside preview");
+        stopPan();
+
     }
 
     console.info(`PASS ALB-081: All assertions passed (${assertions} assertions).`);

@@ -1,3 +1,4 @@
+import { normalizePhotoPosition } from "../project/AlbumSheetSchema";
 export default class ReplacementStep {
 
     constructor(data = {}) {
@@ -12,6 +13,9 @@ export default class ReplacementStep {
             photoName: data.photoName || "",
             photoFileReference: data.photoFileReference,
             fitMode: data.fitMode || "fill",
+            cropFocus: ["center", "top", "bottom", "left", "right"].includes(data.cropFocus) ? data.cropFocus : "center",
+            position: data.position ? Object.freeze(normalizePhotoPosition(data.position)) : null,
+            slotBounds: data.slotBounds ? Object.freeze({...data.slotBounds}) : null,
             expectedLayerType: data.expectedLayerType,
             expectedDocumentId: data.expectedDocumentId
         });

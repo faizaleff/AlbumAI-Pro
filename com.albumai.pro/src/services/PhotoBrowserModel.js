@@ -44,9 +44,9 @@ const MAX_SEARCH_LENGTH = 160;
 const MAX_PHOTO_DECISIONS = 20000;
 const MAX_EVENT_CHAPTERS = 200;
 const MAX_EVENT_CHAPTER_NAME_LENGTH = 80;
-const MIN_THUMBNAIL_SIZE = 84;
-const MAX_THUMBNAIL_SIZE = 144;
-const DEFAULT_THUMBNAIL_SIZE = 104;
+const MIN_THUMBNAIL_SIZE = 124;
+const MAX_THUMBNAIL_SIZE = 172;
+const DEFAULT_THUMBNAIL_SIZE = 144;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function boundedString(value, maximum = MAX_SEARCH_LENGTH) {
@@ -215,10 +215,14 @@ export function normalizePhotoEventChapters(value = {}, photos = null) {
 
         items.push(Object.freeze({
             chapterId,
+            ...(Array.isArray(candidate.originKeys) ? { originKeys: Object.freeze(
+                [...new Set(candidate.originKeys)].filter(key => /^p1-[0-9a-f]{16}$/.test(key) && (!available || available.has(key)))
+            ) } : {}),
             name: normalizedEventChapterName(
                 candidate.name,
                 `Event ${items.length + 1}`
             ),
+            ...(typeof candidate.description === "string" && candidate.description.trim() ? {description:candidate.description.replace(/\s+/g," ").trim().slice(0,720)} : {}),
             photoKeys: Object.freeze(photoKeys)
         }));
     }
@@ -385,9 +389,10 @@ function normalizedDecision(item) {
     const culling = typeof item.culling === "string" && ["KEEP", "REJECT"].includes(item.culling.toUpperCase())
         ? item.culling.toUpperCase()
         : null;
-    if (!rating && !favorite && !culling) return null;
+    if (!rating && !favorite && !culling && item.collage !== true) return null;
     const result = { photoKey, rating, favorite };
     if (culling) result.culling = culling;
+    if (item.collage === true) result.collage = true;
     return Object.freeze(result);
 }
 
@@ -429,6 +434,7 @@ export function photoDecisionFor(value, photo) {
         rating: decision.rating,
         favorite: decision.favorite
     };
+    if (decision.collage === true) result.collage = true;
     if (decision.culling && decision.culling !== "UNRATED") {
         result.culling = decision.culling;
     }
@@ -443,11 +449,18 @@ export function createPhotoDecisionLookup(value = {}) {
             rating: decision.rating,
             favorite: decision.favorite
         };
+        if (decision.collage === true) result.collage = true;
         if (decision.culling && decision.culling !== "UNRATED") {
             result.culling = decision.culling;
         }
         return Object.freeze(result);
     };
+}
+
+// Temporary Design input policy: browser highlight is not album eligibility.
+export function finalDesignPhotos(photos = [], decisions = {}) {
+    const decisionFor = createPhotoDecisionLookup(decisions);
+    return photos.filter(photo => photo?.id && decisionFor(photo).culling !== "REJECT");
 }
 
 export function updatePhotoDecision(value, photo, changes = {}) {
@@ -467,10 +480,12 @@ export function updatePhotoDecision(value, photo, changes = {}) {
             ? changes.culling.toUpperCase()
             : null)
         : (previous.culling || null);
-    if (!rating && !favorite && !culling) byKey.delete(photoKey);
+    const collage = Object.prototype.hasOwnProperty.call(changes, "collage") ? changes.collage === true : previous.collage === true;
+    if (!rating && !favorite && !culling && !collage) byKey.delete(photoKey);
     else {
         const next = { photoKey, rating, favorite };
         if (culling) next.culling = culling;
+        if (collage) next.collage = true;
         byKey.set(photoKey, next);
     }
     return normalizePhotoDecisions({ items: [...byKey.values()] });
@@ -546,6 +561,20 @@ export function normalizePhotoBrowserPreferences(value = {}) {
             direction: sortSource.direction === "desc" ? "desc" : "asc"
         })
     });
+}
+
+// Reset the query without resetting the user's chosen presentation.
+export function clearPhotoBrowserFilters(value) {
+    return normalizePhotoBrowserPreferences({
+        ...value, search: "", types: [], orientations: [], minimumRating: 0,
+        ratingFilter: {mode: "any", value: 0}, favoritesOnly: false,
+        duplicatesOnly: false, datePreset: "any"
+    });
+}
+
+export function visibleLibraryFocus(photos, focusedId, selectedIds) {
+    if (photos.some(photo => photo.id === focusedId)) return focusedId;
+    return photos.find(photo => selectedIds.has(photo.id))?.id || null;
 }
 
 export function photoOrientation(photo) {

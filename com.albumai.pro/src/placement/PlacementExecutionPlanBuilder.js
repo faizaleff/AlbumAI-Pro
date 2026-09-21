@@ -83,6 +83,8 @@ export default class PlacementExecutionPlanBuilder {
                 photoName: photo.name || assignment.photoName || "",
                 photoFileReference,
                 fitMode: assignment.fitMode || "fill",
+                cropFocus: assignment.cropFocus || "center",
+                position: assignment.position,
                 score: Number.isFinite(assignment.score) ? assignment.score : null,
                 reasons: this.reasons(assignment)
             };

@@ -5,6 +5,7 @@ import ThumbnailCacheSingleton, {
 } from "../src/cache/ThumbnailCache";
 import PhotoBrowserPerformance from
     "../src/services/PhotoBrowserPerformance";
+import BrowserDecodeScheduler from "../src/services/BrowserDecodeScheduler";
 import {
     getThumbnailCacheKey,
     ThumbnailService
@@ -38,6 +39,22 @@ async function withPerformanceSpies(callback) {
 }
 
 async function run() {
+    await test("popup pauses expensive refinements, permits drafts and resumes on close", async () => {
+        await BrowserDecodeScheduler.whenIdle();
+        const order = [];
+        const resume = BrowserDecodeScheduler.holdRefinements();
+        const request = (key, priority) => BrowserDecodeScheduler.request(key, release => {
+            order.push(key); release();
+        }, { priority });
+        request("held-background", 2);
+        request("popup-draft", 1);
+        request("popup-zoom", 0);
+        assert.deepStrictEqual(order, ["popup-draft", "popup-zoom"]);
+        resume(); resume();
+        await BrowserDecodeScheduler.whenIdle();
+        assert.deepStrictEqual(order, ["popup-draft", "popup-zoom", "held-background"]);
+        assert.equal(BrowserDecodeScheduler.backgroundHolds, 0);
+    });
     await test("normalizes limits and preserves the runtime ceiling", () => {
         assert.strictEqual(ThumbnailCacheSingleton.snapshot().maxItems, 250);
         assert.strictEqual(new ThumbnailCache(2.9).maxItems, 2);
@@ -59,6 +76,28 @@ async function run() {
                 1
             );
         });
+    });
+
+    await test("limits decoded image bytes, not only item count", () => {
+        const cache = new ThumbnailCache(250, 100);
+        cache.set("one", "one", 60);
+        cache.set("two", "two", 60);
+        assert.deepStrictEqual(cache.keys(), ["two"]);
+        cache.set("current-original", "large", 180);
+        assert.deepStrictEqual(cache.keys(), ["current-original"]);
+        cache.remove("current-original");
+        assert.equal(cache.size(), 0);
+    });
+
+    await test("sidebar and fit preview share a source and only the last viewer cancels", () => {
+        const service = new ThumbnailService();
+        const photo = { id: "shared-viewers", name: "sample.jpg" };
+        assert.equal(getThumbnailCacheKey(photo, "preview"), getThumbnailCacheKey(photo, "review-1536"));
+        const first = service.retainRequest(photo, "preview");
+        const second = service.retainRequest(photo, "review-1536");
+        const key = getThumbnailCacheKey(photo, "preview");
+        first(); assert.equal(service.requestUsers.get(key), 1);
+        second(); assert(!service.requestUsers.has(key));
     });
 
     await test("same-value publication refreshes recency", () => {
@@ -155,7 +194,64 @@ async function run() {
         });
     });
 
-    await test("photo invalidation removes thumbnail and preview aliases", async () => {
+    await test("retains bounded small previews across close and releases originals", async () => {
+        await withPerformanceSpies(({ released }) => {
+            ThumbnailCacheSingleton.clear("review-budget-test");
+            const service = new ThumbnailService();
+            const publish = (key, bytes) => {
+                ThumbnailCacheSingleton.set(key, `blob:${key}`);
+                service.setCacheAlias(`alias-${key}`, key);
+                service.limitReviewCache(key, bytes);
+            };
+            ThumbnailCacheSingleton.set("thumb", "blob:thumb");
+            publish("one", 8 * 1024 * 1024);
+            publish("two", 8 * 1024 * 1024);
+            publish("three", 8 * 1024 * 1024);
+            assert(ThumbnailCacheSingleton.has("one"));
+            assert.strictEqual(service.reviewCacheSizes.size, 3);
+            service.clearReviewPreviews({ keepSmall: true });
+            assert(ThumbnailCacheSingleton.has("one"));
+            publish("four", 8 * 1024 * 1024);
+            publish("five", 8 * 1024 * 1024);
+            assert(!ThumbnailCacheSingleton.has("one"));
+            assert.strictEqual(service.reviewCacheSizes.size, 4);
+            publish("original", 160 * 1024 * 1024);
+            assert.deepStrictEqual([...service.reviewCacheSizes.keys()], ["original"]);
+            ThumbnailCacheSingleton.retainSource("blob:original");
+            service.clearReviewPreviews({ keepSmall: true });
+            assert.strictEqual(service.reviewCacheSizes.size, 0);
+            assert(ThumbnailCacheSingleton.has("thumb"));
+            assert(!released.includes("blob:original"));
+            ThumbnailCacheSingleton.releaseSource("blob:original");
+            assert(released.includes("blob:original"));
+            for (let i = 0; i < 12; i++) publish("small-" + i, 1024);
+            assert.strictEqual(service.reviewCacheSizes.size, 8);
+            service.clearReviewPreviews();
+            assert.strictEqual(service.reviewCacheSizes.size, 0);
+            ThumbnailCacheSingleton.clear("review-budget-cleanup");
+        });
+    });
+
+    await test("cancels departed-photo preview jobs without cancelling shared thumbnails", async () => {
+        const service = new ThumbnailService();
+        service.activateWorkspace(0);
+        let releaseBlocker;
+        BrowserDecodeScheduler.request("review-test-blocker", release => { releaseBlocker = release; });
+        const first = { id: "departed-review", name: "first.jpg" };
+        const second = { id: "current-review", name: "second.jpg" };
+        const requests = [service.getSource(first, { profile: "review-1280" }),
+            service.getSource(second, { profile: "review-1280" }), service.getSource(first)];
+        service.cancelReviewRequests(second);
+        assert(!BrowserDecodeScheduler.jobs.has(getThumbnailCacheKey(first, "review-1280")));
+        assert(BrowserDecodeScheduler.jobs.has(getThumbnailCacheKey(second, "review-1280")));
+        assert(BrowserDecodeScheduler.jobs.has(getThumbnailCacheKey(first)));
+        const cleared = service.clear();
+        releaseBlocker();
+        await cleared;
+        assert.deepStrictEqual(await Promise.all(requests), [null, null, null]);
+    });
+
+    await test("photo invalidation removes drafts, thumbnails and every preview tier", async () => {
         await withPerformanceSpies(({ released }) => {
             ThumbnailCacheSingleton.clear("invalidation-test-setup");
             const service = new ThumbnailService();
@@ -169,13 +265,22 @@ async function run() {
             ThumbnailCacheSingleton.set("preview-content", "blob:preview");
             service.setCacheAlias(thumbnailAlias, "thumbnail-content");
             service.setCacheAlias(previewAlias, "preview-content");
+            const draftAlias = getThumbnailCacheKey(photo, "draft");
+            const zoomAlias = getThumbnailCacheKey(photo, "review-6144");
+            assert.notEqual(draftAlias, thumbnailAlias);
+            service.failures.add(draftAlias);
+            service.loadStates.set(draftAlias, "error");
+            ThumbnailCacheSingleton.set("zoom-content", "blob:zoom");
+            service.setCacheAlias(zoomAlias, "zoom-content");
             service.invalidatePhoto(photo);
+            assert.strictEqual(service.failures.size, 0);
+            assert.strictEqual(service.loadStates.size, 0);
             assert.strictEqual(service.cacheAliases.size, 0);
             assert.strictEqual(service.cacheAliasCounts.size, 0);
             assert.strictEqual(ThumbnailCacheSingleton.size(), 0);
             assert.deepStrictEqual(
                 released.sort(),
-                ["blob:preview", "blob:thumbnail"]
+                ["blob:preview", "blob:thumbnail", "blob:zoom"]
             );
         });
     });

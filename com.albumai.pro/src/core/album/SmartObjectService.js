@@ -250,6 +250,44 @@ export default class SmartObjectService {
         return null;
     }
 
+    // Capture the template alpha before Replace Contents destroys it. Photoshop's
+    // transparency selection retains fractional coverage (brush/feather edges).
+    async preserveSlotShape(layer, batchPlayOptions = {}) {
+        const descriptor = await this.batchPlay.command({
+            _obj: "get", _target: [{_ref: "layer", _id: layer.id}]
+        }, batchPlayOptions);
+        await this.batchPlay.command({_obj: "select", _target: [{_ref: "layer", _id: layer.id}], makeVisible: false}, batchPlayOptions);
+        if (!descriptor.hasUserMask) {
+            try {
+                await this.batchPlay.command({_obj: "set", _target: [{_ref: "channel", _property: "selection"}],
+                    to: {_ref: "channel", _enum: "channel", _value: "transparencyEnum"}}, batchPlayOptions);
+                await this.batchPlay.command({_obj: "make", new: {_class: "channel"},
+                    at: {_ref: "channel", _enum: "channel", _value: "mask"},
+                    using: {_enum: "userMaskEnabled", _value: "revealSelection"}}, batchPlayOptions);
+            } finally {
+                await this.batchPlay.command({_obj: "set", _target: [{_ref: "channel", _property: "selection"}],
+                    to: {_enum: "ordinal", _value: "none"}}, batchPlayOptions);
+            }
+        }
+        // Only the contents move. Retain mask density/feather and all layer effects.
+        await this.batchPlay.command({_obj: "set", _target: [{_ref: "layer", _id: layer.id}],
+            to: {_obj: "layer", userMaskLinked: false,
+                ...(descriptor.hasVectorMask ? {vectorMaskLinked: false} : {})}}, batchPlayOptions);
+        await this.batchPlay.command({_obj: "select", _target: [{_ref: "channel", _enum: "channel", _value: "RGB"}],
+            makeVisible: false}, batchPlayOptions);
+    }
+
+    async contentBounds(layerId, batchPlayOptions = {}) {
+        const result = await this.batchPlay.command({_obj: "get", _target: [
+            {_property: "smartObjectMore"}, {_ref: "layer", _id: layerId}]}, batchPlayOptions);
+        const t = result?.smartObjectMore?.transform;
+        if (!Array.isArray(t) || t.length !== 8 || !t.every(Number.isFinite)) return null;
+        const left = Math.min(t[0], t[2], t[4], t[6]), right = Math.max(t[0], t[2], t[4], t[6]);
+        const top = Math.min(t[1], t[3], t[5], t[7]), bottom = Math.max(t[1], t[3], t[5], t[7]);
+        return {left, top, right, bottom, width: right-left, height: bottom-top,
+            centerX: (left+right)/2, centerY: (top+bottom)/2};
+    }
+
     async clipToBounds({
 
         document,

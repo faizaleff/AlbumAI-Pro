@@ -117,6 +117,7 @@ export function preflightAlbumForPrint({
     let filledSlots = 0;
     const unfilledSlotDetails = [];
     const lowResolutionWarnings = [];
+    const blockingIssues = [];
 
     const printDims = calculatePrintDimensions(sizePreset, BleedPreset.NONE, targetDpi);
 
@@ -125,6 +126,16 @@ export function preflightAlbumForPrint({
         const template = templateMap.get(sheet.templateId);
         const templateSlots = template?.smartObjects || [];
         const sheetSlots = Array.isArray(sheet.slots) ? sheet.slots : [];
+        if (!template || !templateSlots.length) blockingIssues.push(`${sheet.label || sheet.id}: template unavailable`);
+        const expectedIds = new Set(templateSlots.map(slot => String(slot.layerId ?? slot.id)));
+        const assignedIds = new Set();
+        for (const slot of sheetSlots) {
+            if (!expectedIds.has(String(slot.slotId)) || assignedIds.has(String(slot.slotId))) {
+                blockingIssues.push(`${sheet.label || sheet.id}: invalid or duplicate slot`);
+            }
+            assignedIds.add(String(slot.slotId));
+            if (!photoMap.has(String(slot.photoId))) blockingIssues.push(`${sheet.label || sheet.id}: rejected or missing photo`);
+        }
 
         const expectedSlotCount = templateSlots.length > 0 ? templateSlots.length : Math.max(1, sheetSlots.length);
         totalSlots += expectedSlotCount;
@@ -169,7 +180,7 @@ export function preflightAlbumForPrint({
         }
     }
 
-    const isReadyForPrint = sheets.length > 0 && unfilledSlotDetails.length === 0;
+    const isReadyForPrint = sheets.length > 0 && unfilledSlotDetails.length === 0 && blockingIssues.length === 0;
 
     return Object.freeze({
         totalSheets: sheets.length,
@@ -178,6 +189,7 @@ export function preflightAlbumForPrint({
         unfilledSlots: totalSlots - filledSlots,
         unfilledSlotDetails: Object.freeze(unfilledSlotDetails),
         lowResolutionWarnings: Object.freeze(lowResolutionWarnings),
+        blockingIssues: Object.freeze(blockingIssues),
         isReadyForPrint,
         printDimensions: printDims
     });

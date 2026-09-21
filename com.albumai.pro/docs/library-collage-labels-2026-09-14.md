@@ -1,0 +1,7 @@
+# Compact event descriptions and collage photo type
+
+Event sidebar descriptions now show a bounded short excerpt (up to three lines) with More/Less; full persisted descriptions are preserved. Expansion resets when the selected event description unmounts or changes.
+
+Photo context menus in grid/list now offer Mark as collage for the current single/multiple selection, or Remove collage label when all selected items are labeled. This is explicit manual classification, not automatic visual detection. The sparse collage boolean is stored in existing photo decisions, survives unrelated rating/favorite updates and normal persistence/Undo, and is used by the Photo Type facets and grouping. Collages take precedence over single/burst in that facet so counts remain exclusive. Burst membership itself and event membership are unchanged. No existing photo was labeled by the agent; no filename, size or border heuristics are used.
+
+Validation: 65 Library assertion groups plus cooperative JPEG tests and four decision-persistence assertions pass. New coverage checks collage round-trip, rating preservation, removal, invalid input and collapsed description markup. Production build, bundle verification and diff check pass. Bundle 780372 bytes; bounded ceiling increased from 762 to 763 KiB for the ~913-byte feature addition. Live Photoshop More/Less and context-menu interaction remain unverified; no reload, upload, commit or push performed for this change.

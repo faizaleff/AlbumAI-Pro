@@ -35,6 +35,7 @@ module.exports = (_env, argv = {}) => {
                 loader: "babel-loader",
                 options: {
                     plugins: [
+                        path.resolve(__dirname, "scripts/share-object-spread-helper.js"),
                         "@babel/transform-react-jsx",
                         "@babel/plugin-transform-object-rest-spread",
                     ]
@@ -53,6 +54,10 @@ module.exports = (_env, argv = {}) => {
         ]
     },
     plugins: [
+        new webpack.BannerPlugin({
+            banner: fs.readFileSync(require.resolve("@babel/helpers/LICENSE"), "utf8"),
+            entryOnly: true
+        }),
         new webpack.ProvidePlugin({
             Buffer: ["buffer", "Buffer"]
         }),
@@ -94,10 +99,17 @@ module.exports = (_env, argv = {}) => {
         // placement; ALB-124 adds independent template-local font and style
         // presets; ALB-125 adds offline suggestions and ALB-126 adds the
         // project-local custom preset catalog and management UI. Keep a tight
-        // 740 KiB ceiling rather than silently accepting
+        // Direct rendered-preview slot geometry and guarded drag gestures add a 5 KiB allowance.
+        // Manual in-slot position/zoom adds a further 2 KiB allowance.
+        // Includes the asset-to-slot gesture handler (about 1 KiB).
+        // 790 KiB ceiling includes compact descriptions, collage labels, stable rendered previews,
+        // direct draft editing and the optional online
+        // provider/consent UI; retain an explicit bound rather than silently accepting
         // unbounded runtime growth.
-        maxAssetSize: 740 * 1024,
-        maxEntrypointSize: 740 * 1024
+        // Includes brush-alpha capture and bounded draft shape covers.
+        // Cross-spread drag coordination and confirmation UI: 5 KiB allowance.
+        maxAssetSize: 800 * 1024,
+        maxEntrypointSize: 800 * 1024
     }
     };
 };

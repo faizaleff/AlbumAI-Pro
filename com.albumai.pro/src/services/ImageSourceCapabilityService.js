@@ -225,21 +225,33 @@ class ImageSourceCapabilityService {
         this.probeResult = null;
         this.probeAttempted = false;
         this.binaryReads = new Map();
+        this.recentBinary = null;
+        this.binaryEpoch = 0;
+        this.binaryTimer = null;
 
     }
 
-    readBinary(photo) {
+    clear() {
+        this.recentBinary = null;
+        this.binaryEpoch++;
+        clearTimeout(this.binaryTimer);
+        SoftwareJpegRenderer.clear();
+    }
+
+    readBinary(photo, retain = false) {
 
         const { candidate } = getCanonicalPhotoEntry(photo);
-        const key = candidate?.nativePath ||
+        const identity = candidate?.nativePath ||
             photo?.id ||
             candidate?.name ||
             photo?.name;
-        if (!key) {
+        if (!identity) {
             return Promise.reject(
                 new Error("A stable photo identity is required.")
             );
         }
+        const key = `${identity}|${photo.modified || candidate?.lastModified || 0}|${photo.fileSize || candidate?.size || 0}`;
+        if (this.recentBinary?.key === key) return Promise.resolve(this.recentBinary.binary);
         if (this.binaryReads.has(key)) return this.binaryReads.get(key);
 
         if (!candidate || typeof candidate.read !== "function") {
@@ -249,9 +261,18 @@ class ImageSourceCapabilityService {
         }
 
         const formats = require("uxp").storage.formats;
+        const epoch = this.binaryEpoch;
         const pending = Promise.resolve(candidate.read({
             format: formats.binary
-        })).finally(() => this.binaryReads.delete(key));
+        })).then(binary => {
+            if (retain && epoch === this.binaryEpoch && binary.byteLength <= 64 * 1024 * 1024) {
+                this.recentBinary = { key, binary };
+                clearTimeout(this.binaryTimer);
+                this.binaryTimer = setTimeout(() => { this.recentBinary = null; }, 30000);
+                this.binaryTimer.unref?.();
+            }
+            return binary;
+        }).finally(() => this.binaryReads.delete(key));
         this.binaryReads.set(key, pending);
         return pending;
 
@@ -525,13 +546,14 @@ class ImageSourceCapabilityService {
 
     async renderProfile(photo, {
         maxEdge,
+        embeddedOnly = false,
         quality,
         lifecycle = null,
         resolveCachedSource = null
     }) {
 
         lifecycle?.throwIfCancelled?.("before-read");
-        const binary = await this.readBinary(photo);
+        const binary = await this.readBinary(photo, maxEdge > 512);
         lifecycle?.throwIfCancelled?.("after-read");
         if (!SoftwareJpegRenderer.supports(photo)) {
             const error = new Error(
@@ -557,9 +579,11 @@ class ImageSourceCapabilityService {
             };
         }
         return {
-            ...SoftwareJpegRenderer.render(binary, {
+            ...await SoftwareJpegRenderer.render(binary, {
                 maxEdge,
+                embeddedOnly,
                 quality,
+                cacheKey: maxEdge > 512 ? contentIdentity : null,
                 lifecycle
             }),
             contentIdentity

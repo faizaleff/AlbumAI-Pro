@@ -45,7 +45,7 @@ check(live.publishedVersionImmutable === true, "published version must be immuta
 check(live.nextAction === "SELECT_AND_APPLY_A_NEW_VERSION_BEFORE_PACKAGING", "next action differs");
 check(live.bundleBytes <= MAX_BUNDLE_BYTES, "bundle exceeds the release ceiling");
 check(live.bundleHeadroomBytes >= 0, "bundle headroom is negative");
-check(live.networkPermission === false, "release gate introduced network access");
+check(live.networkPermission === true, "optional Online Events permission is reported");
 
 const current = readCurrentReadinessInputs();
 

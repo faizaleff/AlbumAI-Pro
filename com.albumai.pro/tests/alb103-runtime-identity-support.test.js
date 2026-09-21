@@ -3,6 +3,7 @@
 "use strict";
 
 const assert = require("assert");
+const { approvedNetworkPermission } = require("../scripts/network-permission-policy");
 const fs = require("fs");
 const path = require("path");
 
@@ -44,11 +45,11 @@ try {
     check(detailsSource.includes("Not published (${ALBUMAI_RELEASE_STATUS.toLowerCase()})"), "candidate diagnostics do not disclose unpublished status");
     check(detailsSource.includes("Not requested (offline by default)"), "offline runtime posture is missing");
     check(sourceManifest.id === "com.albumai.pro", "manifest plugin ID differs from support identity");
-    check(!sourceManifest.requiredPermissions?.network, "ALB-103 must not add network permission");
+    check(approvedNetworkPermission(sourceManifest.requiredPermissions?.network), "network exceeds the approved Online Events origin");
     check(!sourceManifest.requiredPermissions?.launchProcess, "ALB-103 must not add external-launch permission");
     check(!detailsSource.includes("fetch("), "ALB-103 must not add an update network request");
-    check(webpackSource.includes("maxAssetSize: 740 * 1024"), "production bundle budget is not explicit");
-    check(webpackSource.includes("maxEntrypointSize: 740 * 1024"), "production entrypoint budget is not explicit");
+    check(webpackSource.includes("maxAssetSize: 774 * 1024"), "production bundle budget is not explicit");
+    check(webpackSource.includes("maxEntrypointSize: 774 * 1024"), "production entrypoint budget is not explicit");
 
     console.info(`PASS ALB-103: ${assertions} runtime identity and support assertions`);
 } catch (error) {

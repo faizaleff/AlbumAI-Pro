@@ -1,6 +1,7 @@
 import assert from "assert";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
+import ReactDOM from "react-dom";
 import { entrypoints } from "uxp";
 
 import "../src/index.jsx";
@@ -110,6 +111,49 @@ async function run() {
         panel.invokeMenu("missing");
         panel.invokeMenu("reload");
         assert.strictEqual(invoked, 1);
+    });
+
+    await test("panel reattaches after hide and argument-free host show without remounting", async () => {
+        const previousDocument = global.document;
+        const previousRender = ReactDOM.render;
+        const previousUnmount = ReactDOM.unmountComponentAtNode;
+        let renders = 0;
+        let unmounts = 0;
+        const node = () => ({style: {}, parentNode: null, children: [],
+            appendChild(child) { if (child.parentNode) child.parentNode.removeChild(child); this.children.push(child); child.parentNode = this; },
+            removeChild(child) { this.children = this.children.filter(item => item !== child); child.parentNode = null; }
+        });
+        global.document = {createElement: node};
+        ReactDOM.render = () => { renders++; };
+        ReactDOM.unmountComponentAtNode = () => { unmounts++; };
+        const panel = new PanelController(() => React.createElement("div"));
+        try {
+            const host = node();
+            const root = panel.create(host);
+            await new Promise(resolve => setTimeout(resolve, 5));
+            assert.strictEqual(root.parentNode, host);
+            panel.hide();
+            assert.strictEqual(root.parentNode, null);
+            panel.show();
+            assert.strictEqual(root.parentNode, host, "v5 show() must restore its remembered host root");
+            panel.hide({type: "hide"});
+            panel.show({type: "show"});
+            assert.strictEqual(root.parentNode, host, "non-DOM lifecycle arguments must use the remembered root");
+            const movedHost = node();
+            panel.show(movedHost);
+            assert.strictEqual(root.parentNode, movedHost);
+            panel.hide(); panel.show();
+            assert.strictEqual(root.parentNode, movedHost);
+            assert.strictEqual(renders, 1, "hide/show preserves React project state");
+            panel.destroy();
+            assert.strictEqual(root.parentNode, null);
+            assert.strictEqual(unmounts, 1);
+        } finally {
+            panel.destroy();
+            global.document = previousDocument;
+            ReactDOM.render = previousRender;
+            ReactDOM.unmountComponentAtNode = previousUnmount;
+        }
     });
 
     await test("active UI/component modules render deterministic empty and terminal states", async () => {

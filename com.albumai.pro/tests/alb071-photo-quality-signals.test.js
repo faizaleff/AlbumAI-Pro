@@ -192,7 +192,11 @@ export async function runAlb071Tests() {
             { id: "photo-6", dateTaken: baseTime + 121000, rating: 4 }  // Burst 2 (best)
         ];
 
-        const bursts = groupPhotosByBurst(photos, 3000);
+        const unratedBursts = groupPhotosByBurst(photos, 3000);
+        check(unratedBursts.every(group => !group.hasQualityEvidence), "User stars alone never establish AI quality evidence");
+        const analyzed = photos.map(photo => ({...photo, aiAnalysis:{aggregate:{rankScore:photo.rating / 5}}}));
+        const bursts = groupPhotosByBurst(analyzed, 3000);
+        check(bursts.every(group => group.hasQualityEvidence), "Complete unique image quality scores support a best-photo suggestion");
         check(bursts.length === 2, `Found 2 burst groups (got ${bursts.length})`);
         
         // Burst 1
@@ -237,7 +241,7 @@ export async function runAlb071Tests() {
             { id: "p1", dateTaken: baseTime, rating: 2 },
             { id: "p2", dateTaken: baseTime + 1000, rating: 5 }
         ];
-        const index = buildPhotoGroupIndex(photos, { burstThresholdMs: 3000 });
+        const index = buildPhotoGroupIndex(photos.map(photo => ({...photo, aiAnalysis:{aggregate:{rankScore:photo.rating / 5}}})), { burstThresholdMs: 3000 });
         check(index instanceof Map, "buildPhotoGroupIndex returns a Map");
         
         const p1Info = index.get("p1");

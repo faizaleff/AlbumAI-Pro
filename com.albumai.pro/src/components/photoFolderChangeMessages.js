@@ -106,13 +106,14 @@ export function photoFolderChangeCommitOptions(state) {
 export function canStartPhotoFolderChange({
     projectId,
     folderLoaded,
+    hasFolderReference = false,
     isLoading,
     photoFolderChange
 } = {}) {
 
     return Boolean(
         projectId &&
-        folderLoaded &&
+        (folderLoaded || hasFolderReference) &&
         !isLoading &&
         !photoFolderChange?.busy &&
         !photoFolderChange?.prepared

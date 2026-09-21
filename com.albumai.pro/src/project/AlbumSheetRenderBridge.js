@@ -359,7 +359,8 @@ function sameSlots(left, right) {
             const candidate = right[index];
             return slot?.slotId === candidate?.slotId &&
                 slot?.photoId === candidate?.photoId &&
-                slot?.cropFocus === candidate?.cropFocus;
+                slot?.cropFocus === candidate?.cropFocus &&
+                JSON.stringify(slot?.position || null) === JSON.stringify(candidate?.position || null);
         });
 }
 
