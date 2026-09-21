@@ -99,11 +99,17 @@ module.exports = (_env, argv = {}) => {
         // placement; ALB-124 adds independent template-local font and style
         // presets; ALB-125 adds offline suggestions and ALB-126 adds the
         // project-local custom preset catalog and management UI. Keep a tight
-        // 762 KiB ceiling (includes review UI and multi-cue event context) includes event-occurrence grouping and the optional online
+        // Direct rendered-preview slot geometry and guarded drag gestures add a 5 KiB allowance.
+        // Manual in-slot position/zoom adds a further 2 KiB allowance.
+        // Includes the asset-to-slot gesture handler (about 1 KiB).
+        // 790 KiB ceiling includes compact descriptions, collage labels, stable rendered previews,
+        // direct draft editing and the optional online
         // provider/consent UI; retain an explicit bound rather than silently accepting
         // unbounded runtime growth.
-        maxAssetSize: 762 * 1024,
-        maxEntrypointSize: 762 * 1024
+        // Includes brush-alpha capture and bounded draft shape covers.
+        // Cross-spread drag coordination and confirmation UI: 5 KiB allowance.
+        maxAssetSize: 800 * 1024,
+        maxEntrypointSize: 800 * 1024
     }
     };
 };

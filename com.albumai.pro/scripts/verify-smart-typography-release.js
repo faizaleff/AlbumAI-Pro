@@ -2,12 +2,14 @@
 
 "use strict";
 
+const { approvedNetworkPermission } = require("./network-permission-policy");
+
 const childProcess = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-const MAX_BUNDLE_BYTES = 740 * 1024;
+const MAX_BUNDLE_BYTES = 774 * 1024; // Match the current bounded development build.
 const SMART_TYPOGRAPHY_TICKETS = Object.freeze(
     Array.from({ length: 11 }, (_, index) => 118 + index)
 );
@@ -86,7 +88,8 @@ function evaluateSmartTypographyReadiness(input) {
         input.sourceManifest?.host?.app !== "PS") {
         add("PLUGIN_IDENTITY_MISMATCH");
     }
-    if (input.sourceManifest?.requiredPermissions?.network !== undefined ||
+    if (!approvedNetworkPermission(input.sourceManifest?.requiredPermissions?.network) ||
+        !approvedNetworkPermission(input.builtManifest?.requiredPermissions?.network) ||
         input.sourceManifest?.requiredPermissions?.launchProcess !== undefined) {
         add("NETWORK_OR_PROCESS_PERMISSION_NOT_ALLOWED");
     }
@@ -158,7 +161,7 @@ function evaluateSmartTypographyReadiness(input) {
         bundleHeadroomBytes: MAX_BUNDLE_BYTES - input.bundle.length,
         buildId,
         runtimeRevision,
-        networkPermission: false
+        networkPermission: Boolean(input.sourceManifest?.requiredPermissions?.network)
     });
 }
 

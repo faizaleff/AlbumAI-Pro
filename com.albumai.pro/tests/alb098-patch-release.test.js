@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 "use strict";
+const { approvedNetworkPermission } = require("../scripts/network-permission-policy");
 
 const fs = require("fs");
 const path = require("path");
@@ -56,7 +57,7 @@ try {
     check(builtManifest.id === sourceManifest.id, "built plugin ID differs");
     check(sourceManifest.manifestVersion === 5, "manifest version changed");
     check(sourceManifest.host?.app === "PS", "patch does not target Photoshop only");
-    check(sourceManifest.requiredPermissions?.network === undefined, "patch adds a network permission");
+    check(approvedNetworkPermission(sourceManifest.requiredPermissions?.network), "network exceeds the approved Online Events origin");
 
     const buildIdentity = readProjectFile("src/config/buildIdentity.js");
     check(buildIdentity.includes(`"${packageJson.version}"`), "current source display version differs");

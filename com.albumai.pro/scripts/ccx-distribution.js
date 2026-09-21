@@ -1,5 +1,7 @@
 "use strict";
 
+const { approvedNetworkPermission } = require("./network-permission-policy");
+
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -81,8 +83,8 @@ function validateDistributionInputs({
     if (sourceManifest?.main !== "index.html" || builtManifest?.main !== "index.html") {
         errors.push("MAIN_ENTRYPOINT_MISMATCH");
     }
-    if (sourceManifest?.requiredPermissions?.network !== undefined ||
-        builtManifest?.requiredPermissions?.network !== undefined) {
+    if (!approvedNetworkPermission(sourceManifest?.requiredPermissions?.network) ||
+        !approvedNetworkPermission(builtManifest?.requiredPermissions?.network)) {
         errors.push("NETWORK_PERMISSION_NOT_ALLOWED");
     }
     if (JSON.stringify(canonicalJson(sourceManifest)) !== JSON.stringify(canonicalJson(builtManifest))) {
@@ -113,7 +115,7 @@ function validateDistributionInputs({
         hostApp: EXPECTED_HOST_APP,
         hostMinVersion: sourceManifest.host.minVersion,
         manifestVersion: sourceManifest.manifestVersion,
-        networkPermission: false,
+        networkPermission: Boolean(sourceManifest?.requiredPermissions?.network),
         distFileCount: actualFiles.length,
         runtimeBuildId: EXPECTED_BUILD_ID,
         runtimeBundleSize: runtimeBundle.length,

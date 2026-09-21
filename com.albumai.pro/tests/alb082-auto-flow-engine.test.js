@@ -33,6 +33,13 @@ function check(condition, message) {
 export async function runAlb082Tests() {
     console.info("Starting ALB-082 Smart Auto-Flow Engine tests...");
 
+    {
+        const templates = [2, 1, 3].map((n, i) => ({id: `cycle-${i}`, smartObjects: Array.from({length:n}, (_, j) => ({layerId:j+1}))}));
+        const photos = Array.from({length:10}, (_, i) => ({id:`photo-${i}`}));
+        const result = generateAutoFlowSpreads({photos, templates, options:{strategy:AutoFlowStrategy.LIBRARY_ORDER, templateOrder:true}});
+        assert.deepStrictEqual(result.sheets.map(s => s.templateId), ["cycle-0","cycle-1","cycle-2","cycle-0","cycle-1","cycle-2"]);
+        assert.deepStrictEqual(result.sheets.flatMap(s => s.slots.map(a => a.photoId)), photos.map(p => p.id));
+    }
     // Test 1: filterPhotosForAutoFlow
     {
         const photos = [
@@ -247,8 +254,27 @@ export async function runAlb082Tests() {
             />
         );
 
-        check(html.includes("Replace Album Spreads"), "Contains Replace Spreads button");
-        check(html.includes("Append Spreads"), "Contains Append Spreads button");
+        check(html.includes("Replace existing spreads"), "Contains Replace Spreads button");
+        check(html.includes("Add spreads"), "Contains Add spreads button");
+    }
+
+    // Native seven-slot template: default must use capacity, not a hardcoded three.
+    {
+        const templates = [{id: "seven", smartObjects: [22, 19, 20, 17, 50, 23, 21].map(layerId => ({layerId}))}];
+        const photos = Array.from({length: 12}, (_, i) => ({id: `qa-${i}`}));
+        const html = ReactDOMServer.renderToStaticMarkup(<AutoFlowModal isOpen photos={photos} templates={templates} />);
+        check(html.includes("Templates in order"), "Arrange defaults to registered template capacity");
+        check(html.includes("2 spreads") && html.includes("12 photos placed"), "Twelve photos use two seven-slot spreads");
+        check(html.includes("2 empty slots across 1 spread") && html.includes("Spread 2 needs 2 more photos"),
+            "Preview identifies the two missing photos instead of claiming export readiness");
+        const result = generateAutoFlowSpreads({photos, templates,
+            options: {strategy: AutoFlowStrategy.LIBRARY_ORDER, maxPhotosPerSpread: 7}});
+        check(result.sheets.map(sheet => sheet.slots.length).join(",") === "7,5", "Template capacity places seven then five photos");
+        check(result.sheets.flatMap(sheet => sheet.slots.map(slot => slot.photoId)).join(",") === photos.map(photo => photo.id).join(","),
+            "Capacity arrangement preserves every photo once in library order");
+        const completeHtml = ReactDOMServer.renderToStaticMarkup(<AutoFlowModal isOpen photos={photos.slice(0, 7)} templates={templates} />);
+        check(completeHtml.includes("All template slots filled.") && !completeHtml.includes("empty slots across"),
+            "Complete spread has no misleading empty-slot warning");
     }
 
     // Test 8: 2-slot template + requested max 3 -> effective capacity clamped to 2
@@ -326,8 +352,8 @@ export async function runAlb082Tests() {
         );
 
         check(html.includes("16 spreads"), "AutoFlowModal displays 16 spreads estimate for 31 photos and 2-slot template");
-        check(html.includes("Effective Capacity:"), "AutoFlowModal displays Effective Capacity row when clamped");
-        check(html.includes("2 photos/spread"), "AutoFlowModal displays 2 photos/spread effective capacity");
+        check(html.includes("31 photos placed"), "Arrange preview accounts for all 31 photos");
+        check(html.includes("1 empty slot across 1 spread"), "Arrange preview counts the incomplete final spread");
     }
 
     // Test 10: 32 photos / capacity 2 + BALANCED -> exactly 16 spreads, every spread 2/2

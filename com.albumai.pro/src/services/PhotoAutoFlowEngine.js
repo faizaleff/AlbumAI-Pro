@@ -6,6 +6,7 @@ import { computeOptimalCropFocus } from "./PhotoFaceDetectionEngine";
 import { CullingStatus } from "./PhotoCullingService";
 
 export const AutoFlowStrategy = Object.freeze({
+    LIBRARY_ORDER: "LIBRARY_ORDER",
     CHRONOLOGICAL_BURST: "CHRONOLOGICAL_BURST",
     HERO_DYNAMIC: "HERO_DYNAMIC",
     BALANCED: "BALANCED"
@@ -144,7 +145,7 @@ export function selectBestTemplate(templates = [], targetSlotCount = 2, previous
 /**
  * Assign a chunk of photos to template slots
  */
-export function assignPhotosToTemplateSlots(photos = [], template = null) {
+export function assignPhotosToTemplateSlots(photos = [], template = null, preserveOrder = false) {
     if (!template || !Array.isArray(photos) || photos.length === 0) {
         return [];
     }
@@ -158,7 +159,7 @@ export function assignPhotosToTemplateSlots(photos = [], template = null) {
     }
 
     // Sort photos: prioritize highest quality photo for the first/hero slot
-    const sortedPhotos = [...photos].sort((a, b) => getPhotoQualityScore(b) - getPhotoQualityScore(a));
+    const sortedPhotos = preserveOrder ? photos : [...photos].sort((a, b) => getPhotoQualityScore(b) - getPhotoQualityScore(a));
 
     const assignments = [];
     const count = Math.min(sortedPhotos.length, smartObjects.length);
@@ -219,6 +220,39 @@ export function generateAutoFlowSpreads({
             reason: "NO_TEMPLATES",
             sheets: Object.freeze([]),
             summary: Object.freeze({ totalSheets: 0, totalPhotosPlaced: 0, eventCount: 0 })
+        });
+    }
+
+    if (strategy === AutoFlowStrategy.LIBRARY_ORDER) {
+        // Consume only the photos actually assigned. A smaller available template
+        // must never silently discard the rest of a proposed chunk.
+        const usable = templates.filter(template => template?.id &&
+            Array.isArray(template.smartObjects) && getTemplateSlotCapacity(template) > 0);
+        const sheets = [];
+        let cursor = 0;
+        const limit = Math.max(1, Math.floor(Number(maxPhotosPerSpread) || 3));
+        while (cursor < photos.length && usable.length) {
+            const target = Math.min(limit, photos.length - cursor);
+            const fitting = usable.filter(template => getTemplateSlotCapacity(template) <= target);
+            const candidates = (fitting.length ? fitting : usable).slice().sort((a, b) =>
+                fitting.length ? getTemplateSlotCapacity(b) - getTemplateSlotCapacity(a)
+                    : getTemplateSlotCapacity(a) - getTemplateSlotCapacity(b));
+            const template = options.templateOrder ? usable[sheets.length % usable.length] : candidates[0];
+            const count = Math.min(options.templateOrder ? photos.length - cursor : target, getTemplateSlotCapacity(template));
+            const slots = assignPhotosToTemplateSlots(photos.slice(cursor, cursor + count), template, true);
+            const number = startIndex + sheets.length;
+            sheets.push(Object.freeze({
+                id: `${sheetPrefix}_${number}`.replace(/[^A-Za-z0-9_-]/g, "_"),
+                templateId: template.id, label: `Spread ${number}`, slots
+            }));
+            cursor += slots.length;
+        }
+        return Object.freeze({
+            success: cursor === photos.length,
+            reason: cursor === photos.length ? null : "NO_USABLE_TEMPLATES",
+            sheets: Object.freeze(sheets),
+            summary: Object.freeze({ totalSheets: sheets.length, totalPhotosPlaced: cursor,
+                unplacedPhotos: photos.length - cursor, eventCount: 0, strategy })
         });
     }
 

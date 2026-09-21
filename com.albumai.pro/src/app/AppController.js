@@ -1,12 +1,14 @@
+import { finalDesignPhotos } from "../services/PhotoBrowserModel";
 import LibraryEngine from "../core/LibraryEngine";
 import SelectionEngine from "../core/SelectionEngine";
 import ProjectEngine from "../core/ProjectEngine";
 import ProjectService from "../services/ProjectService";
 import PhotoWorkspaceService, {
-    PhotoFolderChangeStatus
+    PhotoFolderChangeStatus,
+    remapAlbumPhotoReferences
 } from "../services/PhotoWorkspaceService";
 import RecentFilesService from "../services/RecentFilesService";
-import TemplateDocumentReader from "../services/TemplateDocumentReader";
+import TemplateDocumentReader, { PsdPreviews } from "../services/TemplateDocumentReader";
 import TemplateRegistry from "../services/TemplateRegistry";
 import Template from "../templates/Template";
 import ProjectTemplateRegistry from "../project/ProjectTemplateRegistry";
@@ -192,6 +194,17 @@ export class AppController {
                     await this.photoWorkspace.importPhotos(sourceFolder, {
                         persistFolderReference: false
                     });
+                    const current = this.project.getProject();
+                    const repaired = remapAlbumPhotoReferences(
+                        current?.metadata?.album,
+                        this.photoWorkspace.getPhotos()
+                    );
+                    if (repaired.changed) {
+                        await this.saveProject(
+                            { album: repaired.album },
+                            { reason: "PHOTO_REFERENCE_REPAIR" }
+                        );
+                    }
                 }
             } catch (photoError) {
                 Logger.warn(`Could not hydrate photo workspace on project open: ${photoError?.message}`);
@@ -219,7 +232,7 @@ export class AppController {
     isAlbumSheetMutationLocked() {
 
         const lifecycle = this.currentProjectExecutionSummary?.batchProgress?.lifecycle;
-        return this.projectBatchRunning || [
+        return Boolean(this.templatePreviewRunning || this.albumBatchRun) || this.projectBatchRunning || [
             "RUNNING",
             "CANCEL_REQUESTED",
             "CANCELLING"
@@ -251,7 +264,7 @@ export class AppController {
 
     async closeProject() {
 
-        if (this.projectBatchRunning) {
+        if (this.isAlbumSheetMutationLocked()) {
             throw new Error("A project batch is running. Request cancellation and wait for it to stop safely.");
         }
 
@@ -286,7 +299,10 @@ export class AppController {
 
     async importPhotos(folder) {
 
-        const photos = await this.photoWorkspace.importPhotos(folder);
+        if (this.isAlbumSheetMutationLocked()) {
+            throw new Error("Wait for the current batch to finish before adding photos.");
+        }
+        const photos = await this.photoWorkspace.addPhotoFolder(folder);
 
         if (photos) {
             this.clearCurrentPlacementPlan();
@@ -308,7 +324,7 @@ export class AppController {
 
     async preparePhotoFolderChange(folder = null) {
 
-        if (this.projectBatchRunning) {
+        if (this.isAlbumSheetMutationLocked()) {
             return Object.freeze({
                 status:
                     PhotoFolderChangeStatus.BLOCKED_ACTIVE_BATCH
@@ -339,7 +355,7 @@ export class AppController {
         { clearRecovery = false } = {}
     ) {
 
-        if (this.projectBatchRunning) {
+        if (this.isAlbumSheetMutationLocked()) {
             return Object.freeze({
                 status:
                     PhotoFolderChangeStatus.BLOCKED_ACTIVE_BATCH
@@ -531,7 +547,7 @@ export class AppController {
             album: project?.metadata?.album,
             registry: this.projectTemplateRegistry.getAll(),
             sheetId,
-            selectedPhotoIds: this.selectedPhotoIds()
+            selectedPhotoIds: this.getDesignPhotos().map(photo => photo.id)
         });
         this.currentAlbumSheetRenderRequest = result.accepted ? result.request : null;
         return result;
@@ -552,7 +568,8 @@ export class AppController {
 
     async executeAlbumSheetRenderRequest(request, onUpdate, options = {}) {
 
-        if (this.isAlbumSheetMutationLocked()) {
+        if (this.isAlbumSheetMutationLocked() &&
+            (!options.albumBatchRun || options.albumBatchRun !== this.albumBatchRun || this.projectBatchRunning)) {
             throw new Error("A project batch is running. Sheet rendering is available after it stops safely.");
         }
 
@@ -571,13 +588,18 @@ export class AppController {
             projectId: project?.metadata?.id ?? project?.metadata?.name ?? null,
             album: project?.metadata?.album,
             registry: this.projectTemplateRegistry.getAll(),
-            selectedPhotoIds: this.selectedPhotoIds()
+            selectedPhotoIds: this.getDesignPhotos().map(photo => photo.id)
         });
         if (!validation.accepted) {
             const error = new Error("Album Sheet render request is stale or no longer renderable.");
             error.code = "ALBUM_SHEET_RENDER_REJECTED";
             error.reasonCodes = validation.reasonCodes;
             throw error;
+        }
+
+        const eligibleIds = new Set(this.getDesignPhotos().map(photo => photo.id));
+        if (validation.request.selectedPhotoIds.some(id => !eligibleIds.has(id))) {
+            throw new Error("This spread contains a rejected or missing photo. Replace it before rendering.");
         }
 
         const descriptor = this.projectTemplateRegistry.getAll().find(template =>
@@ -596,6 +618,8 @@ export class AppController {
             sheetId: validation.request.sheet.id,
             sheetLabel: validation.request.sheet.label || "",
             sheetOrder: sheetOrder >= 0 ? sheetOrder : 0,
+            previewKey: PsdPreviews.key(project?.metadata?.id,
+                sheets.find(sheet => sheet.id === validation.request.sheet.id), descriptor, this.getPhotos()),
             slots: validation.request.sheet.slots.map(slot => ({ ...slot })),
             typographyAssignments: validation.request.sheet.typographyAssignments.map(assignment => ({ ...assignment }))
         };
@@ -605,22 +629,69 @@ export class AppController {
             : this.exportEnabled;
         const exportFormat = options.exportFormat || this.exportFormat || "JPEG";
 
-        return this.executeProject(onUpdate, {
-            templates: [descriptor],
-            selectedPhotoIds: validation.request.selectedPhotoIds,
-            runMode: "ALBUM_SHEET_RENDER",
-            sheetContext,
-            exportEnabled,
-            exportFormat
-        });
+        const previewJob = PsdPreviews.begin(sheetContext.previewKey);
+        try {
+            const outcome = await this.executeProject(onUpdate, {
+                templates: [descriptor],
+                selectedPhotoIds: validation.request.selectedPhotoIds,
+                runMode: "ALBUM_SHEET_RENDER",
+                sheetContext,
+                albumBatchRun: options.albumBatchRun,
+                autoSaveEnabled: options.autoSaveEnabled,
+                autoSaveMode: options.autoSaveEnabled ? AutoSaveMode.SAVE_COPY : undefined,
+                exportEnabled,
+                exportFormat
+            });
+            const rendered = PsdPreviews.get(sheetContext.previewKey);
+            if (rendered?.status === "ready") {
+                const latest = this.project.getProject();
+                const latestSheet = latest?.metadata?.album?.sheets?.find(item =>
+                    item.id === validation.request.sheet.id
+                );
+                const latestKey = PsdPreviews.key(
+                    latest?.metadata?.id,
+                    latestSheet,
+                    descriptor,
+                    this.getPhotos()
+                );
+                // Metadata hydration can finish while Photoshop renders. Alias
+                // the finished composite to that current key so a fresh render
+                // never appears immediately stale in the storyboard.
+                if (latestSheet && latestKey !== sheetContext.previewKey) {
+                    PsdPreviews.set(latestKey, rendered);
+                }
+            }
+            return outcome;
+        } finally {
+            // The executor replaces this job only after a complete render.
+            if (PsdPreviews.get(sheetContext.previewKey)?.status === "rendering")
+                PsdPreviews.fail(sheetContext.previewKey, previewJob);
+        }
 
     }
 
-    async executeAlbumBatchRenderRequest(request, onUpdate, options = {}) {
-        if (this.isAlbumSheetMutationLocked()) {
-            throw new Error("A project batch is running. Batch rendering is available after it stops safely.");
-        }
+    async previewTemplate(templateId) {
+        if (this.isAlbumSheetMutationLocked()) throw new Error("Wait for processing to finish.");
+        const descriptor = this.projectTemplateRegistry.getAll().find(item => item.id === templateId);
+        if (!descriptor) throw new Error("Select a registered template.");
+        const reader = this.templateDocumentReader;
+        this.templatePreviewRunning = true;
+        try { await reader.previewRegisteredTemplate(descriptor); }
+        finally { this.templatePreviewRunning = false; }
+    }
 
+    async executeAlbumBatchRenderRequest(request, onUpdate, options = {}) {
+        if (this.isAlbumSheetMutationLocked()) throw new Error("A batch is already running.");
+        const run = { cancelRequested: false };
+        this.albumBatchRun = run;
+        try {
+            return await this.runAlbumBatchRender(request, onUpdate, { ...options, albumBatchRun: run });
+        } finally {
+            if (this.albumBatchRun === run) this.albumBatchRun = null;
+        }
+    }
+
+    async runAlbumBatchRender(request, onUpdate, options = {}) {
         const preflight = await this.revalidateProjectTemplates({
             reason: "ALBUM_BATCH_RENDER_PREFLIGHT"
         });
@@ -634,7 +705,7 @@ export class AppController {
             projectId: project?.metadata?.id ?? project?.metadata?.name ?? null,
             album: project?.metadata?.album,
             registry: this.projectTemplateRegistry.getAll(),
-            selectedPhotoIds: this.selectedPhotoIds()
+            selectedPhotoIds: this.getDesignPhotos().map(photo => photo.id)
         });
         if (!validation.accepted) {
             const error = new Error("Album Batch render request is stale or no longer renderable.");
@@ -651,6 +722,7 @@ export class AppController {
         let failed = 0;
 
         for (let i = 0; i < sheetRequests.length; i++) {
+            if (options.albumBatchRun.cancelRequested) break;
             const sheetReq = sheetRequests[i];
             const sheetLabel = sheetReq.sheet.label || `Sheet ${i + 1}`;
 
@@ -680,10 +752,17 @@ export class AppController {
                     })
                     : undefined;
                 const sheetOutcome = await this.executeAlbumSheetRenderRequest(sheetReq, sheetProgress, {
+                    albumBatchRun: options.albumBatchRun,
+                    autoSaveEnabled: true,
                     exportEnabled: true,
                     exportFormat: options?.exportFormat || validation.request.options?.format || "JPEG",
                     exportOptions: options?.exportOptions || validation.request.options
                 });
+                if (["CANCELLED", "CANCEL_REQUESTED", "CANCELLING"].includes(sheetOutcome?.status)) {
+                    options.albumBatchRun.cancelRequested = true;
+                    results.push({ sheetId: sheetReq.sheet.id, status: "CANCELLED", outcome: sheetOutcome });
+                    continue;
+                }
                 const sheetSucceeded = sheetOutcome?.status === "COMPLETED" &&
                     (sheetOutcome?.failedTemplates || 0) === 0;
                 if (sheetSucceeded) {
@@ -723,15 +802,17 @@ export class AppController {
             successfulSheets: successful,
             failedSheets: failed,
             results: Object.freeze(results),
-            success: failed === 0
+            cancelled: options.albumBatchRun.cancelRequested,
+            pendingSheets: totalSheets - completed,
+            success: failed === 0 && !options.albumBatchRun.cancelRequested && completed === totalSheets
         });
 
         if (onUpdate) {
             onUpdate({
-                lifecycle: "COMPLETED",
+                lifecycle: summary.cancelled ? "CANCELLED" : failed ? "FAILED" : "COMPLETED",
                 currentSheetIndex: totalSheets,
                 totalSheets,
-                percent: 100,
+                percent: Math.round(completed / totalSheets * 100),
                 summary
             });
         }
@@ -752,7 +833,7 @@ export class AppController {
             projectId,
             album: currentAlbum,
             registry: this.projectTemplateRegistry.getAll(),
-            selectedPhotoIds: this.selectedPhotoIds(),
+            selectedPhotoIds: this.getDesignPhotos().map(photo => photo.id),
             options: exportOptions
         });
 
@@ -1059,6 +1140,10 @@ export class AppController {
     }
 
     async executeProject(onUpdate, options = {}) {
+        if (this.albumBatchRun && options.albumBatchRun !== this.albumBatchRun) {
+            throw new Error("An album export is already running.");
+        }
+
 
         if (this.projectBatchRunning ||
             this.currentProjectExecutionSummary?.batchProgress?.lifecycle === "RUNNING") {
@@ -1387,6 +1472,7 @@ export class AppController {
     }
 
     requestBatchCancellation() {
+        if (this.albumBatchRun) this.albumBatchRun.cancelRequested = true;
         if (!this.projectBatchRunning || !this.batchCancellationController) return null;
         const current = this.currentProjectExecutionSummary;
         this.batchCancellationController.captureProgress(calculateBatchProgress(current));
@@ -1908,6 +1994,10 @@ export class AppController {
 
     }
 
+    getDesignPhotos() {
+        return finalDesignPhotos(this.getPhotos(), this.getPhotoDecisions());
+    }
+
     selectedPhotoIds() {
 
         return this.photoWorkspace.getPhotos()
@@ -2141,9 +2231,39 @@ export class AppController {
         if (!this.project.getProject()) {
             throw new Error("Open a project before validating templates.");
         }
-        return this.validateAndPersistTemplateRegistry({
+        const discover = ["PROJECT_OPEN", "USER_REVALIDATE", "EXPLICIT_REVALIDATE"].includes(reason);
+        if (!discover) return this.validateAndPersistTemplateRegistry({
             reason: this.safeTemplateRegistryPreflightReason(reason)
         });
+        if (this.isAlbumSheetMutationLocked() || this.registryMutationInProgress) {
+            throw new Error("Wait for the current operation before scanning templates.");
+        }
+        this.registryMutationInProgress = true;
+        const rollback = this.captureTemplateRegistryTransaction();
+        const discoveryErrors = [];
+        try {
+            const files = await this.templateDocumentReader.listTemplates();
+            for (const file of files) {
+                if (this.projectTemplateRegistry.getAll().some(item => item.fileName === file.name)) continue;
+                try {
+                    const analysis = await this.templateDocumentReader.previewRegisteredTemplate(
+                        {fileName: file.name, fileReference: file.name}, {capturePreview: false});
+                    this.projectTemplateRegistry.add(file, undefined, {smartObjects: analysis.smartObjects});
+                } catch (error) {
+                    discoveryErrors.push(file.name);
+                    Logger.warn(`Template scan failed: ${file.name}: ${error?.message}`);
+                }
+            }
+            const result = await this.validateAndPersistTemplateRegistry({
+                reason: this.safeTemplateRegistryPreflightReason(reason), rollback
+            });
+            return {...result, discoveryErrors};
+        } catch (error) {
+            this.restoreTemplateRegistryTransaction(rollback);
+            throw error;
+        } finally {
+            this.registryMutationInProgress = false;
+        }
     }
 
     getActivePhotoshopDocument() {
@@ -2166,7 +2286,7 @@ export class AppController {
     }
 
     async addCurrentPsdToProject(file) {
-        if (this.projectBatchRunning || this.registryMutationInProgress) {
+        if (this.isAlbumSheetMutationLocked() || this.registryMutationInProgress) {
             throw new Error("Template registry is currently unavailable.");
         }
         this.registryMutationInProgress = true;
@@ -2243,7 +2363,7 @@ export class AppController {
     }
 
     async removeRegisteredProjectTemplate(id) {
-        if (this.projectBatchRunning || this.registryMutationInProgress) {
+        if (this.isAlbumSheetMutationLocked() || this.registryMutationInProgress) {
             throw new Error("Template registry is currently unavailable.");
         }
         this.registryMutationInProgress = true;

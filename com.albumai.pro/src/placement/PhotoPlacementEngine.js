@@ -38,6 +38,8 @@ export default class PhotoPlacementEngine {
         const slotAssignments = Array.isArray(placementOptions.slotAssignments)
             ? placementOptions.slotAssignments.filter(binding => binding?.photoId != null)
             : [];
+        const positions = new Map(slotAssignments.map(binding => [String(binding.slotId), binding.position]));
+        const cropFocusBySlot = new Map(slotAssignments.map(binding => [String(binding.slotId), binding.cropFocus]));
         if (slotAssignments.length) {
             const slotById = new Map(slots.map(slot => [String(slot.layerId), slot]));
             slots = slotAssignments.map(binding => slotById.get(String(binding.slotId)));
@@ -54,7 +56,18 @@ export default class PhotoPlacementEngine {
             throw new Error("No valid Smart Object slots remain.");
         }
 
-        const candidates = this.photos(inputPhotos, warnings);
+        // Explicit spread bindings own both membership and order. Library
+        // highlights are transient and must never reduce an album export.
+        const photoById = new Map(inputPhotos.map(photo => [photo?.id, photo]));
+        const boundPhotos = slotAssignments.map(binding => photoById.get(binding.photoId));
+        if (boundPhotos.some(photo => !photo)) {
+            throw new Error("Album Sheet assignment references a missing photo.");
+        }
+        const candidates = this.photos(
+            slotAssignments.length ? boundPhotos : inputPhotos,
+            warnings,
+            { respectSelection: !slotAssignments.length }
+        );
 
         if (!candidates.length) {
             throw new Error("No eligible photos remain.");
@@ -98,12 +111,19 @@ export default class PhotoPlacementEngine {
                     photoId: assignment.photoId,
                     photoName: photo?.name || "",
                     fitMode: assignment.fitMode,
+                    cropFocus: cropFocusBySlot.get(String(assignment.slotId)) || "center",
+                    position: positions.get(String(assignment.slotId)),
                     score: null,
                     slotOrientation: slot?.orientation ?? "unknown",
                     photoOrientation: photo?.orientation ?? "unknown",
                     aspectRatioDistance: null
                 };
             });
+            if (slotAssignments.length && (assignments.length !== slotAssignments.length ||
+                slotAssignments.some(binding => !assignments.some(assignment =>
+                    String(assignment.layerId) === String(binding.slotId) && assignment.photoId === binding.photoId)))) {
+                throw new Error("Album Sheet placement is incomplete. Export stopped.");
+            }
             const assignedSlotIds = new Set(assignments.map(item => item.layerId));
             const assignedPhotoIds = new Set(assignments.map(item => item.photoId));
 
@@ -170,6 +190,8 @@ export default class PhotoPlacementEngine {
                 parentGroupId: slot.parentGroupId,
                 photoId: match.photo.id,
                 photoName: match.photo.name,
+                cropFocus: cropFocusBySlot.get(String(slot.layerId)) || "center",
+                position: positions.get(String(slot.layerId)),
                 score: match.score,
                 slotOrientation: slot.orientation,
                 photoOrientation: match.photo.orientation,
@@ -320,9 +342,9 @@ export default class PhotoPlacementEngine {
 
     }
 
-    photos(photos, warnings) {
+    photos(photos, warnings, { respectSelection = true } = {}) {
 
-        const source = photos.some(photo => photo?.selected)
+        const source = respectSelection && photos.some(photo => photo?.selected)
             ? photos.filter(photo => photo?.selected)
             : photos;
 

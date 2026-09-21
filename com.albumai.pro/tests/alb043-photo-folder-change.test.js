@@ -1,7 +1,8 @@
 import assert from "assert";
 
 import PhotoWorkspaceService, {
-    PhotoFolderChangeStatus
+    PhotoFolderChangeStatus,
+    remapAlbumPhotoReferences
 } from "../src/services/PhotoWorkspaceService";
 import {
     importPhotoFolder,
@@ -194,9 +195,17 @@ function harness({
             }
         }
     });
+    // Transaction tests isolate background inspection; its phase publications
+    // and cache writes have dedicated metadata tests.
+    const metadataStarts = [];
+    service.startMetadataExtraction = (photos, generation) => {
+        metadataStarts.push({ photos, generation });
+        return Promise.resolve();
+    };
     service.sourceFolder = sourceFolder;
     return {
         service,
+        metadataStarts,
         library,
         selection,
         project,
@@ -286,14 +295,22 @@ async function run() {
         );
     });
 
-    await test("Change Photo Folder is available only for an initialized photo workspace", async () => {
+    await test("Change Photo Folder supports both loaded and disconnected existing workspaces", async () => {
         const idle = { busy: false, prepared: null };
         assert.strictEqual(canStartPhotoFolderChange({
             projectId: "project-a",
             folderLoaded: false,
+            hasFolderReference: false,
             isLoading: false,
             photoFolderChange: idle
         }), false);
+        assert.strictEqual(canStartPhotoFolderChange({
+            projectId: "project-a",
+            folderLoaded: false,
+            hasFolderReference: true,
+            isLoading: false,
+            photoFolderChange: idle
+        }), true);
         assert.strictEqual(canStartPhotoFolderChange({
             projectId: "project-a",
             folderLoaded: true,
@@ -337,6 +354,60 @@ async function run() {
             isLoading: false,
             photoFolderChange: cleared
         }), true);
+    });
+
+    await test("album placements remap only unique filename matches after a folder move", async () => {
+        const album = {
+            sheets: [{
+                id: "spread-1",
+                slots: [
+                    { slotId: "01", photoId: "/old/Reception/One.JPG", cropFocus: "top" },
+                    { slotId: "02", photoId: "/old/Reception/Two.JPG", cropFocus: "center" },
+                    { slotId: "03", photoId: "/old/Reception/duplicate.jpg", cropFocus: "center" },
+                    { slotId: "04", photoId: "/old/Reception/missing.jpg", cropFocus: "bottom" }
+                ]
+            }]
+        };
+        const result = remapAlbumPhotoReferences(album, [
+            { id: "/new/One.JPG", name: "One.JPG" },
+            { id: "/new/Two.JPG", name: "Two.JPG" },
+            { id: "/new/a/duplicate.jpg", name: "duplicate.jpg" },
+            { id: "/new/b/duplicate.jpg", name: "duplicate.jpg" }
+        ]);
+
+        assert.strictEqual(result.changed, true);
+        assert.strictEqual(result.remapped, 2);
+        assert.strictEqual(result.album.sheets[0].slots[0].photoId, "/new/One.JPG");
+        assert.strictEqual(result.album.sheets[0].slots[0].cropFocus, "top");
+        assert.strictEqual(result.album.sheets[0].slots[1].photoId, "/new/Two.JPG");
+        assert.strictEqual(result.album.sheets[0].slots[2].photoId, "/old/Reception/duplicate.jpg");
+        assert.strictEqual(result.album.sheets[0].slots[3].photoId, "/old/Reception/missing.jpg");
+        assert.strictEqual(album.sheets[0].slots[0].photoId, "/old/Reception/One.JPG",
+            "the persisted input remains immutable until save");
+    });
+
+    await test("album placement repair refuses weak or encoded-basename guesses", async () => {
+        const weak = {
+            sheets: [{ slots: [{ slotId: "01", photoId: "/old/IMG_0001.JPG" }] }]
+        };
+        const weakResult = remapAlbumPhotoReferences(weak, [
+            { id: "/different-shoot/IMG_0001.JPG", name: "IMG_0001.JPG" }
+        ]);
+        assert.strictEqual(weakResult.changed, false);
+        assert.strictEqual(weakResult.album, weak);
+
+        const encoded = {
+            sheets: [{ slots: [
+                { slotId: "01", photoId: "/old/A%20B.jpg" },
+                { slotId: "02", photoId: "/old/C%2FD.jpg" }
+            ] }]
+        };
+        const encodedResult = remapAlbumPhotoReferences(encoded, [
+            { id: "/new/A B.jpg", name: "A B.jpg" },
+            { id: "/new/D.jpg", name: "D.jpg" }
+        ]);
+        assert.strictEqual(encodedResult.changed, false);
+        assert.strictEqual(encodedResult.album, encoded);
     });
 
     await test("UI upgrades a prepared candidate when recovery becomes required before commit", async () => {
@@ -634,14 +705,17 @@ async function run() {
             result.status,
             PhotoFolderChangeStatus.SUCCESS
         );
-        assert.strictEqual(state.saves.length, 1);
+        assert.strictEqual(state.saves.length, 1, "folder transaction save count");
         assert.strictEqual(state.tokenCalls(), 1);
         assert.strictEqual(state.service.sourceFolder.name, "new");
         assert.strictEqual(state.library.getPhotos(), nextPhotos);
         assert.strictEqual(state.library.loadCalls, 1);
         assert.strictEqual(state.selection.clearCalls, 1);
         assert.strictEqual(state.lifecycle.clears.length, 1);
-        assert.strictEqual(state.refresh.calls, 1);
+        assert.strictEqual(state.refresh.calls, 1, "one folder publication before background metadata");
+        assert.strictEqual(state.metadataStarts.length, 1);
+        assert.strictEqual(state.metadataStarts[0].photos, nextPhotos);
+        assert.strictEqual(state.metadataStarts[0].generation, state.service.lifecycleGeneration);
         assert.strictEqual(state.project.metadata.photoSource.token, "persistent-token");
         assert.deepStrictEqual(
             state.project.metadata.templateRegistry,
@@ -765,6 +839,68 @@ async function run() {
         assert.strictEqual(result.images[0].fileSize, 987654);
         assert.strictEqual(result.images[0].created, created);
         assert.strictEqual(result.images[0].modified, modified);
+    });
+
+    await test("Add Folder retains old photos, assignments and decisions across refresh and reopen", async () => {
+        const oldFolder = folder("original"), extra = folder("extra");
+        const original = { id: "/original/one.jpg", name: "one.jpg", modified: 1 };
+        const addition = { id: "/extra/one.jpg", name: "one.jpg", modified: 1 };
+        oldFolder.getEntries = async () => [original];
+        extra.getEntries = async () => [addition];
+        const h = harness({ sourceFolder: oldFolder, initialPhotos: [original],
+            importFolder: async candidate => staged(candidate, { images: await candidate.getEntries() }) });
+        const album = { sheets: [{ id: "spread", assignments: [{ photoId: original.id, cropFocus: "top" }] }] };
+        h.project.metadata.album = album;
+        const tokens = new Map();
+        h.service.localFileSystem.createPersistentToken = async candidate => {
+            tokens.set(candidate.nativePath, candidate);
+            return candidate.nativePath;
+        };
+        h.service.localFileSystem.getEntryForPersistentToken = async token => tokens.get(token);
+        await h.service.updatePhotoDecision(original, { culling: "REJECT", rating: 4 });
+        await h.service.addPhotoFolder(extra);
+        assert.deepStrictEqual(h.library.getPhotos().map(photo => photo.id), [original.id, addition.id]);
+        assert.strictEqual(h.library.getPhotos()[0], original);
+        assert.strictEqual(h.selection.clearCalls, 0);
+        assert.strictEqual(h.project.metadata.album, album);
+        assert.strictEqual(h.project.metadata.photoSource.sources.length, 2);
+        assert.strictEqual(h.service.getPhotoDecisions().items[0].culling, "REJECT");
+        const decisions = JSON.stringify(h.service.getPhotoDecisions());
+        await h.service.addPhotoFolder(extra);
+        assert.strictEqual(h.library.getPhotos().length, 2, "same folder is not duplicated");
+        assert.strictEqual(h.project.metadata.photoSource.sources.length, 2);
+        await h.service.refreshPhotos();
+        await h.service.persistencePromise;
+        assert.strictEqual(h.library.getPhotos().length, 2);
+        h.service.sourceFolder = null;
+        const reopened = await h.service.resolveSourceFolder();
+        h.library.load([]);
+        await h.service.importPhotos(reopened, { persistFolderReference: false });
+        await h.service.persistencePromise;
+        assert.deepStrictEqual(h.library.getPhotos().map(photo => photo.id), [original.id, addition.id]);
+        assert.strictEqual(JSON.stringify(h.service.getPhotoDecisions()), decisions);
+        assert.strictEqual(h.project.metadata.album, album);
+        tokens.delete(extra.nativePath);
+        assert.strictEqual(await h.service.resolveSourceFolder(), null, "partial source hydration is refused");
+    });
+
+    await test("Add Folder cancellation, token and save failures leave the original library intact", async () => {
+        for (const options of [{}, { token: new Error("token failed") }, { saveFailure: new Error("save failed") }]) {
+            const h = harness(options);
+            const photos = h.library.getPhotos();
+            const before = JSON.stringify(h.project.metadata);
+            if (!Object.keys(options).length) {
+                assert.strictEqual(await h.service.addPhotoFolder(), null);
+            } else {
+                await assert.rejects(h.service.addPhotoFolder(folder("extra")), /Existing photos were kept/);
+            }
+            assert.strictEqual(h.library.getPhotos(), photos);
+            for (const [key, value] of Object.entries(JSON.parse(before))) {
+                assert.deepStrictEqual(h.project.metadata[key], value);
+            }
+            assert.ok(!h.project.metadata.photoStoryOrder?.items?.includes("extra-1"));
+            assert.strictEqual(h.selection.clearCalls, 0);
+        }
     });
 
     console.log(`ALB-043 service tests passed: ${count}`);

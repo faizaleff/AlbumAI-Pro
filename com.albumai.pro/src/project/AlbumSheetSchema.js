@@ -1,5 +1,10 @@
 import { normalizeTypographyAssignmentIntent } from "../typography/TypographyAssignmentIntent";
 
+export function normalizePhotoPosition(value) {
+    const clamp = (n, fallback, min, max) => typeof n === "number" && Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+    return {x: clamp(value?.x, 0, -3, 3), y: clamp(value?.y, 0, -3, 3), zoom: clamp(value?.zoom, 1, 1, 3)};
+}
+
 export const ALBUM_SCHEMA_VERSION = 1;
 
 export const AlbumSheetReason = Object.freeze({
@@ -409,11 +414,12 @@ export function applyAlbumSheetMutation(album, mutation, options = {}) {
                 ["center", "top", "bottom", "left", "right"].includes(mutation.cropFocus)
                 ? mutation.cropFocus
                 : "center";
-            if (targetSlot.cropFocus === cropFocus) {
+            const position = mutation.position ? normalizePhotoPosition(mutation.position) : null;
+            if (targetSlot.cropFocus === cropFocus && JSON.stringify(targetSlot.position || null) === JSON.stringify(position)) {
                 return mutationUnchanged(inspected.album);
             }
             const remaining = currentSlots.filter(s => String(s.slotId) !== String(mutation.slotId));
-            const nextSlotList = [...remaining, { ...targetSlot, cropFocus }];
+            const nextSlotList = [...remaining, { ...targetSlot, cropFocus, position }];
             const candidate = inspectSheet({
                 ...targetSheet,
                 slots: nextSlotList
@@ -638,7 +644,7 @@ function inspectSheet(sheet, ids) {
                 ["center", "top", "bottom", "left", "right"].includes(slot.cropFocus)
                 ? slot.cropFocus
                 : "center";
-            validSlots.push(Object.freeze({ slotId, photoId, cropFocus }));
+            validSlots.push(Object.freeze({ slotId, photoId, cropFocus, ...(slot.position ? {position: Object.freeze(normalizePhotoPosition(slot.position))} : {}) }));
         }
         if (validSlots.length > 0) {
             normalized.slots = Object.freeze(validSlots);
@@ -684,7 +690,8 @@ function slotsEqual(left = [], right = []) {
     return l.every((slot, i) =>
         String(slot.slotId) === String(r[i].slotId) &&
         String(slot.photoId) === String(r[i].photoId) &&
-        String(slot.cropFocus || "center") === String(r[i].cropFocus || "center")
+        String(slot.cropFocus || "center") === String(r[i].cropFocus || "center") &&
+        JSON.stringify(slot.position || null) === JSON.stringify(r[i].position || null)
     );
 }
 

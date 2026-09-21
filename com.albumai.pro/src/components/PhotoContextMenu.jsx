@@ -48,6 +48,7 @@ export default function PhotoContextMenu({ menu, menuRef, events, controls = [],
     const [hoverRating, setHoverRating] = useState(null);
     const moveButton = useRef(null);
     const review = contextReviewState(menu.photos, decisionForPhoto);
+    const allCollages = menu.photos.length > 0 && menu.photos.every(photo => decisionForPhoto(photo).collage === true);
     const open = (event, id, count) => {
         if (!ready) return;
         setFlyout({id, position:eventFlyoutPosition(event.currentTarget.getBoundingClientRect(), document.body.getBoundingClientRect(), count)});
@@ -88,6 +89,10 @@ export default function PhotoContextMenu({ menu, menuRef, events, controls = [],
                     </ContextMenuRow>
                     <ContextMenuRow disabled={!ready} onClick={() => act({culling:review.rejected ? CullingStatus.UNRATED : CullingStatus.REJECT})}>
                         <span className="photo-context-symbol"><ContextActionIcon kind="reject" /></span>{review.rejected ? "Unreject" : "Reject"}
+                    </ContextMenuRow>
+                    <div className="photo-context-separator" role="separator" />
+                    <ContextMenuRow disabled={!ready} onClick={() => act({collage:!allCollages})}>
+                        {allCollages ? "Remove collage label" : "Mark as collage"}
                     </ContextMenuRow>
                 </div>
             </>}

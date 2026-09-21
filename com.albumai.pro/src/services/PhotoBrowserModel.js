@@ -389,9 +389,10 @@ function normalizedDecision(item) {
     const culling = typeof item.culling === "string" && ["KEEP", "REJECT"].includes(item.culling.toUpperCase())
         ? item.culling.toUpperCase()
         : null;
-    if (!rating && !favorite && !culling) return null;
+    if (!rating && !favorite && !culling && item.collage !== true) return null;
     const result = { photoKey, rating, favorite };
     if (culling) result.culling = culling;
+    if (item.collage === true) result.collage = true;
     return Object.freeze(result);
 }
 
@@ -433,6 +434,7 @@ export function photoDecisionFor(value, photo) {
         rating: decision.rating,
         favorite: decision.favorite
     };
+    if (decision.collage === true) result.collage = true;
     if (decision.culling && decision.culling !== "UNRATED") {
         result.culling = decision.culling;
     }
@@ -447,11 +449,18 @@ export function createPhotoDecisionLookup(value = {}) {
             rating: decision.rating,
             favorite: decision.favorite
         };
+        if (decision.collage === true) result.collage = true;
         if (decision.culling && decision.culling !== "UNRATED") {
             result.culling = decision.culling;
         }
         return Object.freeze(result);
     };
+}
+
+// Temporary Design input policy: browser highlight is not album eligibility.
+export function finalDesignPhotos(photos = [], decisions = {}) {
+    const decisionFor = createPhotoDecisionLookup(decisions);
+    return photos.filter(photo => photo?.id && decisionFor(photo).culling !== "REJECT");
 }
 
 export function updatePhotoDecision(value, photo, changes = {}) {
@@ -471,10 +480,12 @@ export function updatePhotoDecision(value, photo, changes = {}) {
             ? changes.culling.toUpperCase()
             : null)
         : (previous.culling || null);
-    if (!rating && !favorite && !culling) byKey.delete(photoKey);
+    const collage = Object.prototype.hasOwnProperty.call(changes, "collage") ? changes.collage === true : previous.collage === true;
+    if (!rating && !favorite && !culling && !collage) byKey.delete(photoKey);
     else {
         const next = { photoKey, rating, favorite };
         if (culling) next.culling = culling;
+        if (collage) next.collage = true;
         byKey.set(photoKey, next);
     }
     return normalizePhotoDecisions({ items: [...byKey.values()] });

@@ -3,6 +3,7 @@
 "use strict";
 
 const assert = require("assert");
+const { approvedNetworkPermission } = require("../scripts/network-permission-policy");
 const fs = require("fs");
 const path = require("path");
 
@@ -40,7 +41,7 @@ try {
     check(entrySource.includes('console.log("ALBUMAI_RUNTIME_REVISION_ID", ALBUMAI_RUNTIME_REVISION_ID)'), "startup console omits runtime revision");
     check(verifierSource.includes(`"${RUNTIME_REVISION_ID}"`), "bundle verification omits runtime revision");
     check(manifest.version === RELEASE_VERSION, "manifest and runtime release versions differ");
-    check(!manifest.requiredPermissions?.network, "ALB-106 must remain offline by default");
+    check(approvedNetworkPermission(manifest.requiredPermissions?.network), "network exceeds the approved Online Events origin");
     check(!manifest.requiredPermissions?.launchProcess, "ALB-106 must not add external-launch permission");
 
     console.info(`PASS ALB-106: ${assertions} runtime provenance assertions`);

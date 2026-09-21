@@ -1,3 +1,4 @@
+import {EventDescription} from "../src/components/EventManager";
 import softwareRenderer from "../src/services/SoftwareJpegRenderer";
 import decodeJpegPreview from "jpeg-js/lib/decoder";
 import {GeminiPhotoEventProvider, onlineRequestFailure, onlinePhotoPreview} from "../src/services/GeminiPhotoEventProvider";
@@ -31,6 +32,7 @@ import {
     visibleLibraryFocus,
     createPhotoDecisionLookup,
     normalizePhotoBrowserPreferences,
+    normalizePhotoDecisions,
     normalizePhotoEventChapters,
     photoDecisionKey,
     normalizePhotoStoryOrder,
@@ -60,6 +62,26 @@ import { previewPanelSize, previewSessionPhotos, previewGeometry, previewResolut
 import { getThumbnailCacheKey } from "../src/services/ThumbnailService";
 
 let assertions = 0;
+{
+    const photo={id:"collage-test",file:{nativePath:"/collage.jpg"}};
+    const tagged=updatePhotoDecision({},photo,{collage:true});
+    assert.equal(createPhotoDecisionLookup(tagged)(photo).collage,true);
+    const rated=updatePhotoDecision(tagged,photo,{rating:4});
+    assert.equal(createPhotoDecisionLookup(rated)(photo).collage,true);
+    const restored=normalizePhotoDecisions(JSON.parse(JSON.stringify(rated)));
+    assert.equal(createPhotoDecisionLookup(restored)(photo).collage,true);
+    const cleared=updatePhotoDecision(restored,photo,{collage:false});
+    assert.equal(createPhotoDecisionLookup(cleared)(photo).rating,4);
+    assert.ok(!createPhotoDecisionLookup(cleared)(photo).collage);
+    assert.equal(updatePhotoDecision(tagged,photo,{collage:false}).items.length,0);
+    assert.equal(updatePhotoDecision({},photo,{collage:"true"}).items.length,0);
+    const html=renderToStaticMarkup(<EventDescription text={"Visible portrait scene. ".repeat(20)}/>);
+    assert.ok(html.includes('aria-expanded="false"'));
+    assert.ok(html.includes('More'));
+    assert.ok(!html.includes("Visible portrait scene. ".repeat(20)));
+    assertions++;
+}
+
 {
     const photo = (id,time) => ({id:String(id),file:{nativePath:`/context/${id}.jpg`},metadata:{dateTaken:1700000000000+time*60000}});
     const run = (gap,relation,context) => {
@@ -1281,12 +1303,14 @@ async function run() {
 
     await test("animates Library lifts and drops with bounded images, exclusive moves and safe cancellation", checkLibraryDrag);
 
-    await test("blocks the Library until metadata and groups settle without premature 100 percent", () => {
-        assert.deepStrictEqual(libraryLoadProgress({phase:"reading",total:72,completed:36}), {active:true,percent:49});
-        assert.deepStrictEqual(libraryLoadProgress({phase:"grouping",total:72,completed:72}), {active:true,percent:99});
-        assert.deepStrictEqual(libraryLoadProgress({phase:"ready",total:72,completed:72}), {active:false,percent:100});
+    await test("opens the workspace while background metadata reports honest progress", () => {
+        assert.deepStrictEqual(libraryLoadProgress({phase:"reading",total:72,completed:36}), {active:true,percent:49,blocking:false});
+        assert.deepStrictEqual(libraryLoadProgress({phase:"grouping",total:72,completed:72}), {active:true,percent:99,blocking:false});
+        assert.deepStrictEqual(libraryLoadProgress({phase:"ready",total:72,completed:72}), {active:false,percent:100,blocking:false});
         assert.strictEqual(libraryLoadProgress({phase:"error",total:72,completed:1}).active, true);
         assert.strictEqual(libraryLoadProgress({}, true).percent, 0);
+        assert.strictEqual(libraryLoadProgress({}, true).blocking, true);
+        assert.deepStrictEqual(libraryLoadProgress({phase:"preparing",total:80,completed:40}), {active:true,percent:49,blocking:false});
         const listeners = new Map();
         const roots = [0,1].map(id => ({addEventListener: (_, fn) => listeners.set(id, fn), removeEventListener: () => listeners.delete(id)}));
         let focused = 0, prevented = 0;

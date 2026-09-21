@@ -541,7 +541,7 @@ async function run() {
         controller.currentAlbumSheetRenderRequest = null;
         controller.project = { getProject: () => project };
         controller.projectTemplateRegistry = { getAll: () => registry };
-        controller.photoWorkspace = {
+        controller.photoWorkspace = { getPhotoDecisions: () => ({}),
             getPhotos: () => [{ id: "photo-2", selected: true }, { id: "photo-1", selected: true }]
         };
         controller.revalidateProjectTemplates = async () => ({
@@ -596,7 +596,7 @@ async function run() {
         controller.project = { getProject: () => project };
         controller.projectTemplateRegistry = { getAll: () => registry };
         // Empty library selection (no photos selected)
-        controller.photoWorkspace = {
+        controller.photoWorkspace = { getPhotoDecisions: () => ({}),
             getPhotos: () => [
                 { id: "IMG_5733.jpg", selected: false },
                 { id: "IMG_5734.jpg", selected: false },
@@ -628,7 +628,7 @@ async function run() {
     await test("fails safely when referenced slot photos cannot be resolved in photo library", async () => {
         const controller = new AppController();
         controller.project = { metadata: { id: "p1" }, getProject: () => ({ metadata: { id: "p1" } }) };
-        controller.photoWorkspace = {
+        controller.photoWorkspace = { getPhotoDecisions: () => ({}),
             getPhotos: () => [
                 { id: "other-photo.jpg", selected: false }
             ]
@@ -650,7 +650,7 @@ async function run() {
 
     await test("uses a one-Sheet queue and detached browser selection in recovery", async () => {
         const controller = Object.create(AppController.prototype);
-        controller.photoWorkspace = { getPhotos: () => [{ id: "different", selected: true }] };
+        controller.photoWorkspace = { getPhotoDecisions: () => ({}), getPhotos: () => [{ id: "different", selected: true }] };
         controller.registryRecoveryVersion = () => "registry-version";
         controller.logOutputRecoverySummary = () => {};
         controller.persistRecoverySnapshot = async () => {};

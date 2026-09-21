@@ -1,5 +1,9 @@
 # AlbumAI Pro Roadmap
 
+## Active development checkpoint
+
+The September 21 Library/Design work remains in draft review, with known verification and Photoshop acceptance gaps. See [current checkpoint and ordered remaining work](checkpoint-2026-09-21.md). The delivered release history below does not qualify these newer changes.
+
 ## Current release line
 
 **1.2.0 stable — released 2026-08-31**

@@ -3,6 +3,7 @@
 "use strict";
 
 const assert = require("assert");
+const { approvedNetworkPermission } = require("../scripts/network-permission-policy");
 const fs = require("fs");
 const path = require("path");
 
@@ -35,7 +36,7 @@ try {
     check(sourceManifest.id === "com.albumai.pro", "plugin ID changed");
     check(sourceManifest.manifestVersion === 5, "manifest generation changed");
     check(sourceManifest.host?.app === "PS", "release no longer targets Photoshop only");
-    check(!sourceManifest.requiredPermissions?.network, "release adds network permission");
+    check(approvedNetworkPermission(sourceManifest.requiredPermissions?.network), "network exceeds the approved Online Events origin");
     check(!sourceManifest.requiredPermissions?.launchProcess, "release adds launch permission");
     check(qualification.includes("false source-to-artifact\nprovenance claim"), "qualification root cause is missing");
     check(qualification.includes(`Version: \`${VERSION}\``), "qualification version differs");

@@ -4,6 +4,17 @@ import SidebarButton from "./SidebarButton";
 import EventNameEditor, {bindEventEditorLock} from "./EventNameEditor";
 export {bindEventEditorLock} from "./EventNameEditor";
 
+export function EventDescription({text}) {
+    const [expanded, setExpanded] = useState(false);
+    const long = text.length > 80;
+    const summary = long ? `${text.slice(0,77).replace(/\s+\S*$/, "")}…` : text;
+    return <div className="photo-event-description-area">
+        <p className={`photo-event-description${expanded ? "" : " is-collapsed"}`}>{expanded ? text : summary}</p>
+        {long && <SidebarButton className="photo-event-description-toggle" aria-expanded={expanded}
+            onClick={() => setExpanded(value => !value)}>{expanded ? "Less" : "More"}</SidebarButton>}
+    </div>;
+}
+
 // Inline editing keeps the event list and photo selection visible.
 export default function EventManager({items, selected, onSelect, onDrop, ready, creating, onClose, onEdit, onEditingChange}) {
     const [editing, setEditing] = useState("");
@@ -81,7 +92,7 @@ export default function EventManager({items, selected, onSelect, onDrop, ready, 
                 <SidebarButton className="photo-event-row-action" disabled={!ready || busy} aria-label={`Remove ${item.name}`} title="Remove event, not photos"
                     onClick={() => {onClose(); setEditing(""); setRemove(remove === item.chapterId ? "" : item.chapterId);}}>−</SidebarButton>
             </div>
-            {selected.has(item.chapterId) && item.description && <p className="photo-event-description" title="AI scene summary">{item.description}</p>}
+            {selected.has(item.chapterId) && item.description && <EventDescription key={item.description} text={item.description}/>}
             {editing === item.chapterId && !creating && editor(item.chapterId)}
             {remove === item.chapterId && <div className="photo-event-editor">
                 <small>{item.originKeys ? "Move photos to Unassigned?" : "Restore photos to original events?"}</small>

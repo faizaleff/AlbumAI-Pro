@@ -43,6 +43,7 @@ export default class ReplacementStepExecutor {
 
             await ExecuteModal.run(async () => {
 
+                await this.smartObjectService.preserveSlotShape?.(layer, {alreadyInModal: true});
                 const replaced = await this.smartObjectService.replaceContentsWithFileEntry({
                     layer,
                     fileEntry,
@@ -56,7 +57,8 @@ export default class ReplacementStepExecutor {
                     document,
                     slotLayerId: step.slotLayerId,
                     originalBounds,
-                    fitMode: step.fitMode
+                    fitMode: step.fitMode,
+                    cropFocus: step.cropFocus, position: step.position
                 });
 
             }, {
@@ -188,12 +190,14 @@ export default class ReplacementStepExecutor {
 
         originalBounds,
 
-        fitMode
+        fitMode,
+
+        cropFocus = "center", position = null
 
     }) {
 
         const replacementLayer = this.refreshSlotLayer(document, slotLayerId);
-        const replacementBounds = this.positiveBounds(replacementLayer);
+        const replacementBounds = await this.smartObjectService.contentBounds?.(slotLayerId, {alreadyInModal: true}) || this.positiveBounds(replacementLayer);
         const normalizedFitMode = fitMode || "fill";
 
         let scaleFactor = 1;
@@ -216,6 +220,8 @@ export default class ReplacementStepExecutor {
             throw new Error("Replacement failed.");
         }
 
+        if (normalizedFitMode === "fill" && position) scaleFactor *= position.zoom;
+
         if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) {
             throw new Error("Replacement failed.");
         }
@@ -235,11 +241,22 @@ export default class ReplacementStepExecutor {
             });
 
             transformedLayer = this.refreshSlotLayer(document, slotLayerId);
-            transformedBounds = this.positiveBounds(transformedLayer);
+            transformedBounds = await this.smartObjectService.contentBounds?.(slotLayerId, {alreadyInModal: true}) || this.positiveBounds(transformedLayer);
         }
 
-        const offsetX = originalBounds.centerX - transformedBounds.centerX;
-        const offsetY = originalBounds.centerY - transformedBounds.centerY;
+        // Fill preserves the chosen edge; the other axis remains centered.
+        // Fit/center keep their existing full-image positioning behavior.
+        const focus = normalizedFitMode === "fill" ? cropFocus : "center";
+        const horizontalAnchor = focus === "left" ? "left" : focus === "right" ? "right" : "centerX";
+        const verticalAnchor = focus === "top" ? "top" : focus === "bottom" ? "bottom" : "centerY";
+        let offsetX = originalBounds[horizontalAnchor] - transformedBounds[horizontalAnchor];
+        let offsetY = originalBounds[verticalAnchor] - transformedBounds[verticalAnchor];
+        if (normalizedFitMode === "fill" && position) {
+            offsetX = Math.max(originalBounds.right - transformedBounds.right, Math.min(originalBounds.left - transformedBounds.left,
+                offsetX + position.x * originalBounds.width));
+            offsetY = Math.max(originalBounds.bottom - transformedBounds.bottom, Math.min(originalBounds.top - transformedBounds.top,
+                offsetY + position.y * originalBounds.height));
+        }
 
         if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) {
             throw new Error("Replacement failed.");
@@ -251,7 +268,7 @@ export default class ReplacementStepExecutor {
                 offsetX,
                 offsetY,
                 batchPlayOptions: {
-                    commandName: "Center Replaced Smart Object",
+                    commandName: "Position Replaced Smart Object",
                     alreadyInModal: true
                 }
             });

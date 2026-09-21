@@ -141,12 +141,17 @@ function PhotoBrowserSection({
     photoFolderChange = null
 }) {
 
+    const reconnectingPhotoFolder = !folderLoaded && Boolean(folderMessage);
     const canChangePhotoFolder = canStartPhotoFolderChange({
         projectId,
         folderLoaded,
+        hasFolderReference: reconnectingPhotoFolder,
         isLoading,
         photoFolderChange
     });
+    const openOrReconnectFolder = reconnectingPhotoFolder
+        ? onChangePhotoFolder
+        : onOpenFolder;
 
     const [viewMode, setViewMode] = useState("icons");
     const [groupMode, setGroupMode] = useState("none");
@@ -317,15 +322,21 @@ function PhotoBrowserSection({
     const burstPhotoIds = useMemo(() => new Set(
         burstGroups.flatMap(group => group.photoIds)
     ), [burstGroups]);
+    const decisionForPhoto = useMemo(
+        () => createPhotoDecisionLookup(decisions),
+        [decisions]
+    );
     const photoKindForPhoto = useCallback(photo =>
-        burstPhotoIds.has(photo?.id) ? "burst" : "single",
-    [burstPhotoIds]);
+        decisionForPhoto(photo).collage ? "collage" : burstPhotoIds.has(photo?.id) ? "burst" : "single",
+    [burstPhotoIds, decisionForPhoto]);
     const photoKindFacets = useMemo(() => {
         const singles = photos.filter(photo => photoKindForPhoto(photo) === "single").length;
-        const burstFrames = photos.length - singles;
+        const burstFrames = photos.filter(photo => photoKindForPhoto(photo) === "burst").length;
+        const collages = photos.length - singles - burstFrames;
         return [
             { key: "single", label: "Single Photos", count: singles },
-            { key: "burst", label: "Burst Frames", count: burstFrames }
+            { key: "burst", label: "Burst Frames", count: burstFrames },
+            { key: "collage", label: "Collages", count: collages }
         ].filter(item => item.count > 0);
     }, [photoKindForPhoto, photos]);
     const burstReviews = useMemo(
@@ -362,10 +373,6 @@ function PhotoBrowserSection({
             duplicateEvidence
         }),
         [decisions, duplicateEvidence, photos, preferences]
-    );
-    const decisionForPhoto = useMemo(
-        () => createPhotoDecisionLookup(decisions),
-        [decisions]
     );
     const culledPhotos = useMemo(
         () => filterPhotosByCulling(queryResult.photos, cullingFilter, decisionForPhoto),
@@ -431,7 +438,7 @@ function PhotoBrowserSection({
             : "Unrated";
         if (groupMode === "favorite") return decisionForPhoto(photo).favorite ? "Favorites" : "Not favorite";
         if (groupMode === "review") return decisionForPhoto(photo).culling === CullingStatus.REJECT ? "Rejected" : "Included";
-        if (groupMode === "type") return photoKindForPhoto(photo) === "burst"
+        if (groupMode === "type") return photoKindForPhoto(photo) === "collage" ? "Collages" : photoKindForPhoto(photo) === "burst"
             ? "Burst Frames"
             : "Single Photos";
         return "";
@@ -728,7 +735,7 @@ function PhotoBrowserSection({
                         App.getPhotoDecisions()
                     ));
                     setDecisionError(
-                        "Rating or favourite could not be saved."
+                        "Photo changes could not be saved."
                     );
                 }
                 console.warn("Photo decision persistence:", error);
@@ -1368,10 +1375,10 @@ function PhotoBrowserSection({
                         <span className="photo-library-action-label">Library Source</span>
                         <SidebarButton
                             className="photo-browser-control photo-browser-primary-button"
-                            onClick={onOpenFolder}
+                            onClick={openOrReconnectFolder}
                             disabled={isLoading}
                         >
-                            <span className="sidebar-folder-icon" aria-hidden="true">+</span><span>Add Folder</span>
+                            <span className="sidebar-folder-icon" aria-hidden="true">+</span><span>{reconnectingPhotoFolder ? "Reconnect Folder" : "Add Folder"}</span>
                         </SidebarButton>
                         <div className="photo-library-source-secondary">
                             <SidebarButton
@@ -1693,13 +1700,13 @@ function PhotoBrowserSection({
                         )}
                         <button
                             type="button"
-                            onClick={onOpenFolder}
+                            onClick={openOrReconnectFolder}
                             disabled={isLoading}
                             className="photo-browser-control photo-browser-primary-button"
-                            title="Open a photo folder"
-                            aria-label="Open photo folder"
+                            title={reconnectingPhotoFolder ? "Reconnect the photo folder" : "Open a photo folder"}
+                            aria-label={reconnectingPhotoFolder ? "Reconnect photo folder" : "Open photo folder"}
                         >
-                            Open Folder
+                            {reconnectingPhotoFolder ? "Reconnect Folder" : "Open Folder"}
                         </button>
                     </div>
                 ) : !visiblePhotos.length ? (

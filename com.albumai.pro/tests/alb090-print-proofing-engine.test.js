@@ -175,12 +175,11 @@ export async function runAlb090Tests() {
         );
 
         check(typeof html === "string" && html.length > 0, "PrintProofModal rendered to HTML");
-        check(html.includes("Print Export &amp; PDF Proofing Engine") || html.includes("Print Export & PDF Proofing Engine"), "Contains modal title");
-        check(html.includes("300 DPI Lab Print Profile"), "Contains Lab Print preset");
-        check(html.includes("Multi-Page Client PDF Proof"), "Contains PDF proof preset");
-        check(html.includes("Preflight Quality Checklist"), "Contains preflight checklist");
-        check(html.includes("Export Lab Print Batch"), "Contains Export Print button");
-        check(html.includes("Generate PDF Proof Sheet"), "Contains Generate PDF Proof button");
+        check(html.includes("Export album"), "Contains compact export title");
+        check(html.includes("Editable PSD + JPEG"), "Describes actual output formats");
+        check(html.includes("template’s dimensions and resolution"), "Explains actual template-based output sizing");
+        check(!html.includes("Generate PDF") && !html.includes("300 DPI Lab Print Profile"), "Does not offer unimplemented PDF or resizing controls");
+        check(html.includes("Export all spreads"), "Contains export action");
     }
 
     // Test 7: PrintProofModal SSR with Incomplete Spread disables Lab Print button
@@ -204,10 +203,10 @@ export async function runAlb090Tests() {
             />
         );
 
-        check(html.includes("Lab Print Batch is blocked until all slots are assigned"), "Preflight explains Lab Print Batch is blocked");
+        check(html.includes("Fill 1 empty photo slots before exporting."), "Preflight explains Lab Print Batch is blocked");
         check(html.includes("Spread 1: 1/2 assigned (1 empty)"), "Preflight details exact assigned/total count for Spread 1");
         // Verify primary button is disabled for incomplete layout
-        check(html.includes("Export Lab Print Batch") && html.includes("disabled"), "Export Lab Print Batch button is disabled");
+        check(html.includes("Export all spreads") && html.includes("disabled"), "Export all spreads button is disabled");
     }
 
     console.info(`PASS ALB-090: All assertions passed (${assertions} assertions).`);

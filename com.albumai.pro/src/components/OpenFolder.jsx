@@ -1,3 +1,4 @@
+import UxpDropdown from "./UxpDropdown";
 import React, {
     useCallback,
     useEffect,
@@ -7,13 +8,14 @@ import React, {
 
 import PhotoBrowserSection from "./PhotoBrowserSection";
 import LibraryLoadGate from "./LibraryLoadGate";
+import { prepareTemplatePreviews } from "../services/prepareTemplatePreviews";
 // These legacy panels remain bundle-reachable for backward-compatible
 // diagnostics and coverage, but the production Library no longer renders
 // them as a second workspace shell.
 import PreviewPanel from "./PreviewPanel";
 import TemplateDocumentPanel from "./TemplateDocumentPanel";
 import SelectionCount from "./SelectionCount";
-import SpreadCanvas from "./SpreadCanvas";
+import SpreadCanvas, { DesignWorkspace } from "./SpreadCanvas";
 import SheetStoryboardStrip from "./SheetStoryboardStrip";
 import AutoFlowModal from "./AutoFlowModal";
 import PrintProofModal from "./PrintProofModal";
@@ -26,6 +28,7 @@ import {
 
 import App from "../app/AppController";
 import RefreshService from "../services/RefreshService";
+import { PsdPreviews } from "../services/TemplateDocumentReader";
 import PhotoBrowserPerformance from "../services/PhotoBrowserPerformance";
 import {
     canConfirmPhotoFolderChange,
@@ -80,6 +83,7 @@ export default function OpenFolder() {
     const [albumMutationBusy, setAlbumMutationBusy] = useState(false);
     const [albumMutationError, setAlbumMutationError] = useState(null);
     const [albumSheetRenderBusy, setAlbumSheetRenderBusy] = useState(false);
+    const [templatePreviewLoadingId, setTemplatePreviewLoadingId] = useState(null);
     const [isAutoFlowModalOpen, setIsAutoFlowModalOpen] = useState(false);
     const [isPrintProofModalOpen, setIsPrintProofModalOpen] = useState(false);
     const [libraryHistoryControls, setLibraryHistoryControls] = useState(null);
@@ -91,22 +95,66 @@ export default function OpenFolder() {
     const photoFolderChangeProjectIdRef = useRef(null);
     const [, forceRefresh] = useState(0);
     const [wizardStep, setWizardStep] = useState(1);
+    const [designDrafts, setDesignDrafts] = useState({});
+    const draftHistory = useRef({past:[],future:[]});
+    const editDrafts = change => setDesignDrafts(previous => {
+        const next = change(previous);
+        draftHistory.current.past.push(previous);
+        if (draftHistory.current.past.length > 50) draftHistory.current.past.shift();
+        draftHistory.current.future = [];
+        return next;
+    });
+    const undoDesign = redo => {
+        const history = draftHistory.current, from = redo ? history.future : history.past;
+        if (from.length) setDesignDrafts(previous => {
+            (redo ? history.past : history.future).push(previous);
+            return from.pop();
+        });
+        else if (!hasDesignDrafts) restoreAlbumHistory(redo ? redoAlbumSheetHistory : undoAlbumSheetHistory);
+    };
+    const hasDesignDrafts = Object.keys(designDrafts).length > 0;
+    const [applyingDrafts, setApplyingDrafts] = useState(false);
     const activeWorkspaceMode = workspaceModeForWizardStep(wizardStep);
 
     PhotoBrowserPerformance.recordRender("OpenFolder");
     const project = App.project.getProject();
     const hasProject = !!project;
     const projectId = project?.metadata?.id || null;
+    useEffect(() => { setDesignDrafts({}); draftHistory.current = {past:[],future:[]}; }, [projectId]);
+    const requireAppliedDrafts = () => {
+        if (!hasDesignDrafts) return true;
+        setWizardStep(4); setAlbumMutationError("Apply or discard your preview changes before leaving Design."); return false;
+    };
     const album = albumHistory?.present || project?.metadata?.album || null;
     const albumMutationLocked = App.isAlbumSheetMutationLocked();
     const workspacePhotos = App.getPhotos();
+    const designPhotos = App.getDesignPhotos();
+    const [designPhotoId, setDesignPhotoId] = useState("");
+    const [designTypographyTarget, setDesignTypographyTarget] = useState(null);
     const [selectedPhoto, setSelectedPhoto] = useState(() => App.selection.getSelected()[0] || null);
     const templateList = registeredTemplates.length > 0
         ? registeredTemplates
         : (App.getRegisteredProjectTemplates?.() || []);
     const activeSheet = album?.sheets?.find(sheet => sheet.id === selectedAlbumSheetId) || album?.sheets?.[0] || null;
-    const activeTemplate = templateList.find(t => t.id === activeSheet?.templateId || t.name === activeSheet?.templateId || t.fileName === activeSheet?.templateId) || templateList[0] || null;
+    const activeTemplate = templateList.find(t => t.id === activeSheet?.templateId || t.name === activeSheet?.templateId || t.fileName === activeSheet?.templateId) || null;
     const activeSelectedPhoto = selectedPhoto || App.selection.getSelected()[0] || null;
+    const [previewPreparation, setPreviewPreparation] = useState(null);
+    const previewPriority = useRef(null);
+    previewPriority.current = activeTemplate?.id || albumTemplateId;
+    useEffect(() => {
+        if (!projectId || projectAction === "OPENING") return;
+        let cancelled = false;
+        prepareTemplatePreviews({
+            getTemplates: () => App.getRegisteredProjectTemplates(),
+            priority: () => previewPriority.current,
+            ready: item => PsdPreviews.get(PsdPreviews.key(projectId, null, item))?.status === "ready",
+            load: item => App.previewTemplate(item.id),
+            locked: () => App.isAlbumSheetMutationLocked(),
+            cancelled: () => cancelled || !mountedRef.current || App.project.getProject()?.metadata?.id !== projectId,
+            progress: status => { if (!cancelled && mountedRef.current) setPreviewPreparation(status); }
+        });
+        return () => { cancelled = true; };
+    }, [projectId, projectAction]);
 
     useEffect(() => {
         return App.selection.subscribe(() => {
@@ -120,11 +168,9 @@ export default function OpenFolder() {
         return entries;
     }, []);
 
-    const keptPhotoCount = workspacePhotos.filter(p => {
-        const decision = App.culling?.getDecision?.(p.id);
-        return decision === "keep" || decision === "KEEP";
-    }).length;
-    const placedPhotoCount = activeSheet?.slots?.filter(s => s.photoId)?.length || 0;
+    const keptPhotoCount = designPhotos.length;
+    const placedPhotoCount = (album?.sheets || []).reduce((count, sheet) =>
+        count + (sheet.slots || []).filter(slot => slot.photoId).length, 0);
     const wizardCompletedSteps = computeCompletedSteps({
         photoCount: workspacePhotos.length,
         analysisComplete: workspacePhotos.length > 0,
@@ -134,6 +180,7 @@ export default function OpenFolder() {
         exportComplete: false
     });
     const handleWizardStepClick = (stepId, { directDesignerEntry = false } = {}) => {
+        if (stepId !== 4 && !requireAppliedDrafts()) return;
         const isAllowed = resolveWizardNavigation({
             currentStep: wizardStep,
             targetStep: stepId,
@@ -148,6 +195,7 @@ export default function OpenFolder() {
 
     useEffect(() => {
         setAlbumHistory(createAlbumSheetHistory(project?.metadata?.album));
+        setDesignPhotoId("");
         setAlbumSheetId("");
         setSelectedAlbumSheetId("");
         setAlbumSheetLabel("");
@@ -610,6 +658,7 @@ export default function OpenFolder() {
     }
 
     async function saveProject() {
+        if (!requireAppliedDrafts()) return;
 
         if (projectActionBusyRef.current) return;
 
@@ -636,6 +685,7 @@ export default function OpenFolder() {
     }
 
     async function closeProject() {
+        if (!requireAppliedDrafts()) return;
 
         if (projectActionBusyRef.current) return;
 
@@ -695,7 +745,7 @@ export default function OpenFolder() {
 
     }
 
-    async function addAlbumSheet() {
+    async function addAlbumSheet(requestedTemplateId) {
 
         const templates = registeredTemplates.length > 0
             ? registeredTemplates
@@ -706,8 +756,9 @@ export default function OpenFolder() {
             return;
         }
 
-        const templateId = (albumTemplateId && templates.some(t => t.id === albumTemplateId))
-            ? albumTemplateId
+        const chosenTemplateId = typeof requestedTemplateId === "string" ? requestedTemplateId : albumTemplateId;
+        const templateId = (chosenTemplateId && templates.some(t => t.id === chosenTemplateId))
+            ? chosenTemplateId
             : templates[0].id;
 
         const existingIds = new Set((album?.sheets || []).map(sheet => sheet.id));
@@ -736,6 +787,8 @@ export default function OpenFolder() {
             intent: AlbumSheetMutationIntent.REMOVE,
             sheetId
         });
+        if (removed) draftHistory.current = {past:[],future:[]};
+        if (removed) setDesignDrafts(previous => {const next = {...previous}; delete next[sheetId]; return next;});
         if (removed && selectedAlbumSheetId === sheetId) {
             setSelectedAlbumSheetId("");
             setAlbumSheetLabel("");
@@ -828,7 +881,7 @@ export default function OpenFolder() {
     }
 
     async function swapAlbumSheetSlots(sheetId, slotIdA, slotIdB) {
-        await mutateAlbum({
+        return mutateAlbum({
             intent: AlbumSheetMutationIntent.SWAP_SLOTS,
             sheetId,
             slotIdA,
@@ -836,13 +889,49 @@ export default function OpenFolder() {
         });
     }
 
-    async function setAlbumSheetSlotCrop(sheetId, slotId, cropFocus) {
-        await mutateAlbum({
+    async function applyDesignDraft(sheetId, draft) {
+        const current = album?.sheets?.find(item => item.id === sheetId);
+        if (JSON.stringify(current) !== JSON.stringify(draft.base) ||
+            draft.slots.some(slot => !designPhotos.some(photo => String(photo.id) === String(slot.photoId)))) {
+            setAlbumMutationError("This spread changed. Discard the draft and update its preview before editing again.");
+            return;
+        }
+        const changed = await mutateAlbum({intent: AlbumSheetMutationIntent.SET_SHEETS,
+            sheets: album.sheets.map(item => item.id === sheetId ? {...item, slots: draft.slots} : item)});
+        if (!changed) return;
+        draftHistory.current = {past:[],future:[]};
+        setDesignDrafts(previous => { const next = {...previous}; delete next[sheetId]; return next; });
+        if (draft.slots.length) await renderAlbumSheet(sheetId);
+    }
+
+    async function applyAllDesignDrafts() {
+        const entries = Object.entries(designDrafts);
+        if (!entries.length || albumSheetRenderBusy) return;
+        if (entries.some(([id, draft]) => JSON.stringify(album.sheets.find(item => item.id === id)) !== JSON.stringify(draft.base) ||
+            draft.slots.some(slot => !designPhotos.some(photo => String(photo.id) === String(slot.photoId))))) {
+            setAlbumMutationError("A spread changed. Review its draft before applying all changes."); return;
+        }
+        setApplyingDrafts(true);
+        try {
+            const changed = await mutateAlbum({intent: AlbumSheetMutationIntent.SET_SHEETS,
+                sheets: album.sheets.map(item => designDrafts[item.id] ? {...item, slots: designDrafts[item.id].slots} : item)});
+            if (!changed) return;
+            draftHistory.current = {past:[],future:[]};
+            setDesignDrafts({});
+            for (const [id, draft] of entries) {
+                if (draft.slots.length && !(await renderAlbumSheet(id))) break;
+            }
+        } finally { setApplyingDrafts(false); }
+    }
+
+    async function setAlbumSheetSlotCrop(sheetId, slotId, cropFocus, position) {
+        const changed = await mutateAlbum({
             intent: AlbumSheetMutationIntent.SET_SLOT_CROP,
             sheetId,
             slotId,
-            cropFocus
+            cropFocus, position
         });
+        if (changed) await renderAlbumSheet(sheetId);
     }
 
     async function setAlbumSheetTypography(assignments, document) {
@@ -876,7 +965,12 @@ export default function OpenFolder() {
                 setAlbumMutationError(request.reasonCodes?.join(", ") || "Cannot render sheet.");
                 return;
             }
-            await App.executeAlbumSheetRenderRequest(request.request);
+            const result = await App.executeAlbumSheetRenderRequest(request.request, undefined,
+                {autoSaveEnabled: false, exportEnabled: false});
+            if (result?.status !== "COMPLETED") {
+                throw new Error("Spread rendering did not complete. Check the batch details before retrying.");
+            }
+            return true;
         } catch (error) {
             setAlbumMutationError(error?.message || "Failed to render sheet.");
         } finally {
@@ -886,26 +980,52 @@ export default function OpenFolder() {
 
     async function handleApplyAutoFlow(generatedSheets, append = false) {
         if (!Array.isArray(generatedSheets) || generatedSheets.length === 0) return;
-        const currentSheets = album?.sheets || [];
-        const nextSheets = append ? [...currentSheets, ...generatedSheets] : generatedSheets;
-        const result = await mutateAlbum({
-            intent: AlbumSheetMutationIntent.SET_SHEETS,
-            sheets: nextSheets
-        });
-        if (result && nextSheets.length > 0) {
-            setSelectedAlbumSheetId(nextSheets[0].id);
-            setAlbumSheetLabel(nextSheets[0].label || nextSheets[0].id);
+        draftHistory.current = {past:[],future:[]};
+        const previews = new Map();
+        setAlbumSheetRenderBusy(true);
+        try {
+            for (const id of [...new Set(generatedSheets.map(item => item.templateId))]) {
+                const template = templateList.find(item => item.id === id);
+                const key = PsdPreviews.key(project?.metadata?.id, null, template);
+                if (PsdPreviews.get(key)?.status !== "ready") {
+                    setTemplatePreviewLoadingId(id);
+                    await App.previewTemplate(id);
+                }
+                const preview = PsdPreviews.get(key);
+                if (preview?.status !== "ready") throw new Error("Template preview could not load. Update the template preview and retry.");
+                previews.set(id, preview);
+            }
+            // Store empty spreads; photo placement remains an interactive draft until Apply.
+            const emptySheets = generatedSheets.map(item => ({...item, slots: []}));
+            const nextSheets = append ? [...(album?.sheets || []), ...emptySheets] : emptySheets;
+            const result = await mutateAlbum({intent: AlbumSheetMutationIntent.SET_SHEETS, sheets: nextSheets});
+            if (!result) throw new Error("The spreads could not be prepared. Try again.");
+            const savedSheets = App.project.getProject()?.metadata?.album?.sheets || nextSheets;
+            setDesignDrafts(previous => {
+                const next = append ? {...previous} : {};
+                for (const item of generatedSheets) next[item.id] = {
+                    base: savedSheets.find(base => base.id === item.id),
+                    slots: item.slots, preview: previews.get(item.templateId)
+                };
+                return next;
+            });
+            setSelectedAlbumSheetId(generatedSheets[0].id);
+            setAlbumSheetLabel(generatedSheets[0].label || generatedSheets[0].id);
+        } finally {
+            setTemplatePreviewLoadingId(null);
+            setAlbumSheetRenderBusy(false);
         }
     }
 
-    async function handleExportPrint(exportPayload) {
+    async function handleExportPrint(exportPayload, onUpdate) {
         if (exportPayload?.type === "LAB_PRINT") {
             setAlbumSheetRenderBusy(true);
             try {
                 const summary = await App.executeAlbumBatchRender({
                     album,
                     exportOptions: exportPayload
-                });
+                }, onUpdate);
+                if (summary?.cancelled) return summary;
                 if (!summary?.success) {
                     const failedSheets = Number(summary?.failedSheets) || 0;
                     const error = new Error(
@@ -920,7 +1040,7 @@ export default function OpenFolder() {
                 setAlbumSheetRenderBusy(false);
             }
         }
-        return null;
+        throw new Error("This export format is not available.");
     }
 
     async function restoreAlbumHistory(operation) {
@@ -1016,7 +1136,7 @@ export default function OpenFolder() {
         App.getCurrentExecutionLifecycle();
 
     const executeProject = onUpdate =>
-        App.executeProject(onUpdate);
+        App.executeProject(onUpdate, { selectedPhotoIds: App.getDesignPhotos().map(photo => photo.id) });
     const createAlbumSheetRenderRequest = sheetId =>
         App.createAlbumSheetRenderRequest(sheetId);
     const executeAlbumSheetRenderRequest = (request, onUpdate) =>
@@ -1101,13 +1221,14 @@ export default function OpenFolder() {
         >
             <LibraryLoadGate rootRef={workspaceRoot}
                 opening={isImportingPhotos || projectAction === "OPENING"}
-                status={App.photoWorkspace.metadataStatus}
+                status={previewPreparation?.phase === "preparing" ? previewPreparation : App.photoWorkspace.metadataStatus}
                 onRetry={() => App.photoWorkspace.startMetadataExtraction(App.getPhotos(), App.photoWorkspace.lifecycleGeneration)} />
             {/* Top Workspace Navigation Bar */}
             <header
                 className={`workspace-top-bar${hasProject && activeWorkspaceMode === "LIBRARY"
                     ? " workspace-top-bar--library"
-                    : ""}`}
+                    : hasProject && (activeWorkspaceMode === "DESIGNER" || activeWorkspaceMode === "EXPORT")
+                        ? " workspace-top-bar--design" : ""}`}
                 style={{ minHeight: 42 }}
             >
                 <div className="workspace-brand-group">
@@ -1167,7 +1288,7 @@ export default function OpenFolder() {
                                             type="button"
                                             className={cls}
                                             onClick={() => {
-                                                if (step.key === "PHOTOS") setWizardStep(1);
+                                                if (step.key === "PHOTOS" && requireAppliedDrafts()) setWizardStep(1);
                                                 if (step.key === "DESIGNER") {
                                                     handleWizardStepClick(4, { directDesignerEntry: true });
                                                 }
@@ -1229,7 +1350,7 @@ export default function OpenFolder() {
                                         type="button"
                                         className="workspace-quick-btn"
                                         onClick={() => restoreAlbumHistory(undoAlbumSheetHistory)}
-                                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
+                                        disabled={hasDesignDrafts || albumMutationLocked || albumMutationBusy || !albumHistory?.past?.length}
                                         title="Undo Sheet Change"
                                     >
                                         ⟲ Undo
@@ -1238,7 +1359,7 @@ export default function OpenFolder() {
                                         type="button"
                                         className="workspace-quick-btn"
                                         onClick={() => restoreAlbumHistory(redoAlbumSheetHistory)}
-                                        disabled={albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
+                                        disabled={hasDesignDrafts || albumMutationLocked || albumMutationBusy || !albumHistory?.future?.length}
                                         title="Redo Sheet Change"
                                     >
                                         ⟳ Redo
@@ -1408,194 +1529,43 @@ export default function OpenFolder() {
                 )}
 
                 {activeWorkspaceMode === "DESIGNER" && (
-                    <div className="workspace-mode-pane">
-                        {!hasProject ? (
-                            <div className="workspace-empty-state">
-                                <div className="workspace-empty-icon">🎨</div>
-                                <div className="workspace-empty-title">No Project Open</div>
-                                <div className="workspace-empty-subtitle">
-                                    Create or open a project in Library mode to start designing multi-sheet album spreads.
-                                </div>
-                                <button
-                                    type="button"
-                                    className="workspace-empty-action-btn"
-                                    onClick={() => handleWizardStepClick(1)}
-                                >
-                                    📁 Go to Library & Projects
-                                </button>
-                            </div>
-                        ) : (
-                            <>
-                                <section
-                                    className="album-workspace-section album-sheets-section"
-                                    style={{
-                                        padding: 12,
-                                        background: "#1c1f26",
-                                        borderRadius: 6,
-                                        border: "1px solid #2d333f"
-                                    }}
-                                >
-                                    <div className="album-workspace-section-header" style={{ marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                        <strong style={{ fontSize: 13 }}>Album Spreads & Layouts</strong>
-                                        <span style={{ fontSize: 11, color: "#8b949e", background: "#262b35", padding: "2px 8px", borderRadius: 10 }}>
-                                            {album?.sheets?.length || 0} spreads defined
-                                        </span>
-                                    </div>
-
-                                    <div className="album-workspace-action-row" style={{ marginBottom: 10 }}>
-                                        <div className="album-workspace-action-group">
-                                            <input
-                                                value={albumSheetId}
-                                                onChange={event => setAlbumSheetId(event.target.value)}
-                                                placeholder="Spread ID (e.g. Spread_1)"
-                                                disabled={albumMutationLocked || albumMutationBusy}
-                                            />
-                                            <select
-                                                value={albumTemplateId || registeredTemplates[0]?.id || ""}
-                                                onChange={event => setAlbumTemplateId(event.target.value)}
-                                                disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                            >
-                                                {!registeredTemplates.length && <option value="">No templates registered</option>}
-                                                {registeredTemplates.map(template => (
-                                                    <option key={template.id} value={template.id}>
-                                                        {template.name || template.fileName || template.id}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <button
-                                                onClick={addAlbumSheet}
-                                                disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                            >
-                                                + Add Spread
-                                            </button>
-                                        </div>
-                                        <div className="album-workspace-action-group">
-                                            <button
-                                                type="button"
-                                                className="album-autoflow-btn"
-                                                onClick={() => setIsAutoFlowModalOpen(true)}
-                                                disabled={albumMutationLocked || albumMutationBusy || !registeredTemplates.length}
-                                                title={
-                                                    !registeredTemplates.length
-                                                        ? "Register at least one PSD template to use Smart Auto-Flow"
-                                                        : (albumMutationLocked || albumMutationBusy)
-                                                            ? "Spread changes are locked while the batch is running"
-                                                            : "Open Smart Auto-Flow Engine"
-                                                }
-                                            >
-                                                ⚡ Smart Auto-Flow
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="album-printproof-btn"
-                                                onClick={() => setIsPrintProofModalOpen(true)}
-                                                disabled={albumMutationLocked || albumMutationBusy || !album?.sheets?.length}
-                                                title={
-                                                    !album?.sheets?.length
-                                                        ? "Add at least one spread to use Print & Proof"
-                                                        : (albumMutationLocked || albumMutationBusy)
-                                                            ? "Spread changes are locked while the batch is running"
-                                                            : "Open Print Export & PDF Proofing Suite"
-                                                }
-                                            >
-                                                🖨 Print & Proof
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {!registeredTemplates.length && (
-                                        <div style={{ fontSize: 12, color: "#e3b341", padding: 6, background: "rgba(227, 179, 65, 0.1)", borderRadius: 4 }}>
-                                            ⚠️ Register at least one PSD template in the panel below to add spreads.
-                                        </div>
-                                    )}
-                                    {albumMutationLocked && (
-                                        <div style={{ fontSize: 12, color: "#ffca7a", marginTop: 4 }}>
-                                            Sheet changes are locked while the batch is running or stopping.
-                                        </div>
-                                    )}
-                                    {albumMutationError && (
-                                        <div style={{ fontSize: 12, color: "#ff9999", marginTop: 6 }}>
-                                            Album: {albumMutationError}
-                                        </div>
-                                    )}
-
-                                    {!!album?.sheets?.length && (
-                                        <>
-                                            <SpreadCanvas
-                                                sheet={activeSheet}
-                                                template={activeTemplate}
-                                                photos={workspacePhotos}
-                                                selectedPhoto={activeSelectedPhoto}
-                                                onAssignSlot={assignAlbumSheetSlot}
-                                                onUnassignSlot={unassignAlbumSheetSlot}
-                                                onSwapSlots={swapAlbumSheetSlots}
-                                                onSetSlotCrop={setAlbumSheetSlotCrop}
-                                                onRenderSheet={renderAlbumSheet}
-                                                renderBusy={albumSheetRenderBusy}
-                                                disabled={albumMutationLocked || albumMutationBusy}
-                                            />
-
-                                            <SheetStoryboardStrip
-                                                sheets={album?.sheets || []}
-                                                selectedSheetId={activeSheet?.id}
-                                                templates={registeredTemplates}
-                                                onSelectSheet={selectAlbumSheet}
-                                                onMoveSheet={moveAlbumSheet}
-                                                onDuplicateSheet={duplicateAlbumSheet}
-                                                onRemoveSheet={removeAlbumSheet}
-                                                onAddSheet={() => {
-                                                    if (registeredTemplates.length > 0) {
-                                                        const nextIndex = (album?.sheets?.length || 0) + 1;
-                                                        setAlbumSheetId(`Sheet_${nextIndex}`);
-                                                        setAlbumTemplateId(registeredTemplates[0].id);
-                                                    }
-                                                }}
-                                                disabled={albumMutationLocked || albumMutationBusy}
-                                            />
-
-                                            {!!selectedAlbumSheetId && (
-                                                <div className="album-sheet-editor" style={{ marginTop: 10 }}>
-                                                    <div className="album-workspace-action-group">
-                                                        <input
-                                                            value={albumSheetLabel}
-                                                            onChange={event => setAlbumSheetLabel(event.target.value)}
-                                                            placeholder="Spread label"
-                                                            disabled={albumMutationLocked || albumMutationBusy}
-                                                        />
-                                                        <button
-                                                            onClick={renameSelectedAlbumSheet}
-                                                            disabled={albumMutationLocked || albumMutationBusy || !albumSheetLabel.trim()}
-                                                        >
-                                                            Rename
-                                                        </button>
-                                                    </div>
-                                                    <div className="album-workspace-action-group">
-                                                        <input
-                                                            value={albumDuplicateId}
-                                                            onChange={event => setAlbumDuplicateId(event.target.value)}
-                                                            placeholder="New Spread ID"
-                                                            disabled={albumMutationLocked || albumMutationBusy}
-                                                        />
-                                                        <button
-                                                            onClick={duplicateSelectedAlbumSheet}
-                                                            disabled={albumMutationLocked || albumMutationBusy || !albumDuplicateId.trim()}
-                                                        >
-                                                            Duplicate
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </section>
-                            </>
-                        )}
-                    </div>
-                )}
-
-                {hasProject && activeWorkspaceMode === "DESIGNER" && (
-                    <div>
+                    hasProject ? <DesignWorkspace key={project?.metadata?.id}
+                        drafts={designDrafts} onDesignUndo={() => undoDesign(false)} onDesignRedo={() => undoDesign(true)}
+                        canDesignUndo={!!draftHistory.current.past.length || (!hasDesignDrafts && !!albumHistory?.past?.length)}
+                        canDesignRedo={!!draftHistory.current.future.length || (!hasDesignDrafts && !!albumHistory?.future?.length)}
+                        onDraftBatchChange={changes => editDrafts(previous => ({...previous, ...changes}))} onDraftChange={(id, draft) => editDrafts(previous => {
+                            const next = {...previous}; if (draft) next[id] = draft; else delete next[id]; return next;
+                        })} onApplyDraft={applyDesignDraft} onApplyAllDrafts={applyAllDesignDrafts}
+                        projectId={project?.metadata?.id}
+                        templatePreviewLoadingId={templatePreviewLoadingId}
+                        onCancelPreview={App.projectBatchRunning ? () => App.requestBatchCancellation() : null}
+                        onPreviewTemplate={async id => {
+                            if (albumSheetRenderBusy) return;
+                            setAlbumSheetRenderBusy(true); setTemplatePreviewLoadingId(id); setAlbumMutationError(null);
+                            try { await App.previewTemplate(id); }
+                            catch (error) { setAlbumMutationError(error.message); }
+                            finally { setTemplatePreviewLoadingId(null); setAlbumSheetRenderBusy(false); }
+                        }}
+                        sheets={album?.sheets || []} sheet={activeSheet} template={activeTemplate}
+                        templates={templateList} photos={designPhotos} allPhotos={workspacePhotos}
+                        selectedPhotoId={designPhotoId} onSelectPhoto={setDesignPhotoId}
+                        templateId={albumTemplateId} onSelectTemplate={setAlbumTemplateId}
+                        typographyTargetRef={setDesignTypographyTarget}
+                        onSelectSheet={selectAlbumSheet} onAddSheet={addAlbumSheet}
+                        onMoveSheet={moveAlbumSheet} onDuplicateSheet={duplicateAlbumSheet} onRemoveSheet={removeAlbumSheet}
+                        onRenameSheet={(sheetId, label) => mutateAlbum({intent: AlbumSheetMutationIntent.RENAME, sheetId, label})}
+                        onArrange={() => setIsAutoFlowModalOpen(true)} onExport={() => setIsPrintProofModalOpen(true)}
+                        onAssignSlot={assignAlbumSheetSlot} onUnassignSlot={unassignAlbumSheetSlot}
+                        onSwapSlots={swapAlbumSheetSlots}
+                        onPreviewSwap={async (sheetId, a, b) => {
+                            if (await swapAlbumSheetSlots(sheetId, a, b)) await renderAlbumSheet(sheetId);
+                        }} onSetSlotCrop={setAlbumSheetSlotCrop}
+                        onRenderSheet={renderAlbumSheet} renderBusy={albumSheetRenderBusy}
+                        disabled={applyingDrafts || albumMutationLocked || albumMutationBusy || albumSheetRenderBusy} error={albumMutationError}
+                        templateTools={
                         <TemplateDocumentPanel
+                            simpleDesign={true}
+                            typographyPortalTarget={designTypographyTarget}
                             loadTemplates={loadTemplates}
                             getRegisteredProjectTemplates={getRegisteredProjectTemplates}
                             revalidateProjectTemplates={revalidateProjectTemplates}
@@ -1619,9 +1589,7 @@ export default function OpenFolder() {
                             getCurrentBatchProgress={getCurrentBatchProgress}
                             getCurrentExecutionLifecycle={getCurrentExecutionLifecycle}
                             executeProject={executeProject}
-                            albumSheetForRender={album?.sheets?.find(
-                                sheet => sheet.id === selectedAlbumSheetId
-                            ) || null}
+                            albumSheetForRender={activeSheet}
                             createAlbumSheetRenderRequest={createAlbumSheetRenderRequest}
                             executeAlbumSheetRenderRequest={executeAlbumSheetRenderRequest}
                             resumeProjectBatch={resumeProjectBatch}
@@ -1658,16 +1626,18 @@ export default function OpenFolder() {
                             projectName={project?.metadata?.name || ""}
                             hasProject={hasProject}
                         />
-                    </div>
+                        }
+                    /> : <div className="workspace-empty-state"><h3>No Project Open</h3>
+                        <button onClick={() => handleWizardStepClick(1)}>Go to Library & Projects</button></div>
                 )}
 
                 {activeWorkspaceMode === "EXPORT" && (
                     <div className="workspace-mode-pane">
                         <div className="workspace-empty-state" style={{ background: "#1c1f26", border: "1px solid #2d333f" }}>
                             <div className="workspace-empty-icon">🖨</div>
-                            <div className="workspace-empty-title">High-Resolution Print Export & Multi-Page PDF Proofing</div>
+                            <div className="workspace-empty-title">Export album</div>
                             <div className="workspace-empty-subtitle">
-                                Preflight inspection, 300 DPI Lab Print profiles (12×12", 12×18", 10×10", 8.5×11"), bleed geometry calculations, studio watermarking, and direct Photoshop batch rendering.
+                                Save editable spreads and export JPEGs in storyboard order. Output uses each PSD template’s dimensions and resolution.
                             </div>
                             <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                                 <button
@@ -1677,7 +1647,7 @@ export default function OpenFolder() {
                                     onClick={() => setIsPrintProofModalOpen(true)}
                                     disabled={albumMutationLocked || albumMutationBusy || !album?.sheets?.length}
                                 >
-                                    ⚡ Open Print & Proof Suite
+                                    Export spreads
                                 </button>
                                 <button
                                     type="button"
@@ -1696,8 +1666,7 @@ export default function OpenFolder() {
             <AutoFlowModal
                 isOpen={isAutoFlowModalOpen}
                 onClose={() => setIsAutoFlowModalOpen(false)}
-                photos={workspacePhotos}
-                selectedPhotoIds={new Set(App.selection.getSelected().map(p => p.id))}
+                photos={designPhotos}
                 templates={registeredTemplates}
                 existingSheetCount={album?.sheets?.length || 0}
                 onApplyAutoFlow={handleApplyAutoFlow}
@@ -1708,10 +1677,11 @@ export default function OpenFolder() {
                 isOpen={isPrintProofModalOpen}
                 onClose={() => setIsPrintProofModalOpen(false)}
                 album={album}
-                photos={workspacePhotos}
+                photos={designPhotos}
                 templates={registeredTemplates}
                 onExportPrint={handleExportPrint}
-                disabled={albumMutationLocked || albumMutationBusy || albumSheetRenderBusy}
+                onCancel={() => App.requestBatchCancellation()}
+                disabled={applyingDrafts || albumMutationLocked || albumMutationBusy || albumSheetRenderBusy}
             />
         </div>
     );
